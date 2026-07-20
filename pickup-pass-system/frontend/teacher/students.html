@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>My Students — Pickup Pass</title>
-<script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Students — Pickup Pass</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
+
 <body class="bg-gray-50 min-h-screen p-4">
 
   <div class="max-w-sm mx-auto">
@@ -30,91 +32,87 @@
     </div>
   </div>
 
-<script type="module">
-import { auth, db } from "../shared/firebase-init.js";
-import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  <script type="module">
+    import { auth, db } from "../shared/firebase-init.js";
+    import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-document.getElementById("signOutBtn").addEventListener("click", async () => {
-  await signOut(auth);
-  window.location.href = "../login.html";
-});
+    document.getElementById("signOutBtn").addEventListener("click", async () => {
+      await signOut(auth);
+      window.location.href = "../login.html";
+    });
 
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    window.location.href = "../login.html";
-    return;
-  }
-  // Deliberately prominent: on a shared/kiosk device, this is the one
-  // thing that makes it obvious if you're accidentally still signed in
-  // as the previous parent rather than yourself.
-  document.getElementById("currentUserEmail").textContent = user.email;
-  const tokenResult = await user.getIdTokenResult();
-  const schoolId = tokenResult.claims.schoolId;
-  await loadSchoolBranding(schoolId);
-  await loadStudents(user.uid, schoolId);
-});
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "../login.html";
+        return;
+      }
+      // Deliberately prominent: on a shared/kiosk device, this is the one
+      // thing that makes it obvious if you're accidentally still signed in
+      // as the previous parent rather than yourself.
+      document.getElementById("currentUserEmail").textContent = user.email;
+      const tokenResult = await user.getIdTokenResult();
+      const schoolId = tokenResult.claims.schoolId;
+      await loadSchoolBranding(schoolId);
+      await loadStudents(user.uid, schoolId);
+    });
 
-async function loadSchoolBranding(schoolId) {
-  if (!schoolId) return;
-  const schoolSnap = await getDoc(doc(db, "schools", schoolId));
-  if (!schoolSnap.exists()) return;
+    async function loadSchoolBranding(schoolId) {
+      if (!schoolId) return;
+      const schoolSnap = await getDoc(doc(db, "schools", schoolId));
+      if (!schoolSnap.exists()) return;
 
-  const school = schoolSnap.data();
-  document.getElementById("schoolName").textContent = school.schoolName || "";
-  if (school.logoUrl) {
-    document.getElementById("schoolLogo").src = school.logoUrl;
-  } else {
-    document.getElementById("schoolLogo").remove();
-  }
-  document.getElementById("schoolBanner").classList.remove("hidden");
-  document.getElementById("schoolBanner").classList.add("flex");
-}
+      const school = schoolSnap.data();
+      document.getElementById("schoolName").textContent = school.schoolName || "";
+      if (school.logoUrl) {
+        document.getElementById("schoolLogo").src = school.logoUrl;
+      } else {
+        document.getElementById("schoolLogo").remove();
+      }
+      document.getElementById("schoolBanner").classList.remove("hidden");
+      document.getElementById("schoolBanner").classList.add("flex");
+    }
 
-async function loadStudents(uid, schoolId) {
-  const list = document.getElementById("studentList");
-  const q = query(
-    collection(db, "students"),
-    where("schoolId", "==", schoolId),
-    where("guardianUids", "array-contains", uid)
-  );
+    async function loadStudents(uid, schoolId) {
+      const list = document.getElementById("studentList");
+      const q = query(
+        collection(db, "students"),
+        where("schoolId", "==", schoolId)
+      );
 
-  const snap = await getDocs(q);
+      const snap = await getDocs(q);
 
-  if (snap.empty) {
-    document.getElementById("emptyState").classList.remove("hidden");
-    return;
-  }
+      if (snap.empty) {
+        document.getElementById("emptyState").classList.remove("hidden");
+        return;
+      }
 
-  snap.forEach((docSnap) => {
-    const s = docSnap.data();
-    const studentId = docSnap.id;
+      snap.forEach((docSnap) => {
+        const s = docSnap.data();
+        const studentId = docSnap.id;
 
-    const card = document.createElement("div");
-    card.className = "bg-white rounded-xl shadow-sm p-4 mb-3";
-    card.innerHTML = `
+        const card = document.createElement("div");
+        card.className = "bg-white rounded-xl shadow-sm p-4 mb-3";
+        card.innerHTML = `
       <p class="font-semibold text-gray-800">${escapeHtml(s.fullName || "Unnamed Student")}</p>
       <p class="text-sm text-gray-500 mb-3">Grade ${escapeHtml(s.grade || "-")} · Section ${escapeHtml(s.section || "-")}</p>
       <div class="flex gap-2">
-        <a href="./pickup-pass.html?studentId=${encodeURIComponent(studentId)}"
-           class="flex-1 text-center py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700">
-          Get Pickup Pass
-        </a>
         <a href="./manage-guardians.html?studentId=${encodeURIComponent(studentId)}"
            class="flex-1 text-center py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200">
           Manage Guardians
         </a>
       </div>
     `;
-    list.appendChild(card);
-  });
-}
+        list.appendChild(card);
+      });
+    }
 
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
-}
-</script>
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+  </script>
 </body>
+
 </html>
