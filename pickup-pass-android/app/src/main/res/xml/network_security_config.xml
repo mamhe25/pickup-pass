@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Allows plain HTTP only to the Android emulator's host-loopback address
+  (10.0.2.2), so debug builds can hit a locally-run Spring Boot backend
+  without HTTPS. Production API_BASE_URL must be HTTPS — this config does
+  not relax that for any other domain.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

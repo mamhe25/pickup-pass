@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>School Branding — Pickup Pass</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+
+  <div class="max-w-sm mx-auto pt-2">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-xl font-bold text-gray-800">School Admin</h1>
+      <button id="signOutBtn" class="text-sm text-gray-500">Sign out</button>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm p-6 text-center mb-4">
+      <p class="text-sm text-gray-500 mb-4">
+        This logo is shown to parents and staff so it's always clear which
+        school they're signed into.
+      </p>
+
+      <div id="logoPreviewWrap" class="w-28 h-28 mx-auto rounded-xl bg-gray-100 border-2 border-dashed
+           border-gray-300 flex items-center justify-center overflow-hidden mb-4">
+        <img id="logoPreview" class="w-full h-full object-contain hidden" />
+        <span id="logoPlaceholder" class="text-gray-400 text-xs px-2">No logo yet</span>
+      </div>
+
+      <input type="file" id="logoInput" accept="image/png,image/jpeg,image/webp" class="hidden" />
+      <label for="logoInput"
+        class="inline-block px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold cursor-pointer hover:bg-indigo-700">
+        Choose Logo Image
+      </label>
+
+      <p class="text-xs text-gray-400 mt-3">
+        PNG, JPEG, or WebP · under 2MB · square logos with a transparent
+        background look best. It's automatically resized on upload.
+      </p>
+
+      <p id="statusMsg" class="text-sm mt-3 h-4"></p>
+    </div>
+
+    <a href="../teacher/scanner.html" class="block w-full text-center py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 mb-2">
+      Go to Dismissal Scanner →
+    </a>
+    <a href="../teacher/students.html" class="block w-full text-center py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 mb-2">
+      Manage Students →
+    </a>
+    <a href="./staff.html" class="block w-full text-center py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">
+      Invite a Teacher →
+    </a>
+  </div>
+
+<script type="module">
+import { auth, db, authedFetch, API_BASE_URL } from "../shared/firebase-init.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+let currentSchoolId = null;
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = "../login.html";
+    return;
+  }
+  const tokenResult = await user.getIdTokenResult();
+  currentSchoolId = tokenResult.claims.schoolId;
+  await loadCurrentLogo();
+});
+
+async function loadCurrentLogo() {
+  if (!currentSchoolId) return;
+  const schoolSnap = await getDoc(doc(db, "schools", currentSchoolId));
+  if (schoolSnap.exists() && schoolSnap.data().logoUrl) {
+    showPreview(schoolSnap.data().logoUrl);
+  }
+}
+
+function showPreview(url) {
+  const img = document.getElementById("logoPreview");
+  img.src = url;
+  img.classList.remove("hidden");
+  document.getElementById("logoPlaceholder").classList.add("hidden");
+}
+
+document.getElementById("logoInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const status = document.getElementById("statusMsg");
+  status.textContent = "Uploading...";
+  status.className = "text-sm mt-3 h-4 text-gray-500";
+
+  try {
+    // Local instant preview while the upload is in flight.
+    showPreview(URL.createObjectURL(file));
+
+    const idToken = await auth.currentUser.getIdToken();
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`${API_BASE_URL}/school-admin/logo`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${idToken}` }, // no Content-Type — browser sets multipart boundary
+      body: formData,
+    });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || "Upload failed");
+
+    showPreview(data.logoUrl);
+    status.textContent = "Logo updated!";
+    status.className = "text-sm mt-3 h-4 text-green-600";
+  } catch (err) {
+    status.textContent = err.message;
+    status.className = "text-sm mt-3 h-4 text-red-500";
+  }
+});
+
+document.getElementById("signOutBtn").addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "../login.html";
+});
+</script>
+</body>
+</html>

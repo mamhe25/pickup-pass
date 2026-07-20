@@ -1,0 +1,48 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: pickup-pass-system
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 2MB
+  mail:
+    host: ${MAIL_HOST:smtp.sendgrid.net}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:apikey}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+firebase:
+  credentials:
+    path: ${FIREBASE_CREDENTIALS_PATH:}
+  project:
+    id: ${GOOGLE_CLOUD_PROJECT:pickuppass}
+
+qr:
+  signing:
+    secret: ${QR_SIGNING_SECRET:change-this-to-a-long-random-value-in-production}
+  dismissal-window-minutes: 480
+  token-ttl-minutes: 480
+
+app:
+  frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5500}
+  max-guardians-per-student: ${MAX_GUARDIANS_PER_STUDENT:4}
+
+bootstrap:
+  # Required to call POST /api/bootstrap/master-admin. Set this to a long
+  # random value, use it once to create your first master_admin, then
+  # remove/rotate it (the endpoint also self-disables once any master_admin
+  # exists, but rotating the secret is good hygiene regardless).
+  secret: ${BOOTSTRAP_SECRET:}
+
+logging:
+  level:
+    com.pickuppass: INFO

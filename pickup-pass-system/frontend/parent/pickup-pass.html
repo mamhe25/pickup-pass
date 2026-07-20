@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pickup Pass</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+
+  <div class="bg-white rounded-2xl shadow-md p-8 w-full max-w-sm text-center">
+    <a href="./students.html" class="block text-left text-sm text-indigo-600 font-medium mb-2">← My Students</a>
+    <h1 class="text-lg font-bold text-gray-800 mb-1">Pickup Pass</h1>
+    <p id="studentLabel" class="text-sm text-gray-500 mb-4"></p>
+
+    <div id="qrContainer" class="flex justify-center my-4 min-h-[220px] items-center">
+      <span class="text-gray-400 text-sm">Generating pass...</span>
+    </div>
+
+    <p id="countdown" class="text-sm text-gray-500"></p>
+    <p id="errorMsg" class="text-sm text-red-500 mt-2 hidden"></p>
+
+    <button id="refreshBtn" class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700">
+      Regenerate Pass
+    </button>
+  </div>
+
+<script type="module">
+import { auth, authedFetch, db } from "../shared/firebase-init.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// studentId must come from the student picker (students.html) — no demo fallback,
+// since a parent may have more than one linked child.
+const params = new URLSearchParams(window.location.search);
+const studentId = params.get("studentId");
+
+if (!studentId) {
+  window.location.href = "./students.html";
+}
+
+let countdownTimer = null;
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = "../login.html";
+    return;
+  }
+  const studentSnap = await getDoc(doc(db, "students", studentId));
+  if (studentSnap.exists()) {
+    document.getElementById("studentLabel").textContent = studentSnap.data().fullName || "";
+  }
+  renderPass();
+});
+
+async function generatePickupToken() {
+  const res = await authedFetch("/parent/generate-token", {
+    method: "POST",
+    body: JSON.stringify({ studentId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Could not generate pass");
+  }
+  return res.json(); // { qrToken, expiresAt, dismissalDeadline }
+}
+
+async function renderPass() {
+  const container = document.getElementById("qrContainer");
+  const errorMsg = document.getElementById("errorMsg");
+  errorMsg.classList.add("hidden");
+  container.innerHTML = '<span class="text-gray-400 text-sm">Generating pass...</span>';
+
+  try {
+    const { qrToken, expiresAt } = await generatePickupToken();
+
+    container.innerHTML = "";
+    new QRCode(container, { text: qrToken, width: 220, height: 220 });
+
+    startCountdown(new Date(expiresAt));
+  } catch (err) {
+    container.innerHTML = "";
+    errorMsg.textContent = err.message;
+    errorMsg.classList.remove("hidden");
+  }
+}
+
+function startCountdown(expiresAt) {
+  clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    const msLeft = expiresAt.getTime() - Date.now();
+    if (msLeft <= 0) {
+      document.getElementById("countdown").textContent = "Expired — tap Regenerate";
+      clearInterval(countdownTimer);
+      return;
+    }
+    const mins = Math.floor(msLeft / 60000);
+    const secs = Math.floor((msLeft % 60000) / 1000);
+    document.getElementById("countdown").textContent = `Expires in ${mins}m ${secs}s`;
+  }, 1000);
+}
+
+document.getElementById("refreshBtn").addEventListener("click", renderPass);
+</script>
+</body>
+</html>

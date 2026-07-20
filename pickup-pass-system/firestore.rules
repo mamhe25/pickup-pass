@@ -1,0 +1,60 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function sameSchool(schoolId) {
+      return isSignedIn() && userDoc().schoolId == schoolId && userDoc().isActive == true;
+    }
+
+    function isMasterAdmin() {
+      return isSignedIn() && userDoc().role == 'master_admin';
+    }
+
+    function isSchoolStaff(schoolId) {
+      return sameSchool(schoolId) &&
+        (userDoc().role == 'school_admin' || userDoc().role == 'teacher');
+    }
+
+    match /schools/{schoolId} {
+      allow read: if sameSchool(schoolId) || isMasterAdmin();
+      allow write: if isMasterAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() &&
+        (request.auth.uid == userId || sameSchool(resource.data.schoolId));
+      allow create: if isMasterAdmin() ||
+        (isSignedIn() && userDoc().role == 'school_admin');
+      allow update: if request.auth.uid == userId || isMasterAdmin();
+      allow delete: if isMasterAdmin();
+    }
+
+    match /students/{studentId} {
+      allow read: if isSchoolStaff(resource.data.schoolId) ||
+        (isSignedIn() && resource.data.guardianUids.hasAny([request.auth.uid]));
+      allow write: if isSchoolStaff(resource.data.schoolId);
+    }
+
+    match /pickupTokens/{tokenId} {
+      allow create: if isSignedIn() && request.resource.data.parentUid == request.auth.uid;
+      allow read, update: if isSchoolStaff(resource.data.schoolId) ||
+        resource.data.parentUid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /exitLogs/{logId} {
+      allow create: if isSchoolStaff(request.resource.data.schoolId);
+      allow read: if isSchoolStaff(resource.data.schoolId) ||
+        resource.data.parentUid == request.auth.uid;
+      allow update, delete: if false; // immutable audit trail
+    }
+  }
+}

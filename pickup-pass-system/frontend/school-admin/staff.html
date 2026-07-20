@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Invite Teacher — Pickup Pass</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+
+  <div class="max-w-sm mx-auto pt-2">
+    <a href="./branding.html" class="text-sm text-indigo-600 font-medium">← School Branding</a>
+
+    <h1 class="text-xl font-bold text-gray-800 mt-2 mb-1">Invite a Teacher</h1>
+    <p class="text-sm text-gray-500 mb-6">
+      They'll get an email to set their password. Once signed in, they can
+      run the dismissal scanner and register parent pickup contacts.
+    </p>
+
+    <div class="bg-white rounded-2xl shadow-sm p-6">
+      <form id="inviteForm" class="space-y-3">
+        <input id="teacherName" type="text" required placeholder="Full name"
+          class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input id="teacherEmail" type="email" required placeholder="Email address"
+          class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+
+        <p id="errorMsg" class="text-sm text-red-500 hidden"></p>
+        <p id="successMsg" class="text-sm text-green-600 hidden"></p>
+
+        <button type="submit"
+          class="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition">
+          Send Invite
+        </button>
+      </form>
+    </div>
+  </div>
+
+<script type="module">
+import { auth, authedFetch } from "../shared/firebase-init.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    window.location.href = "../login.html";
+  }
+});
+
+document.getElementById("inviteForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errorMsg = document.getElementById("errorMsg");
+  const successMsg = document.getElementById("successMsg");
+  errorMsg.classList.add("hidden");
+  successMsg.classList.add("hidden");
+
+  const displayName = document.getElementById("teacherName").value.trim();
+  const email = document.getElementById("teacherEmail").value.trim();
+
+  try {
+    const res = await authedFetch("/school-admin/staff", {
+      method: "POST",
+      body: JSON.stringify({ displayName, email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not send invite");
+
+    successMsg.textContent = data.emailSent
+      ? `Invite sent to ${email}.`
+      : `Account created for ${email}, but the invite email couldn't be sent — ask them to use "Forgot password?" on the sign-in page with this email.`;
+    successMsg.classList.remove("hidden");
+    e.target.reset();
+  } catch (err) {
+    errorMsg.textContent = err.message;
+    errorMsg.classList.remove("hidden");
+  }
+});
+</script>
+</body>
+</html>

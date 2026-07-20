@@ -1,0 +1,177 @@
+package com.pickuppass.controller;
+
+import com.google.api.core.ApiFuture;
+import com.google.cloud.firestore.*;
+import com.pickuppass.exception.ForbiddenException;
+import com.pickuppass.exception.NotFoundException;
+import com.pickuppass.security.FirebaseUserDetails;
+import com.pickuppass.service.GuardianProvisioningService;
+import jakarta.validation.constraints.NotBlank;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Lets an already-authorized parent/guardian add or remove OTHER authorized
+ * pickup contacts for their child (e.g. a spouse, grandparent, or nanny who
+ * may need to pick up when the primary parent can't).
+ *
+ * Authorization model:
+ *  - Only someone already listed in a student's guardianUids can add/remove
+ *    guardians for that student — a stranger can't add themselves.
+ *  - The PRIMARY guardian (set at teacher-registration time) can't be
+ *    removed through this endpoint, to avoid a student ending up with no
+ *    accountable guardian of record; only school staff can change that.
+ *  - Removing a guardian immediately invalidates any live, unused QR pass
+ *    they're currently holding, so revocation takes effect right away
+ *    rather than waiting for the token to expire on its own.
+ */
+@RestController
+@RequestMapping("/api/parent")
+public class ParentGuardianController {
+
+    private final Firestore firestore;
+    private final GuardianProvisioningService guardianService;
+    private final int maxGuardiansPerStudent;
+
+    public ParentGuardianController(
+            Firestore firestore,
+            GuardianProvisioningService guardianService,
+            @Value("${app.max-guardians-per-student:4}") int maxGuardiansPerStudent) {
+        this.firestore = firestore;
+        this.guardianService = guardianService;
+        this.maxGuardiansPerStudent = maxGuardiansPerStudent;
+    }
+
+    @PostMapping("/add-guardian")
+    @PreAuthorize("hasRole('parent')")
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<?> addGuardian(
+            @RequestBody AddGuardianRequest req,
+            @AuthenticationPrincipal FirebaseUserDetails parent) throws Exception {
+
+        String schoolId = parent.getSchoolId();
+        DocumentReference studentRef = firestore.collection("students").document(req.getStudentId());
+        DocumentSnapshot studentSnap = studentRef.get().get();
+
+        if (!studentSnap.exists() || !schoolId.equals(studentSnap.getString("schoolId"))) {
+            throw new NotFoundException("Student not found");
+        }
+
+        List<String> guardianUids = (List<String>) studentSnap.get("guardianUids");
+        if (guardianUids == null || !guardianUids.contains(parent.getUid())) {
+            throw new ForbiddenException("You are not an authorized guardian for this student");
+        }
+
+        if (guardianUids.size() >= maxGuardiansPerStudent) {
+            return ResponseEntity.status(400).body(
+                    Map.of("error", "Maximum of " + maxGuardiansPerStudent + " authorized guardians reached for this student"));
+        }
+
+        GuardianProvisioningService.ProvisionResult result =
+                guardianService.provisionGuardianAccount(req.getGuardianEmail(), req.getGuardianName(), schoolId);
+
+        if (guardianUids.contains(result.getUid())) {
+            return ResponseEntity.status(400).body(Map.of("error", "This person is already an authorized guardian"));
+        }
+
+        Map<String, Object> guardianEntry = new HashMap<>();
+        guardianEntry.put("relationship", req.getRelationship() != null ? req.getRelationship() : "authorized pickup");
+        guardianEntry.put("isPrimary", false);
+        guardianEntry.put("addedBy", parent.getUid());
+        guardianEntry.put("addedAt", FieldValue.serverTimestamp());
+
+        studentRef.update(
+                "guardianUids", FieldValue.arrayUnion(result.getUid()),
+                "guardians." + result.getUid(), guardianEntry
+        ).get();
+
+        return ResponseEntity.ok(Map.of(
+                "guardianUid", result.getUid(),
+                "status", result.isNewlyCreated() ? "created_and_linked" : "linked_existing",
+                "emailSent", result.isEmailSent()
+        ));
+    }
+
+    @PostMapping("/remove-guardian")
+    @PreAuthorize("hasRole('parent')")
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<?> removeGuardian(
+            @RequestBody RemoveGuardianRequest req,
+            @AuthenticationPrincipal FirebaseUserDetails parent) throws Exception {
+
+        String schoolId = parent.getSchoolId();
+        DocumentReference studentRef = firestore.collection("students").document(req.getStudentId());
+        DocumentSnapshot studentSnap = studentRef.get().get();
+
+        if (!studentSnap.exists() || !schoolId.equals(studentSnap.getString("schoolId"))) {
+            throw new NotFoundException("Student not found");
+        }
+
+        List<String> guardianUids = (List<String>) studentSnap.get("guardianUids");
+        if (guardianUids == null || !guardianUids.contains(parent.getUid())) {
+            throw new ForbiddenException("You are not an authorized guardian for this student");
+        }
+
+        Map<String, Object> guardians = (Map<String, Object>) studentSnap.get("guardians");
+        Map<String, Object> target = guardians != null
+                ? (Map<String, Object>) guardians.get(req.getGuardianUid()) : null;
+
+        if (target == null) {
+            throw new NotFoundException("That guardian is not linked to this student");
+        }
+        if (Boolean.TRUE.equals(target.get("isPrimary"))) {
+            return ResponseEntity.status(400).body(
+                    Map.of("error", "The primary guardian can't be removed here — contact the school office"));
+        }
+
+        studentRef.update(
+                "guardianUids", FieldValue.arrayRemove(req.getGuardianUid()),
+                "guardians." + req.getGuardianUid(), FieldValue.delete()
+        ).get();
+
+        // Immediately kill any still-unused QR pass the removed guardian is holding.
+        ApiFuture<QuerySnapshot> liveTokens = firestore.collection("pickupTokens")
+                .whereEqualTo("studentId", req.getStudentId())
+                .whereEqualTo("parentUid", req.getGuardianUid())
+                .whereEqualTo("used", false)
+                .get();
+        for (DocumentSnapshot tokenDoc : liveTokens.get().getDocuments()) {
+            tokenDoc.getReference().update("used", true, "invalidatedReason", "guardian_removed").get();
+        }
+
+        return ResponseEntity.ok(Map.of("status", "removed"));
+    }
+
+    public static class AddGuardianRequest {
+        @NotBlank private String studentId;
+        @NotBlank private String guardianEmail;
+        @NotBlank private String guardianName;
+        private String relationship;
+
+        public String getStudentId() { return studentId; }
+        public void setStudentId(String v) { this.studentId = v; }
+        public String getGuardianEmail() { return guardianEmail; }
+        public void setGuardianEmail(String v) { this.guardianEmail = v; }
+        public String getGuardianName() { return guardianName; }
+        public void setGuardianName(String v) { this.guardianName = v; }
+        public String getRelationship() { return relationship; }
+        public void setRelationship(String v) { this.relationship = v; }
+    }
+
+    public static class RemoveGuardianRequest {
+        @NotBlank private String studentId;
+        @NotBlank private String guardianUid;
+
+        public String getStudentId() { return studentId; }
+        public void setStudentId(String v) { this.studentId = v; }
+        public String getGuardianUid() { return guardianUid; }
+        public void setGuardianUid(String v) { this.guardianUid = v; }
+    }
+}

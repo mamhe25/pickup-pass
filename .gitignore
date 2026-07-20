@@ -1,0 +1,23 @@
+# IntelliJ / Android Studio
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# Android
+**/.gradle/
+**/build/
+**/local.properties
+
+# Node
+**/node_modules/
+**/dist/
+
+# Java
+*.class
+out/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign In — Pickup Pass</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+
+  <div class="bg-white rounded-2xl shadow-md p-8 w-full max-w-sm">
+    <h1 class="text-xl font-bold text-gray-800 mb-1 text-center">Pickup Pass</h1>
+    <p class="text-sm text-gray-500 mb-6 text-center">Sign in to continue</p>
+
+    <form id="loginForm" class="space-y-3">
+      <input id="email" type="email" required placeholder="Email"
+        class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      <input id="password" type="password" required placeholder="Password"
+        class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+
+      <p id="errorMsg" class="text-sm text-red-500 hidden"></p>
+
+      <button type="submit"
+        class="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition">
+        Sign In
+      </button>
+    </form>
+
+    <button id="forgotBtn" class="mt-4 text-sm text-indigo-600 hover:underline w-full text-center">
+      Forgot password?
+    </button>
+  </div>
+
+<script type="module">
+import { auth } from "./shared/firebase-init.js";
+import {
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// If already signed in, skip straight to the right home screen.
+onAuthStateChanged(auth, async (user) => {
+  if (user) await routeByRole(user);
+});
+
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errorMsg = document.getElementById("errorMsg");
+  errorMsg.classList.add("hidden");
+
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    await routeByRole(cred.user);
+  } catch (err) {
+    errorMsg.textContent = friendlyError(err.code);
+    errorMsg.classList.remove("hidden");
+  }
+});
+
+document.getElementById("forgotBtn").addEventListener("click", async () => {
+  const email = document.getElementById("email").value.trim();
+  if (!email) {
+    alert("Enter your email above first, then tap 'Forgot password?' again.");
+    return;
+  }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    alert("Password reset email sent — check your inbox.");
+  } catch (err) {
+    alert("Couldn't send reset email: " + friendlyError(err.code));
+  }
+});
+
+async function routeByRole(user) {
+  const tokenResult = await user.getIdTokenResult(true); // force refresh so new claims apply
+  const role = tokenResult.claims.role;
+
+  switch (role) {
+    case "parent":
+      window.location.href = "./parent/students.html";
+      break;
+    case "teacher":
+      window.location.href = "./teacher/scanner.html";
+      break;
+    case "school_admin":
+      window.location.href = "./school-admin/branding.html";
+      break;
+    case "master_admin":
+      alert("Master admin console isn't included in this build — use the /api/master-admin endpoints directly.");
+      break;
+    default:
+      document.getElementById("errorMsg").textContent =
+        "Your account isn't fully set up yet. Contact your school.";
+      document.getElementById("errorMsg").classList.remove("hidden");
+  }
+}
+
+function friendlyError(code) {
+  switch (code) {
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "Incorrect email or password.";
+    case "auth/too-many-requests":
+      return "Too many attempts — try again in a bit.";
+    default:
+      return "Sign-in failed. Please try again.";
+  }
+}
+</script>
+</body>
+</html>

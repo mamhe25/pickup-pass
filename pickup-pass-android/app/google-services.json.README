@@ -1,0 +1,3 @@
+PLACEHOLDER — replace with the real file downloaded from your Firebase Console
+(Project Settings > Your apps > google-services.json). The app will not build
+without a valid one in app/google-services.json.

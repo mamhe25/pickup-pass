@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Register Parent — Pickup Pass</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+
+  <div class="max-w-sm mx-auto pt-2">
+    <a href="./students.html" class="text-sm text-indigo-600 font-medium">← Students</a>
+
+    <h1 class="text-xl font-bold text-gray-800 mt-2 mb-1">Register Parent</h1>
+    <p id="studentLabel" class="text-sm text-gray-500 mb-6"></p>
+
+    <div class="bg-white rounded-2xl shadow-sm p-6">
+      <p class="text-xs text-gray-500 mb-4">
+        They'll get an email to set their password and upload a photo. Once
+        set up, they can generate pickup passes for this student.
+      </p>
+
+      <form id="registerForm" class="space-y-3">
+        <input id="parentName" type="text" required placeholder="Parent's full name"
+          class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input id="parentEmail" type="email" required placeholder="Email address"
+          class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <select id="relationship"
+          class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="parent/guardian">Parent / Guardian</option>
+          <option value="grandparent">Grandparent</option>
+          <option value="relative">Other Relative</option>
+          <option value="caregiver">Caregiver / Nanny</option>
+          <option value="authorized pickup">Other Authorized Pickup</option>
+        </select>
+
+        <p id="errorMsg" class="text-sm text-red-500 hidden"></p>
+        <p id="successMsg" class="text-sm text-green-600 hidden"></p>
+
+        <button type="submit"
+          class="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition">
+          Register Parent
+        </button>
+      </form>
+    </div>
+  </div>
+
+<script type="module">
+import { auth, db, authedFetch } from "../shared/firebase-init.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const params = new URLSearchParams(window.location.search);
+const studentId = params.get("studentId");
+
+if (!studentId) {
+  window.location.href = "./students.html";
+}
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = "../login.html";
+    return;
+  }
+  const studentSnap = await getDoc(doc(db, "students", studentId));
+  if (studentSnap.exists()) {
+    const s = studentSnap.data();
+    document.getElementById("studentLabel").textContent =
+      `${s.fullName} · Grade ${s.grade || "-"}`;
+  }
+});
+
+document.getElementById("registerForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errorMsg = document.getElementById("errorMsg");
+  const successMsg = document.getElementById("successMsg");
+  errorMsg.classList.add("hidden");
+  successMsg.classList.add("hidden");
+
+  const parentName = document.getElementById("parentName").value.trim();
+  const parentEmail = document.getElementById("parentEmail").value.trim();
+  const relationship = document.getElementById("relationship").value;
+
+  try {
+    const res = await authedFetch("/teacher/register-parent", {
+      method: "POST",
+      body: JSON.stringify({ studentId, parentName, parentEmail, relationship }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not register parent");
+
+    if (data.status === "linked_existing") {
+      successMsg.textContent = `Linked — ${parentEmail} already had an account.`;
+    } else if (data.emailSent) {
+      successMsg.textContent = `Invite sent to ${parentEmail}.`;
+    } else {
+      successMsg.textContent = `Account created for ${parentEmail}, but the invite email couldn't be sent — ask them to use "Forgot password?" on the sign-in page with this email.`;
+    }
+    successMsg.classList.remove("hidden");
+    e.target.reset();
+  } catch (err) {
+    errorMsg.textContent = err.message;
+    errorMsg.classList.remove("hidden");
+  }
+});
+</script>
+</body>
+</html>

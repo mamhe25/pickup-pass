@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Manage Guardians — Pickup Pass</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+
+  <div class="max-w-sm mx-auto">
+    <a href="./students.html" class="text-sm text-indigo-600 font-medium">← My Students</a>
+
+    <h1 class="text-xl font-bold text-gray-800 mt-2 mb-1">Authorized Pickup Guardians</h1>
+    <p id="studentLabel" class="text-sm text-gray-500 mb-4"></p>
+
+    <div id="guardianList" class="space-y-2 mb-6"></div>
+
+    <div class="bg-white rounded-xl shadow-sm p-4">
+      <h2 class="font-semibold text-gray-800 mb-3">Add a Backup Guardian</h2>
+      <p class="text-xs text-gray-500 mb-3">
+        Add someone else who's allowed to pick up this student if you're unavailable —
+        a spouse, grandparent, or other trusted adult. They'll get an email to set up their own account and photo.
+      </p>
+
+      <form id="addForm" class="space-y-2">
+        <input id="guardianName" type="text" required placeholder="Full name"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input id="guardianEmail" type="email" required placeholder="Email address"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <select id="guardianRelationship"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="parent/guardian">Parent / Guardian</option>
+          <option value="grandparent">Grandparent</option>
+          <option value="relative">Other Relative</option>
+          <option value="caregiver">Caregiver / Nanny</option>
+          <option value="authorized pickup">Other Authorized Pickup</option>
+        </select>
+
+        <p id="formError" class="text-sm text-red-500 hidden"></p>
+        <p id="formSuccess" class="text-sm text-green-600 hidden"></p>
+
+        <button type="submit"
+          class="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition">
+          Add Guardian
+        </button>
+      </form>
+    </div>
+  </div>
+
+<script type="module">
+import { auth, db, authedFetch } from "../shared/firebase-init.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const params = new URLSearchParams(window.location.search);
+const studentId = params.get("studentId");
+
+if (!studentId) {
+  window.location.href = "./students.html";
+}
+
+let currentUid = null;
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = "../login.html";
+    return;
+  }
+  currentUid = user.uid;
+  await renderGuardians();
+});
+
+async function renderGuardians() {
+  const studentSnap = await getDoc(doc(db, "students", studentId));
+  if (!studentSnap.exists()) {
+    document.getElementById("studentLabel").textContent = "Student not found.";
+    return;
+  }
+
+  const student = studentSnap.data();
+  document.getElementById("studentLabel").textContent =
+    `${student.fullName} · Grade ${student.grade}`;
+
+  const guardians = student.guardians || {};
+  const list = document.getElementById("guardianList");
+  list.innerHTML = "";
+
+  const uids = Object.keys(guardians);
+  if (uids.length === 0) {
+    list.innerHTML = '<p class="text-sm text-gray-400">No guardians on record.</p>';
+    return;
+  }
+
+  for (const uid of uids) {
+    const entry = guardians[uid];
+    const userSnap = await getDoc(doc(db, "users", uid));
+    const userData = userSnap.exists() ? userSnap.data() : {};
+
+    const row = document.createElement("div");
+    row.className = "bg-white rounded-xl shadow-sm p-3 flex items-center gap-3";
+    row.innerHTML = `
+      <img src="${userData.photoUrl || '../assets/default-avatar.png'}"
+           class="w-12 h-12 rounded-full object-cover border border-gray-200" />
+      <div class="flex-1 min-w-0">
+        <p class="font-medium text-gray-800 truncate">
+          ${escapeHtml(userData.displayName || "Pending guardian")}
+          ${entry.isPrimary ? '<span class="ml-1 text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Primary</span>' : ""}
+        </p>
+        <p class="text-xs text-gray-500 truncate">${escapeHtml(entry.relationship || "")}</p>
+      </div>
+      ${entry.isPrimary ? "" : `<button data-uid="${uid}" class="removeBtn text-xs text-red-500 font-medium px-2 py-1 hover:bg-red-50 rounded">Remove</button>`}
+    `;
+    list.appendChild(row);
+  }
+
+  document.querySelectorAll(".removeBtn").forEach((btn) => {
+    btn.addEventListener("click", () => removeGuardian(btn.dataset.uid));
+  });
+}
+
+async function removeGuardian(guardianUid) {
+  if (!confirm("Remove this person as an authorized pickup guardian? Any pass they're currently holding will stop working immediately.")) {
+    return;
+  }
+  try {
+    const res = await authedFetch("/parent/remove-guardian", {
+      method: "POST",
+      body: JSON.stringify({ studentId, guardianUid }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not remove guardian");
+    await renderGuardians();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+document.getElementById("addForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const formError = document.getElementById("formError");
+  const formSuccess = document.getElementById("formSuccess");
+  formError.classList.add("hidden");
+  formSuccess.classList.add("hidden");
+
+  const guardianName = document.getElementById("guardianName").value.trim();
+  const guardianEmail = document.getElementById("guardianEmail").value.trim();
+  const relationship = document.getElementById("guardianRelationship").value;
+
+  try {
+    const res = await authedFetch("/parent/add-guardian", {
+      method: "POST",
+      body: JSON.stringify({ studentId, guardianName, guardianEmail, relationship }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not add guardian");
+
+    if (data.status === "linked_existing") {
+      formSuccess.textContent = "Added — this person already had an account.";
+    } else if (data.emailSent) {
+      formSuccess.textContent = "Added! They'll receive an email to set up their account.";
+    } else {
+      formSuccess.textContent = "Added, but the invite email couldn't be sent — ask them to use \"Forgot password?\" on the sign-in page with their email.";
+    }
+    formSuccess.classList.remove("hidden");
+    e.target.reset();
+    await renderGuardians();
+  } catch (err) {
+    formError.textContent = err.message;
+    formError.classList.remove("hidden");
+  }
+});
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>

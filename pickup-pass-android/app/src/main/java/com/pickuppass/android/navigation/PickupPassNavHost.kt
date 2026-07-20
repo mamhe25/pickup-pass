@@ -1,0 +1,148 @@
+package com.pickuppass.android.navigation
+
+import androidx.compose.runtime.Composable
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.pickuppass.android.ui.login.LoginScreen
+import com.pickuppass.android.ui.parent.guardians.ManageGuardiansScreen
+import com.pickuppass.android.ui.parent.pass.PickupPassScreen
+import com.pickuppass.android.ui.parent.profile.ProfileScreen
+import com.pickuppass.android.ui.parent.students.StudentsScreen
+import com.pickuppass.android.ui.schooladmin.branding.SchoolBrandingScreen
+import com.pickuppass.android.ui.schooladmin.staff.InviteTeacherScreen
+import com.pickuppass.android.ui.splash.SplashDestination
+import com.pickuppass.android.ui.splash.SplashScreen
+import com.pickuppass.android.ui.teacher.registerparent.RegisterParentScreen
+import com.pickuppass.android.ui.teacher.scanner.ScannerScreen
+import com.pickuppass.android.ui.teacher.students.TeacherStudentsScreen
+
+@Composable
+fun PickupPassNavHost(navController: NavHostController = rememberNavController()) {
+
+    NavHost(navController = navController, startDestination = Screen.Splash.route) {
+
+        composable(Screen.Splash.route) {
+            SplashScreen(
+                onNavigate = { destination ->
+                    val target = when (destination) {
+                        SplashDestination.ParentHome -> Screen.ParentStudents.route
+                        SplashDestination.TeacherHome -> Screen.TeacherScanner.route
+                        SplashDestination.SchoolAdminHome -> Screen.SchoolAdminBranding.route
+                        else -> Screen.Login.route
+                    }
+                    navController.navigate(target) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Screen.Login.route) {
+            LoginScreen(
+                onParentHome = {
+                    navController.navigate(Screen.ParentStudents.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                },
+                onTeacherHome = {
+                    navController.navigate(Screen.TeacherScanner.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                },
+                onSchoolAdminHome = {
+                    navController.navigate(Screen.SchoolAdminBranding.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // ---- Parent flow ----
+
+        composable(Screen.ParentStudents.route) {
+            StudentsScreen(
+                onOpenProfile = { navController.navigate(Screen.ParentProfile.route) },
+                onGetPass = { studentId ->
+                    navController.navigate(Screen.ParentPickupPass.createRoute(studentId))
+                },
+                onManageGuardians = { studentId ->
+                    navController.navigate(Screen.ParentManageGuardians.createRoute(studentId))
+                }
+            )
+        }
+
+        composable(Screen.ParentProfile.route) {
+            ProfileScreen(
+                onBack = { navController.popBackStack() },
+                onSignedOut = { navController.navigateToLoginClearingBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.ParentPickupPass.route,
+            arguments = listOf(navArgument("studentId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val studentId = backStackEntry.arguments?.getString("studentId").orEmpty()
+            PickupPassScreen(studentId = studentId, onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = Screen.ParentManageGuardians.route,
+            arguments = listOf(navArgument("studentId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val studentId = backStackEntry.arguments?.getString("studentId").orEmpty()
+            ManageGuardiansScreen(studentId = studentId, onBack = { navController.popBackStack() })
+        }
+
+        // ---- Teacher / guard flow ----
+
+        composable(Screen.TeacherScanner.route) {
+            ScannerScreen(
+                onGoToStudents = { navController.navigate(Screen.TeacherStudents.route) },
+                onSignOut = { navController.navigateToLoginClearingBackStack() }
+            )
+        }
+
+        composable(Screen.TeacherStudents.route) {
+            TeacherStudentsScreen(
+                onBack = { navController.popBackStack() },
+                onRegisterParent = { studentId ->
+                    navController.navigate(Screen.TeacherRegisterParent.createRoute(studentId))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.TeacherRegisterParent.route,
+            arguments = listOf(navArgument("studentId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val studentId = backStackEntry.arguments?.getString("studentId").orEmpty()
+            RegisterParentScreen(studentId = studentId, onBack = { navController.popBackStack() })
+        }
+
+        // ---- School admin flow ----
+
+        composable(Screen.SchoolAdminBranding.route) {
+            SchoolBrandingScreen(
+                onGoToScanner = { navController.navigate(Screen.TeacherScanner.route) },
+                onGoToStudents = { navController.navigate(Screen.TeacherStudents.route) },
+                onGoToInviteTeacher = { navController.navigate(Screen.SchoolAdminInviteTeacher.route) },
+                onSignedOut = { navController.navigateToLoginClearingBackStack() }
+            )
+        }
+
+        composable(Screen.SchoolAdminInviteTeacher.route) {
+            InviteTeacherScreen(onBack = { navController.popBackStack() })
+        }
+    }
+}
+
+private fun NavHostController.navigateToLoginClearingBackStack() {
+    navigate(Screen.Login.route) {
+        popUpTo(0) { inclusive = true }
+    }
+}

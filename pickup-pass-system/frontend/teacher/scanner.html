@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dismissal Scanner</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col">
+
+  <div class="p-4 flex items-center justify-between border-b border-gray-800">
+    <span class="font-semibold text-lg">Dismissal Scanner</span>
+    <a href="./students.html" class="text-sm text-indigo-400 font-medium">Students →</a>
+  </div>
+  <div id="schoolBanner" class="hidden items-center justify-center gap-2 py-2 bg-gray-800/60 border-b border-gray-800">
+    <img id="schoolLogo" class="w-6 h-6 rounded object-contain bg-white" />
+    <span id="schoolName" class="text-sm text-gray-300"></span>
+  </div>
+
+  <div id="scanScreen" class="flex-1 flex flex-col items-center justify-center p-4">
+    <div id="qrReader" class="w-full max-w-sm rounded-xl overflow-hidden"></div>
+    <p class="mt-4 text-gray-400 text-sm">Point camera at parent's pass</p>
+  </div>
+
+  <div id="verifyScreen" class="hidden flex-1 flex flex-col p-4">
+    <div class="grid grid-cols-2 gap-4 flex-1">
+      <div class="bg-gray-800 rounded-xl p-4 flex flex-col justify-center">
+        <p class="text-xs uppercase text-gray-400">Student</p>
+        <h2 id="studentName" class="text-2xl font-bold mt-1"></h2>
+        <p id="studentGrade" class="text-gray-300 mt-2"></p>
+        <p id="studentSection" class="text-gray-400 text-sm"></p>
+      </div>
+
+      <div class="bg-gray-800 rounded-xl p-4 flex flex-col items-center justify-center">
+        <p class="text-xs uppercase text-gray-400 mb-2">Verify Face</p>
+        <img id="parentPhoto" class="w-32 h-32 rounded-full object-cover border-4 border-indigo-500" />
+        <p id="parentName" class="mt-2 font-medium text-center"></p>
+      </div>
+    </div>
+
+    <div id="errorBanner" class="hidden bg-red-600 text-white p-3 rounded-lg my-3 text-center font-semibold"></div>
+
+    <button id="approveBtn"
+      class="mt-4 w-full py-5 bg-green-600 active:bg-green-700 rounded-xl text-xl font-bold tracking-wide shadow-lg">
+      ✅ APPROVE RELEASE
+    </button>
+    <button id="cancelBtn" class="mt-2 w-full py-3 bg-gray-700 rounded-xl text-gray-300">
+      Cancel / Scan Next
+    </button>
+  </div>
+
+<script type="module">
+import { auth, db, authedFetch } from "../shared/firebase-init.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+let currentQrToken = null;
+let html5QrCode = null;
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = "../login.html";
+    return;
+  }
+  const tokenResult = await user.getIdTokenResult();
+  await loadSchoolBranding(tokenResult.claims.schoolId);
+
+  html5QrCode = new Html5Qrcode("qrReader");
+  startScanner();
+});
+
+async function loadSchoolBranding(schoolId) {
+  if (!schoolId) return;
+  const schoolSnap = await getDoc(doc(db, "schools", schoolId));
+  if (!schoolSnap.exists()) return;
+
+  const school = schoolSnap.data();
+  document.getElementById("schoolName").textContent = school.schoolName || "";
+  if (school.logoUrl) {
+    document.getElementById("schoolLogo").src = school.logoUrl;
+  } else {
+    document.getElementById("schoolLogo").remove();
+  }
+  document.getElementById("schoolBanner").classList.remove("hidden");
+  document.getElementById("schoolBanner").classList.add("flex");
+}
+
+function startScanner() {
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 240 },
+    onScanSuccess
+  ).catch((err) => {
+    document.getElementById("qrReader").innerHTML =
+      `<p class="text-red-400 text-sm p-4">Camera error: ${err}</p>`;
+  });
+}
+
+async function onScanSuccess(decodedText) {
+  await html5QrCode.pause(true);
+  currentQrToken = decodedText;
+
+  try {
+    const res = await authedFetch("/pickup/verify", {
+      method: "POST",
+      body: JSON.stringify({ qrToken: decodedText }),
+    });
+    const data = await res.json();
+
+    if (!data.valid) {
+      showError(data.reason);
+      return;
+    }
+
+    const [studentSnap, parentSnap] = await Promise.all([
+      getDoc(doc(db, "students", data.studentId)),
+      getDoc(doc(db, "users", data.parentUid)),
+    ]);
+
+    renderVerifyScreen(studentSnap.data(), parentSnap.data());
+  } catch (err) {
+    showError("Network error — try again");
+  }
+}
+
+function renderVerifyScreen(student, parent) {
+  document.getElementById("scanScreen").classList.add("hidden");
+  document.getElementById("verifyScreen").classList.remove("hidden");
+  document.getElementById("errorBanner").classList.add("hidden");
+
+  document.getElementById("studentName").textContent = student.fullName;
+  document.getElementById("studentGrade").textContent = `Grade: ${student.grade}`;
+  document.getElementById("studentSection").textContent = `Section: ${student.section}`;
+
+  document.getElementById("parentPhoto").src = parent.photoUrl || "../assets/default-avatar.png";
+  document.getElementById("parentName").textContent = parent.displayName || "";
+}
+
+function showError(reason) {
+  const banner = document.getElementById("errorBanner");
+  banner.textContent = "⚠️ " + reason;
+  banner.classList.remove("hidden");
+  setTimeout(resetToScanner, 2500);
+}
+
+document.getElementById("approveBtn").addEventListener("click", async () => {
+  const res = await authedFetch("/pickup/approve", {
+    method: "POST",
+    body: JSON.stringify({ qrToken: currentQrToken }),
+  });
+  const result = await res.json();
+  if (result.status === "release_approved") {
+    alert("Release logged ✅");
+  } else {
+    alert("Approval failed: " + (result.reason || "unknown error"));
+  }
+  resetToScanner();
+});
+
+document.getElementById("cancelBtn").addEventListener("click", resetToScanner);
+
+function resetToScanner() {
+  document.getElementById("verifyScreen").classList.add("hidden");
+  document.getElementById("scanScreen").classList.remove("hidden");
+  currentQrToken = null;
+  html5QrCode.resume();
+}
+</script>
+</body>
+</html>
