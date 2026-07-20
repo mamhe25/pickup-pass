@@ -9,7 +9,13 @@
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
 
   <div class="bg-white rounded-2xl shadow-md p-8 w-full max-w-sm text-center">
+    <div class="flex items-center justify-between mb-4">
+      <a href="./students.html" class="text-sm text-indigo-600 font-medium">← Students</a>
+      <button id="signOutBtn" class="text-sm text-gray-500">Sign out</button>
+    </div>
+
     <h1 class="text-xl font-bold text-gray-800 mb-1">Your Pickup Profile</h1>
+    <p id="currentUserEmail" class="text-xs text-gray-400 mb-1"></p>
     <p class="text-sm text-gray-500 mb-6">This photo is shown to school staff to confirm your identity at pickup.</p>
 
     <input type="file" id="photoInput" accept="image/*" class="hidden" />
@@ -29,8 +35,8 @@
 
 <script type="module">
 import { auth, db } from "../shared/firebase-init.js";
-import { doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // NOTE: this deliberately does NOT use Firebase/Cloud Storage. As of
 // Feb 3, 2026, Cloud Storage for Firebase requires the pay-as-you-go
@@ -44,6 +50,27 @@ onAuthStateChanged(auth, async (user) => {
     window.location.href = "../login.html";
     return;
   }
+
+  // Shown deliberately prominently: on a shared/kiosk device, this is the
+  // one thing that makes it obvious if you're accidentally still signed in
+  // as the previous person rather than yourself — silent persisted
+  // sessions are exactly how "uploading my photo changed someone else's"
+  // happens. If this email isn't you, sign out and sign back in as
+  // yourself before doing anything else here.
+  document.getElementById("currentUserEmail").textContent = `Signed in as ${user.email}`;
+
+  const userSnap = await getDoc(doc(db, "users", user.uid));
+  if (userSnap.exists() && userSnap.data().photoUrl) {
+    const preview = document.getElementById("preview");
+    preview.src = userSnap.data().photoUrl;
+    preview.classList.remove("hidden");
+    document.getElementById("placeholder").classList.add("hidden");
+  }
+});
+
+document.getElementById("signOutBtn").addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "../login.html";
 });
 
 document.getElementById("photoInput").addEventListener("change", async (e) => {

@@ -33,15 +33,15 @@ public class QrVerificationService {
 
         DecodedJWT decoded;
         try {
-            decoded = JWT.require(hmacAlgorithm).withIssuer("pickup-pass-system").build().verify(qrToken);
+            decoded = JWT.require(hmacAlgorithm).withIssuer("pps").build().verify(qrToken);
         } catch (JWTVerificationException e) {
             return QrVerificationResult.fail("Invalid, tampered, or expired QR code");
         }
 
-        String schoolId = decoded.getClaim("schoolId").asString();
-        String studentId = decoded.getClaim("studentId").asString();
-        String parentUid = decoded.getClaim("parentUid").asString();
-        String nonce = decoded.getClaim("nonce").asString();
+        String schoolId = decoded.getClaim("sid").asString();
+        String studentId = decoded.getClaim("stid").asString();
+        String parentUid = decoded.getClaim("pid").asString();
+        String nonce = decoded.getClaim("n").asString();
 
         if (!schoolId.equals(scanningSchoolId)) {
             return QrVerificationResult.fail("QR code does not belong to this school");

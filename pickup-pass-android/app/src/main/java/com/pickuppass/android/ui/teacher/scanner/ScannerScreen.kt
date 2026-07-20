@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.*
@@ -30,6 +31,7 @@ import com.pickuppass.android.ui.common.PrimaryButton
 fun ScannerScreen(
     viewModel: ScannerViewModel = hiltViewModel(),
     onGoToStudents: () -> Unit,
+    onGoToExitLogs: () -> Unit,
     onSignOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -50,6 +52,9 @@ fun ScannerScreen(
                 actions = {
                     IconButton(onClick = onGoToStudents) {
                         Icon(Icons.Filled.People, contentDescription = "Students", tint = Color.White)
+                    }
+                    IconButton(onClick = onGoToExitLogs) {
+                        Icon(Icons.Filled.History, contentDescription = "Dismissal History", tint = Color.White)
                     }
                     IconButton(onClick = { viewModel.signOut() }) {
                         Icon(Icons.Filled.Logout, contentDescription = "Sign out", tint = Color.White)

@@ -67,4 +67,66 @@ class TeacherRepository @Inject constructor(
             ApiResult.Failure(e.message ?: "Network error")
         }
     }
+
+    /**
+     * Dismissal history, enriched with student/guardian/staff display info.
+     * Firestore has no joins — exitLogs only stores studentId/parentUid/
+     * verifiedByUid — so this fetches the school's roster and every
+     * distinct user referenced by the log batch ONCE and joins client-side,
+     * rather than one read per log (which would multiply Firestore reads
+     * well past what's reasonable on the free plan's daily quota).
+     * Bounded to the 200 most recent entries for the same reason.
+     */
+    suspend fun getExitLogs(schoolId: String): Result<List<com.pickuppass.android.data.model.ExitLogEntry>> = runCatching {
+        val logsSnapshot = firestore.collection("exitLogs")
+            .whereEqualTo("schoolId", schoolId)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit(200)
+            .get()
+            .await()
+
+        val studentsSnapshot = firestore.collection("students")
+            .whereEqualTo("schoolId", schoolId)
+            .get()
+            .await()
+
+        val studentsById = studentsSnapshot.documents.associateBy(
+            { it.id },
+            { it.data() ?: emptyMap<String, Any>() }
+        )
+
+        val uidsNeeded = mutableSetOf<String>()
+        logsSnapshot.documents.forEach { doc ->
+            (doc.getString("parentUid"))?.let { uidsNeeded.add(it) }
+            (doc.getString("verifiedByUid"))?.let { uidsNeeded.add(it) }
+        }
+
+        val usersById = mutableMapOf<String, Map<String, Any>>()
+        // Small, deduplicated set (a couple of people per log) — fetched
+        // individually since the modular-equivalent Firestore Android SDK
+        // has no batch-get-by-ids call without an extra composite setup.
+        for (uid in uidsNeeded) {
+            val userDoc = firestore.collection("users").document(uid).get().await()
+            if (userDoc.exists()) {
+                usersById[uid] = userDoc.data ?: emptyMap()
+            }
+        }
+
+        logsSnapshot.documents.map { doc ->
+            val studentId = doc.getString("studentId") ?: ""
+            val student = studentsById[studentId] ?: emptyMap()
+            val guardian = usersById[doc.getString("parentUid")] ?: emptyMap()
+            val staff = usersById[doc.getString("verifiedByUid")] ?: emptyMap()
+
+            com.pickuppass.android.data.model.ExitLogEntry(
+                id = doc.id,
+                studentName = student["fullName"] as? String ?: "Unknown Student",
+                grade = student["grade"] as? String ?: "",
+                section = student["section"] as? String ?: "",
+                guardianName = guardian["displayName"] as? String ?: "Unknown Guardian",
+                staffName = staff["displayName"] as? String ?: "Unknown Staff",
+                timestampMillis = doc.getTimestamp("timestamp")?.toDate()?.time,
+            )
+        }
+    }
 }

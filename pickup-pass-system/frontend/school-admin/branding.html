@@ -9,10 +9,11 @@
 <body class="bg-gray-50 min-h-screen p-4">
 
   <div class="max-w-sm mx-auto pt-2">
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-1">
       <h1 class="text-xl font-bold text-gray-800">School Admin</h1>
       <button id="signOutBtn" class="text-sm text-gray-500">Sign out</button>
     </div>
+    <p id="currentUserEmail" class="text-xs text-gray-400 mb-5"></p>
 
     <div class="bg-white rounded-2xl shadow-sm p-6 text-center mb-4">
       <p class="text-sm text-gray-500 mb-4">
@@ -46,6 +47,9 @@
     <a href="../teacher/students.html" class="block w-full text-center py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 mb-2">
       Manage Students →
     </a>
+    <a href="../teacher/exit-logs.html" class="block w-full text-center py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 mb-2">
+      Dismissal History →
+    </a>
     <a href="./staff.html" class="block w-full text-center py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">
       Invite a Teacher →
     </a>
@@ -64,6 +68,7 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
   const tokenResult = await user.getIdTokenResult();
+  document.getElementById("currentUserEmail").textContent = user.email;
   currentSchoolId = tokenResult.claims.schoolId;
   await loadCurrentLogo();
 });

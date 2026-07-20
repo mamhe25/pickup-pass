@@ -31,6 +31,7 @@ fun SchoolBrandingScreen(
     viewModel: SchoolBrandingViewModel = hiltViewModel(),
     onGoToScanner: () -> Unit,
     onGoToStudents: () -> Unit,
+    onGoToExitLogs: () -> Unit,
     onGoToInviteTeacher: () -> Unit,
     onSignedOut: () -> Unit
 ) {
@@ -156,6 +157,15 @@ fun SchoolBrandingScreen(
                     .height(52.dp)
             ) {
                 Text("Manage Students →")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onGoToExitLogs,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Text("Dismissal History →")
             }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(

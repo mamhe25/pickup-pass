@@ -23,6 +23,8 @@ sealed class Screen(val route: String) {
         fun createRoute(studentId: String) = "teacher/register-parent/$studentId"
     }
 
+    data object TeacherExitLogs : Screen("teacher/exit-logs")
+
     data object SchoolAdminBranding : Screen("school-admin/branding")
 
     data object SchoolAdminInviteTeacher : Screen("school-admin/invite-teacher")

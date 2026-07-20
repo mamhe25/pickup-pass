@@ -11,7 +11,14 @@
 
   <div class="p-4 flex items-center justify-between border-b border-gray-800">
     <span class="font-semibold text-lg">Dismissal Scanner</span>
-    <a href="./students.html" class="text-sm text-indigo-400 font-medium">Students →</a>
+    <div class="flex items-center gap-3">
+      <a href="./exit-logs.html" class="text-sm text-indigo-400 font-medium">History</a>
+      <a href="./students.html" class="text-sm text-indigo-400 font-medium">Students →</a>
+    </div>
+  </div>
+  <div class="px-4 py-1.5 flex items-center justify-between border-b border-gray-800 bg-gray-800/40">
+    <p id="currentUserEmail" class="text-xs text-gray-400"></p>
+    <button id="signOutBtn" class="text-xs text-gray-400 underline">Sign out</button>
   </div>
   <div id="schoolBanner" class="hidden items-center justify-center gap-2 py-2 bg-gray-800/60 border-b border-gray-800">
     <img id="schoolLogo" class="w-6 h-6 rounded object-contain bg-white" />
@@ -19,7 +26,9 @@
   </div>
 
   <div id="scanScreen" class="flex-1 flex flex-col items-center justify-center p-4">
-    <div id="qrReader" class="w-full max-w-sm rounded-xl overflow-hidden"></div>
+    <div id="qrReader" class="w-full max-w-sm min-h-[300px] rounded-xl overflow-hidden bg-gray-800 flex items-center justify-center">
+      <p class="text-gray-500 text-sm">Starting camera…</p>
+    </div>
     <p class="mt-4 text-gray-400 text-sm">Point camera at parent's pass</p>
   </div>
 
@@ -53,10 +62,15 @@
 <script type="module">
 import { auth, db, authedFetch } from "../shared/firebase-init.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 let currentQrToken = null;
 let html5QrCode = null;
+
+document.getElementById("signOutBtn").addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "../login.html";
+});
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -64,10 +78,19 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
   const tokenResult = await user.getIdTokenResult();
+  document.getElementById("currentUserEmail").textContent = user.email;
   await loadSchoolBranding(tokenResult.claims.schoolId);
 
-  html5QrCode = new Html5Qrcode("qrReader");
-  startScanner();
+  try {
+    if (typeof Html5Qrcode === "undefined") {
+      throw new Error("Scanner library failed to load — check your internet connection and reload the page.");
+    }
+    html5QrCode = new Html5Qrcode("qrReader");
+    startScanner();
+  } catch (err) {
+    document.getElementById("qrReader").innerHTML =
+      `<p class="text-red-400 text-sm p-4">Scanner failed to start: ${err.message || err}</p>`;
+  }
 });
 
 async function loadSchoolBranding(schoolId) {
@@ -90,7 +113,13 @@ function startScanner() {
   html5QrCode.start(
     { facingMode: "environment" },
     { fps: 10, qrbox: 240 },
-    onScanSuccess
+    onScanSuccess,
+    // 4th param: called on every frame where no code was found — not an
+    // error, just per-frame "nothing here yet." Logged (not shown to the
+    // user) so it's possible to tell from devtools whether scanning is
+    // actively running and just not finding a code, versus not running
+    // at all — the two previously looked identical from the UI alone.
+    (decodeError) => { /* console.debug("scan attempt:", decodeError); */ }
   ).catch((err) => {
     document.getElementById("qrReader").innerHTML =
       `<p class="text-red-400 text-sm p-4">Camera error: ${err}</p>`;

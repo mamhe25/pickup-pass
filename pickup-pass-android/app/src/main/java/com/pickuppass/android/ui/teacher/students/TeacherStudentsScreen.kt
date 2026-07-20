@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +27,7 @@ import com.pickuppass.android.ui.common.PrimaryButton
 fun TeacherStudentsScreen(
     viewModel: TeacherStudentsViewModel = hiltViewModel(),
     onBack: () -> Unit,
+    onGoToExitLogs: () -> Unit,
     onRegisterParent: (studentId: String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -46,6 +48,11 @@ fun TeacherStudentsScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onGoToExitLogs) {
+                        Icon(Icons.Filled.History, contentDescription = "Dismissal History")
                     }
                 }
             )

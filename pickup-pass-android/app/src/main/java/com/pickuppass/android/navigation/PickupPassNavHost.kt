@@ -16,6 +16,7 @@ import com.pickuppass.android.ui.schooladmin.branding.SchoolBrandingScreen
 import com.pickuppass.android.ui.schooladmin.staff.InviteTeacherScreen
 import com.pickuppass.android.ui.splash.SplashDestination
 import com.pickuppass.android.ui.splash.SplashScreen
+import com.pickuppass.android.ui.teacher.exitlogs.ExitLogsScreen
 import com.pickuppass.android.ui.teacher.registerparent.RegisterParentScreen
 import com.pickuppass.android.ui.teacher.scanner.ScannerScreen
 import com.pickuppass.android.ui.teacher.students.TeacherStudentsScreen
@@ -103,6 +104,7 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
         composable(Screen.TeacherScanner.route) {
             ScannerScreen(
                 onGoToStudents = { navController.navigate(Screen.TeacherStudents.route) },
+                onGoToExitLogs = { navController.navigate(Screen.TeacherExitLogs.route) },
                 onSignOut = { navController.navigateToLoginClearingBackStack() }
             )
         }
@@ -110,6 +112,7 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
         composable(Screen.TeacherStudents.route) {
             TeacherStudentsScreen(
                 onBack = { navController.popBackStack() },
+                onGoToExitLogs = { navController.navigate(Screen.TeacherExitLogs.route) },
                 onRegisterParent = { studentId ->
                     navController.navigate(Screen.TeacherRegisterParent.createRoute(studentId))
                 }
@@ -124,12 +127,17 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
             RegisterParentScreen(studentId = studentId, onBack = { navController.popBackStack() })
         }
 
+        composable(Screen.TeacherExitLogs.route) {
+            ExitLogsScreen(onBack = { navController.popBackStack() })
+        }
+
         // ---- School admin flow ----
 
         composable(Screen.SchoolAdminBranding.route) {
             SchoolBrandingScreen(
                 onGoToScanner = { navController.navigate(Screen.TeacherScanner.route) },
                 onGoToStudents = { navController.navigate(Screen.TeacherStudents.route) },
+                onGoToExitLogs = { navController.navigate(Screen.TeacherExitLogs.route) },
                 onGoToInviteTeacher = { navController.navigate(Screen.SchoolAdminInviteTeacher.route) },
                 onSignedOut = { navController.navigateToLoginClearingBackStack() }
             )

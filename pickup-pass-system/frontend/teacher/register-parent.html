@@ -9,7 +9,11 @@
 <body class="bg-gray-50 min-h-screen p-4">
 
   <div class="max-w-sm mx-auto pt-2">
-    <a href="./students.html" class="text-sm text-indigo-600 font-medium">← Students</a>
+    <div class="flex items-center justify-between">
+      <a href="./students.html" class="text-sm text-indigo-600 font-medium">← Students</a>
+      <button id="signOutBtn" class="text-xs text-gray-400 underline">Sign out</button>
+    </div>
+    <p id="currentUserEmail" class="text-xs text-gray-400 mt-1"></p>
 
     <h1 class="text-xl font-bold text-gray-800 mt-2 mb-1">Register Parent</h1>
     <p id="studentLabel" class="text-sm text-gray-500 mb-6"></p>
@@ -48,7 +52,7 @@
 <script type="module">
 import { auth, db, authedFetch } from "../shared/firebase-init.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const params = new URLSearchParams(window.location.search);
 const studentId = params.get("studentId");
@@ -57,11 +61,17 @@ if (!studentId) {
   window.location.href = "./students.html";
 }
 
+document.getElementById("signOutBtn").addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "../login.html";
+});
+
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "../login.html";
     return;
   }
+  document.getElementById("currentUserEmail").textContent = user.email;
   const studentSnap = await getDoc(doc(db, "students", studentId));
   if (studentSnap.exists()) {
     const s = studentSnap.data();

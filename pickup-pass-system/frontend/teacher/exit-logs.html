@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dismissal History — Pickup Pass</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+
+  <div class="max-w-sm mx-auto">
+    <div class="flex items-center justify-between pt-2 mb-1">
+      <h1 class="text-xl font-bold text-gray-800">Dismissal History</h1>
+      <a href="./students.html" class="text-sm text-indigo-600 font-medium">Students →</a>
+    </div>
+    <div class="flex items-center justify-between mb-4">
+      <p id="currentUserEmail" class="text-xs text-gray-400"></p>
+      <button id="signOutBtn" class="text-xs text-gray-400 underline">Sign out</button>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm p-3 mb-3 space-y-2">
+      <input id="searchBox" type="text" placeholder="Search by student or staff name..."
+        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      <div class="grid grid-cols-2 gap-2">
+        <select id="gradeFilter" class="border border-gray-300 rounded-lg px-2 py-2 text-sm">
+          <option value="">All Grades</option>
+        </select>
+        <select id="sectionFilter" class="border border-gray-300 rounded-lg px-2 py-2 text-sm">
+          <option value="">All Sections</option>
+        </select>
+      </div>
+      <select id="staffFilter" class="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm">
+        <option value="">All Staff (Approved By)</option>
+      </select>
+    </div>
+
+    <p id="resultCount" class="text-xs text-gray-400 mb-2"></p>
+
+    <div id="logList" class="space-y-2"></div>
+    <div id="emptyState" class="hidden bg-white rounded-xl p-6 text-center text-sm text-gray-500">
+      No dismissal records yet.
+    </div>
+    <div id="noResultsState" class="hidden bg-white rounded-xl p-6 text-center text-sm text-gray-500">
+      No records match your filters.
+    </div>
+    <div id="loadingState" class="text-center text-sm text-gray-400 py-6">Loading…</div>
+  </div>
+
+<script type="module">
+import { auth, db } from "../shared/firebase-init.js";
+import { collection, query, where, orderBy, limit, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+let currentSchoolId = null;
+let enrichedLogs = []; // logs joined with student + guardian + staff display info
+
+document.getElementById("signOutBtn").addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "../login.html";
+});
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = "../login.html";
+    return;
+  }
+  document.getElementById("currentUserEmail").textContent = user.email;
+  const tokenResult = await user.getIdTokenResult();
+  currentSchoolId = tokenResult.claims.schoolId;
+  await loadLogs();
+});
+
+async function loadLogs() {
+  const loadingState = document.getElementById("loadingState");
+  loadingState.classList.remove("hidden");
+
+  // Firestore has no joins — logs only store studentId/parentUid/verifiedByUid,
+  // not the student's grade/section or anyone's display name. Fetch the
+  // school's full roster + relevant users ONCE and build lookup maps,
+  // rather than a separate read per log (which would be both slow and
+  // expensive against Firestore's daily read quota on the free plan).
+  const [logsSnap, studentsSnap] = await Promise.all([
+    getDocs(query(
+      collection(db, "exitLogs"),
+      where("schoolId", "==", currentSchoolId),
+      orderBy("timestamp", "desc"),
+      limit(200) // most-recent window; the free plan's read quota isn't meant for unbounded history scans
+    )),
+    getDocs(query(collection(db, "students"), where("schoolId", "==", currentSchoolId))),
+  ]);
+
+  const studentsById = {};
+  studentsSnap.forEach((d) => { studentsById[d.id] = d.data(); });
+
+  // Collect every distinct uid we'll need a display name/photo for
+  // (guardians who picked up + staff who approved), then batch-fetch them.
+  const uidsNeeded = new Set();
+  logsSnap.forEach((d) => {
+    const log = d.data();
+    if (log.parentUid) uidsNeeded.add(log.parentUid);
+    if (log.verifiedByUid) uidsNeeded.add(log.verifiedByUid);
+  });
+  const usersById = await fetchUsersByIds([...uidsNeeded]);
+
+  enrichedLogs = logsSnap.docs.map((d) => {
+    const log = d.data();
+    const student = studentsById[log.studentId] || {};
+    const guardian = usersById[log.parentUid] || {};
+    const staff = usersById[log.verifiedByUid] || {};
+    return {
+      id: d.id,
+      studentName: student.fullName || "Unknown Student",
+      grade: student.grade || "",
+      section: student.section || "",
+      guardianName: guardian.displayName || "Unknown Guardian",
+      staffName: staff.displayName || "Unknown Staff",
+      timestamp: log.timestamp?.toDate ? log.timestamp.toDate() : null,
+    };
+  });
+
+  loadingState.classList.add("hidden");
+
+  if (enrichedLogs.length === 0) {
+    document.getElementById("emptyState").classList.remove("hidden");
+    return;
+  }
+
+  populateFilterOptions();
+  render();
+}
+
+async function fetchUsersByIds(uids) {
+  const usersById = {};
+  // Firestore has no "get many docs by ID" batch read in the modular SDK
+  // without a composite index workaround, so fetch each individually —
+  // uidsNeeded is small (a couple people per log, deduplicated), so this
+  // stays well within reasonable read counts for a day's dismissals.
+  await Promise.all(uids.map(async (uid) => {
+    const snap = await getDoc(doc(db, "users", uid));
+    if (snap.exists()) usersById[uid] = snap.data();
+  }));
+  return usersById;
+}
+
+function populateFilterOptions() {
+  const grades = [...new Set(enrichedLogs.map((l) => l.grade).filter(Boolean))].sort();
+  const sections = [...new Set(enrichedLogs.map((l) => l.section).filter(Boolean))].sort();
+  const staff = [...new Set(enrichedLogs.map((l) => l.staffName).filter(Boolean))].sort();
+
+  const gradeSelect = document.getElementById("gradeFilter");
+  grades.forEach((g) => {
+    const opt = document.createElement("option");
+    opt.value = g; opt.textContent = `Grade ${g}`;
+    gradeSelect.appendChild(opt);
+  });
+
+  const sectionSelect = document.getElementById("sectionFilter");
+  sections.forEach((s) => {
+    const opt = document.createElement("option");
+    opt.value = s; opt.textContent = `Section ${s}`;
+    sectionSelect.appendChild(opt);
+  });
+
+  const staffSelect = document.getElementById("staffFilter");
+  staff.forEach((s) => {
+    const opt = document.createElement("option");
+    opt.value = s; opt.textContent = s;
+    staffSelect.appendChild(opt);
+  });
+}
+
+function render() {
+  const searchTerm = document.getElementById("searchBox").value.trim().toLowerCase();
+  const gradeVal = document.getElementById("gradeFilter").value;
+  const sectionVal = document.getElementById("sectionFilter").value;
+  const staffVal = document.getElementById("staffFilter").value;
+
+  const filtered = enrichedLogs.filter((l) => {
+    if (gradeVal && l.grade !== gradeVal) return false;
+    if (sectionVal && l.section !== sectionVal) return false;
+    if (staffVal && l.staffName !== staffVal) return false;
+    if (searchTerm) {
+      const haystack = `${l.studentName} ${l.guardianName} ${l.staffName}`.toLowerCase();
+      if (!haystack.includes(searchTerm)) return false;
+    }
+    return true;
+  });
+
+  document.getElementById("resultCount").textContent =
+    `${filtered.length} of ${enrichedLogs.length} record${enrichedLogs.length === 1 ? "" : "s"}`;
+
+  const list = document.getElementById("logList");
+  const noResultsState = document.getElementById("noResultsState");
+  list.innerHTML = "";
+
+  if (filtered.length === 0) {
+    noResultsState.classList.remove("hidden");
+    return;
+  }
+  noResultsState.classList.add("hidden");
+
+  filtered.forEach((l) => {
+    const card = document.createElement("div");
+    card.className = "bg-white rounded-xl shadow-sm p-3";
+    card.innerHTML = `
+      <div class="flex items-center justify-between">
+        <p class="font-semibold text-gray-800">${escapeHtml(l.studentName)}</p>
+        <p class="text-xs text-gray-400">${l.timestamp ? formatTime(l.timestamp) : "-"}</p>
+      </div>
+      <p class="text-xs text-gray-500 mb-1">Grade ${escapeHtml(l.grade || "-")} · Section ${escapeHtml(l.section || "-")}</p>
+      <p class="text-sm text-gray-700">Picked up by <span class="font-medium">${escapeHtml(l.guardianName)}</span></p>
+      <p class="text-xs text-gray-400">Approved by ${escapeHtml(l.staffName)}</p>
+    `;
+    list.appendChild(card);
+  });
+}
+
+["searchBox", "gradeFilter", "sectionFilter", "staffFilter"].forEach((id) => {
+  document.getElementById(id).addEventListener("input", render);
+  document.getElementById(id).addEventListener("change", render);
+});
+
+function formatTime(date) {
+  return date.toLocaleString(undefined, {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>

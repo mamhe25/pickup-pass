@@ -17,7 +17,6 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -83,7 +82,12 @@ public class QrTokenIssuanceService {
 
         // 3. Mint a new nonce-tracked Firestore doc — this is the single-use
         //    ledger entry the verification service checks at scan time.
-        String nonce = UUID.randomUUID().toString();
+        //    A short random ID (not a full 36-char UUID) keeps the signed
+        //    JWT — and therefore the QR code encoding it — meaningfully
+        //    smaller, which matters for real-world scan reliability on
+        //    lower-quality webcams. 96 bits of randomness is still
+        //    astronomically collision-safe for one school's token volume.
+        String nonce = generateShortId();
         Instant now = Instant.now();
         Instant dismissalDeadline = now.plusSeconds(dismissalWindowMinutes * 60L);
 
@@ -100,21 +104,28 @@ public class QrTokenIssuanceService {
 
         // 4. Sign the JWT the QR code will actually encode. Short "exp" keeps
         //    a displayed-but-idle QR code visually/functionally refreshing
-        //    well before the 2-hour dismissal window is reached.
+        //    well before the 2-hour dismissal window is reached. Claim names
+        //    are deliberately terse (sid/stid/pid/n) — every byte here goes
+        //    directly into QR code density.
         Instant jwtExpiry = now.plusSeconds(tokenTtlMinutes * 60L);
 
         String jwt = JWT.create()
-                .withIssuer("pickup-pass-system")
-                .withSubject(parentUid)
-                .withClaim("schoolId", schoolId)
-                .withClaim("studentId", studentId)
-                .withClaim("parentUid", parentUid)
-                .withClaim("nonce", nonce)
+                .withIssuer("pps")
+                .withClaim("sid", schoolId)
+                .withClaim("stid", studentId)
+                .withClaim("pid", parentUid)
+                .withClaim("n", nonce)
                 .withIssuedAt(Date.from(now))
                 .withExpiresAt(Date.from(jwtExpiry))
                 .sign(hmacAlgorithm);
 
         return new PickupTokenResponse(jwt, Date.from(jwtExpiry), Date.from(dismissalDeadline));
+    }
+
+    private String generateShortId() {
+        byte[] randomBytes = new byte[12]; // 96 bits
+        new java.security.SecureRandom().nextBytes(randomBytes);
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
     }
 
     private void invalidatePriorActiveTokens(String schoolId, String studentId, String parentUid)

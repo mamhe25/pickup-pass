@@ -22,6 +22,17 @@ data class GuardianEntry(
     val addedBy: String = "",
 )
 
+/** Firestore: exitLogs/{logId}, enriched client-side with student/guardian/staff display info. */
+data class ExitLogEntry(
+    val id: String = "",
+    val studentName: String = "",
+    val grade: String = "",
+    val section: String = "",
+    val guardianName: String = "",
+    val staffName: String = "",
+    val timestampMillis: Long? = null,
+)
+
 /** Firestore: schools/{schoolId} */
 data class SchoolInfo(
     var id: String = "",

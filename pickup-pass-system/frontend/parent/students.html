@@ -14,9 +14,13 @@
       <span id="schoolName" class="text-sm font-medium text-gray-500"></span>
     </div>
 
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between mb-1">
       <h1 class="text-xl font-bold text-gray-800">My Students</h1>
       <a href="./profile.html" class="text-sm text-indigo-600 font-medium">My Profile</a>
+    </div>
+    <div class="flex items-center justify-between mb-4">
+      <p id="currentUserEmail" class="text-xs text-gray-400"></p>
+      <button id="signOutBtn" class="text-xs text-gray-400 underline">Sign out</button>
     </div>
 
     <div id="studentList"></div>
@@ -29,13 +33,22 @@
 <script type="module">
 import { auth, db } from "../shared/firebase-init.js";
 import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+document.getElementById("signOutBtn").addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "../login.html";
+});
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "../login.html";
     return;
   }
+  // Deliberately prominent: on a shared/kiosk device, this is the one
+  // thing that makes it obvious if you're accidentally still signed in
+  // as the previous parent rather than yourself.
+  document.getElementById("currentUserEmail").textContent = user.email;
   const tokenResult = await user.getIdTokenResult();
   const schoolId = tokenResult.claims.schoolId;
   await loadSchoolBranding(schoolId);

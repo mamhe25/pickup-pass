@@ -9,7 +9,11 @@
 <body class="bg-gray-50 min-h-screen p-4">
 
   <div class="max-w-sm mx-auto pt-2">
-    <a href="./branding.html" class="text-sm text-indigo-600 font-medium">← School Branding</a>
+    <div class="flex items-center justify-between">
+      <a href="./branding.html" class="text-sm text-indigo-600 font-medium">← School Branding</a>
+      <button id="signOutBtn" class="text-xs text-gray-400 underline">Sign out</button>
+    </div>
+    <p id="currentUserEmail" class="text-xs text-gray-400 mt-1"></p>
 
     <h1 class="text-xl font-bold text-gray-800 mt-2 mb-1">Invite a Teacher</h1>
     <p class="text-sm text-gray-500 mb-6">
@@ -37,12 +41,19 @@
 
 <script type="module">
 import { auth, authedFetch } from "../shared/firebase-init.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+document.getElementById("signOutBtn").addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "../login.html";
+});
 
 onAuthStateChanged(auth, (user) => {
   if (!user) {
     window.location.href = "../login.html";
+    return;
   }
+  document.getElementById("currentUserEmail").textContent = user.email;
 });
 
 document.getElementById("inviteForm").addEventListener("submit", async (e) => {
