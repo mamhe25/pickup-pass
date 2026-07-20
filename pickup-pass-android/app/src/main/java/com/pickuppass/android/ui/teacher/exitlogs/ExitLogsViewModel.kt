@@ -28,7 +28,8 @@ data class ExitLogsUiState(
         (gradeFilter == null || log.grade == gradeFilter) &&
         (sectionFilter == null || log.section == sectionFilter) &&
         (staffFilter == null || log.staffName == staffFilter) &&
-        (searchTerm.isBlank() || listOf(log.studentName, log.guardianName, log.staffName)
+        //(searchTerm.isBlank() || listOf(log.studentName, log.guardianName, log.staffName)
+        (searchTerm.isBlank() || listOf(log.studentName)
             .any { it.contains(searchTerm, ignoreCase = true) })
     }
 }

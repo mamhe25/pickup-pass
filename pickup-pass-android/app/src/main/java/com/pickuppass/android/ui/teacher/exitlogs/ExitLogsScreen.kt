@@ -47,7 +47,7 @@ fun ExitLogsScreen(
                 OutlinedTextField(
                     value = uiState.searchTerm,
                     onValueChange = viewModel::onSearchChange,
-                    placeholder = { Text("Search by student or staff name...") },
+                    placeholder = { Text("Search by student name...") },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
