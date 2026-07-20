@@ -92,7 +92,7 @@ class TeacherRepository @Inject constructor(
 
         val studentsById = studentsSnapshot.documents.associateBy(
             { it.id },
-            { it.data() ?: emptyMap<String, Any>() }
+            { it.data ?: emptyMap<String, Any>() }
         )
 
         val uidsNeeded = mutableSetOf<String>()

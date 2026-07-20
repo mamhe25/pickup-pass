@@ -137,6 +137,7 @@ private fun ExitLogRow(log: ExitLogEntry) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilterDropdown(
     label: String,
@@ -176,6 +177,6 @@ private fun EmptyState(message: String) {
 }
 
 private fun formatTime(millis: Long): String {
-    val formatter = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
+    val formatter = SimpleDateFormat("MMM d, yyyy - h:mm a", Locale.getDefault())
     return formatter.format(Date(millis))
 }
