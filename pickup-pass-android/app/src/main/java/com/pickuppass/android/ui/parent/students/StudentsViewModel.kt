@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.pickuppass.android.data.model.SchoolInfo
 import com.pickuppass.android.data.model.Student
 import com.pickuppass.android.data.repository.AuthRepository
+import com.pickuppass.android.data.repository.NotificationRepository
 import com.pickuppass.android.data.repository.StudentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,13 +18,15 @@ data class StudentsUiState(
     val students: List<Student> = emptyList(),
     val error: String? = null,
     val parentDisplayName: String = "",
-    val school: SchoolInfo? = null
+    val school: SchoolInfo? = null,
+    val unreadNotificationCount: Int = 0,
 )
 
 @HiltViewModel
 class StudentsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val studentRepository: StudentRepository
+    private val studentRepository: StudentRepository,
+    private val notificationRepository: NotificationRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StudentsUiState())
@@ -47,6 +50,12 @@ class StudentsViewModel @Inject constructor(
             // it's cosmetic, so just leave `school` null on failure.
             studentRepository.getSchool(session.schoolId).onSuccess { school ->
                 _uiState.value = _uiState.value.copy(school = school)
+            }
+
+            // Same reasoning: a failed unread-count fetch just leaves the
+            // badge showing 0 rather than blocking the whole screen.
+            notificationRepository.getUnreadCount(session.uid).onSuccess { count ->
+                _uiState.value = _uiState.value.copy(unreadNotificationCount = count)
             }
 
             studentRepository.getMyStudents(session.uid, session.schoolId)

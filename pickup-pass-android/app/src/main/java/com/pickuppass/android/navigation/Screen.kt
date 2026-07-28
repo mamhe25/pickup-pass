@@ -6,6 +6,7 @@ sealed class Screen(val route: String) {
 
     data object ParentStudents : Screen("parent/students")
     data object ParentProfile : Screen("parent/profile")
+    data object ParentNotifications : Screen("parent/notifications")
 
     data object ParentPickupPass : Screen("parent/pass/{studentId}") {
         fun createRoute(studentId: String) = "parent/pass/$studentId"

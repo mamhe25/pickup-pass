@@ -10,17 +10,24 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    function isUserActive() {
+      // Staff accounts created before isActive was introduced have no such
+      // field. Keep those legacy accounts working, while an explicit false
+      // value continues to block a suspended user immediately.
+      return !userDoc().keys().hasAll(['isActive']) || userDoc().isActive == true;
+    }
+
     function sameSchool(schoolId) {
-      return isSignedIn() && userDoc().schoolId == schoolId && userDoc().isActive == true;
+      return isSignedIn() && request.auth.token.schoolId == schoolId && isUserActive();
     }
 
     function isMasterAdmin() {
-      return isSignedIn() && userDoc().role == 'master_admin';
+      return isSignedIn() && request.auth.token.role == 'master_admin';
     }
 
     function isSchoolStaff(schoolId) {
       return sameSchool(schoolId) &&
-        (userDoc().role == 'school_admin' || userDoc().role == 'teacher');
+        (request.auth.token.role == 'school_admin' || request.auth.token.role == 'teacher');
     }
 
     match /schools/{schoolId} {
@@ -55,6 +62,16 @@ service cloud.firestore {
       allow read: if isSchoolStaff(resource.data.schoolId) ||
         resource.data.parentUid == request.auth.uid;
       allow update, delete: if false; // immutable audit trail
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && resource.data.recipientUid == request.auth.uid;
+      // Only the "read" flag should ever change client-side; Admin SDK
+      // (the backend, which creates these) bypasses rules entirely, so
+      // this only governs direct client writes when marking as read.
+      allow update: if isSignedIn() && resource.data.recipientUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow create, delete: if false;
     }
   }
 }

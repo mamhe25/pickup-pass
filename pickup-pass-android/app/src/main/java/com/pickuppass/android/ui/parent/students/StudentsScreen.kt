@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -34,6 +35,7 @@ import com.pickuppass.android.ui.common.FullScreenLoading
 fun StudentsScreen(
     viewModel: StudentsViewModel = hiltViewModel(),
     onOpenProfile: () -> Unit,
+    onOpenNotifications: () -> Unit,
     onGetPass: (studentId: String) -> Unit,
     onManageGuardians: (studentId: String) -> Unit,
 ) {
@@ -55,6 +57,19 @@ fun StudentsScreen(
             TopAppBar(
                 title = { BrandedTitle("My Students", uiState.school) },
                 actions = {
+                    IconButton(onClick = onOpenNotifications) {
+                        BadgedBox(
+                            badge = {
+                                if (uiState.unreadNotificationCount > 0) {
+                                    Badge {
+                                        Text(if (uiState.unreadNotificationCount > 9) "9+" else uiState.unreadNotificationCount.toString())
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Filled.Notifications, contentDescription = "Notifications")
+                        }
+                    }
                     IconButton(onClick = onOpenProfile) {
                         Icon(Icons.Filled.AccountCircle, contentDescription = "My Profile")
                     }
