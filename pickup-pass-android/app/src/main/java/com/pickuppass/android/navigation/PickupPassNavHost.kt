@@ -14,9 +14,12 @@ import com.pickuppass.android.ui.parent.pass.PickupPassScreen
 import com.pickuppass.android.ui.parent.profile.ProfileScreen
 import com.pickuppass.android.ui.parent.students.StudentsScreen
 import com.pickuppass.android.ui.schooladmin.branding.SchoolBrandingScreen
+import com.pickuppass.android.ui.schooladmin.broadcast.SchoolBroadcastScreen
+import com.pickuppass.android.ui.schooladmin.sections.ManageSectionsScreen
 import com.pickuppass.android.ui.schooladmin.staff.InviteTeacherScreen
 import com.pickuppass.android.ui.splash.SplashDestination
 import com.pickuppass.android.ui.splash.SplashScreen
+import com.pickuppass.android.ui.teacher.broadcast.TeacherBroadcastScreen
 import com.pickuppass.android.ui.teacher.exitlogs.ExitLogsScreen
 import com.pickuppass.android.ui.teacher.registerparent.RegisterParentScreen
 import com.pickuppass.android.ui.teacher.scanner.ScannerScreen
@@ -111,6 +114,8 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
             ScannerScreen(
                 onGoToStudents = { navController.navigate(Screen.TeacherStudents.route) },
                 onGoToExitLogs = { navController.navigate(Screen.TeacherExitLogs.route) },
+                onGoToNotifications = { navController.navigate(Screen.TeacherNotifications.route) },
+                onGoToBroadcast = { navController.navigate(Screen.TeacherBroadcast.route) },
                 onSignOut = { navController.navigateToLoginClearingBackStack() }
             )
         }
@@ -137,6 +142,14 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
             ExitLogsScreen(onBack = { navController.popBackStack() })
         }
 
+        composable(Screen.TeacherNotifications.route) {
+            NotificationsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.TeacherBroadcast.route) {
+            TeacherBroadcastScreen(onBack = { navController.popBackStack() })
+        }
+
         // ---- School admin flow ----
 
         composable(Screen.SchoolAdminBranding.route) {
@@ -145,12 +158,22 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
                 onGoToStudents = { navController.navigate(Screen.TeacherStudents.route) },
                 onGoToExitLogs = { navController.navigate(Screen.TeacherExitLogs.route) },
                 onGoToInviteTeacher = { navController.navigate(Screen.SchoolAdminInviteTeacher.route) },
+                onGoToManageSections = { navController.navigate(Screen.SchoolAdminManageSections.route) },
+                onGoToBroadcast = { navController.navigate(Screen.SchoolAdminBroadcast.route) },
                 onSignedOut = { navController.navigateToLoginClearingBackStack() }
             )
         }
 
         composable(Screen.SchoolAdminInviteTeacher.route) {
             InviteTeacherScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.SchoolAdminManageSections.route) {
+            ManageSectionsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.SchoolAdminBroadcast.route) {
+            SchoolBroadcastScreen(onBack = { navController.popBackStack() })
         }
     }
 }

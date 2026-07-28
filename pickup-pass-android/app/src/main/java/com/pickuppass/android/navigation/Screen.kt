@@ -26,7 +26,15 @@ sealed class Screen(val route: String) {
 
     data object TeacherExitLogs : Screen("teacher/exit-logs")
 
+    data object TeacherNotifications : Screen("teacher/notifications")
+
+    data object TeacherBroadcast : Screen("teacher/broadcast")
+
     data object SchoolAdminBranding : Screen("school-admin/branding")
 
     data object SchoolAdminInviteTeacher : Screen("school-admin/invite-teacher")
+
+    data object SchoolAdminBroadcast : Screen("school-admin/broadcast")
+
+    data object SchoolAdminManageSections : Screen("school-admin/manage-sections")
 }

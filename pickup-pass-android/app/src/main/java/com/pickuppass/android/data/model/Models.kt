@@ -29,6 +29,7 @@ data class NotificationItem(
     val body: String = "",
     val type: String = "",
     val studentId: String? = null,
+    val senderName: String? = null, // only set for type == "broadcast"
     val read: Boolean = false,
     val createdAtMillis: Long? = null,
 )
@@ -152,3 +153,29 @@ data class InviteTeacherResponse(
 data class DeviceTokenRequest(val token: String)
 
 data class LogoUploadResponse(val logoUrl: String? = null, val error: String? = null)
+
+/** Grade/section pair a teacher is assigned to — scopes their broadcast reach. */
+data class TeacherSection(val grade: String, val section: String)
+
+/** Firestore: users/{uid}, teacher role — as returned by GET /school-admin/staff for the section-editor UI. */
+data class TeacherWithSections(
+    val uid: String,
+    val displayName: String?,
+    val email: String?,
+    val assignedSections: List<TeacherSection> = emptyList()
+)
+
+data class StaffListResponse(val teachers: List<TeacherWithSections> = emptyList())
+
+data class UpdateSectionsRequest(val sections: List<TeacherSection>)
+
+data class BroadcastRequest(
+    val title: String,
+    val body: String,
+    val audience: List<String>? = null // only used by the school-admin endpoint; omitted for teacher broadcasts
+)
+
+data class BroadcastResponse(
+    val recipientCount: Int = 0,
+    val error: String? = null
+)

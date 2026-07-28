@@ -8,6 +8,8 @@ import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
+import retrofit2.http.GET
+import retrofit2.http.PUT
 
 interface PickupPassApi {
 
@@ -50,4 +52,19 @@ interface PickupPassApi {
         @Path("schoolId") schoolId: String,
         @Body body: Map<String, String>
     ): Response<SimpleStatusResponse>
+
+    @GET("school-admin/staff")
+    suspend fun listStaff(): Response<StaffListResponse>
+
+    @PUT("school-admin/staff/{uid}/sections")
+    suspend fun updateTeacherSections(
+        @Path("uid") uid: String,
+        @Body body: UpdateSectionsRequest
+    ): Response<SimpleStatusResponse>
+
+    @POST("school-admin/broadcasts")
+    suspend fun broadcastToSchool(@Body body: BroadcastRequest): Response<BroadcastResponse>
+
+    @POST("teacher/broadcasts")
+    suspend fun broadcastToSection(@Body body: BroadcastRequest): Response<BroadcastResponse>
 }

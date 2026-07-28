@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Send Announcement — Pickup Pass</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+
+  <div class="max-w-sm mx-auto pt-2">
+    <div class="flex items-center justify-between">
+      <a href="./students.html" class="text-sm text-indigo-600 font-medium">← Students</a>
+      <button id="signOutBtn" class="text-xs text-gray-400 underline">Sign out</button>
+    </div>
+    <p id="currentUserEmail" class="text-xs text-gray-400 mt-1 mb-4"></p>
+
+    <h1 class="text-xl font-bold text-gray-800 mb-1">Send an Announcement</h1>
+    <p class="text-sm text-gray-500 mb-4">
+      Goes out immediately to the guardians of students in your assigned section(s) — as a push and in their notification inbox.
+    </p>
+
+    <div class="bg-white rounded-2xl shadow-sm p-4">
+      <form id="broadcastForm" class="space-y-3">
+        <input id="title" type="text" required maxlength="120" placeholder="Title (e.g. &quot;Field Trip Reminder&quot;)"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <textarea id="body" required rows="4" maxlength="1000" placeholder="Message"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+
+        <p id="formError" class="text-sm text-red-500 hidden"></p>
+        <p id="formSuccess" class="text-sm text-green-600 hidden"></p>
+
+        <button type="submit" id="sendBtn"
+          class="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition">
+          Send Announcement
+        </button>
+      </form>
+    </div>
+  </div>
+
+<script type="module">
+import { auth, authedFetch } from "../shared/firebase-init.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+document.getElementById("signOutBtn").addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "../login.html";
+});
+
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    window.location.href = "../login.html";
+    return;
+  }
+  document.getElementById("currentUserEmail").textContent = user.email;
+});
+
+document.getElementById("broadcastForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const formError = document.getElementById("formError");
+  const formSuccess = document.getElementById("formSuccess");
+  const sendBtn = document.getElementById("sendBtn");
+  formError.classList.add("hidden");
+  formSuccess.classList.add("hidden");
+
+  const title = document.getElementById("title").value.trim();
+  const body = document.getElementById("body").value.trim();
+
+  sendBtn.disabled = true;
+  sendBtn.textContent = "Sending…";
+
+  try {
+    const res = await authedFetch("/teacher/broadcasts", {
+      method: "POST",
+      body: JSON.stringify({ title, body }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not send announcement");
+
+    formSuccess.textContent = data.recipientCount > 0
+      ? `Sent to ${data.recipientCount} guardian${data.recipientCount === 1 ? "" : "s"}.`
+      : "Sent — but no guardians were reachable in your section(s) yet.";
+    formSuccess.classList.remove("hidden");
+    e.target.reset();
+  } catch (err) {
+    formError.textContent = err.message;
+    formError.classList.remove("hidden");
+  } finally {
+    sendBtn.disabled = false;
+    sendBtn.textContent = "Send Announcement";
+  }
+});
+</script>
+</body>
+</html>

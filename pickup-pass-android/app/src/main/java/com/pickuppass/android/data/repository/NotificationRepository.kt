@@ -40,10 +40,11 @@ class NotificationRepository @Inject constructor(
 
     /**
      * The in-app notification inbox — a persisted record the backend
-     * writes for every pickup notification (see PushNotificationService),
-     * independent of whether the FCM push itself was ever delivered. This
-     * is what "My Notifications" reads from, not the transient system
-     * push, which has no history once dismissed.
+     * writes for every pickup notification AND every broadcast (see
+     * PushNotificationService / BroadcastService), independent of whether
+     * the FCM push itself was ever delivered. This is what "My
+     * Notifications" reads from, not the transient system push, which has
+     * no history once dismissed.
      */
     suspend fun getMyNotifications(uid: String): Result<List<NotificationItem>> = runCatching {
         val snapshot = firestore.collection("notifications")
@@ -60,6 +61,7 @@ class NotificationRepository @Inject constructor(
                 body = doc.getString("body") ?: "",
                 type = doc.getString("type") ?: "",
                 studentId = doc.getString("studentId"),
+                senderName = doc.getString("senderName"),
                 read = doc.getBoolean("read") ?: false,
                 createdAtMillis = doc.getTimestamp("createdAt")?.toDate()?.time,
             )

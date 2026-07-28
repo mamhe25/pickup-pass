@@ -9,6 +9,9 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +35,8 @@ fun ScannerScreen(
     viewModel: ScannerViewModel = hiltViewModel(),
     onGoToStudents: () -> Unit,
     onGoToExitLogs: () -> Unit,
+    onGoToNotifications: () -> Unit,
+    onGoToBroadcast: () -> Unit,
     onSignOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -55,6 +60,22 @@ fun ScannerScreen(
                     }
                     IconButton(onClick = onGoToExitLogs) {
                         Icon(Icons.Filled.History, contentDescription = "Dismissal History", tint = Color.White)
+                    }
+                    var menuExpanded by remember { mutableStateOf(false) }
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = Color.White)
+                    }
+                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Notifications") },
+                            leadingIcon = { Icon(Icons.Filled.Notifications, contentDescription = null) },
+                            onClick = { menuExpanded = false; onGoToNotifications() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Send Announcement") },
+                            leadingIcon = { Icon(Icons.Filled.Campaign, contentDescription = null) },
+                            onClick = { menuExpanded = false; onGoToBroadcast() }
+                        )
                     }
                     IconButton(onClick = { viewModel.signOut() }) {
                         Icon(Icons.Filled.Logout, contentDescription = "Sign out", tint = Color.White)

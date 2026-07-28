@@ -156,4 +156,20 @@ class TeacherRepository @Inject constructor(
             )
         }
     }
+
+    suspend fun broadcastToSection(title: String, body: String): ApiResult<Int> {
+        return try {
+            val response = api.broadcastToSection(
+                com.pickuppass.android.data.model.BroadcastRequest(title = title, body = body)
+            )
+            val respBody = response.body()
+            if (response.isSuccessful && respBody != null) {
+                ApiResult.Success(respBody.recipientCount)
+            } else {
+                ApiResult.Failure(respBody?.error ?: "Could not send announcement")
+            }
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
 }

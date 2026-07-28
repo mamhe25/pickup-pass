@@ -127,6 +127,14 @@ private fun NotificationRow(notification: NotificationItem, onClick: () -> Unit)
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(top = 4.dp)
             )
+            if (notification.type == "broadcast" && !notification.senderName.isNullOrBlank()) {
+                Text(
+                    "From: ${notification.senderName}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
             notification.createdAtMillis?.let {
                 Text(
                     formatTime(it),

@@ -33,6 +33,8 @@ fun SchoolBrandingScreen(
     onGoToStudents: () -> Unit,
     onGoToExitLogs: () -> Unit,
     onGoToInviteTeacher: () -> Unit,
+    onGoToManageSections: () -> Unit,
+    onGoToBroadcast: () -> Unit,
     onSignedOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -175,6 +177,24 @@ fun SchoolBrandingScreen(
                     .height(52.dp)
             ) {
                 Text("Invite a Teacher →")
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onGoToManageSections,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Text("Teacher Sections →")
+            }
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onGoToBroadcast,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Text("Send Announcement →")
             }
         }
     }
