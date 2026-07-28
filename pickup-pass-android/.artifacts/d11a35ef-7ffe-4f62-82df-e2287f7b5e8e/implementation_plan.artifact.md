@@ -18,6 +18,7 @@ We will update the `AndroidManifest.xml` to ensure full compatibility with Googl
 1.  **Add `<queries>` block**: Explicitly declare visibility for the Google Play Services package. This is required for apps targeting API 30+ that bind to Play Services.
 2.  **Add `ACCESS_NETWORK_STATE` permission**: Required by many Google Play Services libraries to check connectivity before making requests.
 3.  **Add `com.google.android.gms.version` meta-data**: While typically injected by the `google-services` plugin, explicitly adding it can resolve issues where the version is not correctly identified during the broker's security check.
+4.  **Add ML Kit dependency metadata**: Ensures that the barcode scanning module is correctly identified and initialized.
 
 ## Verification Plan
 

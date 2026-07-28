@@ -88,8 +88,11 @@ private fun ScanAndVerifyContent(uiState: ScannerUiState, viewModel: ScannerView
 
         when (uiState) {
             is ScannerUiState.Scanning -> ScanningOverlay()
-            is ScannerUiState.Verifying -> VerifyingOverlay()
-            is ScannerUiState.Verified -> VerifiedPanel(uiState, viewModel)
+            is ScannerUiState.Verifying -> RequestOverlay("Verifying pass…")
+            is ScannerUiState.Verified -> {
+                VerifiedPanel(uiState, viewModel)
+                if (uiState.isApproving) RequestOverlay("Approving release…")
+            }
             is ScannerUiState.Error -> ErrorPanel(uiState.message, onDismiss = viewModel::resetToScanning)
             is ScannerUiState.Approved -> Unit
         }
@@ -111,10 +114,16 @@ private fun ScanningOverlay() {
 }
 
 @Composable
-private fun VerifyingOverlay() {
+private fun RequestOverlay(message: String) {
     Surface(color = Color.Black.copy(alpha = 0.5f), modifier = Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
             CircularProgressIndicator(color = Color.White)
+            Spacer(Modifier.height(16.dp))
+            Text(message, color = Color.White, style = MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -201,6 +210,7 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = viewModel::resetToScanning,
+                    enabled = !state.isApproving,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
@@ -214,22 +224,15 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
 
 @Composable
 private fun BoxScope.ErrorPanel(message: String, onDismiss: () -> Unit) {
-    LaunchedEffect(message) {
-        kotlinx.coroutines.delay(2500)
-        onDismiss()
-    }
-    Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
-        Surface(color = MaterialTheme.colorScheme.error, modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Filled.Close, contentDescription = null, tint = Color.White)
-                Spacer(Modifier.width(8.dp))
-                Text(message, color = Color.White, fontWeight = FontWeight.SemiBold)
-            }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Filled.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+        title = { Text("Pass could not be verified") },
+        text = { Text(message) },
+        confirmButton = {
+            Button(onClick = onDismiss) { Text("Scan Again") }
         }
-    }
+    )
 }
 
 @Composable

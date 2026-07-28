@@ -86,7 +86,9 @@ fun TeacherStudentsScreen(
             isSubmitting = uiState.isSubmitting,
             formError = uiState.formError,
             onDismiss = { showAddDialog = false },
-            onSubmit = { name, grade, section -> viewModel.addStudent(name, grade, section) }
+            onSubmit = { lastName, firstName, mi, suffix, grade, section ->
+                viewModel.addStudent(lastName, firstName, mi, suffix, grade, section)
+            }
         )
     }
 }
@@ -157,9 +159,12 @@ private fun AddStudentDialog(
     isSubmitting: Boolean,
     formError: String?,
     onDismiss: () -> Unit,
-    onSubmit: (name: String, grade: String, section: String) -> Unit
+    onSubmit: (lastName: String, firstName: String, middleInitial: String, suffix: String, grade: String, section: String) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var firstName by remember { mutableStateOf("") }
+    var middleInitial by remember { mutableStateOf("") }
+    var suffix by remember { mutableStateOf("") }
     var grade by remember { mutableStateOf("") }
     var section by remember { mutableStateOf("") }
 
@@ -169,12 +174,38 @@ private fun AddStudentDialog(
         text = {
             Column {
                 OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Full name") },
+                    value = lastName,
+                    onValueChange = { lastName = it },
+                    label = { Text("Last name") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = firstName,
+                    onValueChange = { firstName = it },
+                    label = { Text("First name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                Row {
+                    OutlinedTextField(
+                        value = middleInitial,
+                        onValueChange = { middleInitial = it },
+                        label = { Text("M.I.") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    OutlinedTextField(
+                        value = suffix,
+                        onValueChange = { suffix = it },
+                        label = { Text("Suffix") },
+                        singleLine = true,
+                        modifier = Modifier.weight(2f)
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
                 Row {
                     OutlinedTextField(
@@ -203,7 +234,7 @@ private fun AddStudentDialog(
             PrimaryButton(
                 text = "Add",
                 loading = isSubmitting,
-                onClick = { onSubmit(name.trim(), grade.trim(), section.trim()) },
+                onClick = { onSubmit(lastName.trim(), firstName.trim(), middleInitial.trim(), suffix.trim(), grade.trim(), section.trim()) },
                 modifier = Modifier.padding(bottom = 4.dp)
             )
         },

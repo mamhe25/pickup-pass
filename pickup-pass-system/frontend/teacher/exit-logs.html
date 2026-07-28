@@ -37,6 +37,7 @@
     <p id="resultCount" class="text-xs text-gray-400 mb-2"></p>
 
     <div id="logList" class="space-y-2"></div>
+    <div id="errorState" class="hidden bg-red-50 border border-red-200 rounded-xl p-4 text-center text-sm text-red-700"></div>
     <div id="emptyState" class="hidden bg-white rounded-xl p-6 text-center text-sm text-gray-500">
       No dismissal records yet.
     </div>
@@ -79,15 +80,23 @@ async function loadLogs() {
   // school's full roster + relevant users ONCE and build lookup maps,
   // rather than a separate read per log (which would be both slow and
   // expensive against Firestore's daily read quota on the free plan).
-  const [logsSnap, studentsSnap] = await Promise.all([
-    getDocs(query(
-      collection(db, "exitLogs"),
-      where("schoolId", "==", currentSchoolId),
-      orderBy("timestamp", "desc"),
-      limit(200) // most-recent window; the free plan's read quota isn't meant for unbounded history scans
-    )),
-    getDocs(query(collection(db, "students"), where("schoolId", "==", currentSchoolId))),
-  ]);
+  try {
+    // Sort in the browser so the history remains usable even when the
+    // schoolId/timestamp composite index has not finished building yet.
+    const [logsSnap, studentsSnap] = await Promise.all([
+      getDocs(query(
+        collection(db, "exitLogs"),
+        where("schoolId", "==", currentSchoolId),
+        limit(200)
+      )),
+      getDocs(query(collection(db, "students"), where("schoolId", "==", currentSchoolId))),
+    ]);
+
+    const logDocs = [...logsSnap.docs].sort((a, b) => {
+      const aTimestamp = a.data().timestamp?.toMillis?.() || 0;
+      const bTimestamp = b.data().timestamp?.toMillis?.() || 0;
+      return bTimestamp - aTimestamp;
+    });
 
   const studentsById = {};
   studentsSnap.forEach((d) => { studentsById[d.id] = d.data(); });
@@ -95,14 +104,14 @@ async function loadLogs() {
   // Collect every distinct uid we'll need a display name/photo for
   // (guardians who picked up + staff who approved), then batch-fetch them.
   const uidsNeeded = new Set();
-  logsSnap.forEach((d) => {
+  logDocs.forEach((d) => {
     const log = d.data();
     if (log.parentUid) uidsNeeded.add(log.parentUid);
     if (log.verifiedByUid) uidsNeeded.add(log.verifiedByUid);
   });
   const usersById = await fetchUsersByIds([...uidsNeeded]);
 
-  enrichedLogs = logsSnap.docs.map((d) => {
+  enrichedLogs = logDocs.map((d) => {
     const log = d.data();
     const student = studentsById[log.studentId] || {};
     const guardian = usersById[log.parentUid] || {};
@@ -125,8 +134,14 @@ async function loadLogs() {
     return;
   }
 
-  populateFilterOptions();
-  render();
+    populateFilterOptions();
+    render();
+  } catch (err) {
+    loadingState.classList.add("hidden");
+    const errorState = document.getElementById("errorState");
+    errorState.textContent = `Could not load dismissal history: ${err.message || err}`;
+    errorState.classList.remove("hidden");
+  }
 }
 
 async function fetchUsersByIds(uids) {
@@ -221,9 +236,10 @@ function render() {
 });
 
 function formatTime(date) {
-  return date.toLocaleString(undefined, {
-    month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
-  });
+  // return date.toLocaleString(undefined, {
+  //   year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit"
+  // });
+  return date;
 }
 
 function escapeHtml(str) {

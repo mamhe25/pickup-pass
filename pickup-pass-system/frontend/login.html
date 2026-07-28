@@ -32,7 +32,7 @@
   </div>
 
 <script type="module">
-import { auth } from "./shared/firebase-init.js";
+import { auth, setSubmitButtonBusy, showToast } from "./shared/firebase-init.js";
 import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
@@ -62,16 +62,21 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 });
 
 document.getElementById("forgotBtn").addEventListener("click", async () => {
+  const forgotButton = document.getElementById("forgotBtn");
+  if (forgotButton.disabled) return;
   const email = document.getElementById("email").value.trim();
   if (!email) {
-    alert("Enter your email above first, then tap 'Forgot password?' again.");
+    showToast("Enter your email first, then select “Forgot password?” again.", "info");
     return;
   }
+  setSubmitButtonBusy(forgotButton, true, "Sending…");
   try {
     await sendPasswordResetEmail(auth, email);
-    alert("Password reset email sent — check your inbox.");
+    showToast("Password reset email sent. Check your inbox.", "success");
   } catch (err) {
-    alert("Couldn't send reset email: " + friendlyError(err.code));
+    showToast("Could not send reset email: " + friendlyError(err.code), "error");
+  } finally {
+    setSubmitButtonBusy(forgotButton, false);
   }
 });
 
@@ -90,7 +95,7 @@ async function routeByRole(user) {
       window.location.href = "./school-admin/branding.html";
       break;
     case "master_admin":
-      alert("Master admin console isn't included in this build — use the /api/master-admin endpoints directly.");
+      showToast("Master admin console is not included in this build.", "info");
       break;
     default:
       document.getElementById("errorMsg").textContent =

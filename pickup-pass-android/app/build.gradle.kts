@@ -21,7 +21,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Overridden per-build-type below; points at your deployed Java backend.
-        buildConfigField("String", "API_BASE_URL", "\"https://pickup-pass-backend-445244473897.us-central1.run.app/api/\"")
+        buildConfigField("String", "API_BASE_URL", "\"https://pickup-pass-backend-445244473897.asia-southeast1.run.app/api/\"")
     }
 
     signingConfigs {
@@ -35,7 +35,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8080/api/\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://192.168.1.14:8080/api/\"")
             isMinifyEnabled = false
         }
         release {

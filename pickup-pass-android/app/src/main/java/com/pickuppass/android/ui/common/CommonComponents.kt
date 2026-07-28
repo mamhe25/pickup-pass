@@ -16,6 +16,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -67,12 +70,15 @@ fun ErrorBanner(message: String, modifier: Modifier = Modifier) {
         shape = RoundedCornerShape(12.dp),
         modifier = modifier.fillMaxWidth()
     ) {
-        Text(
-            text = message,
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(12.dp)
-        )
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+            Icon(Icons.Filled.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(start = 10.dp)
+            )
+        }
     }
 }
 
@@ -93,11 +99,12 @@ fun WarningBanner(message: String, modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxWidth()
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
-            Text("⚠️ ", style = MaterialTheme.typography.bodyMedium)
+            Icon(Icons.Filled.Warning, contentDescription = null, tint = Color(0xFF92400E))
             Text(
                 text = message,
                 color = Color(0xFF92400E),
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(start = 10.dp)
             )
         }
     }
@@ -110,12 +117,15 @@ fun SuccessBanner(message: String, modifier: Modifier = Modifier) {
         shape = RoundedCornerShape(12.dp),
         modifier = modifier.fillMaxWidth()
     ) {
-        Text(
-            text = message,
-            color = MaterialTheme.colorScheme.secondary,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(12.dp)
-        )
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(start = 10.dp)
+            )
+        }
     }
 }
 

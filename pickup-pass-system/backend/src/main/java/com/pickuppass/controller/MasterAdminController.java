@@ -106,9 +106,14 @@ public class MasterAdminController {
         if (!firestore.collection("schools").document(schoolId).get().get().exists()) {
             return ResponseEntity.status(404).body(Map.of("error", "School not found"));
         }
+        if (req.getLastName() == null || req.getLastName().isBlank()
+                || req.getFirstName() == null || req.getFirstName().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "lastName and firstName are required"));
+        }
 
         StaffProvisioningService.StaffCreationResult result = staffProvisioningService.createStaffAccount(
-                req.getEmail(), req.getDisplayName(), req.getRole(), schoolId);
+                req.getEmail(), req.getLastName(), req.getFirstName(),
+                req.getMiddleInitial(), req.getSuffix(), req.getRole(), schoolId);
 
         return ResponseEntity.ok(Map.of(
                 "uid", result.getUid(),
@@ -132,13 +137,22 @@ public class MasterAdminController {
 
     public static class CreateStaffRequest {
         @NotBlank private String email;
-        @NotBlank private String displayName;
+        @NotBlank private String lastName;
+        @NotBlank private String firstName;
+        private String middleInitial;
+        private String suffix;
         @NotBlank private String role;
 
         public String getEmail() { return email; }
         public void setEmail(String email) { this.email = email; }
-        public String getDisplayName() { return displayName; }
-        public void setDisplayName(String displayName) { this.displayName = displayName; }
+        public String getLastName() { return lastName; }
+        public void setLastName(String v) { this.lastName = v; }
+        public String getFirstName() { return firstName; }
+        public void setFirstName(String v) { this.firstName = v; }
+        public String getMiddleInitial() { return middleInitial; }
+        public void setMiddleInitial(String v) { this.middleInitial = v; }
+        public String getSuffix() { return suffix; }
+        public void setSuffix(String v) { this.suffix = v; }
         public String getRole() { return role; }
         public void setRole(String role) { this.role = role; }
     }

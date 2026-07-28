@@ -18,13 +18,24 @@ class GuardianRepository @Inject constructor(
 ) {
     suspend fun addGuardian(
         studentId: String,
-        guardianName: String,
+        lastName: String,
+        firstName: String,
+        middleInitial: String,
+        suffix: String,
         guardianEmail: String,
         relationship: String
     ): ApiResult<AddGuardianResponse> {
         return try {
             val response = api.addGuardian(
-                AddGuardianRequest(studentId, guardianEmail, guardianName, relationship)
+                AddGuardianRequest(
+                    studentId = studentId,
+                    guardianEmail = guardianEmail,
+                    lastName = lastName,
+                    firstName = firstName,
+                    middleInitial = middleInitial.ifBlank { null },
+                    suffix = suffix.ifBlank { null },
+                    relationship = relationship
+                )
             )
             val body = response.body()
             if (response.isSuccessful && body?.status != null) {

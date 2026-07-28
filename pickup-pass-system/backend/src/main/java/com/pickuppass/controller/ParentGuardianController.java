@@ -50,7 +50,7 @@ public class ParentGuardianController {
     }
 
     @PostMapping("/add-guardian")
-    @PreAuthorize("hasRole('parent')")
+    @PreAuthorize("hasAnyRole('parent', 'teacher', 'school_admin')")
     @SuppressWarnings("unchecked")
     public ResponseEntity<?> addGuardian(
             @RequestBody AddGuardianRequest req,
@@ -65,7 +65,8 @@ public class ParentGuardianController {
         }
 
         List<String> guardianUids = (List<String>) studentSnap.get("guardianUids");
-        if (guardianUids == null || !guardianUids.contains(parent.getUid())) {
+        boolean isSchoolStaff = "teacher".equals(parent.getRole()) || "school_admin".equals(parent.getRole());
+        if (!isSchoolStaff && (guardianUids == null || !guardianUids.contains(parent.getUid()))) {
             throw new ForbiddenException("You are not an authorized guardian for this student");
         }
 
@@ -74,8 +75,14 @@ public class ParentGuardianController {
                     Map.of("error", "Maximum of " + maxGuardiansPerStudent + " authorized guardians reached for this student"));
         }
 
-        GuardianProvisioningService.ProvisionResult result =
-                guardianService.provisionGuardianAccount(req.getGuardianEmail(), req.getGuardianName(), schoolId);
+        if (req.getLastName() == null || req.getLastName().isBlank()
+                || req.getFirstName() == null || req.getFirstName().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "lastName and firstName are required"));
+        }
+
+        GuardianProvisioningService.ProvisionResult result = guardianService.provisionGuardianAccount(
+                req.getGuardianEmail(), req.getLastName(), req.getFirstName(),
+                req.getMiddleInitial(), req.getSuffix(), schoolId);
 
         if (guardianUids.contains(result.getUid())) {
             return ResponseEntity.status(400).body(Map.of("error", "This person is already an authorized guardian"));
@@ -100,7 +107,7 @@ public class ParentGuardianController {
     }
 
     @PostMapping("/remove-guardian")
-    @PreAuthorize("hasRole('parent')")
+    @PreAuthorize("hasAnyRole('parent', 'teacher', 'school_admin')")
     @SuppressWarnings("unchecked")
     public ResponseEntity<?> removeGuardian(
             @RequestBody RemoveGuardianRequest req,
@@ -115,7 +122,8 @@ public class ParentGuardianController {
         }
 
         List<String> guardianUids = (List<String>) studentSnap.get("guardianUids");
-        if (guardianUids == null || !guardianUids.contains(parent.getUid())) {
+        boolean isSchoolStaff = "teacher".equals(parent.getRole()) || "school_admin".equals(parent.getRole());
+        if (!isSchoolStaff && (guardianUids == null || !guardianUids.contains(parent.getUid()))) {
             throw new ForbiddenException("You are not an authorized guardian for this student");
         }
 
@@ -152,15 +160,24 @@ public class ParentGuardianController {
     public static class AddGuardianRequest {
         @NotBlank private String studentId;
         @NotBlank private String guardianEmail;
-        @NotBlank private String guardianName;
+        @NotBlank private String lastName;
+        @NotBlank private String firstName;
+        private String middleInitial;
+        private String suffix;
         private String relationship;
 
         public String getStudentId() { return studentId; }
         public void setStudentId(String v) { this.studentId = v; }
         public String getGuardianEmail() { return guardianEmail; }
         public void setGuardianEmail(String v) { this.guardianEmail = v; }
-        public String getGuardianName() { return guardianName; }
-        public void setGuardianName(String v) { this.guardianName = v; }
+        public String getLastName() { return lastName; }
+        public void setLastName(String v) { this.lastName = v; }
+        public String getFirstName() { return firstName; }
+        public void setFirstName(String v) { this.firstName = v; }
+        public String getMiddleInitial() { return middleInitial; }
+        public void setMiddleInitial(String v) { this.middleInitial = v; }
+        public String getSuffix() { return suffix; }
+        public void setSuffix(String v) { this.suffix = v; }
         public String getRelationship() { return relationship; }
         public void setRelationship(String v) { this.relationship = v; }
     }

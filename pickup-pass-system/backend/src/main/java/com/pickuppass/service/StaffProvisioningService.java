@@ -7,6 +7,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
 import com.pickuppass.exception.ConflictException;
+import com.pickuppass.util.NameFormatter;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -50,16 +51,18 @@ public class StaffProvisioningService {
      * @param schoolId null only for role == "master_admin" (a global role,
      *                 not scoped to any one school)
      * @throws ConflictException if a Firebase Auth account with this email
-     *         already exists — previously this wasn't checked at all, so
-     *         testing with a reused email threw an unhandled
-     *         EMAIL_ALREADY_EXISTS straight into the generic 500 handler.
+     *         already exists.
      */
-    public StaffCreationResult createStaffAccount(String email, String displayName, String role, String schoolId)
+    public StaffCreationResult createStaffAccount(
+            String email, String lastName, String firstName, String middleInitial, String suffix,
+            String role, String schoolId)
             throws FirebaseAuthException, java.util.concurrent.ExecutionException, InterruptedException {
 
         if (staffAccountExists(email)) {
             throw new ConflictException("An account with this email already exists");
         }
+
+        String displayName = NameFormatter.format(lastName, firstName, middleInitial, suffix);
 
         UserRecord created = FirebaseAuth.getInstance().createUser(
                 new UserRecord.CreateRequest()
@@ -80,6 +83,10 @@ public class StaffProvisioningService {
         profile.put("role", role);
         profile.put("email", email);
         profile.put("displayName", displayName);
+        profile.put("lastName", lastName.trim());
+        profile.put("firstName", firstName.trim());
+        profile.put("middleInitial", middleInitial != null ? middleInitial.trim() : "");
+        profile.put("suffix", suffix != null ? suffix.trim() : "");
         profile.put("isActive", true);
         profile.put("createdAt", FieldValue.serverTimestamp());
         if (schoolId != null) {

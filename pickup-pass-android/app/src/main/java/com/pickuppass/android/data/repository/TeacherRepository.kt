@@ -33,9 +33,25 @@ class TeacherRepository @Inject constructor(
         }
     }
 
-    suspend fun createStudent(fullName: String, grade: String, section: String): ApiResult<String> {
+    suspend fun createStudent(
+        lastName: String,
+        firstName: String,
+        middleInitial: String,
+        suffix: String,
+        grade: String,
+        section: String
+    ): ApiResult<String> {
         return try {
-            val response = api.createStudent(CreateStudentRequest(fullName, grade, section))
+            val response = api.createStudent(
+                CreateStudentRequest(
+                    lastName = lastName,
+                    firstName = firstName,
+                    middleInitial = middleInitial.ifBlank { null },
+                    suffix = suffix.ifBlank { null },
+                    grade = grade,
+                    section = section
+                )
+            )
             val body = response.body()
             if (response.isSuccessful && body?.studentId != null) {
                 ApiResult.Success(body.studentId)
@@ -49,13 +65,24 @@ class TeacherRepository @Inject constructor(
 
     suspend fun registerParent(
         studentId: String,
-        parentName: String,
+        lastName: String,
+        firstName: String,
+        middleInitial: String,
+        suffix: String,
         parentEmail: String,
         relationship: String
     ): ApiResult<com.pickuppass.android.data.model.AddGuardianResponse> {
         return try {
             val response = api.registerParent(
-                RegisterParentRequest(studentId, parentEmail, parentName, relationship)
+                RegisterParentRequest(
+                    studentId = studentId,
+                    parentEmail = parentEmail,
+                    lastName = lastName,
+                    firstName = firstName,
+                    middleInitial = middleInitial.ifBlank { null },
+                    suffix = suffix.ifBlank { null },
+                    relationship = relationship
+                )
             )
             val body = response.body()
             if (response.isSuccessful && body?.status != null) {

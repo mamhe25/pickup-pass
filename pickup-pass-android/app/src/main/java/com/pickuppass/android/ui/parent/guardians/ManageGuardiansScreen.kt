@@ -86,7 +86,9 @@ fun ManageGuardiansScreen(
                     formError = uiState.formError,
                     formSuccess = uiState.formSuccess,
                     formIsWarning = uiState.formIsWarning,
-                    onSubmit = { name, email, relationship -> viewModel.addGuardian(name, email, relationship) }
+                    onSubmit = { lastName, firstName, mi, suffix, email, relationship ->
+                        viewModel.addGuardian(lastName, firstName, mi, suffix, email, relationship)
+                    }
                 )
             }
         }
@@ -155,9 +157,12 @@ private fun AddGuardianForm(
     formError: String?,
     formSuccess: String?,
     formIsWarning: Boolean,
-    onSubmit: (name: String, email: String, relationship: String) -> Unit
+    onSubmit: (lastName: String, firstName: String, middleInitial: String, suffix: String, email: String, relationship: String) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var firstName by remember { mutableStateOf("") }
+    var middleInitial by remember { mutableStateOf("") }
+    var suffix by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var relationship by remember { mutableStateOf(relationshipOptions.first().first) }
     var expanded by remember { mutableStateOf(false) }
@@ -174,13 +179,41 @@ private fun AddGuardianForm(
             )
 
             OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Full name") },
+                value = lastName,
+                onValueChange = { lastName = it },
+                label = { Text("Last name") },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = firstName,
+                onValueChange = { firstName = it },
+                label = { Text("First name") },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = middleInitial,
+                    onValueChange = { middleInitial = it },
+                    label = { Text("M.I.") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = suffix,
+                    onValueChange = { suffix = it },
+                    label = { Text("Suffix") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(2f)
+                )
+            }
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = email,
@@ -227,7 +260,7 @@ private fun AddGuardianForm(
             PrimaryButton(
                 text = "Add Guardian",
                 loading = isSubmitting,
-                onClick = { onSubmit(name.trim(), email.trim(), relationship) }
+                onClick = { onSubmit(lastName.trim(), firstName.trim(), middleInitial.trim(), suffix.trim(), email.trim(), relationship) }
             )
         }
     }

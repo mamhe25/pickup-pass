@@ -44,13 +44,6 @@ public class SchoolAdminController {
      * restricted to the 'teacher' role only — a school_admin can't use this
      * to mint another school_admin or a master_admin for themselves or
      * anyone else. Creating a school_admin account requires a master_admin
-     * (see MasterAdminController.createStaff).
-     */
-    /**
-     * Invites a teacher for the school admin's OWN school. Deliberately
-     * restricted to the 'teacher' role only — a school_admin can't use this
-     * to mint another school_admin or a master_admin for themselves or
-     * anyone else. Creating a school_admin account requires a master_admin
      * (see MasterAdminController.createStaff). No catch-all here — see the
      * comment on MasterAdminController.createStaff for why.
      */
@@ -59,8 +52,16 @@ public class SchoolAdminController {
     public ResponseEntity<?> inviteTeacher(
             @RequestBody InviteTeacherRequest req,
             @AuthenticationPrincipal FirebaseUserDetails schoolAdmin) throws Exception {
+
+        if (req.getLastName() == null || req.getLastName().isBlank()
+                || req.getFirstName() == null || req.getFirstName().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "lastName and firstName are required"));
+        }
+
         StaffProvisioningService.StaffCreationResult result = staffProvisioningService.createStaffAccount(
-                req.getEmail(), req.getDisplayName(), "teacher", schoolAdmin.getSchoolId());
+                req.getEmail(), req.getLastName(), req.getFirstName(),
+                req.getMiddleInitial(), req.getSuffix(), "teacher", schoolAdmin.getSchoolId());
+
         return ResponseEntity.ok(Map.of(
                 "uid", result.getUid(),
                 "role", "teacher",
@@ -70,11 +71,20 @@ public class SchoolAdminController {
 
     public static class InviteTeacherRequest {
         @NotBlank private String email;
-        @NotBlank private String displayName;
+        @NotBlank private String lastName;
+        @NotBlank private String firstName;
+        private String middleInitial;
+        private String suffix;
 
         public String getEmail() { return email; }
         public void setEmail(String email) { this.email = email; }
-        public String getDisplayName() { return displayName; }
-        public void setDisplayName(String displayName) { this.displayName = displayName; }
+        public String getLastName() { return lastName; }
+        public void setLastName(String v) { this.lastName = v; }
+        public String getFirstName() { return firstName; }
+        public void setFirstName(String v) { this.firstName = v; }
+        public String getMiddleInitial() { return middleInitial; }
+        public void setMiddleInitial(String v) { this.middleInitial = v; }
+        public String getSuffix() { return suffix; }
+        public void setSuffix(String v) { this.suffix = v; }
     }
 }

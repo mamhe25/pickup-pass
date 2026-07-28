@@ -86,7 +86,7 @@ class ScannerViewModel @Inject constructor(
                     }
                 }
                 is ApiResult.Failure -> {
-                    _uiState.value = ScannerUiState.Error(result.message)
+                    _uiState.value = ScannerUiState.Error(scanFailureMessage(result.message, "Verification"))
                 }
             }
         }
@@ -94,14 +94,15 @@ class ScannerViewModel @Inject constructor(
 
     fun approveRelease() {
         val current = _uiState.value
-        if (current !is ScannerUiState.Verified) return
+        if (current !is ScannerUiState.Verified || current.isApproving) return
 
+        // Update before launching so two taps in the same UI frame cannot
+        // enqueue duplicate approval requests.
+        _uiState.value = current.copy(isApproving = true)
         viewModelScope.launch {
-            _uiState.value = current.copy(isApproving = true)
-
             when (val result = pickupRepository.approve(current.qrToken)) {
                 is ApiResult.Success -> _uiState.value = ScannerUiState.Approved
-                is ApiResult.Failure -> _uiState.value = ScannerUiState.Error(result.message)
+                is ApiResult.Failure -> _uiState.value = ScannerUiState.Error(scanFailureMessage(result.message, "Approval"))
             }
         }
     }
@@ -118,4 +119,11 @@ class ScannerViewModel @Inject constructor(
             _signedOut.value = true
         }
     }
+
+    private fun scanFailureMessage(message: String, operation: String): String =
+        if (message.contains("timeout", ignoreCase = true)) {
+            "$operation timed out. Check that the deployed backend is reachable."
+        } else {
+            message
+        }
 }

@@ -5,6 +5,7 @@ import com.google.cloud.firestore.FieldValue;
 import com.google.cloud.firestore.Firestore;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.GuardianProvisioningService;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -40,14 +41,20 @@ public class TeacherOnboardingController {
 
         String schoolId = teacher.getSchoolId();
 
+        if (req.getLastName() == null || req.getLastName().isBlank()
+                || req.getFirstName() == null || req.getFirstName().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "lastName and firstName are required"));
+        }
+
         DocumentSnapshot studentDoc = firestore.collection("students")
                 .document(req.getStudentId()).get().get();
         if (!studentDoc.exists() || !schoolId.equals(studentDoc.getString("schoolId"))) {
             return ResponseEntity.status(403).body(Map.of("error", "Student not in your school"));
         }
 
-        GuardianProvisioningService.ProvisionResult result =
-                guardianService.provisionGuardianAccount(req.getParentEmail(), req.getParentName(), schoolId);
+        GuardianProvisioningService.ProvisionResult result = guardianService.provisionGuardianAccount(
+                req.getParentEmail(), req.getLastName(), req.getFirstName(),
+                req.getMiddleInitial(), req.getSuffix(), schoolId);
 
         Map<String, Object> guardianEntry = new HashMap<>();
         guardianEntry.put("relationship", req.getRelationship() != null ? req.getRelationship() : "parent/guardian");
@@ -77,14 +84,23 @@ public class TeacherOnboardingController {
 
     public static class RegisterParentRequest {
         private String parentEmail;
-        private String parentName;
+        @NotBlank private String lastName;
+        @NotBlank private String firstName;
+        private String middleInitial;
+        private String suffix;
         private String studentId;
         private String relationship;
 
         public String getParentEmail() { return parentEmail; }
         public void setParentEmail(String v) { this.parentEmail = v; }
-        public String getParentName() { return parentName; }
-        public void setParentName(String v) { this.parentName = v; }
+        public String getLastName() { return lastName; }
+        public void setLastName(String v) { this.lastName = v; }
+        public String getFirstName() { return firstName; }
+        public void setFirstName(String v) { this.firstName = v; }
+        public String getMiddleInitial() { return middleInitial; }
+        public void setMiddleInitial(String v) { this.middleInitial = v; }
+        public String getSuffix() { return suffix; }
+        public void setSuffix(String v) { this.suffix = v; }
         public String getStudentId() { return studentId; }
         public void setStudentId(String v) { this.studentId = v; }
         public String getRelationship() { return relationship; }

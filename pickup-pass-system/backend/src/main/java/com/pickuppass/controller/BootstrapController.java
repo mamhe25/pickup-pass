@@ -72,7 +72,8 @@ public class BootstrapController {
         }
 
         StaffProvisioningService.StaffCreationResult result = staffProvisioningService.createStaffAccount(
-                req.getEmail(), req.getDisplayName(), "master_admin", null);
+                req.getEmail(), req.getLastName(), req.getFirstName(), req.getMiddleInitial(), req.getSuffix(),
+                "master_admin", null);
         return ResponseEntity.ok(Map.of(
                 "uid", result.getUid(),
                 "email", req.getEmail(),
@@ -94,11 +95,20 @@ public class BootstrapController {
 
     public static class CreateMasterAdminRequest {
         @NotBlank private String email;
-        @NotBlank private String displayName;
+        @NotBlank private String lastName;
+        @NotBlank private String firstName;
+        private String middleInitial;
+        private String suffix;
 
         public String getEmail() { return email; }
         public void setEmail(String email) { this.email = email; }
-        public String getDisplayName() { return displayName; }
-        public void setDisplayName(String displayName) { this.displayName = displayName; }
+        public String getLastName() { return lastName; }
+        public void setLastName(String v) { this.lastName = v; }
+        public String getFirstName() { return firstName; }
+        public void setFirstName(String v) { this.firstName = v; }
+        public String getMiddleInitial() { return middleInitial; }
+        public void setMiddleInitial(String v) { this.middleInitial = v; }
+        public String getSuffix() { return suffix; }
+        public void setSuffix(String v) { this.suffix = v; }
     }
 }

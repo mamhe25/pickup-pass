@@ -141,11 +141,25 @@ bootstrap endpoint below.
      -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
      -d '{"schoolName":"Riverside Elementary"}'
    # → { "schoolId": "abc123", "schoolName": "Riverside Elementary" }
-
+   bash
+   curl -X POST "https://pickup-pass-backend-445244473897.us-central1.run.app/api/master-admin/schools" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"schoolName":"Riverside Elementary"}'
+  
    curl -X POST http://localhost:8080/api/master-admin/schools/abc123/staff \
      -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
      -d '{"email":"admin@riverside.edu","displayName":"Riverside Admin","role":"school_admin"}'
    ```
+   bash
+   curl -X POST "https://pickup-pass-backend-445244473897.us-central1.run.app/api/master-admin/schools/[shoolId]/staff" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email":"jiesymhe@gmail.com",
+    "displayName":"BES Admin",
+    "role":"school_admin"
+  }'
 
 5. From there, everything is self-serve through the UI: the school_admin
    signs in (web → `school-admin/branding.html`, or the Android app's

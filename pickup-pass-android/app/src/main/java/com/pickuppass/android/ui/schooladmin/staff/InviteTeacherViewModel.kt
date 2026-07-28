@@ -25,16 +25,17 @@ class InviteTeacherViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(InviteTeacherUiState())
     val uiState: StateFlow<InviteTeacherUiState> = _uiState
 
-    fun invite(displayName: String, email: String) {
-        if (displayName.isBlank() || email.isBlank()) {
-            _uiState.value = _uiState.value.copy(error = "Enter the teacher's name and email")
+    fun invite(lastName: String, firstName: String, middleInitial: String, suffix: String, email: String) {
+        if (_uiState.value.isSubmitting) return
+        if (lastName.isBlank() || firstName.isBlank() || email.isBlank()) {
+            _uiState.value = _uiState.value.copy(error = "Enter the teacher's last name, first name, and email")
             return
         }
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmitting = true, error = null, successMessage = null, successIsWarning = false)
 
-            when (val result = schoolAdminRepository.inviteTeacher(email, displayName)) {
+            when (val result = schoolAdminRepository.inviteTeacher(email, lastName, firstName, middleInitial, suffix)) {
                 is ApiResult.Success -> {
                     val emailSent = result.data.emailSent
                     _uiState.value = _uiState.value.copy(

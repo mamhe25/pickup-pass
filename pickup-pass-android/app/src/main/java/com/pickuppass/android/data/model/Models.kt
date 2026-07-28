@@ -22,6 +22,17 @@ data class GuardianEntry(
     val addedBy: String = "",
 )
 
+/** Firestore: notifications/{notificationId} */
+data class NotificationItem(
+    val id: String = "",
+    val title: String = "",
+    val body: String = "",
+    val type: String = "",
+    val studentId: String? = null,
+    val read: Boolean = false,
+    val createdAtMillis: Long? = null,
+)
+
 /** Firestore: exitLogs/{logId}, enriched client-side with student/guardian/staff display info. */
 data class ExitLogEntry(
     val id: String = "",
@@ -80,7 +91,10 @@ data class ApproveResponse(
 data class AddGuardianRequest(
     val studentId: String,
     val guardianEmail: String,
-    val guardianName: String,
+    val lastName: String,
+    val firstName: String,
+    val middleInitial: String? = null,
+    val suffix: String? = null,
     val relationship: String
 )
 
@@ -98,12 +112,18 @@ data class SimpleStatusResponse(val status: String? = null, val error: String? =
 data class RegisterParentRequest(
     val studentId: String,
     val parentEmail: String,
-    val parentName: String,
+    val lastName: String,
+    val firstName: String,
+    val middleInitial: String? = null,
+    val suffix: String? = null,
     val relationship: String? = null
 )
 
 data class CreateStudentRequest(
-    val fullName: String,
+    val lastName: String,
+    val firstName: String,
+    val middleInitial: String? = null,
+    val suffix: String? = null,
     val grade: String,
     val section: String
 )
@@ -114,7 +134,13 @@ data class CreateStudentResponse(
     val error: String? = null
 )
 
-data class InviteTeacherRequest(val email: String, val displayName: String)
+data class InviteTeacherRequest(
+    val email: String,
+    val lastName: String,
+    val firstName: String,
+    val middleInitial: String? = null,
+    val suffix: String? = null
+)
 
 data class InviteTeacherResponse(
     val uid: String? = null,

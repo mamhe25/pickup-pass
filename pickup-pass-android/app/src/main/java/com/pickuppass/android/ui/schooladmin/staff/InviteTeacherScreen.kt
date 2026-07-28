@@ -23,14 +23,20 @@ fun InviteTeacherScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    var name by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var firstName by remember { mutableStateOf("") }
+    var middleInitial by remember { mutableStateOf("") }
+    var suffix by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
 
     // Clear the form only once a submission actually succeeds — clearing
     // eagerly on every tap would wipe what the admin typed if it failed.
     LaunchedEffect(uiState.successMessage) {
         if (uiState.successMessage != null) {
-            name = ""
+            lastName = ""
+            firstName = ""
+            middleInitial = ""
+            suffix = ""
             email = ""
         }
     }
@@ -61,13 +67,41 @@ fun InviteTeacherScreen(
             )
 
             OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Full name") },
+                value = lastName,
+                onValueChange = { lastName = it },
+                label = { Text("Last name") },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = firstName,
+                onValueChange = { firstName = it },
+                label = { Text("First name") },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = middleInitial,
+                    onValueChange = { middleInitial = it },
+                    label = { Text("M.I.") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = suffix,
+                    onValueChange = { suffix = it },
+                    label = { Text("Suffix") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(2f)
+                )
+            }
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = email,
@@ -91,7 +125,9 @@ fun InviteTeacherScreen(
             PrimaryButton(
                 text = "Send Invite",
                 loading = uiState.isSubmitting,
-                onClick = { viewModel.invite(name.trim(), email.trim()) }
+                onClick = {
+                    viewModel.invite(lastName.trim(), firstName.trim(), middleInitial.trim(), suffix.trim(), email.trim())
+                }
             )
         }
     }

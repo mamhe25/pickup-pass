@@ -34,7 +34,10 @@ fun RegisterParentScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    var name by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var firstName by remember { mutableStateOf("") }
+    var middleInitial by remember { mutableStateOf("") }
+    var suffix by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var relationship by remember { mutableStateOf(relationshipOptions.first().first) }
     var expanded by remember { mutableStateOf(false) }
@@ -76,13 +79,41 @@ fun RegisterParentScreen(
             )
 
             OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Parent's full name") },
+                value = lastName,
+                onValueChange = { lastName = it },
+                label = { Text("Parent's last name") },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = firstName,
+                onValueChange = { firstName = it },
+                label = { Text("Parent's first name") },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = middleInitial,
+                    onValueChange = { middleInitial = it },
+                    label = { Text("M.I.") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = suffix,
+                    onValueChange = { suffix = it },
+                    label = { Text("Suffix") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(2f)
+                )
+            }
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = email,
@@ -130,7 +161,12 @@ fun RegisterParentScreen(
             PrimaryButton(
                 text = "Register Parent",
                 loading = uiState.isSubmitting,
-                onClick = { viewModel.register(studentId, name.trim(), email.trim(), relationship) }
+                onClick = {
+                    viewModel.register(
+                        studentId, lastName.trim(), firstName.trim(),
+                        middleInitial.trim(), suffix.trim(), email.trim(), relationship
+                    )
+                }
             )
         }
     }

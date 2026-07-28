@@ -40,16 +40,25 @@ class RegisterParentViewModel @Inject constructor(
         }
     }
 
-    fun register(studentId: String, parentName: String, parentEmail: String, relationship: String) {
-        if (parentName.isBlank() || parentEmail.isBlank()) {
-            _uiState.value = _uiState.value.copy(error = "Enter the parent's name and email")
+    fun register(
+        studentId: String,
+        lastName: String,
+        firstName: String,
+        middleInitial: String,
+        suffix: String,
+        parentEmail: String,
+        relationship: String
+    ) {
+        if (_uiState.value.isSubmitting) return
+        if (lastName.isBlank() || firstName.isBlank() || parentEmail.isBlank()) {
+            _uiState.value = _uiState.value.copy(error = "Enter the parent's last name, first name, and email")
             return
         }
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmitting = true, error = null, successMessage = null, successIsWarning = false)
 
-            when (val result = teacherRepository.registerParent(studentId, parentName, parentEmail, relationship)) {
+            when (val result = teacherRepository.registerParent(studentId, lastName, firstName, middleInitial, suffix, parentEmail, relationship)) {
                 is ApiResult.Success -> {
                     val message: String
                     val isWarning: Boolean

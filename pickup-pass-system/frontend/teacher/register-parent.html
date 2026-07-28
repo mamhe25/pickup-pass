@@ -25,8 +25,16 @@
       </p>
 
       <form id="registerForm" class="space-y-3">
-        <input id="parentName" type="text" required placeholder="Parent's full name"
+        <input id="lastName" type="text" required placeholder="Last name"
           class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input id="firstName" type="text" required placeholder="First name"
+          class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <div class="flex gap-2">
+          <input id="middleInitial" type="text" maxlength="4" placeholder="M.I."
+            class="w-1/3 border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input id="suffix" type="text" placeholder="Suffix (Jr., III...)"
+            class="w-2/3 border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
         <input id="parentEmail" type="email" required placeholder="Email address"
           class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         <select id="relationship"
@@ -38,8 +46,8 @@
           <option value="authorized pickup">Other Authorized Pickup</option>
         </select>
 
-        <p id="errorMsg" class="text-sm text-red-500 hidden"></p>
-        <p id="successMsg" class="text-sm text-green-600 hidden"></p>
+        <p id="errorMsg" class="hidden" style="display: none"></p>
+        <p id="successMsg" class="hidden" style="display: none"></p>
 
         <button type="submit"
           class="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition">
@@ -50,12 +58,12 @@
   </div>
 
 <script type="module">
-import { auth, db, authedFetch } from "../shared/firebase-init.js";
+import { auth, db, authedFetch, setSubmitButtonBusy, showToast } from "../shared/firebase-init.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const params = new URLSearchParams(window.location.search);
-const studentId = params.get("studentId");
+const studentId = params.get("studentId") || sessionStorage.getItem("pendingParentStudentId");
 
 if (!studentId) {
   window.location.href = "./students.html";
@@ -82,19 +90,25 @@ onAuthStateChanged(auth, async (user) => {
 
 document.getElementById("registerForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const submitButton = e.currentTarget.querySelector('button[type="submit"]');
+  if (submitButton.disabled) return;
+  setSubmitButtonBusy(submitButton, true, "Registering…");
   const errorMsg = document.getElementById("errorMsg");
   const successMsg = document.getElementById("successMsg");
   errorMsg.classList.add("hidden");
   successMsg.classList.add("hidden");
 
-  const parentName = document.getElementById("parentName").value.trim();
+  const lastName = document.getElementById("lastName").value.trim();
+  const firstName = document.getElementById("firstName").value.trim();
+  const middleInitial = document.getElementById("middleInitial").value.trim();
+  const suffix = document.getElementById("suffix").value.trim();
   const parentEmail = document.getElementById("parentEmail").value.trim();
   const relationship = document.getElementById("relationship").value;
 
   try {
     const res = await authedFetch("/teacher/register-parent", {
       method: "POST",
-      body: JSON.stringify({ studentId, parentName, parentEmail, relationship }),
+      body: JSON.stringify({ studentId, lastName, firstName, middleInitial, suffix, parentEmail, relationship }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not register parent");
@@ -107,10 +121,14 @@ document.getElementById("registerForm").addEventListener("submit", async (e) => 
       successMsg.textContent = `Account created for ${parentEmail}, but the invite email couldn't be sent — ask them to use "Forgot password?" on the sign-in page with this email.`;
     }
     successMsg.classList.remove("hidden");
+    showToast(successMsg.textContent, data.emailSent === false ? "warning" : "success");
     e.target.reset();
   } catch (err) {
     errorMsg.textContent = err.message;
     errorMsg.classList.remove("hidden");
+    showToast(err.message || "Could not register parent.", "error");
+  } finally {
+    setSubmitButtonBusy(submitButton, false);
   }
 });
 </script>

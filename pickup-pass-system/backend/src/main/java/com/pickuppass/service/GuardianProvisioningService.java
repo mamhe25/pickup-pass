@@ -8,6 +8,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
 import com.pickuppass.exception.ForbiddenException;
+import com.pickuppass.util.NameFormatter;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -49,7 +50,16 @@ public class GuardianProvisioningService {
         public boolean isEmailSent() { return emailSent; }
     }
 
-    public ProvisionResult provisionGuardianAccount(String email, String displayName, String schoolId)
+    /**
+     * @param lastName, firstName, middleInitial, suffix — structured name
+     *        parts, formatted into "Lastname, Firstname M. Suffix" via
+     *        NameFormatter and stored as displayName. Only used when
+     *        actually creating a new account; ignored for an existing one
+     *        (their name was already set whenever their account was first
+     *        created — this call doesn't rename them).
+     */
+    public ProvisionResult provisionGuardianAccount(
+            String email, String lastName, String firstName, String middleInitial, String suffix, String schoolId)
             throws FirebaseAuthException, ExecutionException, InterruptedException {
 
         UserRecord existing = tryGetUserByEmail(email);
@@ -64,6 +74,8 @@ public class GuardianProvisioningService {
             }
             return new ProvisionResult(existing.getUid(), false, true);
         }
+
+        String displayName = NameFormatter.format(lastName, firstName, middleInitial, suffix);
 
         UserRecord.CreateRequest createRequest = new UserRecord.CreateRequest()
                 .setEmail(email)
@@ -80,6 +92,10 @@ public class GuardianProvisioningService {
         profile.put("role", "parent");
         profile.put("email", email);
         profile.put("displayName", displayName);
+        profile.put("lastName", lastName.trim());
+        profile.put("firstName", firstName.trim());
+        profile.put("middleInitial", middleInitial != null ? middleInitial.trim() : "");
+        profile.put("suffix", suffix != null ? suffix.trim() : "");
         profile.put("isActive", true);
         profile.put("createdAt", FieldValue.serverTimestamp());
         firestore.collection("users").document(created.getUid()).set(profile).get();

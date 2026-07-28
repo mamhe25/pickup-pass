@@ -67,16 +67,17 @@ class TeacherStudentsViewModel @Inject constructor(
         }
     }
 
-    fun addStudent(fullName: String, grade: String, section: String) {
-        if (fullName.isBlank()) {
-            _uiState.value = _uiState.value.copy(formError = "Enter the student's name")
+    fun addStudent(lastName: String, firstName: String, middleInitial: String, suffix: String, grade: String, section: String) {
+        if (_uiState.value.isSubmitting) return
+        if (lastName.isBlank() || firstName.isBlank()) {
+            _uiState.value = _uiState.value.copy(formError = "Enter the student's last name and first name")
             return
         }
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmitting = true, formError = null)
 
-            when (val result = teacherRepository.createStudent(fullName, grade, section)) {
+            when (val result = teacherRepository.createStudent(lastName, firstName, middleInitial, suffix, grade, section)) {
                 is ApiResult.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isSubmitting = false,

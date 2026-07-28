@@ -9,6 +9,21 @@
 </head>
 <body class="bg-gray-900 text-white min-h-screen flex flex-col">
 
+  <div id="scannerAlert" role="alert" class="hidden fixed top-4 left-4 right-4 z-50 max-w-md mx-auto rounded-lg bg-red-600 px-4 py-3 text-center text-sm font-semibold shadow-lg"></div>
+  <div id="requestOverlay" class="hidden fixed inset-0 z-50 bg-gray-950/80 p-6 flex items-center justify-center" aria-live="assertive">
+    <div class="flex flex-col items-center gap-4 text-center">
+      <div class="h-10 w-10 rounded-full border-4 border-white/30 border-t-white animate-spin"></div>
+      <p id="requestOverlayMessage" class="text-lg font-semibold">Verifying pass…</p>
+    </div>
+  </div>
+  <div id="scanErrorModal" class="hidden fixed inset-0 z-[60] bg-gray-950/80 p-6 flex items-center justify-center" role="alertdialog" aria-modal="true" aria-labelledby="scanErrorMessage">
+    <div class="w-full max-w-sm rounded-xl bg-white p-6 text-center text-gray-800 shadow-xl">
+      <p class="text-lg font-bold text-red-600">Pass could not be verified</p>
+      <p id="scanErrorMessage" class="mt-3 text-sm text-gray-600"></p>
+      <button id="scanErrorRetryBtn" type="button" class="mt-5 w-full rounded-lg bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700">Scan Again</button>
+    </div>
+  </div>
+
   <div class="p-4 flex items-center justify-between border-b border-gray-800">
     <span class="font-semibold text-lg">Dismissal Scanner</span>
     <div class="flex items-center gap-3">
@@ -30,6 +45,7 @@
       <p class="text-gray-500 text-sm">Starting camera…</p>
     </div>
     <p class="mt-4 text-gray-400 text-sm">Point camera at parent's pass</p>
+    <p id="scanStatus" role="alert" class="hidden mt-3 max-w-sm text-center text-sm text-red-300"></p>
   </div>
 
   <div id="verifyScreen" class="hidden flex-1 flex flex-col p-4">
@@ -60,12 +76,14 @@
   </div>
 
 <script type="module">
-import { auth, db, authedFetch } from "../shared/firebase-init.js";
+import { auth, db, authedFetch, showToast } from "../shared/firebase-init.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 let currentQrToken = null;
 let html5QrCode = null;
+let isHandlingScan = false;
+let isApprovingRelease = false;
 
 document.getElementById("signOutBtn").addEventListener("click", async () => {
   await signOut(auth);
@@ -127,18 +145,25 @@ function startScanner() {
 }
 
 async function onScanSuccess(decodedText) {
-  await html5QrCode.pause(true);
-  currentQrToken = decodedText;
+  if (isHandlingScan) return;
+  isHandlingScan = true;
 
   try {
+    html5QrCode.pause(true);
+    currentQrToken = decodedText;
+    setRequestBusy(true, "Verifying pass…");
+    const requestController = new AbortController();
+    const requestTimeout = setTimeout(() => requestController.abort(), 15000);
     const res = await authedFetch("/pickup/verify", {
       method: "POST",
       body: JSON.stringify({ qrToken: decodedText }),
+      signal: requestController.signal,
     });
-    const data = await res.json();
+    clearTimeout(requestTimeout);
+    const data = await res.json().catch(() => ({}));
 
-    if (!data.valid) {
-      showError(data.reason);
+    if (!res.ok || !data.valid) {
+      showError(data.reason || `Verification failed (HTTP ${res.status})`);
       return;
     }
 
@@ -147,8 +172,21 @@ async function onScanSuccess(decodedText) {
       getDoc(doc(db, "users", data.parentUid)),
     ]);
 
+    if (!studentSnap.exists() || !parentSnap.exists()) {
+      throw new Error("Student or parent record could not be loaded");
+    }
+    setRequestBusy(false);
     renderVerifyScreen(studentSnap.data(), parentSnap.data());
   } catch (err) {
+    setRequestBusy(false);
+    if (err.name === "AbortError") {
+      showError("Verification timed out. Check that the deployed backend is reachable.");
+      return;
+    }
+    if (err.message) {
+      showError(err.message);
+      return;
+    }
     showError("Network error — try again");
   }
 }
@@ -167,33 +205,76 @@ function renderVerifyScreen(student, parent) {
 }
 
 function showError(reason) {
+  // This flow fails before the verification screen becomes visible, so show
+  // the message beside the paused scanner rather than only in the hidden UI.
+  const alert = document.getElementById("scannerAlert");
+  alert.textContent = "Scanner error: " + reason;
+  alert.classList.remove("hidden");
+  const status = document.getElementById("scanStatus");
+  status.textContent = "Verification error: " + reason;
+  status.classList.remove("hidden");
   const banner = document.getElementById("errorBanner");
   banner.textContent = "⚠️ " + reason;
   banner.classList.remove("hidden");
-  setTimeout(resetToScanner, 2500);
+  document.getElementById("scanErrorMessage").textContent = reason;
+  document.getElementById("scanErrorModal").classList.remove("hidden");
 }
 
 document.getElementById("approveBtn").addEventListener("click", async () => {
+  if (isApprovingRelease || !currentQrToken) return;
+  isApprovingRelease = true;
+  setRequestBusy(true, "Approving release…");
+  const approvalController = new AbortController();
+  const approvalTimeout = setTimeout(() => approvalController.abort(), 15000);
+  try {
   const res = await authedFetch("/pickup/approve", {
     method: "POST",
     body: JSON.stringify({ qrToken: currentQrToken }),
+    signal: approvalController.signal,
   });
+  clearTimeout(approvalTimeout);
   const result = await res.json();
-  if (result.status === "release_approved") {
-    alert("Release logged ✅");
-  } else {
-    alert("Approval failed: " + (result.reason || "unknown error"));
+  if (!res.ok || result.status !== "release_approved") {
+    throw new Error(result.reason || `Approval failed (HTTP ${res.status})`);
   }
-  resetToScanner();
+  if (result.status === "release_approved") {
+    showToast("Release logged successfully.", "success");
+  } else {
+    showToast("Approval failed: " + (result.reason || "unknown error"), "error");
+  }
+    resetToScanner();
+  } catch (err) {
+    showError(err.name === "AbortError"
+      ? "Approval timed out. Check that the deployed backend is reachable."
+      : (err.message || "Could not approve the release"));
+  } finally {
+    clearTimeout(approvalTimeout);
+    isApprovingRelease = false;
+    setRequestBusy(false);
+  }
 });
 
 document.getElementById("cancelBtn").addEventListener("click", resetToScanner);
+document.getElementById("scanErrorRetryBtn").addEventListener("click", resetToScanner);
+
+function setRequestBusy(isBusy, message = "") {
+  const overlay = document.getElementById("requestOverlay");
+  document.getElementById("requestOverlayMessage").textContent = message;
+  overlay.classList.toggle("hidden", !isBusy);
+  document.getElementById("approveBtn").disabled = isBusy;
+  document.getElementById("cancelBtn").disabled = isBusy;
+}
 
 function resetToScanner() {
   document.getElementById("verifyScreen").classList.add("hidden");
   document.getElementById("scanScreen").classList.remove("hidden");
+  document.getElementById("scanStatus").classList.add("hidden");
+  document.getElementById("scannerAlert").classList.add("hidden");
+  document.getElementById("scanErrorModal").classList.add("hidden");
+  setRequestBusy(false);
   currentQrToken = null;
-  html5QrCode.resume();
+  isHandlingScan = false;
+  if (html5QrCode) html5QrCode.resume();
 }
 </script>
 </body>

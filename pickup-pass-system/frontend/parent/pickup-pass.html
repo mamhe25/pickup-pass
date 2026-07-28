@@ -38,7 +38,7 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase
 // studentId must come from the student picker (students.html) — no demo fallback,
 // since a parent may have more than one linked child.
 const params = new URLSearchParams(window.location.search);
-const studentId = params.get("studentId");
+const studentId = params.get("studentId") || sessionStorage.getItem("pickupPassStudentId");
 
 if (!studentId) {
   window.location.href = "./students.html";

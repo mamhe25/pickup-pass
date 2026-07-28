@@ -70,8 +70,9 @@ From the `backend/` folder (the one containing `Dockerfile` and `pom.xml`):
 ```bash
 gcloud run deploy pickup-pass-backend \
   --source . \
-  --region us-central1 \
+  --region asia-southeast1 \
   --allow-unauthenticated \
+  --set-env-vars=GOOGLE_CLOUD_PROJECT=pickuppass \
   --set-env-vars QR_SIGNING_SECRET="$(openssl rand -base64 48)",BOOTSTRAP_SECRET="$(openssl rand -base64 32)",MAIL_USERNAME=your-smtp-username,MAIL_PASSWORD=your-smtp-password
 ```
 

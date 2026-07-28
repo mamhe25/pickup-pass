@@ -28,8 +28,16 @@
       </p>
 
       <form id="addForm" class="space-y-2">
-        <input id="guardianName" type="text" required placeholder="Full name"
+        <input id="lastName" type="text" required placeholder="Last name"
           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input id="firstName" type="text" required placeholder="First name"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <div class="flex gap-2">
+          <input id="middleInitial" type="text" maxlength="4" placeholder="M.I."
+            class="w-1/3 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input id="suffix" type="text" placeholder="Suffix (Jr., III...)"
+            class="w-2/3 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
         <input id="guardianEmail" type="email" required placeholder="Email address"
           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         <select id="guardianRelationship"
@@ -41,8 +49,8 @@
           <option value="authorized pickup">Other Authorized Pickup</option>
         </select>
 
-        <p id="formError" class="text-sm text-red-500 hidden"></p>
-        <p id="formSuccess" class="text-sm text-green-600 hidden"></p>
+        <p id="formError" class="hidden" style="display: none"></p>
+        <p id="formSuccess" class="hidden" style="display: none"></p>
 
         <button type="submit"
           class="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition">
@@ -53,12 +61,12 @@
   </div>
 
 <script type="module">
-import { auth, db, authedFetch } from "../shared/firebase-init.js";
+import { auth, db, authedFetch, setSubmitButtonBusy, showToast } from "../shared/firebase-init.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const params = new URLSearchParams(window.location.search);
-const studentId = params.get("studentId");
+const studentId = params.get("studentId") || sessionStorage.getItem("pendingStaffGuardianStudentId");
 
 if (!studentId) {
   window.location.href = "./students.html";
@@ -125,14 +133,15 @@ async function renderGuardians() {
   }
 
   document.querySelectorAll(".removeBtn").forEach((btn) => {
-    btn.addEventListener("click", () => removeGuardian(btn.dataset.uid));
+    btn.addEventListener("click", () => removeGuardian(btn.dataset.uid, btn));
   });
 }
 
-async function removeGuardian(guardianUid) {
+async function removeGuardian(guardianUid, removeButton) {
   if (!confirm("Remove this person as an authorized pickup guardian? Any pass they're currently holding will stop working immediately.")) {
     return;
   }
+  setSubmitButtonBusy(removeButton, true, "Removing…");
   try {
     const res = await authedFetch("/parent/remove-guardian", {
       method: "POST",
@@ -141,26 +150,35 @@ async function removeGuardian(guardianUid) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not remove guardian");
     await renderGuardians();
+    showToast("Guardian removed successfully.", "success");
   } catch (err) {
-    alert(err.message);
+    showToast(err.message || "Could not remove guardian.", "error");
+  } finally {
+    setSubmitButtonBusy(removeButton, false);
   }
 }
 
 document.getElementById("addForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const submitButton = e.currentTarget.querySelector('button[type="submit"]');
+  if (submitButton.disabled) return;
+  setSubmitButtonBusy(submitButton, true, "Adding guardian…");
   const formError = document.getElementById("formError");
   const formSuccess = document.getElementById("formSuccess");
   formError.classList.add("hidden");
   formSuccess.classList.add("hidden");
 
-  const guardianName = document.getElementById("guardianName").value.trim();
+  const lastName = document.getElementById("lastName").value.trim();
+  const firstName = document.getElementById("firstName").value.trim();
+  const middleInitial = document.getElementById("middleInitial").value.trim();
+  const suffix = document.getElementById("suffix").value.trim();
   const guardianEmail = document.getElementById("guardianEmail").value.trim();
   const relationship = document.getElementById("guardianRelationship").value;
 
   try {
     const res = await authedFetch("/parent/add-guardian", {
       method: "POST",
-      body: JSON.stringify({ studentId, guardianName, guardianEmail, relationship }),
+      body: JSON.stringify({ studentId, lastName, firstName, middleInitial, suffix, guardianEmail, relationship }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not add guardian");
@@ -173,11 +191,15 @@ document.getElementById("addForm").addEventListener("submit", async (e) => {
       formSuccess.textContent = "Added, but the invite email couldn't be sent — ask them to use \"Forgot password?\" on the sign-in page with their email.";
     }
     formSuccess.classList.remove("hidden");
+    showToast(formSuccess.textContent, data.emailSent === false ? "warning" : "success");
     e.target.reset();
     await renderGuardians();
   } catch (err) {
     formError.textContent = err.message;
     formError.classList.remove("hidden");
+    showToast(err.message || "Could not add guardian.", "error");
+  } finally {
+    setSubmitButtonBusy(submitButton, false);
   }
 });
 

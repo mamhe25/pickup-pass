@@ -13,7 +13,7 @@
     "rewrites": [
       {
         "source": "/api/**",
-        "destination": "https://pickup-pass-backend-445244473897.us-central1.run.app/api"
+        "destination": "https://pickup-pass-backend-445244473897.asia-southeast1.run.app/api"
       }
     ]
   }

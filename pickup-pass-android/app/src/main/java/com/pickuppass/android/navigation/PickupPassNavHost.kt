@@ -9,6 +9,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pickuppass.android.ui.login.LoginScreen
 import com.pickuppass.android.ui.parent.guardians.ManageGuardiansScreen
+import com.pickuppass.android.ui.parent.notifications.NotificationsScreen
 import com.pickuppass.android.ui.parent.pass.PickupPassScreen
 import com.pickuppass.android.ui.parent.profile.ProfileScreen
 import com.pickuppass.android.ui.parent.students.StudentsScreen
@@ -67,6 +68,7 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
         composable(Screen.ParentStudents.route) {
             StudentsScreen(
                 onOpenProfile = { navController.navigate(Screen.ParentProfile.route) },
+                onOpenNotifications = { navController.navigate(Screen.ParentNotifications.route) },
                 onGetPass = { studentId ->
                     navController.navigate(Screen.ParentPickupPass.createRoute(studentId))
                 },
@@ -81,6 +83,10 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
                 onBack = { navController.popBackStack() },
                 onSignedOut = { navController.navigateToLoginClearingBackStack() }
             )
+        }
+
+        composable(Screen.ParentNotifications.route) {
+            NotificationsScreen(onBack = { navController.popBackStack() })
         }
 
         composable(

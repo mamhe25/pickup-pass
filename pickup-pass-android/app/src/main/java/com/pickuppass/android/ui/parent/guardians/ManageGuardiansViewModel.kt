@@ -66,11 +66,12 @@ class ManageGuardiansViewModel @Inject constructor(
         }
     }
 
-    fun addGuardian(name: String, email: String, relationship: String) {
+    fun addGuardian(lastName: String, firstName: String, middleInitial: String, suffix: String, email: String, relationship: String) {
+        if (_uiState.value.isSubmitting) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmitting = true, formError = null, formSuccess = null)
 
-            when (val result = guardianRepository.addGuardian(currentStudentId, name, email, relationship)) {
+            when (val result = guardianRepository.addGuardian(currentStudentId, lastName, firstName, middleInitial, suffix, email, relationship)) {
                 is ApiResult.Success -> {
                     val message: String
                     val isWarning: Boolean

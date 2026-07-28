@@ -9,6 +9,7 @@
 **/.gradle/
 **/build/
 **/local.properties
+**/*.apk
 
 # Node
 **/node_modules/
