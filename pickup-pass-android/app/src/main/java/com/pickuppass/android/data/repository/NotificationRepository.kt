@@ -6,7 +6,12 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.pickuppass.android.data.model.DeviceTokenRequest
 import com.pickuppass.android.data.model.NotificationItem
 import com.pickuppass.android.data.remote.PickupPassApi
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,6 +21,13 @@ class NotificationRepository @Inject constructor(
     private val authRepository: AuthRepository,
     private val firestore: FirebaseFirestore
 ) {
+    private companion object {
+        const val TOKEN_REGISTRATION_TIMEOUT_MS = 20_000L
+    }
+
+    // Registration is useful but must never hold up authentication or navigation.
+    private val registrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     /**
      * Fetches the current FCM token and registers it with the backend for
      * the signed-in user. Safe to call repeatedly (e.g. on every app start)
@@ -24,10 +36,22 @@ class NotificationRepository @Inject constructor(
      */
     suspend fun registerCurrentDeviceToken(): Result<Unit> = runCatching {
         if (!authRepository.isSignedIn) return@runCatching
-        val token = FirebaseMessaging.getInstance().token.await()
-        val response = api.registerDeviceToken(DeviceTokenRequest(token))
-        if (!response.isSuccessful) {
-            error("Token registration failed: ${response.code()}")
+        checkNotNull(withTimeoutOrNull(TOKEN_REGISTRATION_TIMEOUT_MS) {
+            val token = FirebaseMessaging.getInstance().token.await()
+            val response = api.registerDeviceToken(DeviceTokenRequest(token))
+            if (!response.isSuccessful) {
+                error("Token registration failed: ${response.code()}")
+            }
+        }) { "Device-token registration timed out" }
+    }
+
+    /**
+     * Starts token registration without making the caller wait. FCM token generation can be
+     * slow after a fresh install while Google Play services initializes.
+     */
+    fun registerCurrentDeviceTokenInBackground() {
+        registrationScope.launch {
+            registerCurrentDeviceToken()
         }
     }
 

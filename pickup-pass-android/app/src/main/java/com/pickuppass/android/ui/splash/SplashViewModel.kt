@@ -66,7 +66,7 @@ class SplashViewModel @Inject constructor(
 
             // Best-effort: a failure here should never block routing to
             // the person's home screen.
-            notificationRepository.registerCurrentDeviceToken()
+            notificationRepository.registerCurrentDeviceTokenInBackground()
 
             _destination.value = when (session.role) {
                 UserRole.Parent -> SplashDestination.ParentHome

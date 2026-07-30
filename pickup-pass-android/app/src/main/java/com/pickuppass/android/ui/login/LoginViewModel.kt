@@ -59,18 +59,31 @@ class LoginViewModel @Inject constructor(
             val result = authRepository.signIn(state.email.trim(), state.password)
             result.onSuccess {
                 val session = authRepository.currentSession(forceRefresh = true)
-                notificationRepository.registerCurrentDeviceToken()
-                _loginResult.value = when (session?.role) {
+                notificationRepository.registerCurrentDeviceTokenInBackground()
+                val destination = when (session?.role) {
                     UserRole.Parent -> LoginResult.ParentHome
                     UserRole.Teacher -> LoginResult.TeacherHome
                     UserRole.SchoolAdmin -> LoginResult.SchoolAdminHome
-                    else -> LoginResult.UnrecognizedRole
+                    else -> null
                 }
-                _uiState.value = _uiState.value.copy(isLoading = false)
+
+                if (destination == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Signed in, but we couldn't verify your account. Check your connection and try again"
+                    )
+                } else {
+                    _loginResult.value = destination
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                }
             }.onFailure { e ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "Incorrect email or password"
+                    error = if (e.message == "Sign-in timed out") {
+                        "Sign-in timed out. Check your connection and try again"
+                    } else {
+                        "Incorrect email or password"
+                    }
                 )
             }
         }

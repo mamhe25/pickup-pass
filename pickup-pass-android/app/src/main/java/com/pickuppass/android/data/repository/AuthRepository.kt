@@ -2,6 +2,7 @@ package com.pickuppass.android.data.repository
 
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -29,15 +30,24 @@ data class SessionInfo(val uid: String, val schoolId: String?, val role: UserRol
 class AuthRepository @Inject constructor(
     private val firebaseAuth: FirebaseAuth
 ) {
+    private companion object {
+        const val AUTH_OPERATION_TIMEOUT_MS = 20_000L
+        const val TOKEN_REFRESH_TIMEOUT_MS = 15_000L
+    }
+
     val isSignedIn: Boolean get() = firebaseAuth.currentUser != null
 
     suspend fun signIn(email: String, password: String): Result<Unit> = runCatching {
-        firebaseAuth.signInWithEmailAndPassword(email, password).await()
+        checkNotNull(withTimeoutOrNull(AUTH_OPERATION_TIMEOUT_MS) {
+            firebaseAuth.signInWithEmailAndPassword(email, password).await()
+        }) { "Sign-in timed out" }
         Unit
     }
 
     suspend fun sendPasswordReset(email: String): Result<Unit> = runCatching {
-        firebaseAuth.sendPasswordResetEmail(email).await()
+        checkNotNull(withTimeoutOrNull(AUTH_OPERATION_TIMEOUT_MS) {
+            firebaseAuth.sendPasswordResetEmail(email).await()
+        }) { "Password-reset request timed out" }
         Unit
     }
 
@@ -63,7 +73,9 @@ class AuthRepository @Inject constructor(
     suspend fun currentSession(forceRefresh: Boolean = false): SessionInfo? {
         val user = firebaseAuth.currentUser ?: return null
         return try {
-            val result = user.getIdToken(forceRefresh).await()
+            val result = withTimeoutOrNull(TOKEN_REFRESH_TIMEOUT_MS) {
+                user.getIdToken(forceRefresh).await()
+            } ?: return null
             val claims = result?.claims ?: emptyMap()
             val role = UserRole.from(claims["role"] as? String)
             val schoolId = claims["schoolId"] as? String
