@@ -22,10 +22,25 @@ export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Base URL of the Java Spring Boot backend
-//export const API_BASE_URL = "https://pickup-pass-backend-445244473897.us-central1.run.app/api";
-export const API_BASE_URL = "https://pickup-pass-backend-445244473897.asia-southeast1.run.app/api";
-//export const API_BASE_URL = "http://localhost:8080/api";
+// Base URL of the Java Spring Boot backend.
+//
+// Auto-detected from how THIS frontend is currently being served, rather
+// than a manually maintained comment/uncomment toggle: if you're viewing
+// the app via localhost/127.0.0.1 (any local static server — Live Server,
+// `python -m http.server`, `firebase serve`, etc.), it points at your
+// local backend. Anywhere else (the deployed Firebase Hosting URL), it
+// points at the deployed Cloud Run backend. This removes the single
+// biggest local-dev footgun with the old approach: forgetting to switch
+// the hardcoded URL back to the deployed one before running `firebase
+// deploy`, which would silently ship a build that only works on your own
+// machine.
+//
+// If your local backend runs on a different port, change LOCAL_API_BASE_URL only.
+const LOCAL_API_BASE_URL = "http://localhost:8080/api";
+const DEPLOYED_API_BASE_URL = "https://pickup-pass-backend-445244473897.asia-southeast1.run.app/api";
+
+const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+export const API_BASE_URL = isLocalHost ? LOCAL_API_BASE_URL : DEPLOYED_API_BASE_URL;
 
 export async function authedFetch(path, options = {}) {
   const user = auth.currentUser;
