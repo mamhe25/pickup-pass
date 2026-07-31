@@ -8,11 +8,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,19 +65,62 @@ fun TeacherStudentsScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            when {
-                uiState.isLoading -> FullScreenLoading()
-                uiState.error != null -> Box(Modifier.padding(24.dp)) { ErrorBanner(uiState.error!!) }
-                uiState.students.isEmpty() -> EmptyRoster()
-                else -> LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(uiState.students, key = { it.id }) { student ->
-                        StudentRow(student = student, onRegisterParent = { onRegisterParent(student.id) })
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+
+            // Only worth showing a search box once there's an actual roster
+            // to search — an empty box over an empty/blocked state would
+            // just be visual noise with nothing to do.
+            val canSearch = !uiState.isLoading && uiState.error == null &&
+                !uiState.hasNoAssignedSections && uiState.allStudents.isNotEmpty()
+            if (canSearch) {
+                OutlinedTextField(
+                    value = uiState.searchTerm,
+                    onValueChange = viewModel::onSearchChange,
+                    placeholder = { Text("Search by student name...") },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    uiState.isLoading -> FullScreenLoading()
+                    uiState.error != null -> Box(Modifier.padding(24.dp)) { ErrorBanner(uiState.error!!) }
+                    uiState.hasNoAssignedSections -> NoSectionsAssignedState()
+                    uiState.allStudents.isEmpty() -> EmptyRoster()
+                    uiState.groupedStudents.isEmpty() -> NoSearchResultsState()
+                    else -> LazyColumn(
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 80.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        uiState.groupedStudents.forEach { gradeGroup ->
+                            item(key = "grade-${gradeGroup.grade}") {
+                                Text(
+                                    "Grade ${gradeGroup.grade.ifBlank { "-" }}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(top = 12.dp, bottom = 2.dp)
+                                )
+                            }
+                            gradeGroup.sections.forEach { sectionGroup ->
+                                item(key = "section-${gradeGroup.grade}-${sectionGroup.section}") {
+                                    Text(
+                                        "Section ${sectionGroup.section.ifBlank { "-" }}",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(bottom = 4.dp, start = 4.dp)
+                                    )
+                                }
+                                items(sectionGroup.students, key = { it.id }) { student ->
+                                    StudentRow(student = student, onRegisterParent = { onRegisterParent(student.id) })
+                                }
+                            }
+                        }
                     }
-                    item { Spacer(Modifier.height(64.dp)) } // clears the FAB
                 }
             }
         }
@@ -140,15 +185,54 @@ private fun EmptyRoster() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            "No students yet",
-            style = MaterialTheme.typography.titleMedium
-        )
+        Text("No students yet", style = MaterialTheme.typography.titleMedium)
         Text(
             "Tap + to add your first student.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
+
+/** Distinct from EmptyRoster — the roster isn't empty, the search just didn't match anything. */
+@Composable
+private fun NoSearchResultsState() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("No students found", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Try a different name or check your spelling.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
+
+/** Teacher-only: they're signed in fine, but no admin has assigned them a section yet. */
+@Composable
+private fun NoSectionsAssignedState() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("No sections assigned yet", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Ask your school admin to assign you a grade and section before students will show up here.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp)
         )
     }

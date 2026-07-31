@@ -35,7 +35,10 @@
       No students yet — add your first one below.
     </div>
     <div id="noResultsState" class="hidden bg-white rounded-xl p-6 text-center text-sm text-gray-500 mb-6">
-      No students match your search.
+      No students found.
+    </div>
+    <div id="noSectionsState" class="hidden bg-white rounded-xl p-6 text-center text-sm text-gray-500 mb-6">
+      No sections assigned yet — ask your school admin to assign you a grade and section.
     </div>
 
     <div id="addStudentPanel" class="bg-white rounded-2xl shadow-sm p-4">
@@ -88,6 +91,7 @@ import { collection, query, where, orderBy, getDocs, doc, getDoc } from "https:/
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 let currentSchoolId = null;
+let currentRole = null;
 let allStudents = []; // cached so search filters client-side without re-querying
 let isAddingStudent = false;
 let addedStudentId = null;
@@ -120,6 +124,7 @@ onAuthStateChanged(auth, async (user) => {
   document.getElementById("currentUserEmail").textContent = user.email;
   const tokenResult = await user.getIdTokenResult();
   currentSchoolId = tokenResult.claims.schoolId;
+  currentRole = tokenResult.claims.role;
 
   await loadSchoolBranding();
   await loadStudents();
@@ -142,22 +147,124 @@ async function loadSchoolBranding() {
 }
 
 async function loadStudents() {
-  // fullName is stored server-side as "Lastname, Firstname M. Suffix" (see
-  // NameFormatter on the backend), so ordering by it here already sorts
-  // last-name-first with no extra client-side logic needed.
-  const q = query(
-    collection(db, "students"),
-    where("schoolId", "==", currentSchoolId),
-    orderBy("fullName")
-  );
-  const snap = await getDocs(q);
+  document.getElementById("noSectionsState").classList.add("hidden");
 
-  allStudents = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+  if (currentRole === "teacher") {
+    const mySections = await getMyAssignedSections();
+    if (mySections.length === 0) {
+      allStudents = [];
+      document.getElementById("noSectionsState").classList.remove("hidden");
+      document.getElementById("studentList").innerHTML = "";
+      return;
+    }
+    allStudents = await getStudentsForSections(mySections);
+  } else {
+    // School admin: unrestricted, whole-school roster — unchanged from before.
+    // fullName is stored server-side as "Lastname, Firstname M. Suffix" (see
+    // NameFormatter on the backend), so ordering by it here already sorts
+    // last-name-first with no extra client-side logic needed.
+    const q = query(
+      collection(db, "students"),
+      where("schoolId", "==", currentSchoolId),
+      orderBy("fullName")
+    );
+    const snap = await getDocs(q);
+    allStudents = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+  }
 
   if (allStudents.length === 0) {
     document.getElementById("emptyState").classList.remove("hidden");
+  } else {
+    document.getElementById("emptyState").classList.add("hidden");
   }
   renderList(allStudents);
+}
+
+/**
+ * A teacher's own assigned sections, read directly from their own
+ * users/{uid} Firestore doc — the same field BroadcastService reads
+ * server-side to scope "announce to my section." Self-reads are already
+ * permitted by the existing security rules, so no new backend endpoint
+ * is needed just to see your own assignment.
+ */
+async function getMyAssignedSections() {
+  const uid = auth.currentUser.uid;
+  const snap = await getDoc(doc(db, "users", uid));
+  if (!snap.exists()) return [];
+  return snap.data().assignedSections || [];
+}
+
+/**
+ * Roster scoped to only the given grade/section pairs. Firestore has no
+ * clean "match any of these (grade, section) pairs" in one query without a
+ * computed composite field (which would need a one-time migration to
+ * backfill every existing student doc) — since a teacher's assigned
+ * sections list is always small, one query per pair merged in memory is
+ * simpler. Same reasoning already used for the Android app and for
+ * BroadcastService's section-targeting on the backend.
+ */
+async function getStudentsForSections(sections) {
+  const results = [];
+  const seenIds = new Set();
+
+  for (const s of sections) {
+    const q = query(
+      collection(db, "students"),
+      where("schoolId", "==", currentSchoolId),
+      where("grade", "==", s.grade),
+      where("section", "==", s.section)
+    );
+    const snap = await getDocs(q);
+    snap.docs.forEach((docSnap) => {
+      if (!seenIds.has(docSnap.id)) {
+        seenIds.add(docSnap.id);
+        results.push({ id: docSnap.id, ...docSnap.data() });
+      }
+    });
+  }
+
+  results.sort((a, b) => (a.fullName || "").localeCompare(b.fullName || ""));
+  return results;
+}
+
+/**
+ * Grade labels are free text ("1", "10", "K"), so a plain string sort
+ * would put "10" before "2". Extract leading digits when present and sort
+ * numerically; non-numeric labels sort after all numeric grades.
+ */
+function gradeCompare(a, b) {
+  const na = parseInt((a || "").replace(/\D/g, ""), 10);
+  const nb = parseInt((b || "").replace(/\D/g, ""), 10);
+  const aIsNum = !Number.isNaN(na);
+  const bIsNum = !Number.isNaN(nb);
+  if (aIsNum && bIsNum) return na - nb;
+  if (aIsNum) return -1;
+  if (bIsNum) return 1;
+  return (a || "").localeCompare(b || "");
+}
+
+function groupStudents(students) {
+  const byGrade = new Map();
+  students.forEach((s) => {
+    const grade = s.grade || "-";
+    const section = s.section || "-";
+    if (!byGrade.has(grade)) byGrade.set(grade, new Map());
+    const bySection = byGrade.get(grade);
+    if (!bySection.has(section)) bySection.set(section, []);
+    bySection.get(section).push(s);
+  });
+
+  return [...byGrade.keys()]
+    .sort(gradeCompare)
+    .map((grade) => ({
+      grade,
+      sections: [...byGrade.get(grade).keys()]
+        .sort()
+        .map((section) => ({
+          section,
+          students: byGrade.get(grade).get(section).sort((a, b) => (a.fullName || "").localeCompare(b.fullName || "")),
+        })),
+    }));
 }
 
 function renderList(students) {
@@ -165,40 +272,60 @@ function renderList(students) {
   const noResultsState = document.getElementById("noResultsState");
   list.innerHTML = "";
 
-  if (students.length === 0 && allStudents.length > 0) {
-    noResultsState.classList.remove("hidden");
+  if (students.length === 0) {
+    noResultsState.classList.toggle("hidden", allStudents.length === 0);
     return;
   }
   noResultsState.classList.add("hidden");
 
-  students.forEach((s) => {
-    const guardianCount = (s.guardianUids || []).length;
+  const groups = groupStudents(students);
 
-    const card = document.createElement("div");
-    card.className = "bg-white rounded-xl shadow-sm p-4";
-    card.innerHTML = `
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="font-semibold text-gray-800">${escapeHtml(s.fullName || "Unnamed Student")}</p>
-          <p class="text-sm text-gray-500">Grade ${escapeHtml(s.grade || "-")} · Section ${escapeHtml(s.section || "-")}</p>
-        </div>
-        <span class="text-xs px-2 py-1 rounded-full ${guardianCount > 0 ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}">
-          ${guardianCount} guardian${guardianCount === 1 ? "" : "s"}
-        </span>
-      </div>
-      <a href="${guardianCount > 0 ? `./manage-guardians.html?studentId=${encodeURIComponent(s.id)}` : `./register-parent.html?studentId=${encodeURIComponent(s.id)}`}"
-         class="student-action-link mt-3 block text-center py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200">
-        ${guardianCount > 0 ? "Manage Guardians" : "Register Parent"}
-      </a>
-    `;
-    card.querySelector(".student-action-link").addEventListener("click", () => {
-      sessionStorage.setItem(
-        guardianCount > 0 ? "pendingStaffGuardianStudentId" : "pendingParentStudentId",
-        s.id
-      );
+  groups.forEach((gradeGroup) => {
+    const gradeHeader = document.createElement("h2");
+    gradeHeader.className = "text-lg font-bold text-gray-800 mt-4 mb-1";
+    gradeHeader.textContent = `Grade ${gradeGroup.grade}`;
+    list.appendChild(gradeHeader);
+
+    gradeGroup.sections.forEach((sectionGroup) => {
+      const sectionHeader = document.createElement("h3");
+      sectionHeader.className = "text-sm font-semibold text-gray-500 mb-2 ml-1";
+      sectionHeader.textContent = `Section ${sectionGroup.section}`;
+      list.appendChild(sectionHeader);
+
+      sectionGroup.students.forEach((s) => {
+        list.appendChild(renderStudentCard(s));
+      });
     });
-    list.appendChild(card);
   });
+}
+
+function renderStudentCard(s) {
+  const guardianCount = (s.guardianUids || []).length;
+
+  const card = document.createElement("div");
+  card.className = "bg-white rounded-xl shadow-sm p-4 mb-2";
+  card.innerHTML = `
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="font-semibold text-gray-800">${escapeHtml(s.fullName || "Unnamed Student")}</p>
+        <p class="text-sm text-gray-500">Grade ${escapeHtml(s.grade || "-")} · Section ${escapeHtml(s.section || "-")}</p>
+      </div>
+      <span class="text-xs px-2 py-1 rounded-full ${guardianCount > 0 ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}">
+        ${guardianCount} guardian${guardianCount === 1 ? "" : "s"}
+      </span>
+    </div>
+    <a href="${guardianCount > 0 ? `./manage-guardians.html?studentId=${encodeURIComponent(s.id)}` : `./register-parent.html?studentId=${encodeURIComponent(s.id)}`}"
+       class="student-action-link mt-3 block text-center py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200">
+      ${guardianCount > 0 ? "Manage Guardians" : "Register Parent"}
+    </a>
+  `;
+  card.querySelector(".student-action-link").addEventListener("click", () => {
+    sessionStorage.setItem(
+      guardianCount > 0 ? "pendingStaffGuardianStudentId" : "pendingParentStudentId",
+      s.id
+    );
+  });
+  return card;
 }
 
 document.getElementById("searchBox").addEventListener("input", (e) => {

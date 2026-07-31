@@ -33,6 +33,66 @@ class TeacherRepository @Inject constructor(
         }
     }
 
+    /**
+     * A teacher's own assigned sections, read directly from their
+     * users/{uid} Firestore doc — the same field BroadcastService reads
+     * server-side to scope "announce to my section." No dedicated backend
+     * endpoint for this (unlike the school-admin's staff list, which needs
+     * one to see OTHER people's data) — reading your own profile doc is
+     * already permitted by the existing security rules
+     * (request.auth.uid == userId), so a direct Firestore read is the
+     * simplest option consistent with how the rest of the app works.
+     */
+    suspend fun getMyAssignedSections(uid: String): Result<List<com.pickuppass.android.data.model.TeacherSection>> = runCatching {
+        val doc = firestore.collection("users").document(uid).get().await()
+        @Suppress("UNCHECKED_CAST")
+        val raw = doc.get("assignedSections") as? List<Map<String, String>> ?: emptyList()
+        raw.mapNotNull { entry ->
+            val grade = entry["grade"]
+            val section = entry["section"]
+            if (grade != null && section != null) com.pickuppass.android.data.model.TeacherSection(grade, section) else null
+        }
+    }
+
+    /**
+     * Roster scoped to only the given grade/section pairs — what a
+     * teacher's student list actually queries, as opposed to
+     * getSchoolStudents() above (school_admin's unrestricted view).
+     *
+     * Firestore has no clean "match any of these (grade, section) pairs"
+     * in one query without a computed composite field, and a computed
+     * field would mean every existing student doc needs a one-time
+     * migration to backfill it. Since a teacher's assignedSections list is
+     * always small (a handful of sections at most), running one query per
+     * pair and merging in memory is simpler and avoids that migration
+     * entirely — same reasoning already used for BroadcastService's
+     * section-targeting on the backend.
+     */
+    suspend fun getStudentsForSections(
+        schoolId: String,
+        sections: List<com.pickuppass.android.data.model.TeacherSection>
+    ): Result<List<Student>> = runCatching {
+        if (sections.isEmpty()) return@runCatching emptyList()
+
+        val results = mutableListOf<Student>()
+        val seenIds = mutableSetOf<String>() // a student's grade+section is unique, but guard against duplicates defensively
+        for (s in sections) {
+            val snapshot = firestore.collection("students")
+                .whereEqualTo("schoolId", schoolId)
+                .whereEqualTo("grade", s.grade)
+                .whereEqualTo("section", s.section)
+                .get()
+                .await()
+
+            snapshot.documents.forEach { doc ->
+                if (seenIds.add(doc.id)) {
+                    doc.toObject(Student::class.java)?.also { it.id = doc.id }?.let { results.add(it) }
+                }
+            }
+        }
+        results.sortedBy { it.fullName }
+    }
+
     suspend fun createStudent(
         lastName: String,
         firstName: String,
