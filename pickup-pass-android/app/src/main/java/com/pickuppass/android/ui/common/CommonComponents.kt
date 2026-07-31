@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import com.pickuppass.android.ui.theme.Amber500
+import com.pickuppass.android.ui.theme.Amber900
+import com.pickuppass.android.ui.theme.Spacing
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -21,7 +24,10 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,16 +73,16 @@ fun PrimaryButton(
 fun ErrorBanner(message: String, modifier: Modifier = Modifier) {
     Surface(
         color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.small,
         modifier = modifier.fillMaxWidth()
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+        Row(modifier = Modifier.padding(Spacing.sm), verticalAlignment = Alignment.Top) {
             Icon(Icons.Filled.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
             Text(
                 text = message,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(start = 10.dp)
+                modifier = Modifier.padding(start = Spacing.sm)
             )
         }
     }
@@ -94,17 +100,17 @@ fun ErrorBanner(message: String, modifier: Modifier = Modifier) {
 @Composable
 fun WarningBanner(message: String, modifier: Modifier = Modifier) {
     Surface(
-        color = Color(0xFFF59E0B).copy(alpha = 0.12f),
-        shape = RoundedCornerShape(12.dp),
+        color = Amber500.copy(alpha = 0.12f),
+        shape = MaterialTheme.shapes.small,
         modifier = modifier.fillMaxWidth()
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
-            Icon(Icons.Filled.Warning, contentDescription = null, tint = Color(0xFF92400E))
+        Row(modifier = Modifier.padding(Spacing.sm), verticalAlignment = Alignment.Top) {
+            Icon(Icons.Filled.Warning, contentDescription = null, tint = Amber900)
             Text(
                 text = message,
-                color = Color(0xFF92400E),
+                color = Amber900,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(start = 10.dp)
+                modifier = Modifier.padding(start = Spacing.sm)
             )
         }
     }
@@ -114,16 +120,16 @@ fun WarningBanner(message: String, modifier: Modifier = Modifier) {
 fun SuccessBanner(message: String, modifier: Modifier = Modifier) {
     Surface(
         color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.small,
         modifier = modifier.fillMaxWidth()
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+        Row(modifier = Modifier.padding(Spacing.sm), verticalAlignment = Alignment.Top) {
             Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
             Text(
                 text = message,
                 color = MaterialTheme.colorScheme.secondary,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(start = 10.dp)
+                modifier = Modifier.padding(start = Spacing.sm)
             )
         }
     }
@@ -248,6 +254,44 @@ fun BrandedTitle(
                     style = MaterialTheme.typography.bodySmall,
                     color = if (subtitleColor != Color.Unspecified) subtitleColor else MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Generic string-options dropdown filter — originally built for the
+ * Dismissal History screen's grade/section/staff filters, promoted here so
+ * the grouped/searchable student list can use the exact same component
+ * rather than a second copy of the same ~20 lines.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FilterDropdown(
+    label: String,
+    options: List<String>,
+    selected: String?,
+    onSelect: (String?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = modifier) {
+        OutlinedTextField(
+            value = selected ?: "All",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor()
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(text = { Text("All") }, onClick = { onSelect(null); expanded = false })
+            options.forEach { option ->
+                DropdownMenuItem(text = { Text(option) }, onClick = { onSelect(option); expanded = false })
             }
         }
     }

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Inter is a single variable font (wght axis 100-900) rather than separate
+  static files per weight — Android natively supports this by declaring
+  each weight as a <font> entry that points to the SAME ttf with a
+  different fontVariationSettings value. Compose then resolves the correct
+  weight automatically based on the FontWeight requested in a TextStyle,
+  same as if these were separate files, with one file on disk instead of
+  four-plus.
+-->
+<font-family xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <font
+        android:font="@font/inter_variable"
+        android:fontStyle="normal"
+        android:fontWeight="400"
+        app:font="@font/inter_variable"
+        app:fontStyle="normal"
+        app:fontWeight="400"
+        app:fontVariationSettings="'wght' 400" />
+    <font
+        android:font="@font/inter_variable"
+        android:fontStyle="normal"
+        android:fontWeight="500"
+        app:font="@font/inter_variable"
+        app:fontStyle="normal"
+        app:fontWeight="500"
+        app:fontVariationSettings="'wght' 500" />
+    <font
+        android:font="@font/inter_variable"
+        android:fontStyle="normal"
+        android:fontWeight="600"
+        app:font="@font/inter_variable"
+        app:fontStyle="normal"
+        app:fontWeight="600"
+        app:fontVariationSettings="'wght' 600" />
+    <font
+        android:font="@font/inter_variable"
+        android:fontStyle="normal"
+        android:fontWeight="700"
+        app:font="@font/inter_variable"
+        app:fontStyle="normal"
+        app:fontWeight="700"
+        app:fontVariationSettings="'wght' 700" />
+    <font
+        android:font="@font/inter_variable"
+        android:fontStyle="normal"
+        android:fontWeight="800"
+        app:font="@font/inter_variable"
+        app:fontStyle="normal"
+        app:fontWeight="800"
+        app:fontVariationSettings="'wght' 800" />
+</font-family>

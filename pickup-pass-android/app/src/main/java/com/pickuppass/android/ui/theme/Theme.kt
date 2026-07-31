@@ -30,15 +30,30 @@ private val LightColors = lightColorScheme(
     outline = Gray200,
 )
 
+// Previously only defined 8 of the ~15 roles LightColors defines — any
+// screen referencing the missing ones in dark mode (primaryContainer,
+// surfaceVariant, outline, etc.) silently fell back to Material3's
+// generic default purple-ish scheme instead of the actual brand, which
+// was a real dark-mode visual bug, not just an incompleteness. Container
+// roles use deeper, more saturated tones than their light-mode pastel
+// counterparts — the standard Material3 dark-scheme convention — rather
+// than reusing the light-mode container colors directly.
 private val DarkColors = darkColorScheme(
     primary = Indigo500,
     onPrimary = Gray900,
+    primaryContainer = Indigo900,
+    onPrimaryContainer = Indigo100,
     secondary = Green500,
+    onSecondary = Gray900,
     error = Red500,
+    onError = Gray900,
     background = Gray900,
     onBackground = Gray50,
     surface = Gray800,
     onSurface = Gray50,
+    surfaceVariant = Gray700,
+    onSurfaceVariant = Gray300,
+    outline = Gray600,
 )
 
 @Composable
@@ -60,6 +75,7 @@ fun PickupPassTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = PickupPassTypography,
+        shapes = PickupPassShapes,
         content = content
     )
 }

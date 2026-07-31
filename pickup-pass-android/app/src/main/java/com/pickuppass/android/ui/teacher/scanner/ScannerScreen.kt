@@ -17,6 +17,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.pickuppass.android.ui.theme.Gray300
+import com.pickuppass.android.ui.theme.Gray400
+import com.pickuppass.android.ui.theme.Gray800
+import com.pickuppass.android.ui.theme.Gray900
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -49,11 +53,11 @@ fun ScannerScreen(
     }
 
     Scaffold(
-        containerColor = Color(0xFF111827),
+        containerColor = Gray900,
         topBar = {
             TopAppBar(
-                title = { BrandedTitle("Dismissal Scanner", school, titleColor = Color.White, subtitleColor = Color(0xFF9CA3AF)) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF111827)),
+                title = { BrandedTitle("Dismissal Scanner", school, titleColor = Color.White, subtitleColor = Gray400) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Gray900),
                 actions = {
                     IconButton(onClick = onGoToStudents) {
                         Icon(Icons.Filled.People, contentDescription = "Students", tint = Color.White)
@@ -156,7 +160,7 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
             .fillMaxWidth()
             .align(Alignment.BottomCenter),
     ) {
-        Surface(color = Color(0xFF1F2937), modifier = Modifier.fillMaxWidth()) {
+        Surface(color = Gray800, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
                 Row(
                     modifier = Modifier
@@ -166,7 +170,7 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
                 ) {
                     // Left: student info
                     Surface(
-                        color = Color(0xFF111827),
+                        color = Gray900,
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .weight(1f)
@@ -176,7 +180,7 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
                             Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Text("STUDENT", color = Color(0xFF9CA3AF), style = MaterialTheme.typography.bodySmall)
+                            Text("STUDENT", color = Gray400, style = MaterialTheme.typography.bodySmall)
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 state.student.fullName,
@@ -185,14 +189,14 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(Modifier.height(6.dp))
-                            Text("Grade ${state.student.grade}", color = Color(0xFFD1D5DB), style = MaterialTheme.typography.bodyMedium)
-                            Text("Section ${state.student.section}", color = Color(0xFF9CA3AF), style = MaterialTheme.typography.bodySmall)
+                            Text("Grade ${state.student.grade}", color = Gray300, style = MaterialTheme.typography.bodyMedium)
+                            Text("Section ${state.student.section}", color = Gray400, style = MaterialTheme.typography.bodySmall)
                         }
                     }
 
                     // Right: guardian photo for face match
                     Surface(
-                        color = Color(0xFF111827),
+                        color = Gray900,
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .weight(1f)
@@ -205,7 +209,7 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Text("VERIFY FACE", color = Color(0xFF9CA3AF), style = MaterialTheme.typography.bodySmall)
+                            Text("VERIFY FACE", color = Gray400, style = MaterialTheme.typography.bodySmall)
                             Spacer(Modifier.height(6.dp))
                             GuardianAvatar(photoUrl = state.guardian?.photoUrl, size = 64.dp)
                             Spacer(Modifier.height(6.dp))
@@ -295,7 +299,7 @@ private fun CameraPermissionRequest(shouldShowRationale: Boolean, onRequest: () 
             Spacer(Modifier.height(8.dp))
             Text(
                 "Please allow camera access in Settings to use the scanner.",
-                color = Color(0xFF9CA3AF),
+                color = Gray400,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 style = MaterialTheme.typography.bodySmall
             )
