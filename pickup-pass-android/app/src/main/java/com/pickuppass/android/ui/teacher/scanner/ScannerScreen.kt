@@ -227,7 +227,8 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
                 Spacer(Modifier.height(Spacing.md))
 
                 PrimaryButton(
-                    text = "\u2705  APPROVE RELEASE",
+                    text = "APPROVE RELEASE",
+                    icon = Icons.Filled.CheckCircle,
                     onClick = viewModel::approveRelease,
                     loading = state.isApproving,
                     containerColor = MaterialTheme.colorScheme.secondary

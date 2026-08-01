@@ -7,6 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import com.pickuppass.android.ui.theme.Amber500
 import com.pickuppass.android.ui.theme.Amber900
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -47,6 +49,7 @@ fun PrimaryButton(
     enabled: Boolean = true,
     loading: Boolean = false,
     containerColor: Color = MaterialTheme.colorScheme.primary,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
 ) {
     Button(
         onClick = onClick,
@@ -63,6 +66,10 @@ fun PrimaryButton(
                 color = MaterialTheme.colorScheme.onPrimary,
                 strokeWidth = 2.dp
             )
+        } else if (icon != null) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(Spacing.sm))
+            Text(text, style = MaterialTheme.typography.labelLarge)
         } else {
             Text(text, style = MaterialTheme.typography.labelLarge)
         }
