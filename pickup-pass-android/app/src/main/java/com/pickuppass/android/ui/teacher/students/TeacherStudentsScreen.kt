@@ -3,7 +3,6 @@ package com.pickuppass.android.ui.teacher.students
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -23,6 +22,7 @@ import com.pickuppass.android.ui.common.BrandedTitle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.PrimaryButton
+import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,23 +79,23 @@ fun TeacherStudentsScreen(
                     placeholder = { Text("Search by student name...") },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = MaterialTheme.shapes.small,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .padding(horizontal = Spacing.md, vertical = Spacing.sm)
                 )
             }
 
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when {
                     uiState.isLoading -> FullScreenLoading()
-                    uiState.error != null -> Box(Modifier.padding(24.dp)) { ErrorBanner(uiState.error!!) }
+                    uiState.error != null -> Box(Modifier.padding(Spacing.lg)) { ErrorBanner(uiState.error!!) }
                     uiState.hasNoAssignedSections -> NoSectionsAssignedState()
                     uiState.allStudents.isEmpty() -> EmptyRoster()
                     uiState.groupedStudents.isEmpty() -> NoSearchResultsState()
                     else -> LazyColumn(
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 80.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.xs, bottom = 80.dp),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
                     ) {
                         uiState.groupedStudents.forEach { gradeGroup ->
                             item(key = "grade-${gradeGroup.grade}") {
@@ -103,7 +103,7 @@ fun TeacherStudentsScreen(
                                     "Grade ${gradeGroup.grade.ifBlank { "-" }}",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(top = 12.dp, bottom = 2.dp)
+                                    modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs)
                                 )
                             }
                             gradeGroup.sections.forEach { sectionGroup ->
@@ -112,7 +112,7 @@ fun TeacherStudentsScreen(
                                         "Section ${sectionGroup.section.ifBlank { "-" }}",
                                         style = MaterialTheme.typography.labelLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(bottom = 4.dp, start = 4.dp)
+                                        modifier = Modifier.padding(bottom = Spacing.xs, start = Spacing.xs)
                                     )
                                 }
                                 items(sectionGroup.students, key = { it.id }) { student ->
@@ -142,8 +142,8 @@ fun TeacherStudentsScreen(
 private fun StudentRow(student: Student, onRegisterParent: () -> Unit) {
     val guardianCount = student.guardianUids.size
 
-    ElevatedCard(shape = RoundedCornerShape(14.dp)) {
-        Column(Modifier.padding(14.dp)) {
+    ElevatedCard(shape = MaterialTheme.shapes.medium) {
+        Column(Modifier.padding(Spacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -168,7 +168,7 @@ private fun StudentRow(student: Student, onRegisterParent: () -> Unit) {
                     )
                 )
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(Spacing.sm))
             OutlinedButton(onClick = onRegisterParent, modifier = Modifier.fillMaxWidth()) {
                 Text(if (guardianCount > 0) "Register Another Guardian" else "Register Parent")
             }
@@ -181,7 +181,7 @@ private fun EmptyRoster() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
+            .padding(Spacing.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -191,7 +191,7 @@ private fun EmptyRoster() {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp)
+            modifier = Modifier.padding(top = Spacing.xs)
         )
     }
 }
@@ -202,7 +202,7 @@ private fun NoSearchResultsState() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
+            .padding(Spacing.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -212,7 +212,7 @@ private fun NoSearchResultsState() {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp)
+            modifier = Modifier.padding(top = Spacing.xs)
         )
     }
 }
@@ -223,7 +223,7 @@ private fun NoSectionsAssignedState() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
+            .padding(Spacing.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -233,7 +233,7 @@ private fun NoSectionsAssignedState() {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp)
+            modifier = Modifier.padding(top = Spacing.xs)
         )
     }
 }
@@ -264,7 +264,7 @@ private fun AddStudentDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 OutlinedTextField(
                     value = firstName,
                     onValueChange = { firstName = it },
@@ -272,7 +272,7 @@ private fun AddStudentDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 Row {
                     OutlinedTextField(
                         value = middleInitial,
@@ -281,7 +281,7 @@ private fun AddStudentDialog(
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.sm))
                     OutlinedTextField(
                         value = suffix,
                         onValueChange = { suffix = it },
@@ -290,7 +290,7 @@ private fun AddStudentDialog(
                         modifier = Modifier.weight(2f)
                     )
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 Row {
                     OutlinedTextField(
                         value = grade,
@@ -299,7 +299,7 @@ private fun AddStudentDialog(
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.sm))
                     OutlinedTextField(
                         value = section,
                         onValueChange = { section = it },
@@ -309,7 +309,7 @@ private fun AddStudentDialog(
                     )
                 }
                 formError?.let {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     ErrorBanner(it)
                 }
             }
@@ -319,7 +319,7 @@ private fun AddStudentDialog(
                 text = "Add",
                 loading = isSubmitting,
                 onClick = { onSubmit(lastName.trim(), firstName.trim(), middleInitial.trim(), suffix.trim(), grade.trim(), section.trim()) },
-                modifier = Modifier.padding(bottom = 4.dp)
+                modifier = Modifier.padding(bottom = Spacing.xs)
             )
         },
         dismissButton = {

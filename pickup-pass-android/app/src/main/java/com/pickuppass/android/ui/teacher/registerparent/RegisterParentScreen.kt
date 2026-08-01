@@ -1,21 +1,26 @@
 package com.pickuppass.android.ui.teacher.registerparent
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.PrimaryButton
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.common.WarningBanner
+import com.pickuppass.android.ui.theme.Spacing
 
 private val relationshipOptions = listOf(
     "parent/guardian" to "Parent / Guardian",
@@ -41,6 +46,8 @@ fun RegisterParentScreen(
     var email by remember { mutableStateOf("") }
     var relationship by remember { mutableStateOf(relationshipOptions.first().first) }
     var expanded by remember { mutableStateOf(false) }
+    val firstNameFocus = remember { FocusRequester() }
+    val emailFocus = remember { FocusRequester() }
 
     LaunchedEffect(studentId) { viewModel.loadStudent(studentId) }
 
@@ -60,14 +67,14 @@ fun RegisterParentScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .padding(20.dp)
+                .padding(Spacing.lg)
         ) {
             if (uiState.studentLabel.isNotBlank()) {
                 Text(
                     uiState.studentLabel,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(bottom = Spacing.md)
                 )
             }
 
@@ -75,7 +82,7 @@ fun RegisterParentScreen(
                 "They'll get an email to set their password and upload a photo. Once set up, they can generate pickup passes for this student.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier.padding(bottom = Spacing.md)
             )
 
             OutlinedTextField(
@@ -83,26 +90,32 @@ fun RegisterParentScreen(
                 onValueChange = { lastName = it },
                 label = { Text("Parent's last name") },
                 singleLine = true,
-                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { firstNameFocus.requestFocus() }),
+                shape = MaterialTheme.shapes.small,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.sm))
             OutlinedTextField(
                 value = firstName,
                 onValueChange = { firstName = it },
                 label = { Text("Parent's first name") },
                 singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { emailFocus.requestFocus() }),
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(firstNameFocus)
             )
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(Modifier.height(Spacing.sm))
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 OutlinedTextField(
                     value = middleInitial,
                     onValueChange = { middleInitial = it },
                     label = { Text("M.I.") },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = MaterialTheme.shapes.small,
                     modifier = Modifier.weight(1f)
                 )
                 OutlinedTextField(
@@ -110,20 +123,23 @@ fun RegisterParentScreen(
                     onValueChange = { suffix = it },
                     label = { Text("Suffix") },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = MaterialTheme.shapes.small,
                     modifier = Modifier.weight(2f)
                 )
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.sm))
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
                 label = { Text("Email address") },
                 singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(emailFocus)
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.sm))
 
             ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                 OutlinedTextField(
@@ -132,7 +148,7 @@ fun RegisterParentScreen(
                     readOnly = true,
                     label = { Text("Relationship") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    shape = RoundedCornerShape(12.dp),
+                    shape = MaterialTheme.shapes.small,
                     modifier = Modifier
                         .fillMaxWidth()
                         .menuAnchor()
@@ -147,14 +163,14 @@ fun RegisterParentScreen(
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.md))
 
-            uiState.error?.let { ErrorBanner(it, modifier = Modifier.padding(bottom = 12.dp)) }
+            uiState.error?.let { ErrorBanner(it, modifier = Modifier.padding(bottom = Spacing.sm)) }
             uiState.successMessage?.let {
                 if (uiState.successIsWarning) {
-                    WarningBanner(it, modifier = Modifier.padding(bottom = 12.dp))
+                    WarningBanner(it, modifier = Modifier.padding(bottom = Spacing.sm))
                 } else {
-                    SuccessBanner(it, modifier = Modifier.padding(bottom = 12.dp))
+                    SuccessBanner(it, modifier = Modifier.padding(bottom = Spacing.sm))
                 }
             }
 
