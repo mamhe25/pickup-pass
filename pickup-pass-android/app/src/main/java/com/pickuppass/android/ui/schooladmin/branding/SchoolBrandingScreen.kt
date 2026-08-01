@@ -5,10 +5,18 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.Class
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -18,12 +26,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.SmartImage
+import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,7 +62,7 @@ fun SchoolBrandingScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("School Branding") },
+                title = { Text("School Admin") },
                 actions = {
                     IconButton(onClick = { viewModel.signOut() }) {
                         Icon(Icons.Filled.Logout, contentDescription = "Sign out")
@@ -65,137 +75,173 @@ fun SchoolBrandingScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .verticalScroll(rememberScrollState())
+                .padding(Spacing.lg),
         ) {
-            if (uiState.schoolName.isNotBlank()) {
-                Text(uiState.schoolName, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(4.dp))
-            }
-            Text(
-                "This logo is shown to parents and staff so it's always clear which school they're signed into.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
+            // --- Branding: logo picker ---
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                if (uiState.schoolName.isNotBlank()) {
+                    Text(uiState.schoolName, style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(Spacing.xs))
+                }
+                Text(
+                    "This logo is shown to parents and staff so it's always clear which school they're signed into.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = Spacing.lg)
+                )
 
-            Box(
-                modifier = Modifier
-                    .size(140.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { pickImage.launch("image/*") },
-                contentAlignment = Alignment.Center
-            ) {
-                if (uiState.logoUrl != null) {
-                    SmartImage(
-                        model = uiState.logoUrl,
-                        contentDescription = "School logo",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(12.dp)
-                    )
-                } else {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Filled.Image, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            "No logo yet",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp)
+                Box(
+                    modifier = Modifier
+                        .size(140.dp)
+                        .clip(MaterialTheme.shapes.large)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { pickImage.launch("image/*") },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (uiState.logoUrl != null) {
+                        SmartImage(
+                            model = uiState.logoUrl,
+                            contentDescription = "School logo",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(Spacing.sm)
                         )
+                    } else {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Filled.Image, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "No logo yet",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = Spacing.xs)
+                            )
+                        }
+                    }
+
+                    if (uiState.isUploading) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary)
+                        }
                     }
                 }
 
-                if (uiState.isUploading) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary)
-                    }
+                TextButton(onClick = { pickImage.launch("image/*") }, modifier = Modifier.padding(top = Spacing.sm)) {
+                    Text(if (uiState.logoUrl != null) "Change Logo" else "Choose Logo Image")
+                }
+
+                Text(
+                    "PNG, JPEG, or WebP · under 2MB · square logos with a transparent background look best. It's automatically resized on upload.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = Spacing.xs, bottom = Spacing.sm)
+                )
+
+                uiState.successMessage?.let {
+                    Text(it, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+                }
+                uiState.error?.let {
+                    Spacer(Modifier.height(Spacing.sm))
+                    ErrorBanner(it)
                 }
             }
 
-            TextButton(onClick = { pickImage.launch("image/*") }, modifier = Modifier.padding(top = 8.dp)) {
-                Text(if (uiState.logoUrl != null) "Change Logo" else "Choose Logo Image")
-            }
+            Spacer(Modifier.height(Spacing.xl))
 
-            Text(
-                "PNG, JPEG, or WebP · under 2MB · square logos with a transparent background look best. It's automatically resized on upload.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+            // --- Primary daily action: gets real visual weight, everything
+            // else here is either occasional (invite a teacher, assign
+            // sections) or a different kind of action entirely
+            // (broadcasting), not a same-weight peer of "run the scanner." ---
+            PrimaryActionButton(
+                icon = Icons.Filled.QrCode2,
+                label = "Go to Dismissal Scanner",
+                onClick = onGoToScanner
             )
 
-            uiState.successMessage?.let {
-                Text(it, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
-            }
-            uiState.error?.let {
-                Spacer(Modifier.height(8.dp))
-                ErrorBanner(it)
+            Spacer(Modifier.height(Spacing.lg))
+            SectionLabel("Manage")
+            GroupedActionList {
+                NavListItem(Icons.Filled.Groups, "Manage Students", onGoToStudents)
+                NavListItem(Icons.Filled.History, "Dismissal History", onGoToExitLogs)
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(Spacing.lg))
+            SectionLabel("Administration")
+            GroupedActionList {
+                NavListItem(Icons.Filled.PersonAdd, "Invite a Teacher", onGoToInviteTeacher)
+                NavListItem(Icons.Filled.Class, "Teacher Sections", onGoToManageSections)
+            }
 
-            OutlinedButton(
-                onClick = onGoToScanner,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-            ) {
-                Text("Go to Dismissal Scanner →")
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = onGoToStudents,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-            ) {
-                Text("Manage Students →")
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = onGoToExitLogs,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-            ) {
-                Text("Dismissal History →")
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = onGoToInviteTeacher,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-            ) {
-                Text("Invite a Teacher →")
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = onGoToManageSections,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-            ) {
-                Text("Teacher Sections →")
-            }
-            Spacer(Modifier.height(8.dp))
-            Button(
+            Spacer(Modifier.height(Spacing.lg))
+            PrimaryActionButton(
+                icon = Icons.Filled.Campaign,
+                label = "Send Announcement",
                 onClick = onGoToBroadcast,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-            ) {
-                Text("Send Announcement →")
-            }
+                containerColor = MaterialTheme.colorScheme.secondary
+            )
+            Spacer(Modifier.height(Spacing.md))
         }
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.xs)
+    )
+}
+
+/** Visually groups related nav items inside one bordered surface, rather than leaving the grouping implied only by a text header above a run of identical buttons. */
+@Composable
+private fun GroupedActionList(content: @Composable ColumnScope.() -> Unit) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(content = content)
+    }
+}
+
+@Composable
+private fun NavListItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    ListItem(
+        headlineContent = { Text(label, style = MaterialTheme.typography.bodyLarge) },
+        leadingContent = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        modifier = Modifier.clickable(onClick = onClick)
+    )
+}
+
+@Composable
+private fun PrimaryActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary
+) {
+    Button(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.small,
+        colors = ButtonDefaults.buttonColors(containerColor = containerColor),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(Spacing.sm))
+        Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     }
 }

@@ -2,7 +2,6 @@ package com.pickuppass.android.ui.teacher.scanner
 
 import android.Manifest
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -21,6 +20,7 @@ import com.pickuppass.android.ui.theme.Gray300
 import com.pickuppass.android.ui.theme.Gray400
 import com.pickuppass.android.ui.theme.Gray800
 import com.pickuppass.android.ui.theme.Gray900
+import com.pickuppass.android.ui.theme.Spacing
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -131,7 +131,7 @@ private fun ScanningOverlay() {
             Text(
                 "Point camera at parent's pass",
                 color = Color.White,
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(Spacing.md),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
@@ -147,7 +147,7 @@ private fun RequestOverlay(message: String) {
             verticalArrangement = Arrangement.Center
         ) {
             CircularProgressIndicator(color = Color.White)
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.md))
             Text(message, color = Color.White, style = MaterialTheme.typography.titleMedium)
         }
     }
@@ -161,34 +161,34 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
             .align(Alignment.BottomCenter),
     ) {
         Surface(color = Gray800, modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
+            Column(Modifier.padding(Spacing.md)) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(140.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
                     // Left: student info
                     Surface(
                         color = Gray900,
-                        shape = RoundedCornerShape(14.dp),
+                        shape = MaterialTheme.shapes.small,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
                     ) {
                         Column(
-                            Modifier.padding(14.dp),
+                            Modifier.padding(Spacing.md),
                             verticalArrangement = Arrangement.Center
                         ) {
                             Text("STUDENT", color = Gray400, style = MaterialTheme.typography.bodySmall)
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(Spacing.xs))
                             Text(
                                 state.student.fullName,
                                 color = Color.White,
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(Spacing.xs))
                             Text("Grade ${state.student.grade}", color = Gray300, style = MaterialTheme.typography.bodyMedium)
                             Text("Section ${state.student.section}", color = Gray400, style = MaterialTheme.typography.bodySmall)
                         }
@@ -197,7 +197,7 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
                     // Right: guardian photo for face match
                     Surface(
                         color = Gray900,
-                        shape = RoundedCornerShape(14.dp),
+                        shape = MaterialTheme.shapes.small,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
@@ -205,14 +205,14 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
                         Column(
                             Modifier
                                 .fillMaxSize()
-                                .padding(10.dp),
+                                .padding(Spacing.sm),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
                             Text("VERIFY FACE", color = Gray400, style = MaterialTheme.typography.bodySmall)
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(Spacing.xs))
                             GuardianAvatar(photoUrl = state.guardian?.photoUrl, size = 64.dp)
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(Spacing.xs))
                             Text(
                                 state.guardian?.displayName ?: "Unknown",
                                 color = Color.White,
@@ -224,7 +224,7 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(Spacing.md))
 
                 PrimaryButton(
                     text = "\u2705  APPROVE RELEASE",
@@ -232,7 +232,7 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
                     loading = state.isApproving,
                     containerColor = MaterialTheme.colorScheme.secondary
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 OutlinedButton(
                     onClick = viewModel::resetToScanning,
                     enabled = !state.isApproving,
@@ -274,7 +274,7 @@ private fun ApprovedOverlay(onDone: () -> Unit) {
                 tint = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.size(72.dp)
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(Spacing.sm))
             Text("Release Logged", color = Color.White, style = MaterialTheme.typography.titleLarge)
         }
     }
@@ -285,7 +285,7 @@ private fun CameraPermissionRequest(shouldShowRationale: Boolean, onRequest: () 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
+            .padding(Spacing.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -296,7 +296,7 @@ private fun CameraPermissionRequest(shouldShowRationale: Boolean, onRequest: () 
             style = MaterialTheme.typography.titleMedium
         )
         if (shouldShowRationale) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.sm))
             Text(
                 "Please allow camera access in Settings to use the scanner.",
                 color = Gray400,
@@ -304,7 +304,7 @@ private fun CameraPermissionRequest(shouldShowRationale: Boolean, onRequest: () 
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(Spacing.lg))
         PrimaryButton(text = "Grant Camera Access", onClick = onRequest)
     }
 }

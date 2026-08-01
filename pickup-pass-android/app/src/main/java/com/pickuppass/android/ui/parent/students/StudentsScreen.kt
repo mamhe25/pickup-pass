@@ -5,10 +5,9 @@ import android.os.Build
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.QrCode2
@@ -29,6 +28,7 @@ import com.pickuppass.android.data.model.Student
 import com.pickuppass.android.ui.common.BrandedTitle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -80,11 +80,11 @@ fun StudentsScreen(
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             when {
                 uiState.isLoading -> FullScreenLoading()
-                uiState.error != null -> Box(Modifier.padding(24.dp)) { ErrorBanner(uiState.error!!) }
+                uiState.error != null -> Box(Modifier.padding(Spacing.lg)) { ErrorBanner(uiState.error!!) }
                 uiState.students.isEmpty() -> EmptyState()
                 else -> LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
                     items(uiState.students, key = { it.id }) { student ->
                         StudentCard(
@@ -105,16 +105,16 @@ private fun StudentCard(
     onGetPass: () -> Unit,
     onManageGuardians: () -> Unit
 ) {
-    ElevatedCard(shape = RoundedCornerShape(16.dp)) {
-        Column(Modifier.padding(16.dp)) {
+    ElevatedCard(shape = MaterialTheme.shapes.medium) {
+        Column(Modifier.padding(Spacing.md)) {
             Text(student.fullName, style = MaterialTheme.typography.titleMedium)
             Text(
                 "Grade ${student.grade} · Section ${student.section}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(Modifier.height(Spacing.sm))
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 FilledTonalButton(onClick = onGetPass, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Filled.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
@@ -135,20 +135,21 @@ private fun EmptyState() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
+            .padding(Spacing.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
-            Icons.Filled.ChevronRight,
+            Icons.Filled.Groups,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(48.dp)
         )
         Text(
             "No students are linked to your account yet.",
             style = MaterialTheme.typography.titleMedium,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+            modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs)
         )
         Text(
             "Contact your school office to be added as a pickup contact.",

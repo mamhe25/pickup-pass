@@ -54,7 +54,7 @@ fun PrimaryButton(
         modifier = modifier
             .fillMaxWidth()
             .height(52.dp),
-        shape = RoundedCornerShape(14.dp),
+        shape = MaterialTheme.shapes.small,
         colors = ButtonDefaults.buttonColors(containerColor = containerColor)
     ) {
         if (loading) {
