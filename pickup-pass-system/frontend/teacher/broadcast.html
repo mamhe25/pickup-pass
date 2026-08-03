@@ -3,57 +3,48 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Send Announcement — Pickup Pass</title>
+<title>Send Announcement — PickupPass</title>
+<link rel="stylesheet" href="../shared/theme.css" />
+<link rel="stylesheet" href="../shared/components.css" />
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen p-4">
+<body class="min-h-screen">
 
-  <div class="max-w-sm mx-auto pt-2">
-    <div class="flex items-center justify-between">
-      <a href="./students.html" class="text-sm text-indigo-600 font-medium">← Students</a>
-      <button id="signOutBtn" class="text-xs text-gray-400 underline">Sign out</button>
-    </div>
-    <p id="currentUserEmail" class="text-xs text-gray-400 mt-1 mb-4"></p>
+  <div id="teacherNav" data-active="announce"></div>
+  <script type="module" src="../shared/teacher-nav.js"></script>
 
-    <h1 class="text-xl font-bold text-gray-800 mb-1">Send an Announcement</h1>
-    <p class="text-sm text-gray-500 mb-4">
+  <main class="max-w-lg mx-auto p-4">
+    <h1 class="text-xl font-bold text-ink-strong mb-1">Send an Announcement</h1>
+    <p class="text-sm text-ink-muted mb-4">
       Goes out immediately to the guardians of students in your assigned section(s) — as a push and in their notification inbox.
     </p>
 
-    <div class="bg-white rounded-2xl shadow-sm p-4">
+    <div class="pp-card pp-card--pad">
       <form id="broadcastForm" class="space-y-3">
-        <input id="title" type="text" required maxlength="120" placeholder="Title (e.g. &quot;Field Trip Reminder&quot;)"
-          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <textarea id="body" required rows="4" maxlength="1000" placeholder="Message"
-          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        <div>
+          <label class="pp-label" for="title">Title</label>
+          <input id="title" type="text" required maxlength="120" placeholder="e.g. Field Trip Reminder" class="pp-field" />
+        </div>
+        <div>
+          <label class="pp-label" for="body">Message</label>
+          <textarea id="body" required rows="4" maxlength="1000" placeholder="What do guardians need to know?" class="pp-field" style="min-height:auto;"></textarea>
+        </div>
 
-        <p id="formError" class="text-sm text-red-500 hidden"></p>
-        <p id="formSuccess" class="text-sm text-green-600 hidden"></p>
+        <p id="formError" class="pp-alert pp-alert--danger hidden"></p>
+        <p id="formSuccess" class="pp-alert pp-alert--success hidden"></p>
 
-        <button type="submit" id="sendBtn"
-          class="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition">
+        <button type="submit" id="sendBtn" class="pp-btn pp-btn--primary w-full">
           Send Announcement
         </button>
       </form>
     </div>
-  </div>
+  </main>
 
 <script type="module">
-import { auth, authedFetch } from "../shared/firebase-init.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-document.getElementById("signOutBtn").addEventListener("click", async () => {
-  await signOut(auth);
-  window.location.href = "../login.html";
-});
-
-onAuthStateChanged(auth, (user) => {
-  if (!user) {
-    window.location.href = "../login.html";
-    return;
-  }
-  document.getElementById("currentUserEmail").textContent = user.email;
-});
+// Sign-out, the auth guard, and the signed-in email are all owned by the
+// shared teacher nav (teacher-nav.js). This page only handles its own form.
+import { authedFetch } from "../shared/firebase-init.js";
 
 document.getElementById("broadcastForm").addEventListener("submit", async (e) => {
   e.preventDefault();

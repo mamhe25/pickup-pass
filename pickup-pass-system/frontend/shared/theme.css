@@ -1,0 +1,265 @@
+/* =============================================================================
+   PickupPass — Brand Foundation (design tokens)
+   "Safe Dismissal. Peace of Mind."
+
+   Single source of truth for the web platform. Every primitive here matches
+   the Android app's ui/theme/Color.kt, Type.kt, Shapes.kt and Spacing.kt
+   token-for-token, so a color, radius or spacing step means the same thing on
+   both platforms. See DESIGN_SYSTEM.md for the full cross-platform mapping.
+
+   Layering:
+     1. Primitives  — the raw brand ramps (indigo/green/red/amber/gray). Never
+                      reference these directly in a page; reach for a semantic
+                      token instead so dark mode and future re-tints are free.
+     2. Semantic    — role tokens (surface, text, primary, danger…) that pages
+                      and components actually consume.
+     3. Scales      — radius, spacing, elevation, motion.
+   ========================================================================== */
+
+/* Inter is the brand typeface on every platform (Android bundles it as a font
+   resource; the web pulls the same family). Loaded here so a page only needs
+   to import this one stylesheet to be on-brand. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+:root {
+  color-scheme: light;
+
+  /* ---- 1. Primitives — mirror Android Color.kt exactly ------------------ */
+  --indigo-50:  #EEF2FF;
+  --indigo-100: #E0E7FF;
+  --indigo-500: #6366F1;
+  --indigo-600: #4F46E5;  /* brand primary */
+  --indigo-700: #4338CA;
+  --indigo-900: #312E81;
+
+  --green-500: #22C55E;
+  --green-600: #16A34A;   /* success / "safely dismissed" */
+  --green-700: #15803D;
+  --green-900: #14532D;
+
+  --red-500: #EF4444;
+  --red-600: #DC2626;     /* error / danger only */
+  --red-900: #7F1D1D;
+
+  --amber-50:  #FFFBEB;
+  --amber-500: #F59E0B;   /* non-blocking caution only */
+  --amber-700: #B45309;
+  --amber-900: #78350F;
+
+  --gray-50:  #F9FAFB;
+  --gray-100: #F3F4F6;
+  --gray-200: #E5E7EB;
+  --gray-300: #D1D5DB;
+  --gray-400: #9CA3AF;
+  --gray-500: #6B7280;
+  --gray-600: #4B5563;
+  --gray-700: #374151;
+  --gray-800: #1F2937;
+  --gray-900: #111827;
+
+  --white: #FFFFFF;
+
+  /* ---- 2. Semantic tokens (light) — what pages actually use ------------- */
+  /* Surfaces */
+  --bg:              var(--gray-50);   /* app/page background   (Android background) */
+  --surface:         var(--white);     /* cards, sheets, inputs (Android surface)    */
+  --surface-variant: var(--gray-100);  /* subtle fills, hovers  (Android surfaceVariant) */
+  --surface-sunken:  var(--gray-100);
+
+  /* Text — role names, not shades, so dark mode just swaps the mapping */
+  --text-strong:  var(--gray-900);  /* headings, primary content */
+  --text:         var(--gray-800);  /* default body */
+  --text-muted:   var(--gray-500);  /* secondary, captions */
+  --text-subtle:  var(--gray-400);  /* metadata, timestamps */
+  --text-on-brand: var(--white);    /* text on primary/success/danger fills */
+
+  /* Borders & dividers */
+  --border:        var(--gray-200);  /* default hairline (Android outline) */
+  --border-strong: var(--gray-300);  /* input borders, emphasis */
+
+  /* Primary (indigo) — trust & security */
+  --primary:            var(--indigo-600);
+  --primary-hover:      var(--indigo-700);
+  --primary-container:  var(--indigo-50);
+  --on-primary-container: var(--indigo-700);
+
+  /* Success (green) — "safely dismissed", confirmations */
+  --success:            var(--green-600);
+  --success-hover:      var(--green-700);
+  --success-container:  #ECFDF5;
+  --on-success-container: var(--green-900);
+
+  /* Danger (red) — errors and destructive actions ONLY */
+  --danger:             var(--red-600);
+  --danger-hover:       var(--red-900);
+  --danger-container:   #FEF2F2;
+  --on-danger-container: var(--red-900);
+
+  /* Warning (amber) — non-blocking caution ONLY */
+  --warning:            var(--amber-500);
+  --warning-hover:      var(--amber-700);
+  --warning-container:  var(--amber-50);
+  --on-warning-container: var(--amber-900);
+
+  /* Focus ring — one consistent, accessible ring everywhere */
+  --focus-ring: color-mix(in srgb, var(--indigo-600) 45%, transparent);
+
+  /* Brand gradient — the signature. Used with restraint: splash, hero,
+     loading, empty-state accents. Never behind body text. */
+  --brand-gradient: linear-gradient(135deg, var(--indigo-600) 0%, var(--indigo-500) 55%, #7C7CF5 100%);
+
+  /* ---- 3a. Radius — mirror Android Shapes.kt --------------------------- */
+  --radius-xs: 8px;    /* chips, badges, small pills */
+  --radius-sm: 12px;   /* buttons, inputs, dropdowns */
+  --radius-md: 16px;   /* standard cards, dialogs */
+  --radius-lg: 20px;   /* prominent/elevated cards */
+  --radius-xl: 28px;   /* sheets, full-bleed surfaces */
+  --radius-full: 9999px;
+
+  /* ---- 3b. Spacing — mirror Android Spacing.kt (4px grid) -------------- */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  32px;
+  --space-xxl: 48px;
+
+  /* ---- 3c. Elevation — soft, low-contrast; trust over drama ------------ */
+  --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.06), 0 1px 3px rgba(17, 24, 39, 0.05);
+  --shadow-md: 0 2px 6px rgba(17, 24, 39, 0.06), 0 6px 16px rgba(17, 24, 39, 0.08);
+  --shadow-lg: 0 8px 24px rgba(17, 24, 39, 0.10), 0 2px 6px rgba(17, 24, 39, 0.06);
+  --shadow-focus: 0 0 0 3px var(--focus-ring);
+
+  /* ---- 3d. Motion — calm and quick; nothing showy --------------------- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+
+  /* Typography */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ---- Dark mode -------------------------------------------------------------
+   Mirrors Android Theme.kt DarkColors: container roles use deeper, more
+   saturated tones than their light pastel counterparts (Material 3 dark
+   convention), not the light containers reused. Opt-in via <html data-theme>,
+   with a system fallback below so either mechanism works. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg:              var(--gray-900);
+  --surface:         var(--gray-800);
+  --surface-variant: var(--gray-700);
+  --surface-sunken:  #0d1320;
+
+  --text-strong:  var(--gray-50);
+  --text:         var(--gray-100);
+  --text-muted:   var(--gray-400);
+  --text-subtle:  var(--gray-500);
+  --text-on-brand: var(--white);
+
+  --border:        var(--gray-700);
+  --border-strong: var(--gray-600);
+
+  --primary:            var(--indigo-500);
+  --primary-hover:      var(--indigo-100);
+  --primary-container:  var(--indigo-900);
+  --on-primary-container: var(--indigo-100);
+
+  --success:            var(--green-500);
+  --success-hover:      #4ADE80;
+  --success-container:  var(--green-900);
+  --on-success-container: #BBF7D0;
+
+  --danger:             var(--red-500);
+  --danger-hover:       #F87171;
+  --danger-container:   var(--red-900);
+  --on-danger-container: #FECACA;
+
+  --warning:            var(--amber-500);
+  --warning-hover:      #FBBF24;
+  --warning-container:  var(--amber-900);
+  --on-warning-container: #FDE68A;
+
+  --focus-ring: color-mix(in srgb, var(--indigo-500) 55%, transparent);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.45), 0 6px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg:              var(--gray-900);
+    --surface:         var(--gray-800);
+    --surface-variant: var(--gray-700);
+    --surface-sunken:  #0d1320;
+
+    --text-strong:  var(--gray-50);
+    --text:         var(--gray-100);
+    --text-muted:   var(--gray-400);
+    --text-subtle:  var(--gray-500);
+
+    --border:        var(--gray-700);
+    --border-strong: var(--gray-600);
+
+    --primary:            var(--indigo-500);
+    --primary-hover:      var(--indigo-100);
+    --primary-container:  var(--indigo-900);
+    --on-primary-container: var(--indigo-100);
+
+    --success:            var(--green-500);
+    --success-hover:      #4ADE80;
+    --success-container:  var(--green-900);
+    --on-success-container: #BBF7D0;
+
+    --danger:             var(--red-500);
+    --danger-hover:       #F87171;
+    --danger-container:   var(--red-900);
+    --on-danger-container: #FECACA;
+
+    --warning:            var(--amber-500);
+    --warning-hover:      #FBBF24;
+    --warning-container:  var(--amber-900);
+    --on-warning-container: #FDE68A;
+
+    --focus-ring: color-mix(in srgb, var(--indigo-500) 55%, transparent);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.45), 0 6px 16px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ---- Base element defaults ------------------------------------------------ */
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg);
+  color: var(--text);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* One consistent, visible keyboard focus everywhere — quality floor. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--radius-xs);
+}
+
+/* Respect users who ask for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -3,45 +3,41 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Manage Guardians — Pickup Pass</title>
+<title>Manage Guardians — PickupPass</title>
+<link rel="stylesheet" href="../shared/theme.css" />
+<link rel="stylesheet" href="../shared/components.css" />
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen p-4">
+<body class="min-h-screen">
 
-  <div class="max-w-sm mx-auto">
-    <div class="flex items-center justify-between">
-      <a href="./students.html" class="text-sm text-indigo-600 font-medium">← My Students</a>
-      <button id="signOutBtn" class="text-xs text-gray-400 underline">Sign out</button>
-    </div>
-    <p id="currentUserEmail" class="text-xs text-gray-400 mt-1"></p>
+  <div id="parentNav" data-active="students"></div>
+  <script type="module" src="../shared/parent-nav.js"></script>
 
-    <h1 class="text-xl font-bold text-gray-800 mt-2 mb-1">Authorized Pickup Guardians</h1>
-    <p id="studentLabel" class="text-sm text-gray-500 mb-4"></p>
+  <main class="max-w-lg mx-auto p-4">
+    <a href="./students.html" class="pp-backlink mb-3">← My Students</a>
+
+    <h1 class="text-xl font-bold text-ink-strong mb-1">Authorized Pickup Guardians</h1>
+    <p id="studentLabel" class="text-sm text-ink-muted mb-4"></p>
 
     <div id="guardianList" class="space-y-2 mb-6"></div>
 
-    <div class="bg-white rounded-xl shadow-sm p-4">
-      <h2 class="font-semibold text-gray-800 mb-3">Add a Backup Guardian</h2>
-      <p class="text-xs text-gray-500 mb-3">
+    <div class="pp-card pp-card--pad">
+      <h2 class="font-semibold text-ink-strong mb-2">Add a Backup Guardian</h2>
+      <p class="text-sm text-ink-muted mb-3">
         Add someone else who's allowed to pick up this student if you're unavailable —
         a spouse, grandparent, or other trusted adult. They'll get an email to set up their own account and photo.
       </p>
 
       <form id="addForm" class="space-y-2">
-        <input id="lastName" type="text" required placeholder="Last name"
-          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <input id="firstName" type="text" required placeholder="First name"
-          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input id="lastName" type="text" required placeholder="Last name" class="pp-field" />
+        <input id="firstName" type="text" required placeholder="First name" class="pp-field" />
         <div class="flex gap-2">
-          <input id="middleInitial" type="text" maxlength="4" placeholder="M.I."
-            class="w-1/3 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          <input id="suffix" type="text" placeholder="Suffix (Jr., III...)"
-            class="w-2/3 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input id="middleInitial" type="text" maxlength="4" placeholder="M.I." class="pp-field w-1/3" />
+          <input id="suffix" type="text" placeholder="Suffix (Jr., III...)" class="pp-field w-2/3" />
         </div>
-        <input id="guardianEmail" type="email" required placeholder="Email address"
-          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <select id="guardianRelationship"
-          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <input id="guardianEmail" type="email" required placeholder="Email address" class="pp-field" />
+        <select id="guardianRelationship" class="pp-field">
           <option value="parent/guardian">Parent / Guardian</option>
           <option value="grandparent">Grandparent</option>
           <option value="relative">Other Relative</option>
@@ -49,21 +45,20 @@
           <option value="authorized pickup">Other Authorized Pickup</option>
         </select>
 
-        <p id="formError" class="hidden" style="display: none"></p>
-        <p id="formSuccess" class="hidden" style="display: none"></p>
+        <p id="formError" class="pp-alert pp-alert--danger hidden" style="display: none"></p>
+        <p id="formSuccess" class="pp-alert pp-alert--success hidden" style="display: none"></p>
 
-        <button type="submit"
-          class="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition">
+        <button type="submit" class="pp-btn pp-btn--primary w-full">
           Add Guardian
         </button>
       </form>
     </div>
-  </div>
+  </main>
 
 <script type="module">
 import { auth, db, authedFetch, setSubmitButtonBusy, showToast } from "../shared/firebase-init.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const params = new URLSearchParams(window.location.search);
 const studentId = params.get("studentId") || sessionStorage.getItem("pendingGuardianStudentId");
@@ -74,17 +69,10 @@ if (!studentId) {
 
 let currentUid = null;
 
-document.getElementById("signOutBtn").addEventListener("click", async () => {
-  await signOut(auth);
-  window.location.href = "../login.html";
-});
-
+// Sign-out, auth guard and signed-in email are owned by the shared parent nav.
+// This page keeps its auth listener only to load the student's guardians.
 onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    window.location.href = "../login.html";
-    return;
-  }
-  document.getElementById("currentUserEmail").textContent = user.email;
+  if (!user) return; // nav performs the redirect
   currentUid = user.uid;
   await renderGuardians();
 });
@@ -106,7 +94,7 @@ async function renderGuardians() {
 
   const uids = Object.keys(guardians);
   if (uids.length === 0) {
-    list.innerHTML = '<p class="text-sm text-gray-400">No guardians on record.</p>';
+    list.innerHTML = '<div class="pp-empty">No guardians on record.</div>';
     return;
   }
 
@@ -116,18 +104,18 @@ async function renderGuardians() {
     const userData = userSnap.exists() ? userSnap.data() : {};
 
     const row = document.createElement("div");
-    row.className = "bg-white rounded-xl shadow-sm p-3 flex items-center gap-3";
+    row.className = "pp-card pp-card--pad flex items-center gap-3";
     row.innerHTML = `
       <img src="${userData.photoUrl || '../assets/default-avatar.png'}"
-           class="w-12 h-12 rounded-full object-cover border border-gray-200" />
+           class="w-12 h-12 rounded-full object-cover border border-hairline" />
       <div class="flex-1 min-w-0">
-        <p class="font-medium text-gray-800 truncate">
+        <p class="font-medium text-ink-strong truncate flex items-center gap-1">
           ${escapeHtml(userData.displayName || "Pending guardian")}
-          ${entry.isPrimary ? '<span class="ml-1 text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Primary</span>' : ""}
+          ${entry.isPrimary ? '<span class="pp-badge pp-badge--brand">Primary</span>' : ""}
         </p>
-        <p class="text-xs text-gray-500 truncate">${escapeHtml(entry.relationship || "")}</p>
+        <p class="text-xs text-ink-muted truncate">${escapeHtml(entry.relationship || "")}</p>
       </div>
-      ${entry.isPrimary ? "" : `<button data-uid="${uid}" class="removeBtn text-xs text-red-500 font-medium px-2 py-1 hover:bg-red-50 rounded">Remove</button>`}
+      ${entry.isPrimary ? "" : `<button data-uid="${uid}" class="removeBtn pp-btn pp-btn--ghost !text-danger">Remove</button>`}
     `;
     list.appendChild(row);
   }

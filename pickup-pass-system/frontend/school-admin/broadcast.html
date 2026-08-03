@@ -3,65 +3,55 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Send Announcement — Pickup Pass</title>
+<title>Send Announcement — PickupPass</title>
+<link rel="stylesheet" href="../shared/theme.css" />
+<link rel="stylesheet" href="../shared/components.css" />
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen p-4">
+<body class="min-h-screen">
 
-  <div class="max-w-sm mx-auto pt-2">
-    <div class="flex items-center justify-between">
-      <a href="./branding.html" class="text-sm text-indigo-600 font-medium">← School Admin</a>
-      <button id="signOutBtn" class="text-xs text-gray-400 underline">Sign out</button>
-    </div>
-    <p id="currentUserEmail" class="text-xs text-gray-400 mt-1 mb-4"></p>
+  <div id="adminNav" data-active="announce"></div>
+  <script type="module" src="../shared/school-admin-nav.js"></script>
 
-    <h1 class="text-xl font-bold text-gray-800 mb-1">Send an Announcement</h1>
-    <p class="text-sm text-gray-500 mb-4">Goes out immediately to everyone you select — as a push and in their notification inbox.</p>
+  <main class="max-w-lg mx-auto p-4">
+    <h1 class="text-xl font-bold text-ink-strong mb-1">Send an Announcement</h1>
+    <p class="text-sm text-ink-muted mb-4">Goes out immediately to everyone you select — as a push and in their notification inbox.</p>
 
-    <div class="bg-white rounded-2xl shadow-sm p-4">
+    <div class="pp-card pp-card--pad">
       <form id="broadcastForm" class="space-y-3">
-        <input id="title" type="text" required maxlength="120" placeholder="Title (e.g. \"Early Dismissal Friday\")"
-          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <textarea id="body" required rows="4" maxlength="1000" placeholder="Message"
-          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        <div>
+          <label class="pp-label" for="title">Title</label>
+          <input id="title" type="text" required maxlength="120" placeholder="e.g. Early Dismissal Friday" class="pp-field" />
+        </div>
+        <div>
+          <label class="pp-label" for="body">Message</label>
+          <textarea id="body" required rows="4" maxlength="1000" placeholder="What does everyone need to know?" class="pp-field" style="min-height:auto;"></textarea>
+        </div>
 
         <div>
-          <p class="text-xs font-semibold text-gray-500 mb-1">Send to</p>
-          <label class="flex items-center gap-2 text-sm mb-1">
-            <input type="checkbox" id="audienceTeacher" checked class="rounded" /> Teachers
+          <p class="pp-label">Send to</p>
+          <label class="flex items-center gap-2 text-sm mb-1 text-ink">
+            <input type="checkbox" id="audienceTeacher" checked class="rounded accent-brand-600" /> Teachers
           </label>
-          <label class="flex items-center gap-2 text-sm">
-            <input type="checkbox" id="audienceParent" checked class="rounded" /> Guardians
+          <label class="flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" id="audienceParent" checked class="rounded accent-brand-600" /> Guardians
           </label>
         </div>
 
-        <p id="formError" class="text-sm text-red-500 hidden"></p>
-        <p id="formSuccess" class="text-sm text-green-600 hidden"></p>
+        <p id="formError" class="pp-alert pp-alert--danger hidden"></p>
+        <p id="formSuccess" class="pp-alert pp-alert--success hidden"></p>
 
-        <button type="submit" id="sendBtn"
-          class="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition">
+        <button type="submit" id="sendBtn" class="pp-btn pp-btn--primary w-full">
           Send Announcement
         </button>
       </form>
     </div>
-  </div>
+  </main>
 
 <script type="module">
-import { auth, authedFetch } from "../shared/firebase-init.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-document.getElementById("signOutBtn").addEventListener("click", async () => {
-  await signOut(auth);
-  window.location.href = "../login.html";
-});
-
-onAuthStateChanged(auth, (user) => {
-  if (!user) {
-    window.location.href = "../login.html";
-    return;
-  }
-  document.getElementById("currentUserEmail").textContent = user.email;
-});
+// Sign-out, auth guard and signed-in email are owned by the shared admin nav.
+import { authedFetch } from "../shared/firebase-init.js";
 
 document.getElementById("broadcastForm").addEventListener("submit", async (e) => {
   e.preventDefault();

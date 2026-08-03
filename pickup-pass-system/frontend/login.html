@@ -3,32 +3,46 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Sign In — Pickup Pass</title>
+<title>Sign In — PickupPass</title>
+<!-- Load order matters: tokens, then Tailwind CDN, then the config that maps to them. -->
+<link rel="stylesheet" href="./shared/theme.css" />
+<link rel="stylesheet" href="./shared/components.css" />
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="./shared/tailwind-config.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+<body class="min-h-screen flex items-center justify-center p-4">
 
-  <div class="bg-white rounded-2xl shadow-md p-8 w-full max-w-sm">
-    <h1 class="text-xl font-bold text-gray-800 mb-1 text-center">Pickup Pass</h1>
-    <p class="text-sm text-gray-500 mb-6 text-center">Sign in to continue</p>
+  <div class="pp-card pp-card--elevated w-full max-w-sm overflow-hidden">
+    <!-- Brand gradient header — the signature moment, used once, on the first screen. -->
+    <div class="pp-brand-surface px-8 pt-8 pb-6 text-center">
+      <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-md bg-white/15">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z" fill="white" fill-opacity="0.18"/>
+          <path d="M9.5 12.2l1.8 1.8 3.5-3.7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h1 class="text-xl font-bold">PickupPass</h1>
+      <p class="text-sm text-white/80 mt-0.5">Safe Dismissal. Peace of Mind.</p>
+    </div>
 
-    <form id="loginForm" class="space-y-3">
-      <input id="email" type="email" required placeholder="Email"
-        class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-      <input id="password" type="password" required placeholder="Password"
-        class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+    <div class="p-8">
+      <p class="text-sm text-ink-muted mb-6 text-center">Sign in to continue</p>
 
-      <p id="errorMsg" class="text-sm text-red-500 hidden"></p>
+      <form id="loginForm" class="space-y-3">
+        <input id="email" type="email" required placeholder="Email" class="pp-field" />
+        <input id="password" type="password" required placeholder="Password" class="pp-field" />
 
-      <button type="submit"
-        class="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition">
-        Sign In
+        <p id="errorMsg" class="text-sm text-danger hidden"></p>
+
+        <button type="submit" class="pp-btn pp-btn--primary w-full">
+          Sign In
+        </button>
+      </form>
+
+      <button id="forgotBtn" class="pp-btn pp-btn--ghost mt-4 w-full">
+        Forgot password?
       </button>
-    </form>
-
-    <button id="forgotBtn" class="mt-4 text-sm text-indigo-600 hover:underline w-full text-center">
-      Forgot password?
-    </button>
+    </div>
   </div>
 
 <script type="module">

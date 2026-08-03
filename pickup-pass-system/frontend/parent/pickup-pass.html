@@ -3,36 +3,54 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pickup Pass</title>
+<title>Pickup Pass — PickupPass</title>
+<link rel="stylesheet" href="../shared/theme.css" />
+<link rel="stylesheet" href="../shared/components.css" />
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+<body class="min-h-screen">
 
-  <div class="bg-white rounded-2xl shadow-md p-8 w-full max-w-sm text-center">
-    <div class="flex items-center justify-between mb-2">
-      <a href="./students.html" class="text-left text-sm text-indigo-600 font-medium">← My Students</a>
-      <button id="signOutBtn" class="text-xs text-gray-400 underline">Sign out</button>
+  <div id="parentNav" data-active="students"></div>
+  <script type="module" src="../shared/parent-nav.js"></script>
+
+  <main class="max-w-sm mx-auto p-4">
+    <a href="./students.html" class="pp-backlink mb-3">← My Students</a>
+
+    <!-- The pass: a calm, reassuring hero. The brand gradient header is the one
+         moment of colour; the QR itself sits on a clean white field so it scans
+         reliably under any lighting at the gate. -->
+    <div class="pp-card pp-card--elevated overflow-hidden text-center">
+      <div class="pp-brand-surface px-6 pt-6 pb-5">
+        <div class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-white/80">
+          <span class="pp-dot" style="background-color:#fff;"></span>Secure Pickup Pass
+        </div>
+        <h1 class="text-lg font-bold mt-2">Show this to school staff</h1>
+        <p id="studentLabel" class="text-sm text-white/85 mt-0.5"></p>
+      </div>
+
+      <div class="p-6">
+        <div id="qrContainer" class="flex justify-center my-2 min-h-[220px] items-center">
+          <span class="text-ink-subtle text-sm">Generating pass…</span>
+        </div>
+
+        <p id="countdown" class="text-sm font-medium text-ink-muted mt-3"></p>
+        <p id="errorMsg" class="pp-alert pp-alert--danger mt-3 hidden"></p>
+
+        <button id="refreshBtn" class="pp-btn pp-btn--primary w-full mt-4">
+          Regenerate Pass
+        </button>
+        <p class="text-xs text-ink-subtle mt-3">
+          This pass refreshes for your security. Staff verify your photo before releasing your child.
+        </p>
+      </div>
     </div>
-    <p id="currentUserEmail" class="text-xs text-gray-400 mb-2"></p>
-    <h1 class="text-lg font-bold text-gray-800 mb-1">Pickup Pass</h1>
-    <p id="studentLabel" class="text-sm text-gray-500 mb-4"></p>
-
-    <div id="qrContainer" class="flex justify-center my-4 min-h-[220px] items-center">
-      <span class="text-gray-400 text-sm">Generating pass...</span>
-    </div>
-
-    <p id="countdown" class="text-sm text-gray-500"></p>
-    <p id="errorMsg" class="text-sm text-red-500 mt-2 hidden"></p>
-
-    <button id="refreshBtn" class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700">
-      Regenerate Pass
-    </button>
-  </div>
+  </main>
 
 <script type="module">
 import { auth, authedFetch, db } from "../shared/firebase-init.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // studentId must come from the student picker (students.html) — no demo fallback,
@@ -46,17 +64,11 @@ if (!studentId) {
 
 let countdownTimer = null;
 
-document.getElementById("signOutBtn").addEventListener("click", async () => {
-  await signOut(auth);
-  window.location.href = "../login.html";
-});
-
+// Sign-out, the auth guard and the signed-in email are owned by the shared
+// parent nav. This page keeps its auth listener to load the student + render
+// the pass once we know who's signed in.
 onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    window.location.href = "../login.html";
-    return;
-  }
-  document.getElementById("currentUserEmail").textContent = user.email;
+  if (!user) return; // nav performs the redirect
   const studentSnap = await getDoc(doc(db, "students", studentId));
   if (studentSnap.exists()) {
     document.getElementById("studentLabel").textContent = studentSnap.data().fullName || "";
@@ -80,7 +92,7 @@ async function renderPass() {
   const container = document.getElementById("qrContainer");
   const errorMsg = document.getElementById("errorMsg");
   errorMsg.classList.add("hidden");
-  container.innerHTML = '<span class="text-gray-400 text-sm">Generating pass...</span>';
+  container.innerHTML = '<span class="text-ink-subtle text-sm">Generating pass…</span>';
 
   try {
     const { qrToken, expiresAt } = await generatePickupToken();

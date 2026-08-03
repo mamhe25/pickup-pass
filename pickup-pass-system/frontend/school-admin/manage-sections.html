@@ -3,45 +3,39 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Teacher Sections — Pickup Pass</title>
+<title>Teacher Sections — PickupPass</title>
+<link rel="stylesheet" href="../shared/theme.css" />
+<link rel="stylesheet" href="../shared/components.css" />
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen p-4">
+<body class="min-h-screen">
 
-  <div class="max-w-sm mx-auto pt-2">
-    <div class="flex items-center justify-between">
-      <a href="./branding.html" class="text-sm text-indigo-600 font-medium">← School Admin</a>
-      <button id="signOutBtn" class="text-xs text-gray-400 underline">Sign out</button>
-    </div>
-    <p id="currentUserEmail" class="text-xs text-gray-400 mt-1 mb-4"></p>
+  <div id="adminNav" data-active="sections"></div>
+  <script type="module" src="../shared/school-admin-nav.js"></script>
 
-    <h1 class="text-xl font-bold text-gray-800 mb-1">Teacher Sections</h1>
-    <p class="text-sm text-gray-500 mb-4">
+  <main class="max-w-lg mx-auto p-4">
+    <h1 class="text-xl font-bold text-ink-strong mb-1">Teacher Sections</h1>
+    <p class="text-sm text-ink-muted mb-4">
       Assign each teacher's grade/section so their broadcasts reach the right guardians.
     </p>
 
     <div id="teacherList" class="space-y-3"></div>
-    <div id="emptyState" class="hidden bg-white rounded-xl p-6 text-center text-sm text-gray-500">
+    <div id="emptyState" class="pp-empty hidden">
       No teachers yet — invite one from School Admin first.
     </div>
-    <div id="loadingState" class="text-center text-sm text-gray-400 py-6">Loading…</div>
-  </div>
+    <div id="loadingState" class="text-center text-sm text-ink-subtle py-6">Loading…</div>
+  </main>
 
 <script type="module">
 import { auth, authedFetch } from "../shared/firebase-init.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-document.getElementById("signOutBtn").addEventListener("click", async () => {
-  await signOut(auth);
-  window.location.href = "../login.html";
-});
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "../login.html";
     return;
   }
-  document.getElementById("currentUserEmail").textContent = user.email;
   await loadTeachers();
 });
 
@@ -71,17 +65,17 @@ function renderTeachers(teachers) {
 
   teachers.forEach((t) => {
     const card = document.createElement("div");
-    card.className = "bg-white rounded-xl shadow-sm p-4";
+    card.className = "pp-card";
     card.innerHTML = `
-      <p class="font-semibold text-gray-800">${escapeHtml(t.displayName || t.email)}</p>
-      <p class="text-xs text-gray-400 mb-2">${escapeHtml(t.email)}</p>
+      <p class="font-semibold text-ink-strong">${escapeHtml(t.displayName || t.email)}</p>
+      <p class="text-xs text-ink-subtle mb-2">${escapeHtml(t.email)}</p>
       <div class="sections-list flex flex-wrap gap-1 mb-2"></div>
       <div class="flex gap-2">
-        <input type="text" placeholder="Grade" class="grade-input w-1/3 border border-gray-300 rounded-lg px-2 py-1.5 text-sm" />
-        <input type="text" placeholder="Section" class="section-input w-1/3 border border-gray-300 rounded-lg px-2 py-1.5 text-sm" />
-        <button class="add-section-btn w-1/3 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700">Add</button>
+        <input type="text" placeholder="Grade" class="grade-input pp-field w-1/3" />
+        <input type="text" placeholder="Section" class="section-input pp-field w-1/3" />
+        <button class="add-section-btn pp-btn pp-btn--primary w-1/3">Add</button>
       </div>
-      <p class="save-status text-xs text-gray-400 mt-1"></p>
+      <p class="save-status text-xs text-ink-subtle mt-1"></p>
     `;
 
     let sections = [...(t.assignedSections || [])];
@@ -90,12 +84,12 @@ function renderTeachers(teachers) {
 
     function renderChips() {
       sectionsList.innerHTML = sections.length === 0
-        ? '<span class="text-xs text-gray-400">No sections assigned yet</span>'
+        ? '<span class="text-xs text-ink-subtle">No sections assigned yet</span>'
         : "";
       sections.forEach((s, i) => {
         const chip = document.createElement("span");
-        chip.className = "inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 text-xs px-2 py-1 rounded-full";
-        chip.innerHTML = `Grade ${escapeHtml(s.grade)} · ${escapeHtml(s.section)} <button class="font-bold">×</button>`;
+        chip.className = "pp-chip is-active";
+        chip.innerHTML = `Grade ${escapeHtml(s.grade)} · ${escapeHtml(s.section)} <button class="font-bold ml-1">×</button>`;
         chip.querySelector("button").addEventListener("click", async () => {
           sections.splice(i, 1);
           renderChips();

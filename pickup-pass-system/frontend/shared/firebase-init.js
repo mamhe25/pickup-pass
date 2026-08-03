@@ -26,7 +26,7 @@ export const db = getFirestore(app);
 //
 // Auto-detected from how THIS frontend is currently being served, rather
 // than a manually maintained comment/uncomment toggle: if you're viewing
-// the app via localhost/127.0.0.1 (any local static server — Live Server,
+// the app via localhost/127.0.0.1 (any local static server ï¿½ Live Server,
 // `python -m http.server`, `firebase serve`, etc.), it points at your
 // local backend. Anywhere else (the deployed Firebase Hosting URL), it
 // points at the deployed Cloud Run backend. This removes the single
@@ -62,11 +62,13 @@ export async function authedFetch(path, options = {}) {
  * visible even when the action button is below the fold.
  */
 export function showToast(message, type = "success") {
+  // Canonical brand palette (matches shared/theme.css + Android Color.kt):
+  // green for success, amber for caution, red for error, cool gray for info.
   const colors = {
-    success: "bg-emerald-600",
-    warning: "bg-amber-600",
+    success: "bg-green-600",
+    warning: "bg-amber-500",
     error: "bg-red-600",
-    info: "bg-slate-800",
+    info: "bg-gray-800",
   };
   let region = document.getElementById("pickupPassToastRegion");
   if (!region) {

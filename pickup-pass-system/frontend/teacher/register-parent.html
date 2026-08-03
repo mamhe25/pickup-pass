@@ -3,42 +3,38 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Register Parent — Pickup Pass</title>
+<title>Register Parent — PickupPass</title>
+<link rel="stylesheet" href="../shared/theme.css" />
+<link rel="stylesheet" href="../shared/components.css" />
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen p-4">
+<body class="min-h-screen">
 
-  <div class="max-w-sm mx-auto pt-2">
-    <div class="flex items-center justify-between">
-      <a href="./students.html" class="text-sm text-indigo-600 font-medium">← Students</a>
-      <button id="signOutBtn" class="text-xs text-gray-400 underline">Sign out</button>
-    </div>
-    <p id="currentUserEmail" class="text-xs text-gray-400 mt-1"></p>
+  <div id="teacherNav" data-active="students"></div>
+  <script type="module" src="../shared/teacher-nav.js"></script>
 
-    <h1 class="text-xl font-bold text-gray-800 mt-2 mb-1">Register Parent</h1>
-    <p id="studentLabel" class="text-sm text-gray-500 mb-6"></p>
+  <main class="max-w-lg mx-auto p-4">
+    <a href="./students.html" class="pp-backlink mb-3">← Back to Students</a>
 
-    <div class="bg-white rounded-2xl shadow-sm p-6">
-      <p class="text-xs text-gray-500 mb-4">
+    <h1 class="text-xl font-bold text-ink-strong mb-1">Register Parent</h1>
+    <p id="studentLabel" class="text-sm text-ink-muted mb-4"></p>
+
+    <div class="pp-card pp-card--pad">
+      <p class="pp-alert pp-alert--info mb-4">
         They'll get an email to set their password and upload a photo. Once
         set up, they can generate pickup passes for this student.
       </p>
 
       <form id="registerForm" class="space-y-3">
-        <input id="lastName" type="text" required placeholder="Last name"
-          class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <input id="firstName" type="text" required placeholder="First name"
-          class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <input id="lastName" type="text" required placeholder="Last name" class="pp-field" />
+        <input id="firstName" type="text" required placeholder="First name" class="pp-field" />
         <div class="flex gap-2">
-          <input id="middleInitial" type="text" maxlength="4" placeholder="M.I."
-            class="w-1/3 border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          <input id="suffix" type="text" placeholder="Suffix (Jr., III...)"
-            class="w-2/3 border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input id="middleInitial" type="text" maxlength="4" placeholder="M.I." class="pp-field w-1/3" />
+          <input id="suffix" type="text" placeholder="Suffix (Jr., III...)" class="pp-field w-2/3" />
         </div>
-        <input id="parentEmail" type="email" required placeholder="Email address"
-          class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <select id="relationship"
-          class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <input id="parentEmail" type="email" required placeholder="Email address" class="pp-field" />
+        <select id="relationship" class="pp-field">
           <option value="parent/guardian">Parent / Guardian</option>
           <option value="grandparent">Grandparent</option>
           <option value="relative">Other Relative</option>
@@ -46,21 +42,20 @@
           <option value="authorized pickup">Other Authorized Pickup</option>
         </select>
 
-        <p id="errorMsg" class="hidden" style="display: none"></p>
-        <p id="successMsg" class="hidden" style="display: none"></p>
+        <p id="errorMsg" class="pp-alert pp-alert--danger hidden" style="display: none"></p>
+        <p id="successMsg" class="pp-alert pp-alert--success hidden" style="display: none"></p>
 
-        <button type="submit"
-          class="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition">
+        <button type="submit" class="pp-btn pp-btn--primary w-full">
           Register Parent
         </button>
       </form>
     </div>
-  </div>
+  </main>
 
 <script type="module">
 import { auth, db, authedFetch, setSubmitButtonBusy, showToast } from "../shared/firebase-init.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const params = new URLSearchParams(window.location.search);
 const studentId = params.get("studentId") || sessionStorage.getItem("pendingParentStudentId");
@@ -69,17 +64,10 @@ if (!studentId) {
   window.location.href = "./students.html";
 }
 
-document.getElementById("signOutBtn").addEventListener("click", async () => {
-  await signOut(auth);
-  window.location.href = "../login.html";
-});
-
+// Sign-out, auth guard and signed-in email are owned by the shared teacher nav.
+// This page keeps its auth listener only to load the student it's registering for.
 onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    window.location.href = "../login.html";
-    return;
-  }
-  document.getElementById("currentUserEmail").textContent = user.email;
+  if (!user) return; // nav performs the redirect
   const studentSnap = await getDoc(doc(db, "students", studentId));
   if (studentSnap.exists()) {
     const s = studentSnap.data();
