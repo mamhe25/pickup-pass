@@ -48,7 +48,7 @@
   </main>
 
 <script type="module">
-import { auth, db, authedFetch, API_BASE_URL } from "../shared/firebase-init.js";
+import { auth, db, authedFetch, API_BASE_URL, clearSchoolBrandingCache } from "../shared/firebase-init.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
@@ -104,6 +104,9 @@ document.getElementById("logoInput").addEventListener("change", async (e) => {
     if (!res.ok) throw new Error(data.error || "Upload failed");
 
     showPreview(data.logoUrl);
+    // Bust the cached school branding so the new logo shows in the nav on the
+    // next page load instead of waiting out the 12h TTL.
+    clearSchoolBrandingCache(currentSchoolId);
     status.textContent = "Logo updated!";
     status.className = "text-sm mt-3 min-h-[1.25rem] text-success";
   } catch (err) {

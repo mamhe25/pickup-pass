@@ -56,28 +56,26 @@
   font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
   color: var(--primary); line-height: 1; margin-top: 2px;
 }
-/* School identifier beside the brandmark — "PickupPass, for Moriah Academy". */
-.pp-appbar__school {
-  display: inline-flex; align-items: center; gap: 0.5rem;
-  padding-left: 0.75rem; margin-left: 0.75rem;
-  border-left: 1px solid var(--border);
-  font-size: 0.8125rem; font-weight: 500; color: var(--text-muted);
+/* School identity — its OWN band directly below the app-bar top row, so the
+   signed-in school is clearly shown on every page without competing with the
+   PickupPass mark. Hidden until the nav fills it in. */
+.pp-appbar__schoolband {
+  display: flex; align-items: center; gap: 0.5rem;
+  max-width: 72rem; margin: 0 auto;
+  padding: 6px var(--space-md);
+  border-top: 1px solid var(--border);
+  font-size: 0.8125rem; font-weight: 600; color: var(--text);
   min-width: 0;
 }
-.pp-appbar__school span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pp-appbar__school img {
+.pp-appbar__schoolband img {
   width: 1.25rem; height: 1.25rem; flex: none;
   border-radius: var(--radius-xs); object-fit: contain;
   background-color: var(--surface); border: 1px solid var(--border);
 }
-/* On narrow phones the school name would crowd the sign-out button; keep the
-   logo but hide the name text below 480px. */
-@media (max-width: 480px) {
-  .pp-appbar__school span { display: none; }
-  .pp-appbar__school { padding-left: 0.5rem; margin-left: 0.5rem; }
-}
+.pp-appbar__schoolband span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Scrollable pill nav row */
+/* Nav row. Desktop: left-aligned icon+label pills. Mobile: icons-only, evenly
+   spread across the width (Facebook-style) so nothing needs horizontal scroll. */
 .pp-navrow {
   display: flex; gap: var(--space-xs);
   max-width: 72rem; margin: 0 auto;
@@ -87,6 +85,7 @@
 }
 .pp-navrow::-webkit-scrollbar { display: none; }
 .pp-navlink {
+  position: relative;
   display: inline-flex; align-items: center; gap: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-full);
@@ -101,6 +100,21 @@
   color: var(--on-primary-container);
 }
 .pp-navlink svg { flex: none; }
+
+/* Icons-only, no-scroll nav on phones. Labels stay in the DOM (visually hidden)
+   so screen readers still announce each destination. */
+@media (max-width: 640px) {
+  .pp-navrow { gap: 2px; padding: var(--space-xs) var(--space-sm); overflow-x: visible; }
+  .pp-navlink { flex: 1 1 0; justify-content: center; padding: var(--space-sm) 0; border-radius: var(--radius-md); }
+  .pp-navlink svg { width: 22px; height: 22px; }
+  .pp-navlink__label {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .pp-navlink__badge {
+    position: absolute; top: 4px; left: 50%; margin-left: 4px;
+  }
+}
 /* Unread count badge that sits on a nav link (e.g. Notifications). */
 .pp-navlink__badge {
   display: inline-flex; align-items: center; justify-content: center;

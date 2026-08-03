@@ -42,6 +42,49 @@ const DEPLOYED_API_BASE_URL = "https://pickup-pass-backend-445244473897.asia-sou
 const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
 export const API_BASE_URL = isLocalHost ? LOCAL_API_BASE_URL : DEPLOYED_API_BASE_URL;
 
+/**
+ * School branding (name + logo) is shown in the nav on EVERY page. Reading it
+ * from Firestore on every page load would burn a document read per navigation,
+ * per user, all day — expensive against the free-tier quota. So we cache it in
+ * localStorage keyed by schoolId with a TTL: the nav paints instantly from
+ * cache with zero reads, and only hits Firestore when the cache is missing or
+ * stale. Call clearSchoolBrandingCache(schoolId) after a logo change so admins
+ * see the update immediately instead of waiting out the TTL.
+ */
+const SCHOOL_CACHE_PREFIX = "pp.school.";
+const SCHOOL_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+export async function getSchoolBranding(schoolId, { getDoc, doc } = {}) {
+  if (!schoolId) return null;
+  const key = SCHOOL_CACHE_PREFIX + schoolId;
+
+  // 1. Fresh cache hit → no Firestore read at all.
+  try {
+    const cached = JSON.parse(localStorage.getItem(key) || "null");
+    if (cached && Date.now() - cached.t < SCHOOL_CACHE_TTL_MS) {
+      return { schoolName: cached.schoolName, logoUrl: cached.logoUrl };
+    }
+  } catch (_) { /* corrupt entry — fall through and refetch */ }
+
+  // 2. Miss/stale → one read, then cache it. Callers pass Firestore's getDoc/doc
+  //    (kept out of this module so firebase-init stays import-light).
+  if (!getDoc || !doc) return null;
+  const snap = await getDoc(doc(db, "schools", schoolId));
+  if (!snap.exists()) return null;
+  const s = snap.data();
+  const branding = { schoolName: s.schoolName || "", logoUrl: s.logoUrl || "" };
+  try {
+    localStorage.setItem(key, JSON.stringify({ ...branding, t: Date.now() }));
+  } catch (_) { /* storage full/blocked — still return the fresh value */ }
+  return branding;
+}
+
+export function clearSchoolBrandingCache(schoolId) {
+  try {
+    if (schoolId) localStorage.removeItem(SCHOOL_CACHE_PREFIX + schoolId);
+  } catch (_) { /* ignore */ }
+}
+
 export async function authedFetch(path, options = {}) {
   const user = auth.currentUser;
   if (!user) throw new Error("Not signed in");

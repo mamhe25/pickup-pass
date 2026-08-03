@@ -18,7 +18,7 @@
 // Drill-down pages (register-parent, manage-guardians) use data-active="students"
 // and add their own contextual back link in the page body.
 // =============================================================================
-import { auth, db } from "./firebase-init.js";
+import { auth, db, getSchoolBranding } from "./firebase-init.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -36,7 +36,9 @@ function render(mount) {
 
   const links = NAV_ITEMS.map((item) => {
     const current = item.key === active ? ' aria-current="page"' : "";
-    return `<a class="pp-navlink" href="${item.href}"${current}>${item.icon()}<span>${item.label}</span></a>`;
+    // aria-label keeps the destination announced even when the label is
+    // visually hidden (icons-only) on phones.
+    return `<a class="pp-navlink" href="${item.href}" aria-label="${item.label}"${current}>${item.icon()}<span class="pp-navlink__label">${item.label}</span></a>`;
   }).join("");
 
   mount.innerHTML = `
@@ -49,14 +51,14 @@ function render(mount) {
             <span class="pp-brandmark__tag">Teacher</span>
           </span>
         </a>
-        <div id="navSchoolSlot" class="pp-appbar__school hidden">
-          <img id="navSchoolLogo" alt="" />
-          <span id="navSchoolName"></span>
-        </div>
         <div class="flex items-center gap-3">
           <span id="currentUserEmail" class="text-xs text-ink-subtle hidden sm:inline"></span>
           <button id="signOutBtn" class="pp-btn pp-btn--ghost" type="button">Sign out</button>
         </div>
+      </div>
+      <div id="navSchoolSlot" class="pp-appbar__schoolband hidden">
+        <img id="navSchoolLogo" alt="" />
+        <span id="navSchoolName"></span>
       </div>
       <nav class="pp-navrow" aria-label="Teacher sections">${links}</nav>
     </header>
@@ -85,13 +87,13 @@ function render(mount) {
   });
 }
 
-// Fills the always-present school identifier beside the brandmark, so the
-// signed-in school is visible on EVERY page (not just a few that had a banner).
+// Fills the always-present school band below the app-bar. Branding comes from a
+// localStorage TTL cache (see getSchoolBranding), so this normally costs zero
+// Firestore reads — it only reads once per ~12h per device.
 async function loadSchoolIdentity(mount, schoolId) {
   if (!schoolId) return;
-  const snap = await getDoc(doc(db, "schools", schoolId));
-  if (!snap.exists()) return;
-  const school = snap.data();
+  const school = await getSchoolBranding(schoolId, { getDoc, doc });
+  if (!school) return;
   const slot = mount.querySelector("#navSchoolSlot");
   const nameEl = mount.querySelector("#navSchoolName");
   const logoEl = mount.querySelector("#navSchoolLogo");
