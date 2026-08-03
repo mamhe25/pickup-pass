@@ -3,9 +3,9 @@ package com.pickuppass.android.ui.teacher.exitlogs
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,6 +19,7 @@ import com.pickuppass.android.data.model.ExitLogEntry
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FilterDropdown
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.theme.Spacing
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -44,18 +45,18 @@ fun ExitLogsScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Column(modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
                 OutlinedTextField(
                     value = uiState.searchTerm,
                     onValueChange = viewModel::onSearchChange,
                     placeholder = { Text("Search by student name...") },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = MaterialTheme.shapes.small,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Spacer(Modifier.height(Spacing.sm))
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     FilterDropdown(
                         label = "Grade",
                         options = uiState.availableGrades,
@@ -71,7 +72,7 @@ fun ExitLogsScreen(
                         modifier = Modifier.weight(1f)
                     )
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 FilterDropdown(
                     label = "Approved By",
                     options = uiState.availableStaff,
@@ -84,19 +85,19 @@ fun ExitLogsScreen(
                         "${uiState.filteredLogs.size} of ${uiState.allLogs.size} records",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = Spacing.sm)
                     )
                 }
             }
 
             when {
                 uiState.isLoading -> FullScreenLoading()
-                uiState.error != null -> Box(Modifier.padding(24.dp)) { ErrorBanner(uiState.error!!) }
+                uiState.error != null -> Box(Modifier.padding(Spacing.lg)) { ErrorBanner(uiState.error!!) }
                 uiState.allLogs.isEmpty() -> EmptyState("No dismissal records yet.")
                 uiState.filteredLogs.isEmpty() -> EmptyState("No records match your filters.")
                 else -> LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
                     items(uiState.filteredLogs, key = { it.id }) { log ->
                         ExitLogRow(log)
@@ -109,8 +110,8 @@ fun ExitLogsScreen(
 
 @Composable
 private fun ExitLogRow(log: ExitLogEntry) {
-    ElevatedCard(shape = RoundedCornerShape(14.dp)) {
-        Column(Modifier.padding(12.dp)) {
+    ElevatedCard(shape = MaterialTheme.shapes.medium) {
+        Column(Modifier.padding(Spacing.sm)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -127,7 +128,7 @@ private fun ExitLogRow(log: ExitLogEntry) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(Spacing.xs))
             Text("Picked up by ${log.guardianName}", style = MaterialTheme.typography.bodyMedium)
             Text(
                 "Approved by ${log.staffName}",
@@ -140,7 +141,18 @@ private fun ExitLogRow(log: ExitLogEntry) {
 
 @Composable
 private fun EmptyState(message: String) {
-    Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(Spacing.xl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            Icons.Filled.History,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(48.dp)
+        )
+        Spacer(Modifier.height(Spacing.sm))
         Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

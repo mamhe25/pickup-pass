@@ -1,18 +1,17 @@
 package com.pickuppass.android.ui.teacher.broadcast
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.PrimaryButton
 import com.pickuppass.android.ui.common.SuccessBanner
+import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,13 +47,13 @@ fun TeacherBroadcastScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .padding(20.dp)
+                .padding(Spacing.lg)
         ) {
             Text(
                 "Goes out immediately to the guardians of students in your assigned section(s) — as a push and in their notification inbox.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier.padding(bottom = Spacing.md)
             )
 
             OutlinedTextField(
@@ -62,22 +61,22 @@ fun TeacherBroadcastScreen(
                 onValueChange = { title = it },
                 label = { Text("Title") },
                 singleLine = true,
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.small,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.sm))
             OutlinedTextField(
                 value = body,
                 onValueChange = { body = it },
                 label = { Text("Message") },
                 minLines = 4,
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.small,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.md))
 
-            uiState.error?.let { ErrorBanner(it, modifier = Modifier.padding(bottom = 12.dp)) }
-            uiState.successMessage?.let { SuccessBanner(it, modifier = Modifier.padding(bottom = 12.dp)) }
+            uiState.error?.let { ErrorBanner(it, modifier = Modifier.padding(bottom = Spacing.sm)) }
+            uiState.successMessage?.let { SuccessBanner(it, modifier = Modifier.padding(bottom = Spacing.sm)) }
 
             PrimaryButton(
                 text = "Send Announcement",

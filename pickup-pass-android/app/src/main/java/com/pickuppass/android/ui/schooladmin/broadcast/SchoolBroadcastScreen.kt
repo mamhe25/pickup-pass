@@ -1,7 +1,8 @@
 package com.pickuppass.android.ui.schooladmin.broadcast
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -14,6 +15,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.PrimaryButton
 import com.pickuppass.android.ui.common.SuccessBanner
+import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,13 +51,13 @@ fun SchoolBroadcastScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .padding(20.dp)
+                .padding(Spacing.lg)
         ) {
             Text(
                 "Goes out immediately to everyone you select — as a push and in their notification inbox.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier.padding(bottom = Spacing.md)
             )
 
             OutlinedTextField(
@@ -63,33 +65,58 @@ fun SchoolBroadcastScreen(
                 onValueChange = { title = it },
                 label = { Text("Title") },
                 singleLine = true,
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.small,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.sm))
             OutlinedTextField(
                 value = body,
                 onValueChange = { body = it },
                 label = { Text("Message") },
                 minLines = 4,
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.small,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(Spacing.lg))
 
-            Text("Send to", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = uiState.includeTeachers, onCheckedChange = { viewModel.setIncludeTeachers(it) })
-                Text("Teachers")
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = uiState.includeParents, onCheckedChange = { viewModel.setIncludeParents(it) })
-                Text("Guardians")
+            Text(
+                "SEND TO",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.xs)
+            )
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(vertical = Spacing.xs)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.setIncludeTeachers(!uiState.includeTeachers) }
+                            .padding(horizontal = Spacing.md, vertical = Spacing.xs)
+                    ) {
+                        Checkbox(checked = uiState.includeTeachers, onCheckedChange = { viewModel.setIncludeTeachers(it) })
+                        Text("Teachers", style = MaterialTheme.typography.bodyLarge)
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.setIncludeParents(!uiState.includeParents) }
+                            .padding(horizontal = Spacing.md, vertical = Spacing.xs)
+                    ) {
+                        Checkbox(checked = uiState.includeParents, onCheckedChange = { viewModel.setIncludeParents(it) })
+                        Text("Guardians", style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
             }
 
-            Spacer(Modifier.height(12.dp))
-            uiState.error?.let { ErrorBanner(it, modifier = Modifier.padding(bottom = 12.dp)) }
-            uiState.successMessage?.let { SuccessBanner(it, modifier = Modifier.padding(bottom = 12.dp)) }
+            Spacer(Modifier.height(Spacing.lg))
+            uiState.error?.let { ErrorBanner(it, modifier = Modifier.padding(bottom = Spacing.sm)) }
+            uiState.successMessage?.let { SuccessBanner(it, modifier = Modifier.padding(bottom = Spacing.sm)) }
 
             PrimaryButton(
                 text = "Send Announcement",

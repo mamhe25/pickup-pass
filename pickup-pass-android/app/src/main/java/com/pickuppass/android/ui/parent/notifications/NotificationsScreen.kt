@@ -7,9 +7,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.NotificationItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.theme.Spacing
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -56,23 +57,32 @@ fun NotificationsScreen(
     ) { padding ->
         when {
             uiState.isLoading -> FullScreenLoading()
-            uiState.error != null -> Box(Modifier.padding(padding).padding(24.dp)) {
+            uiState.error != null -> Box(Modifier.padding(padding).padding(Spacing.lg)) {
                 ErrorBanner(uiState.error!!)
             }
-            uiState.notifications.isEmpty() -> Box(
-                modifier = Modifier.padding(padding).fillMaxSize().padding(32.dp),
-                contentAlignment = Alignment.Center
+            uiState.notifications.isEmpty() -> Column(
+                modifier = Modifier.padding(padding).fillMaxSize().padding(Spacing.xl),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
+                Icon(
+                    Icons.Filled.NotificationsNone,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(48.dp)
+                )
+                Spacer(Modifier.height(Spacing.sm))
                 Text(
                     "No notifications yet. You'll see pickup confirmations here.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
             else -> LazyColumn(
                 modifier = Modifier.padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                contentPadding = PaddingValues(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
                 items(uiState.notifications, key = { it.id }) { notification ->
                     NotificationRow(notification, onClick = { viewModel.markAsRead(notification) })
@@ -90,18 +100,18 @@ private fun NotificationRow(notification: NotificationItem, onClick: () -> Unit)
         MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
     }
     val borderModifier = if (!notification.read) {
-        Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+        Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), MaterialTheme.shapes.medium)
     } else Modifier
 
     Surface(
         color = backgroundColor,
-        shape = RoundedCornerShape(14.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier
             .fillMaxWidth()
             .then(borderModifier)
             .clickable(enabled = !notification.read, onClick = onClick)
     ) {
-        Column(Modifier.padding(14.dp)) {
+        Column(Modifier.padding(Spacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -116,7 +126,7 @@ private fun NotificationRow(notification: NotificationItem, onClick: () -> Unit)
                 if (!notification.read) {
                     Box(
                         modifier = Modifier
-                            .padding(top = 4.dp, start = 8.dp)
+                            .padding(top = Spacing.xs, start = Spacing.sm)
                             .size(8.dp)
                             .background(MaterialTheme.colorScheme.primary, CircleShape)
                     )
@@ -125,14 +135,14 @@ private fun NotificationRow(notification: NotificationItem, onClick: () -> Unit)
             Text(
                 notification.body,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 4.dp)
+                modifier = Modifier.padding(top = Spacing.xs)
             )
             if (notification.type == "broadcast" && !notification.senderName.isNullOrBlank()) {
                 Text(
                     "From: ${notification.senderName}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 2.dp)
+                    modifier = Modifier.padding(top = Spacing.xs)
                 )
             }
             notification.createdAtMillis?.let {
@@ -140,7 +150,7 @@ private fun NotificationRow(notification: NotificationItem, onClick: () -> Unit)
                     formatTime(it),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 6.dp)
+                    modifier = Modifier.padding(top = Spacing.xs)
                 )
             }
         }

@@ -35,7 +35,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "API_BASE_URL", "\"http://192.168.1.14:8080/api/\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://192.168.1.17:8080/api/\"")
             isMinifyEnabled = false
         }
         release {

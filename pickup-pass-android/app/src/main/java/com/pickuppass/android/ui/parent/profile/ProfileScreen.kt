@@ -24,6 +24,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.SmartImage
+import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,7 +66,7 @@ fun ProfileScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(Spacing.lg),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -73,7 +74,7 @@ fun ProfileScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.padding(bottom = 24.dp)
+                modifier = Modifier.padding(bottom = Spacing.lg)
             )
 
             Box(
@@ -107,13 +108,13 @@ fun ProfileScreen(
                 }
             }
 
-            TextButton(onClick = { pickImage.launch("image/*") }, modifier = Modifier.padding(top = 8.dp)) {
+            TextButton(onClick = { pickImage.launch("image/*") }, modifier = Modifier.padding(top = Spacing.sm)) {
                 Icon(Icons.Filled.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(Spacing.xs))
                 Text(if (uiState.photoUrl != null) "Change Photo" else "Add Photo")
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.md))
 
             uiState.uploadSuccessMessage?.let {
                 Text(it, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
@@ -122,7 +123,7 @@ fun ProfileScreen(
                 ErrorBanner(it)
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(Spacing.lg))
 
             Text(uiState.displayName, style = MaterialTheme.typography.titleMedium)
             Text(uiState.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
