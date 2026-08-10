@@ -1,5 +1,7 @@
 package com.pickuppass.android.ui.teacher.exitlogs
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -90,17 +92,26 @@ fun ExitLogsScreen(
                 }
             }
 
-            when {
-                uiState.isLoading -> FullScreenLoading()
-                uiState.error != null -> Box(Modifier.padding(Spacing.lg)) { ErrorBanner(uiState.error!!) }
-                uiState.allLogs.isEmpty() -> EmptyState("No dismissal records yet.")
-                uiState.filteredLogs.isEmpty() -> EmptyState("No records match your filters.")
-                else -> LazyColumn(
-                    contentPadding = PaddingValues(Spacing.md),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
-                ) {
-                    items(uiState.filteredLogs, key = { it.id }) { log ->
-                        ExitLogRow(log)
+            val phase = when {
+                uiState.isLoading -> "loading"
+                uiState.error != null -> "error"
+                uiState.allLogs.isEmpty() -> "empty"
+                uiState.filteredLogs.isEmpty() -> "nomatch"
+                else -> "list"
+            }
+            Crossfade(targetState = phase, animationSpec = tween(250), label = "exitLogsPhase") { state ->
+                when (state) {
+                    "loading" -> FullScreenLoading()
+                    "error" -> Box(Modifier.padding(Spacing.lg)) { ErrorBanner(uiState.error ?: "") }
+                    "empty" -> EmptyState("No dismissal records yet.")
+                    "nomatch" -> EmptyState("No records match your filters.")
+                    else -> LazyColumn(
+                        contentPadding = PaddingValues(Spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        items(uiState.filteredLogs, key = { it.id }) { log ->
+                            ExitLogRow(log)
+                        }
                     }
                 }
             }

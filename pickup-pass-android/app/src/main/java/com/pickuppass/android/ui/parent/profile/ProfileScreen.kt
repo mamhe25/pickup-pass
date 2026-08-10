@@ -2,6 +2,8 @@ package com.pickuppass.android.ui.parent.profile
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -84,17 +86,25 @@ fun ProfileScreen(
                     .clickable { pickImage.launch("image/*") },
                 contentAlignment = Alignment.Center
             ) {
-                if (uiState.photoUrl != null) {
-                    SmartImage(
-                        model = uiState.photoUrl,
-                        contentDescription = "Your photo",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxSize()) {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                            Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(48.dp))
+                // Cross-fade between the placeholder and the actual photo so a
+                // newly chosen avatar eases in rather than snapping.
+                Crossfade(
+                    targetState = uiState.photoUrl != null,
+                    animationSpec = tween(300),
+                    label = "avatarPhase"
+                ) { hasPhoto ->
+                    if (hasPhoto) {
+                        SmartImage(
+                            model = uiState.photoUrl,
+                            contentDescription = "Your photo",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Surface(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxSize()) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(48.dp))
+                            }
                         }
                     }
                 }

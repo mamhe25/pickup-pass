@@ -1,6 +1,9 @@
 package com.pickuppass.android.ui.teacher.scanner
 
 import android.Manifest
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -16,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import com.pickuppass.android.ui.theme.Gray300
 import com.pickuppass.android.ui.theme.Gray400
 import com.pickuppass.android.ui.theme.Gray800
@@ -263,7 +267,11 @@ private fun BoxScope.ErrorPanel(message: String, onDismiss: () -> Unit) {
 
 @Composable
 private fun ApprovedOverlay(onDone: () -> Unit) {
+    // Spring the confirmation check in so a logged release lands with a
+    // satisfying pop — the emotional payoff of the whole scan flow.
+    val scale = remember { Animatable(0.4f) }
     LaunchedEffect(Unit) {
+        scale.animateTo(1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
         kotlinx.coroutines.delay(1500)
         onDone()
     }
@@ -273,7 +281,9 @@ private fun ApprovedOverlay(onDone: () -> Unit) {
                 Icons.Filled.CheckCircle,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(72.dp)
+                modifier = Modifier
+                    .size(72.dp)
+                    .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
             )
             Spacer(Modifier.height(Spacing.sm))
             Text("Release Logged", color = Color.White, style = MaterialTheme.typography.titleLarge)

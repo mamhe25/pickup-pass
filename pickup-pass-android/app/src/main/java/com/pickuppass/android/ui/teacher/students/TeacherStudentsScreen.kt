@@ -1,8 +1,12 @@
 package com.pickuppass.android.ui.teacher.students
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -33,11 +37,12 @@ fun TeacherStudentsScreen(
     onRegisterParent: (studentId: String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showAddDialog by remember { mutableStateOf(false) }
+    var showAddSheet by remember { mutableStateOf(false) }
+    val addSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(uiState.justCreatedStudentId) {
         uiState.justCreatedStudentId?.let { studentId ->
-            showAddDialog = false
+            showAddSheet = false
             viewModel.consumeJustCreatedStudentId()
             onRegisterParent(studentId) // jump straight into registering their parent
         }
@@ -60,9 +65,11 @@ fun TeacherStudentsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Filled.Add, contentDescription = "Add student")
-            }
+            ExtendedFloatingActionButton(
+                onClick = { showAddSheet = true },
+                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                text = { Text("Add student") }
+            )
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
@@ -87,36 +94,49 @@ fun TeacherStudentsScreen(
             }
 
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                when {
-                    uiState.isLoading -> FullScreenLoading()
-                    uiState.error != null -> Box(Modifier.padding(Spacing.lg)) { ErrorBanner(uiState.error!!) }
-                    uiState.hasNoAssignedSections -> NoSectionsAssignedState()
-                    uiState.allStudents.isEmpty() -> EmptyRoster()
-                    uiState.groupedStudents.isEmpty() -> NoSearchResultsState()
-                    else -> LazyColumn(
-                        contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.xs, bottom = 80.dp),
-                        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
-                    ) {
-                        uiState.groupedStudents.forEach { gradeGroup ->
-                            item(key = "grade-${gradeGroup.grade}") {
-                                Text(
-                                    "Grade ${gradeGroup.grade.ifBlank { "-" }}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs)
-                                )
-                            }
-                            gradeGroup.sections.forEach { sectionGroup ->
-                                item(key = "section-${gradeGroup.grade}-${sectionGroup.section}") {
+                // Gentle cross-fade between the roster's states so switching
+                // (e.g. search narrowing to no-results, or first load resolving)
+                // settles rather than snaps.
+                val contentPhase = when {
+                    uiState.isLoading -> "loading"
+                    uiState.error != null -> "error"
+                    uiState.hasNoAssignedSections -> "noSections"
+                    uiState.allStudents.isEmpty() -> "emptyRoster"
+                    uiState.groupedStudents.isEmpty() -> "noResults"
+                    else -> "list"
+                }
+                Crossfade(targetState = contentPhase, animationSpec = tween(250), label = "rosterPhase") { phase ->
+                    when (phase) {
+                        "loading" -> FullScreenLoading()
+                        "error" -> Box(Modifier.padding(Spacing.lg)) { ErrorBanner(uiState.error ?: "") }
+                        "noSections" -> NoSectionsAssignedState()
+                        "emptyRoster" -> EmptyRoster()
+                        "noResults" -> NoSearchResultsState()
+                        else -> LazyColumn(
+                            contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, top = Spacing.xs, bottom = 96.dp),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+                        ) {
+                            uiState.groupedStudents.forEach { gradeGroup ->
+                                item(key = "grade-${gradeGroup.grade}") {
                                     Text(
-                                        "Section ${sectionGroup.section.ifBlank { "-" }}",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(bottom = Spacing.xs, start = Spacing.xs)
+                                        "Grade ${gradeGroup.grade.ifBlank { "-" }}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs)
                                     )
                                 }
-                                items(sectionGroup.students, key = { it.id }) { student ->
-                                    StudentRow(student = student, onRegisterParent = { onRegisterParent(student.id) })
+                                gradeGroup.sections.forEach { sectionGroup ->
+                                    item(key = "section-${gradeGroup.grade}-${sectionGroup.section}") {
+                                        Text(
+                                            "Section ${sectionGroup.section.ifBlank { "-" }}",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(bottom = Spacing.xs, start = Spacing.xs)
+                                        )
+                                    }
+                                    items(sectionGroup.students, key = { it.id }) { student ->
+                                        StudentRow(student = student, onRegisterParent = { onRegisterParent(student.id) })
+                                    }
                                 }
                             }
                         }
@@ -126,15 +146,19 @@ fun TeacherStudentsScreen(
         }
     }
 
-    if (showAddDialog) {
-        AddStudentDialog(
-            isSubmitting = uiState.isSubmitting,
-            formError = uiState.formError,
-            onDismiss = { showAddDialog = false },
-            onSubmit = { lastName, firstName, mi, suffix, grade, section ->
-                viewModel.addStudent(lastName, firstName, mi, suffix, grade, section)
-            }
-        )
+    if (showAddSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showAddSheet = false },
+            sheetState = addSheetState
+        ) {
+            AddStudentSheetContent(
+                isSubmitting = uiState.isSubmitting,
+                formError = uiState.formError,
+                onSubmit = { lastName, firstName, mi, suffix, grade, section ->
+                    viewModel.addStudent(lastName, firstName, mi, suffix, grade, section)
+                }
+            )
+        }
     }
 }
 
@@ -239,10 +263,9 @@ private fun NoSectionsAssignedState() {
 }
 
 @Composable
-private fun AddStudentDialog(
+private fun AddStudentSheetContent(
     isSubmitting: Boolean,
     formError: String?,
-    onDismiss: () -> Unit,
     onSubmit: (lastName: String, firstName: String, middleInitial: String, suffix: String, grade: String, section: String) -> Unit
 ) {
     var lastName by remember { mutableStateOf("") }
@@ -252,78 +275,85 @@ private fun AddStudentDialog(
     var grade by remember { mutableStateOf("") }
     var section by remember { mutableStateOf("") }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add a Student") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = lastName,
-                    onValueChange = { lastName = it },
-                    label = { Text("Last name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(Spacing.sm))
-                OutlinedTextField(
-                    value = firstName,
-                    onValueChange = { firstName = it },
-                    label = { Text("First name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(Spacing.sm))
-                Row {
-                    OutlinedTextField(
-                        value = middleInitial,
-                        onValueChange = { middleInitial = it },
-                        label = { Text("M.I.") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(Modifier.width(Spacing.sm))
-                    OutlinedTextField(
-                        value = suffix,
-                        onValueChange = { suffix = it },
-                        label = { Text("Suffix") },
-                        singleLine = true,
-                        modifier = Modifier.weight(2f)
-                    )
-                }
-                Spacer(Modifier.height(Spacing.sm))
-                Row {
-                    OutlinedTextField(
-                        value = grade,
-                        onValueChange = { grade = it },
-                        label = { Text("Grade") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(Modifier.width(Spacing.sm))
-                    OutlinedTextField(
-                        value = section,
-                        onValueChange = { section = it },
-                        label = { Text("Section") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                formError?.let {
-                    Spacer(Modifier.height(Spacing.sm))
-                    ErrorBanner(it)
-                }
-            }
-        },
-        confirmButton = {
-            PrimaryButton(
-                text = "Add",
-                loading = isSubmitting,
-                onClick = { onSubmit(lastName.trim(), firstName.trim(), middleInitial.trim(), suffix.trim(), grade.trim(), section.trim()) },
-                modifier = Modifier.padding(bottom = Spacing.xs)
+    // Scrollable so the form stays usable above the keyboard on short screens.
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.xl)
+    ) {
+        Text(
+            "Add a Student",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(Spacing.md))
+        OutlinedTextField(
+            value = lastName,
+            onValueChange = { lastName = it },
+            label = { Text("Last name") },
+            singleLine = true,
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(Spacing.sm))
+        OutlinedTextField(
+            value = firstName,
+            onValueChange = { firstName = it },
+            label = { Text("First name") },
+            singleLine = true,
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(Spacing.sm))
+        Row {
+            OutlinedTextField(
+                value = middleInitial,
+                onValueChange = { middleInitial = it },
+                label = { Text("M.I.") },
+                singleLine = true,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.weight(1f)
             )
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            Spacer(Modifier.width(Spacing.sm))
+            OutlinedTextField(
+                value = suffix,
+                onValueChange = { suffix = it },
+                label = { Text("Suffix") },
+                singleLine = true,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.weight(2f)
+            )
         }
-    )
+        Spacer(Modifier.height(Spacing.sm))
+        Row {
+            OutlinedTextField(
+                value = grade,
+                onValueChange = { grade = it },
+                label = { Text("Grade") },
+                singleLine = true,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            OutlinedTextField(
+                value = section,
+                onValueChange = { section = it },
+                label = { Text("Section") },
+                singleLine = true,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        formError?.let {
+            Spacer(Modifier.height(Spacing.sm))
+            ErrorBanner(it)
+        }
+        Spacer(Modifier.height(Spacing.lg))
+        PrimaryButton(
+            text = "Add Student",
+            loading = isSubmitting,
+            onClick = { onSubmit(lastName.trim(), firstName.trim(), middleInitial.trim(), suffix.trim(), grade.trim(), section.trim()) }
+        )
+    }
 }

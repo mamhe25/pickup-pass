@@ -1,5 +1,8 @@
 package com.pickuppass.android.ui.teacher.broadcast
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -75,8 +78,12 @@ fun TeacherBroadcastScreen(
             )
             Spacer(Modifier.height(Spacing.md))
 
-            uiState.error?.let { ErrorBanner(it, modifier = Modifier.padding(bottom = Spacing.sm)) }
-            uiState.successMessage?.let { SuccessBanner(it, modifier = Modifier.padding(bottom = Spacing.sm)) }
+            AnimatedVisibility(visible = uiState.error != null, enter = fadeIn() + expandVertically()) {
+                uiState.error?.let { ErrorBanner(it, modifier = Modifier.padding(bottom = Spacing.sm)) }
+            }
+            AnimatedVisibility(visible = uiState.successMessage != null, enter = fadeIn() + expandVertically()) {
+                uiState.successMessage?.let { SuccessBanner(it, modifier = Modifier.padding(bottom = Spacing.sm)) }
+            }
 
             PrimaryButton(
                 text = "Send Announcement",

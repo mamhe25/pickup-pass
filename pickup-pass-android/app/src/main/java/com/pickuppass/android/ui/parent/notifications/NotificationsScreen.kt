@@ -1,5 +1,7 @@
 package com.pickuppass.android.ui.parent.notifications
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -55,37 +57,45 @@ fun NotificationsScreen(
             )
         }
     ) { padding ->
-        when {
-            uiState.isLoading -> FullScreenLoading()
-            uiState.error != null -> Box(Modifier.padding(padding).padding(Spacing.lg)) {
-                ErrorBanner(uiState.error!!)
-            }
-            uiState.notifications.isEmpty() -> Column(
-                modifier = Modifier.padding(padding).fillMaxSize().padding(Spacing.xl),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Filled.NotificationsNone,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(Modifier.height(Spacing.sm))
-                Text(
-                    "No notifications yet. You'll see pickup confirmations here.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-            }
-            else -> LazyColumn(
-                modifier = Modifier.padding(padding),
-                contentPadding = PaddingValues(Spacing.md),
-                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
-            ) {
-                items(uiState.notifications, key = { it.id }) { notification ->
-                    NotificationRow(notification, onClick = { viewModel.markAsRead(notification) })
+        val phase = when {
+            uiState.isLoading -> "loading"
+            uiState.error != null -> "error"
+            uiState.notifications.isEmpty() -> "empty"
+            else -> "list"
+        }
+        Crossfade(targetState = phase, animationSpec = tween(250), label = "notifPhase") { state ->
+            when (state) {
+                "loading" -> FullScreenLoading()
+                "error" -> Box(Modifier.padding(padding).padding(Spacing.lg)) {
+                    ErrorBanner(uiState.error ?: "")
+                }
+                "empty" -> Column(
+                    modifier = Modifier.padding(padding).fillMaxSize().padding(Spacing.xl),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        Icons.Filled.NotificationsNone,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(Modifier.height(Spacing.sm))
+                    Text(
+                        "No notifications yet. You'll see pickup confirmations here.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+                else -> LazyColumn(
+                    modifier = Modifier.padding(padding),
+                    contentPadding = PaddingValues(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    items(uiState.notifications, key = { it.id }) { notification ->
+                        NotificationRow(notification, onClick = { viewModel.markAsRead(notification) })
+                    }
                 }
             }
         }

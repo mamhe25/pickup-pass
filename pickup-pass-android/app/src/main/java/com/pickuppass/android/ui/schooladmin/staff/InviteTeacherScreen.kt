@@ -1,5 +1,8 @@
 package com.pickuppass.android.ui.schooladmin.staff
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -129,12 +132,16 @@ fun InviteTeacherScreen(
             )
             Spacer(Modifier.height(Spacing.md))
 
-            uiState.error?.let { ErrorBanner(it, modifier = Modifier.padding(bottom = Spacing.sm)) }
-            uiState.successMessage?.let {
-                if (uiState.successIsWarning) {
-                    WarningBanner(it, modifier = Modifier.padding(bottom = Spacing.sm))
-                } else {
-                    SuccessBanner(it, modifier = Modifier.padding(bottom = Spacing.sm))
+            AnimatedVisibility(visible = uiState.error != null, enter = fadeIn() + expandVertically()) {
+                uiState.error?.let { ErrorBanner(it, modifier = Modifier.padding(bottom = Spacing.sm)) }
+            }
+            AnimatedVisibility(visible = uiState.successMessage != null, enter = fadeIn() + expandVertically()) {
+                uiState.successMessage?.let {
+                    if (uiState.successIsWarning) {
+                        WarningBanner(it, modifier = Modifier.padding(bottom = Spacing.sm))
+                    } else {
+                        SuccessBanner(it, modifier = Modifier.padding(bottom = Spacing.sm))
+                    }
                 }
             }
 

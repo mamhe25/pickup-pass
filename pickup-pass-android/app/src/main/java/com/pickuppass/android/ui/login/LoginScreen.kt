@@ -1,7 +1,10 @@
 package com.pickuppass.android.ui.login
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -127,8 +130,10 @@ fun LoginScreen(
             )
             Spacer(Modifier.height(Spacing.md))
 
-            uiState.error?.let {
-                ErrorBanner(it, modifier = Modifier.padding(bottom = Spacing.md))
+            AnimatedVisibility(visible = uiState.error != null, enter = fadeIn() + expandVertically()) {
+                uiState.error?.let {
+                    ErrorBanner(it, modifier = Modifier.padding(bottom = Spacing.md))
+                }
             }
             if (uiState.resetEmailSent) {
                 Text(

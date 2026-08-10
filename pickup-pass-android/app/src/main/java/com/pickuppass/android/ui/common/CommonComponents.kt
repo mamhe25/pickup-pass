@@ -1,11 +1,15 @@
 package com.pickuppass.android.ui.common
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +29,7 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,8 +39,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -299,6 +306,73 @@ fun FilterDropdown(
             options.forEach { option ->
                 DropdownMenuItem(text = { Text(option) }, onClick = { onSelect(option); expanded = false })
             }
+        }
+    }
+}
+
+/**
+ * A calm, reassuring confirmation moment — the "positive success message" and
+ * "calm confirmation screen" the product vision asks for after important
+ * actions (a release approved, a pass regenerated, a guardian added). The check
+ * mark springs in gently rather than snapping, so it reads as a settled, safe
+ * outcome rather than a jarring alert. Built on stable animation APIs only.
+ */
+@Composable
+fun SuccessConfirmation(
+    title: String,
+    message: String? = null,
+    modifier: Modifier = Modifier
+) {
+    // Drives a one-shot spring on first composition: 0 → 1 scales the check in.
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    val scale by animateFloatAsState(
+        targetValue = if (shown) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "successCheckScale"
+    )
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(Spacing.xl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
+            modifier = Modifier
+                .size(88.dp)
+                .graphicsLayer { scaleX = scale; scaleY = scale }
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(52.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(Spacing.md))
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            textAlign = TextAlign.Center
+        )
+        if (!message.isNullOrBlank()) {
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }

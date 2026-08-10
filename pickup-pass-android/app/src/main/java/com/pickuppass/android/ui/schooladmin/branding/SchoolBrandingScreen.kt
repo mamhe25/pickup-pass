@@ -2,6 +2,8 @@ package com.pickuppass.android.ui.schooladmin.branding
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -100,24 +102,32 @@ fun SchoolBrandingScreen(
                         .clickable { pickImage.launch("image/*") },
                     contentAlignment = Alignment.Center
                 ) {
-                    if (uiState.logoUrl != null) {
-                        SmartImage(
-                            model = uiState.logoUrl,
-                            contentDescription = "School logo",
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(Spacing.sm)
-                        )
-                    } else {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Filled.Image, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                "No logo yet",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = Spacing.xs)
+                    // Cross-fade between the placeholder and the actual logo so a
+                    // newly uploaded school image eases in rather than snapping.
+                    Crossfade(
+                        targetState = uiState.logoUrl != null,
+                        animationSpec = tween(300),
+                        label = "logoPhase"
+                    ) { hasLogo ->
+                        if (hasLogo) {
+                            SmartImage(
+                                model = uiState.logoUrl,
+                                contentDescription = "School logo",
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(Spacing.sm)
                             )
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Filled.Image, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    "No logo yet",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = Spacing.xs)
+                                )
+                            }
                         }
                     }
 

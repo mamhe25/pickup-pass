@@ -1,5 +1,7 @@
 package com.pickuppass.android.ui.parent.pass
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -81,18 +83,35 @@ fun PickupPassScreen(
                         .padding(Spacing.lg),
                     contentAlignment = Alignment.Center
                 ) {
-                    when {
-                        uiState.isLoading -> CircularProgressIndicator()
-                        uiState.qrBitmap != null -> Image(
-                            bitmap = uiState.qrBitmap!!.asImageBitmap(),
-                            contentDescription = "Pickup QR code",
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        uiState.error != null -> Icon(
-                            Icons.Filled.ErrorOutline,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                    // Cross-fade between the three pass phases so a freshly
+                    // generated QR settles in gently rather than popping into
+                    // place — a calmer moment for a parent in the pickup line.
+                    val phase = when {
+                        uiState.isLoading -> "loading"
+                        uiState.qrBitmap != null -> "qr"
+                        uiState.error != null -> "error"
+                        else -> "empty"
+                    }
+                    Crossfade(
+                        targetState = phase,
+                        animationSpec = tween(durationMillis = 300),
+                        label = "qrPhase"
+                    ) { state ->
+                        when (state) {
+                            "loading" -> CircularProgressIndicator()
+                            "qr" -> uiState.qrBitmap?.let {
+                                Image(
+                                    bitmap = it.asImageBitmap(),
+                                    contentDescription = "Pickup QR code",
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                            "error" -> Icon(
+                                Icons.Filled.ErrorOutline,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
             }

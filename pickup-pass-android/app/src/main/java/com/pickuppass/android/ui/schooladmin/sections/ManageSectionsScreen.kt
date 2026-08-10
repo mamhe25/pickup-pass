@@ -1,5 +1,7 @@
 package com.pickuppass.android.ui.schooladmin.sections
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -41,47 +43,55 @@ fun ManageSectionsScreen(
             )
         }
     ) { padding ->
-        when {
-            uiState.isLoading -> FullScreenLoading()
-            uiState.error != null -> Box(Modifier.padding(padding).padding(Spacing.lg)) { ErrorBanner(uiState.error!!) }
-            uiState.teachers.isEmpty() -> Column(
-                modifier = Modifier.padding(padding).fillMaxSize().padding(Spacing.xl),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Filled.Groups,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(Modifier.height(Spacing.sm))
-                Text(
-                    "No teachers yet — invite one first.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            else -> LazyColumn(
-                modifier = Modifier.padding(padding),
-                contentPadding = PaddingValues(Spacing.md),
-                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
-            ) {
-                item {
+        val phase = when {
+            uiState.isLoading -> "loading"
+            uiState.error != null -> "error"
+            uiState.teachers.isEmpty() -> "empty"
+            else -> "list"
+        }
+        Crossfade(targetState = phase, animationSpec = tween(250), label = "sectionsPhase") { state ->
+            when (state) {
+                "loading" -> FullScreenLoading()
+                "error" -> Box(Modifier.padding(padding).padding(Spacing.lg)) { ErrorBanner(uiState.error ?: "") }
+                "empty" -> Column(
+                    modifier = Modifier.padding(padding).fillMaxSize().padding(Spacing.xl),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        Icons.Filled.Groups,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(Modifier.height(Spacing.sm))
                     Text(
-                        "Assign each teacher's grade/section so their broadcasts reach the right guardians.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = Spacing.xs)
+                        "No teachers yet — invite one first.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                items(uiState.teachers, key = { it.uid }) { teacher ->
-                    TeacherSectionsCard(
-                        teacher = teacher,
-                        saveStatus = uiState.saveStatusByUid[teacher.uid],
-                        onAddSection = { grade, section -> viewModel.addSection(teacher.uid, grade, section) },
-                        onRemoveSection = { index -> viewModel.removeSection(teacher.uid, index) }
-                    )
+                else -> LazyColumn(
+                    modifier = Modifier.padding(padding),
+                    contentPadding = PaddingValues(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    item {
+                        Text(
+                            "Assign each teacher's grade/section so their broadcasts reach the right guardians.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = Spacing.xs)
+                        )
+                    }
+                    items(uiState.teachers, key = { it.uid }) { teacher ->
+                        TeacherSectionsCard(
+                            teacher = teacher,
+                            saveStatus = uiState.saveStatusByUid[teacher.uid],
+                            onAddSection = { grade, section -> viewModel.addSection(teacher.uid, grade, section) },
+                            onRemoveSection = { index -> viewModel.removeSection(teacher.uid, index) }
+                        )
+                    }
                 }
             }
         }

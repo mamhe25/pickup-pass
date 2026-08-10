@@ -2,6 +2,8 @@ package com.pickuppass.android.ui.parent.students
 
 import android.Manifest
 import android.os.Build
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -78,20 +80,28 @@ fun StudentsScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            when {
-                uiState.isLoading -> FullScreenLoading()
-                uiState.error != null -> Box(Modifier.padding(Spacing.lg)) { ErrorBanner(uiState.error!!) }
-                uiState.students.isEmpty() -> EmptyState()
-                else -> LazyColumn(
-                    contentPadding = PaddingValues(Spacing.md),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
-                ) {
-                    items(uiState.students, key = { it.id }) { student ->
-                        StudentCard(
-                            student = student,
-                            onGetPass = { onGetPass(student.id) },
-                            onManageGuardians = { onManageGuardians(student.id) }
-                        )
+            val phase = when {
+                uiState.isLoading -> "loading"
+                uiState.error != null -> "error"
+                uiState.students.isEmpty() -> "empty"
+                else -> "list"
+            }
+            Crossfade(targetState = phase, animationSpec = tween(250), label = "studentsPhase") { state ->
+                when (state) {
+                    "loading" -> FullScreenLoading()
+                    "error" -> Box(Modifier.padding(Spacing.lg)) { ErrorBanner(uiState.error ?: "") }
+                    "empty" -> EmptyState()
+                    else -> LazyColumn(
+                        contentPadding = PaddingValues(Spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        items(uiState.students, key = { it.id }) { student ->
+                            StudentCard(
+                                student = student,
+                                onGetPass = { onGetPass(student.id) },
+                                onManageGuardians = { onManageGuardians(student.id) }
+                            )
+                        }
                     }
                 }
             }

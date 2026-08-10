@@ -1,5 +1,7 @@
 package com.pickuppass.android.ui.parent.guardians
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -35,7 +37,7 @@ private val relationshipOptions = listOf(
     "authorized pickup" to "Other Authorized Pickup"
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun ManageGuardiansScreen(
     studentId: String,
@@ -81,7 +83,10 @@ fun ManageGuardiansScreen(
             items(uiState.guardians, key = { it.uid }) { row ->
                 GuardianRowCard(
                     row = row,
-                    onRemoveClick = { confirmRemoveUid = row.uid }
+                    onRemoveClick = { confirmRemoveUid = row.uid },
+                    modifier = Modifier.animateItemPlacement(
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                    )
                 )
             }
 
@@ -119,8 +124,8 @@ fun ManageGuardiansScreen(
 }
 
 @Composable
-private fun GuardianRowCard(row: GuardianRow, onRemoveClick: () -> Unit) {
-    ElevatedCard(shape = MaterialTheme.shapes.medium) {
+private fun GuardianRowCard(row: GuardianRow, onRemoveClick: () -> Unit, modifier: Modifier = Modifier) {
+    ElevatedCard(shape = MaterialTheme.shapes.medium, modifier = modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
