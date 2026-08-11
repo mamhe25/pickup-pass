@@ -9,6 +9,7 @@ import com.google.cloud.firestore.WriteBatch;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.SubscriptionFeatureService;
+import com.pickuppass.service.TenantUsageService;
 import com.pickuppass.util.NameFormatter;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -50,12 +51,14 @@ public class BulkStudentImportController {
     private final Firestore firestore;
     private final AuditService auditService;
     private final SubscriptionFeatureService subscriptionFeatureService;
+    private final TenantUsageService tenantUsageService;
 
     public BulkStudentImportController(Firestore firestore, AuditService auditService,
-                                       SubscriptionFeatureService subscriptionFeatureService) {
+                                       SubscriptionFeatureService subscriptionFeatureService, TenantUsageService tenantUsageService) {
         this.firestore = firestore;
         this.auditService = auditService;
         this.subscriptionFeatureService = subscriptionFeatureService;
+        this.tenantUsageService = tenantUsageService;
     }
 
     @PostMapping(value = "/import", consumes = "multipart/form-data")
@@ -90,7 +93,14 @@ public class BulkStudentImportController {
         ValidationResult result = validate(rawRows, context, admin.getSchoolId());
 
         if (!dryRun && result.invalidRows == 0) {
-            int imported = writeStudents(result.validStudents, admin, context);
+            tenantUsageService.reserve(admin.getSchoolId(), TenantUsageService.STUDENTS, result.validStudents.size());
+            int imported;
+            try {
+                imported = writeStudents(result.validStudents, admin, context);
+            } catch (Exception e) {
+                tenantUsageService.reconcile(admin.getSchoolId());
+                throw e;
+            }
             result.importedRows = imported;
             auditService.record(admin, "students.bulk_imported", "studentRoster", admin.getSchoolId(), Map.of(
                     "fileName", filename,

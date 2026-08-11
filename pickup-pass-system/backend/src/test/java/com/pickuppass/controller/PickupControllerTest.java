@@ -8,6 +8,7 @@ import com.pickuppass.service.PickupMetricsService;
 import com.pickuppass.service.PushNotificationService;
 import com.pickuppass.service.QrVerificationService;
 import com.pickuppass.service.SubscriptionFeatureService;
+import com.pickuppass.service.TenantUsageService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 
@@ -27,7 +28,8 @@ class PickupControllerTest {
         PickupMetricsService metrics = mock(PickupMetricsService.class);
         IdempotencyService idempotency = mock(IdempotencyService.class);
         SubscriptionFeatureService features = mock(SubscriptionFeatureService.class);
-        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features);
+        TenantUsageService usage = mock(TenantUsageService.class);
+        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features, usage);
         FirebaseUserDetails staff = new FirebaseUserDetails("staff1", "staff@test.com", "school1", "teacher");
         PickupController.VerifyRequest req = new PickupController.VerifyRequest();
         req.setQrToken("bad-token");
@@ -53,7 +55,8 @@ class PickupControllerTest {
         PickupMetricsService metrics = mock(PickupMetricsService.class);
         IdempotencyService idempotency = mock(IdempotencyService.class);
         SubscriptionFeatureService features = mock(SubscriptionFeatureService.class);
-        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features);
+        TenantUsageService usage = mock(TenantUsageService.class);
+        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features, usage);
         FirebaseUserDetails staff = new FirebaseUserDetails("staff1", "staff@test.com", "school1", "teacher");
         PickupController.VerifyRequest req = new PickupController.VerifyRequest();
         req.setQrToken("good-token");
@@ -81,7 +84,8 @@ class PickupControllerTest {
         PickupMetricsService metrics = mock(PickupMetricsService.class);
         IdempotencyService idempotency = mock(IdempotencyService.class);
         SubscriptionFeatureService features = mock(SubscriptionFeatureService.class);
-        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features);
+        TenantUsageService usage = mock(TenantUsageService.class);
+        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features, usage);
         FirebaseUserDetails staff = new FirebaseUserDetails("staff1", "staff@test.com", "school1", "teacher");
         PickupController.VerifyRequest req = new PickupController.VerifyRequest();
         req.setQrToken("good-token");
@@ -105,7 +109,8 @@ class PickupControllerTest {
         PickupMetricsService metrics = mock(PickupMetricsService.class);
         IdempotencyService idempotency = mock(IdempotencyService.class);
         SubscriptionFeatureService features = mock(SubscriptionFeatureService.class);
-        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features);
+        TenantUsageService usage = mock(TenantUsageService.class);
+        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features, usage);
         FirebaseUserDetails admin = new FirebaseUserDetails("admin1", "admin@test.com", "school1", "school_admin");
         PickupController.ManualOverrideRequest req = new PickupController.ManualOverrideRequest();
         req.setStudentId("student1");

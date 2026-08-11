@@ -8,6 +8,7 @@ import com.pickuppass.exception.NotFoundException;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.SubscriptionFeatureService;
+import com.pickuppass.service.TenantUsageService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -25,12 +26,14 @@ public class CampusGateController {
     private final Firestore firestore;
     private final AuditService auditService;
     private final SubscriptionFeatureService subscriptionFeatureService;
+    private final TenantUsageService tenantUsageService;
 
     public CampusGateController(Firestore firestore, AuditService auditService,
-                                SubscriptionFeatureService subscriptionFeatureService) {
+                                SubscriptionFeatureService subscriptionFeatureService, TenantUsageService tenantUsageService) {
         this.firestore = firestore;
         this.auditService = auditService;
         this.subscriptionFeatureService = subscriptionFeatureService;
+        this.tenantUsageService = tenantUsageService;
     }
 
     @GetMapping
@@ -64,6 +67,7 @@ public class CampusGateController {
             subscriptionFeatureService.requireFeature(admin.getSchoolId(), "multi_campus");
         }
         ensureUniqueCampus(admin.getSchoolId(), name, null);
+        tenantUsageService.reserve(admin.getSchoolId(), TenantUsageService.CAMPUSES, 1);
         var ref = firestore.collection("campuses").document();
         Map<String,Object> data = new HashMap<>();
         data.put("schoolId", admin.getSchoolId());
@@ -72,7 +76,12 @@ public class CampusGateController {
         data.put("active", true);
         data.put("createdAt", FieldValue.serverTimestamp());
         data.put("createdBy", admin.getUid());
-        ref.set(data).get();
+        try {
+            ref.set(data).get();
+        } catch (Exception e) {
+            tenantUsageService.release(admin.getSchoolId(), TenantUsageService.CAMPUSES, 1);
+            throw e;
+        }
         auditService.record(admin, "campus.created", "campus", ref.getId(), Map.of("name", name));
         return ResponseEntity.ok(Map.of("id", ref.getId(), "name", name, "active", true));
     }
@@ -95,7 +104,17 @@ public class CampusGateController {
                 subscriptionFeatureService.requireFeature(admin.getSchoolId(), "multi_campus");
             }
         }
-        campus.getReference().update("active", req.isActive(), "updatedAt", FieldValue.serverTimestamp(), "updatedBy", admin.getUid()).get();
+        boolean wasActive = !Boolean.FALSE.equals(campus.getBoolean("active"));
+        boolean activating = req.isActive() && !wasActive;
+        boolean deactivating = !req.isActive() && wasActive;
+        if (activating) tenantUsageService.reserve(admin.getSchoolId(), TenantUsageService.CAMPUSES, 1);
+        try {
+            campus.getReference().update("active", req.isActive(), "updatedAt", FieldValue.serverTimestamp(), "updatedBy", admin.getUid()).get();
+        } catch (Exception e) {
+            if (activating) tenantUsageService.release(admin.getSchoolId(), TenantUsageService.CAMPUSES, 1);
+            throw e;
+        }
+        if (deactivating) tenantUsageService.release(admin.getSchoolId(), TenantUsageService.CAMPUSES, 1);
         if (!req.isActive()) {
             for (QueryDocumentSnapshot gate : firestore.collection("pickupGates")
                     .whereEqualTo("schoolId", admin.getSchoolId())

@@ -9,6 +9,7 @@ import com.google.cloud.firestore.WriteBatch;
 import com.pickuppass.exception.NotFoundException;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
+import com.pickuppass.service.TenantUsageService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -31,10 +32,12 @@ public class StudentLifecycleController {
 
     private final Firestore firestore;
     private final AuditService auditService;
+    private final TenantUsageService tenantUsageService;
 
-    public StudentLifecycleController(Firestore firestore, AuditService auditService) {
+    public StudentLifecycleController(Firestore firestore, AuditService auditService, TenantUsageService tenantUsageService) {
         this.firestore = firestore;
         this.auditService = auditService;
+        this.tenantUsageService = tenantUsageService;
     }
 
     @GetMapping("/lifecycle")
@@ -97,6 +100,10 @@ public class StudentLifecycleController {
             return ResponseEntity.ok(Map.of("studentId", studentId, "status", nextStatus));
         }
 
+        boolean activating = "active".equals(nextStatus) && !"active".equals(previousStatus);
+        boolean deactivating = !"active".equals(nextStatus) && "active".equals(previousStatus);
+        if (activating) tenantUsageService.reserve(admin.getSchoolId(), TenantUsageService.STUDENTS, 1);
+
         Map<String, Object> updates = new HashMap<>();
         updates.put("status", nextStatus);
         updates.put("statusReason", safe(req.getReason()));
@@ -104,7 +111,13 @@ public class StudentLifecycleController {
         updates.put("statusChangedBy", admin.getUid());
         updates.put("updatedAt", FieldValue.serverTimestamp());
         updates.put("updatedBy", admin.getUid());
-        ref.update(updates).get();
+        try {
+            ref.update(updates).get();
+        } catch (Exception e) {
+            if (activating) tenantUsageService.release(admin.getSchoolId(), TenantUsageService.STUDENTS, 1);
+            throw e;
+        }
+        if (deactivating) tenantUsageService.release(admin.getSchoolId(), TenantUsageService.STUDENTS, 1);
 
         // A non-active student must not retain a still-valid pickup QR.
         if (!"active".equals(nextStatus)) {

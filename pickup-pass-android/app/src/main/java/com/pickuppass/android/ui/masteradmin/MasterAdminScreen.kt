@@ -292,6 +292,17 @@ private fun SchoolCard(
                 }
                 Switch(checked = active, enabled = !saving, onCheckedChange = { onToggle() })
             }
+            val u = school.usage
+            Text(
+                "Students ${usageLabel(u.activeStudents, u.studentLimit)} · Staff ${usageLabel(u.activeStaff, u.staffLimit)} · Campuses ${usageLabel(u.activeCampuses, u.campusLimit)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (u.studentsOverLimit || u.staffOverLimit || u.campusesOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "Lifetime pickups: QR ${u.totalQrPickups} · Manual ${u.totalManualPickups}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 FilledTonalButton(onClick = onManageSubscription, enabled = !saving) { Text("Plan & features") }
                 FilledTonalButton(onClick = onAddAdmin, enabled = active && !saving) { Text("Add admin") }
@@ -299,3 +310,5 @@ private fun SchoolCard(
         }
     }
 }
+
+private fun usageLabel(current: Long, limit: Long): String = if (limit < 0) "$current/∞" else "$current/$limit"

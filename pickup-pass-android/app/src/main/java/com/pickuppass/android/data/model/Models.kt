@@ -624,6 +624,20 @@ data class UpdateStaffPickupGatesRequest(val pickupGateIds: List<String>)
 
 
 // ---- Phase 3: master-admin SaaS tenant console ----
+data class TenantUsageSummary(
+    val activeStudents: Long = 0,
+    val activeStaff: Long = 0,
+    val activeCampuses: Long = 0,
+    val totalQrPickups: Long = 0,
+    val totalManualPickups: Long = 0,
+    val studentLimit: Long = -1,
+    val staffLimit: Long = -1,
+    val campusLimit: Long = -1,
+    val studentsOverLimit: Boolean = false,
+    val staffOverLimit: Boolean = false,
+    val campusesOverLimit: Boolean = false
+)
+
 data class MasterSchoolItem(
     val schoolId: String = "",
     val schoolName: String = "",
@@ -634,6 +648,7 @@ data class MasterSchoolItem(
     val features: Map<String, Boolean> = emptyMap(),
     val featureOverrides: Map<String, Boolean> = emptyMap(),
     val limits: Map<String, Int> = emptyMap(),
+    val usage: TenantUsageSummary = TenantUsageSummary(),
     val createdAt: String? = null,
     val statusUpdatedAt: String? = null
 )

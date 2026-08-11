@@ -7,6 +7,7 @@ import com.google.cloud.firestore.FieldValue;
 import com.google.cloud.firestore.Firestore;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
+import com.pickuppass.service.TenantUsageService;
 import com.pickuppass.util.NameFormatter;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
@@ -31,10 +32,12 @@ public class StudentController {
 
     private final Firestore firestore;
     private final AuditService auditService;
+    private final TenantUsageService tenantUsageService;
 
-    public StudentController(Firestore firestore, AuditService auditService) {
+    public StudentController(Firestore firestore, AuditService auditService, TenantUsageService tenantUsageService) {
         this.firestore = firestore;
         this.auditService = auditService;
+        this.tenantUsageService = tenantUsageService;
     }
 
     @PostMapping("/students")
@@ -78,7 +81,13 @@ public class StudentController {
         student.put("createdAt", FieldValue.serverTimestamp());
         student.put("createdBy", staff.getUid());
 
-        studentRef.set(student).get(); // await so a write failure surfaces as an error, not a false success
+        tenantUsageService.reserve(staff.getSchoolId(), TenantUsageService.STUDENTS, 1);
+        try {
+            studentRef.set(student).get(); // await so a write failure surfaces as an error, not a false success
+        } catch (Exception e) {
+            tenantUsageService.release(staff.getSchoolId(), TenantUsageService.STUDENTS, 1);
+            throw e;
+        }
         auditService.record(staff, "student.created", "student", studentRef.getId(), Map.of("fullName", fullName));
 
         return ResponseEntity.ok(Map.of(

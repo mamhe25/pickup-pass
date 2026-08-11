@@ -8,6 +8,7 @@ import com.pickuppass.service.IdempotencyService;
 import com.pickuppass.service.PushNotificationService;
 import com.pickuppass.service.QrVerificationService;
 import com.pickuppass.service.SubscriptionFeatureService;
+import com.pickuppass.service.TenantUsageService;
 import io.micrometer.core.instrument.Timer;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -29,19 +30,22 @@ public class PickupController {
     private final PickupMetricsService metrics;
     private final IdempotencyService idempotencyService;
     private final SubscriptionFeatureService subscriptionFeatureService;
+    private final TenantUsageService tenantUsageService;
 
     public PickupController(QrVerificationService qrService,
                             PushNotificationService pushNotificationService,
                             AuditService auditService,
                             PickupMetricsService metrics,
                             IdempotencyService idempotencyService,
-                            SubscriptionFeatureService subscriptionFeatureService) {
+                            SubscriptionFeatureService subscriptionFeatureService,
+                            TenantUsageService tenantUsageService) {
         this.qrService = qrService;
         this.pushNotificationService = pushNotificationService;
         this.auditService = auditService;
         this.metrics = metrics;
         this.idempotencyService = idempotencyService;
         this.subscriptionFeatureService = subscriptionFeatureService;
+        this.tenantUsageService = tenantUsageService;
     }
 
     @GetMapping("/gates")
@@ -106,6 +110,7 @@ public class PickupController {
             idempotencyService.storeResult(staff.getSchoolId(), staff.getUid(),
                     "pickup.approve", idempotencyKey, fingerprint, exitLogId);
             metrics.approvalSucceeded();
+            tenantUsageService.recordQrPickup(staff.getSchoolId());
             return ResponseEntity.ok(Map.of("status", "release_approved", "exitLogId", exitLogId, "idempotentReplay", false));
         } catch (Exception e) {
             metrics.approvalFailed();
@@ -146,6 +151,7 @@ public class PickupController {
             idempotencyService.storeResult(staff.getSchoolId(), staff.getUid(),
                     "pickup.manual_override", idempotencyKey, fingerprint, exitLogId);
             metrics.manualOverrideSucceeded();
+            tenantUsageService.recordManualPickup(staff.getSchoolId());
             return ResponseEntity.ok(Map.of(
                     "status", "release_approved",
                     "method", "manual_override",

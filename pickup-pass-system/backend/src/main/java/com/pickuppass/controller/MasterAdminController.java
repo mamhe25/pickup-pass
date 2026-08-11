@@ -11,6 +11,7 @@ import com.google.firebase.auth.UserRecord;
 import com.pickuppass.service.StaffProvisioningService;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.SubscriptionFeatureService;
+import com.pickuppass.service.TenantUsageService;
 import com.pickuppass.security.FirebaseUserDetails;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.constraints.NotBlank;
@@ -41,15 +42,17 @@ public class MasterAdminController {
     private final FirebaseAuth firebaseAuth;
     private final AuditService auditService;
     private final SubscriptionFeatureService subscriptionFeatureService;
+    private final TenantUsageService tenantUsageService;
 
     public MasterAdminController(Firestore firestore, StaffProvisioningService staffProvisioningService,
                                  FirebaseAuth firebaseAuth, AuditService auditService,
-                                 SubscriptionFeatureService subscriptionFeatureService) {
+                                 SubscriptionFeatureService subscriptionFeatureService, TenantUsageService tenantUsageService) {
         this.firestore = firestore;
         this.staffProvisioningService = staffProvisioningService;
         this.firebaseAuth = firebaseAuth;
         this.auditService = auditService;
         this.subscriptionFeatureService = subscriptionFeatureService;
+        this.tenantUsageService = tenantUsageService;
     }
 
 
@@ -81,6 +84,7 @@ public class MasterAdminController {
             item.putAll(subscriptionFeatureService.effectiveEntitlements(doc));
             Object rawOverrides = doc.get("featureOverrides");
             item.put("featureOverrides", rawOverrides instanceof Map<?, ?> ? rawOverrides : Map.of());
+            item.put("usage", tenantUsageService.snapshot(doc.getId()));
             schools.add(item);
         }
 
@@ -113,6 +117,7 @@ public class MasterAdminController {
         school.put("featureOverrides", Map.of());
         school.put("createdAt", FieldValue.serverTimestamp());
         schoolRef.set(school).get(); // await so a write failure surfaces as an error, not a false success
+        tenantUsageService.initializeNewTenant(schoolRef.getId());
         auditService.record(masterAdmin, "school.created", "school", schoolRef.getId(), Map.of("schoolName", req.getSchoolName()));
 
         return ResponseEntity.ok(Map.of(
@@ -281,9 +286,16 @@ public class MasterAdminController {
             return ResponseEntity.badRequest().body(Map.of("error", "lastName and firstName are required"));
         }
 
-        StaffProvisioningService.StaffCreationResult result = staffProvisioningService.createStaffAccount(
-                req.getEmail(), req.getLastName(), req.getFirstName(),
-                req.getMiddleInitial(), req.getSuffix(), req.getRole(), schoolId);
+        tenantUsageService.reserve(schoolId, TenantUsageService.STAFF, 1);
+        StaffProvisioningService.StaffCreationResult result;
+        try {
+            result = staffProvisioningService.createStaffAccount(
+                    req.getEmail(), req.getLastName(), req.getFirstName(),
+                    req.getMiddleInitial(), req.getSuffix(), req.getRole(), schoolId);
+        } catch (Exception e) {
+            tenantUsageService.release(schoolId, TenantUsageService.STAFF, 1);
+            throw e;
+        }
 
         auditService.record(masterAdmin, "staff.created", "user", result.getUid(), Map.of(
                 "schoolId", schoolId, "role", req.getRole(), "email", req.getEmail()));
@@ -293,6 +305,28 @@ public class MasterAdminController {
                 "schoolId", schoolId,
                 "emailSent", result.isEmailSent()
         ));
+    }
+
+
+    @GetMapping("/schools/{schoolId}/usage")
+    @PreAuthorize("hasRole('master_admin')")
+    public ResponseEntity<?> getTenantUsage(@PathVariable String schoolId) throws Exception {
+        if (!firestore.collection("schools").document(schoolId).get().get().exists()) {
+            return ResponseEntity.status(404).body(Map.of("error", "School not found"));
+        }
+        return ResponseEntity.ok(tenantUsageService.snapshot(schoolId));
+    }
+
+    @PostMapping("/schools/{schoolId}/usage/reconcile")
+    @PreAuthorize("hasRole('master_admin')")
+    public ResponseEntity<?> reconcileTenantUsage(@PathVariable String schoolId,
+                                                   @AuthenticationPrincipal FirebaseUserDetails masterAdmin) throws Exception {
+        if (!firestore.collection("schools").document(schoolId).get().get().exists()) {
+            return ResponseEntity.status(404).body(Map.of("error", "School not found"));
+        }
+        tenantUsageService.reconcile(schoolId);
+        auditService.record(masterAdmin, "tenant.usage_reconciled", "school", schoolId, Map.of());
+        return ResponseEntity.ok(tenantUsageService.snapshot(schoolId));
     }
 
     public static class CreateSchoolRequest {

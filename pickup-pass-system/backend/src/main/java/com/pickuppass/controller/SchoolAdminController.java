@@ -10,6 +10,7 @@ import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.SchoolLogoService;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.StaffProvisioningService;
+import com.pickuppass.service.TenantUsageService;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -32,15 +33,17 @@ public class SchoolAdminController {
     private final StaffProvisioningService staffProvisioningService;
     private final FirebaseAuth firebaseAuth;
     private final AuditService auditService;
+    private final TenantUsageService tenantUsageService;
 
     public SchoolAdminController(
             Firestore firestore, SchoolLogoService logoService, StaffProvisioningService staffProvisioningService,
-            FirebaseAuth firebaseAuth, AuditService auditService) {
+            FirebaseAuth firebaseAuth, AuditService auditService, TenantUsageService tenantUsageService) {
         this.firestore = firestore;
         this.logoService = logoService;
         this.staffProvisioningService = staffProvisioningService;
         this.firebaseAuth = firebaseAuth;
         this.auditService = auditService;
+        this.tenantUsageService = tenantUsageService;
     }
 
     /** A school admin can update their own school's logo — no schoolId param, always their own claim. */
@@ -77,9 +80,16 @@ public class SchoolAdminController {
             return ResponseEntity.badRequest().body(Map.of("error", "lastName and firstName are required"));
         }
 
-        StaffProvisioningService.StaffCreationResult result = staffProvisioningService.createStaffAccount(
-                req.getEmail(), req.getLastName(), req.getFirstName(),
-                req.getMiddleInitial(), req.getSuffix(), "teacher", schoolAdmin.getSchoolId());
+        tenantUsageService.reserve(schoolAdmin.getSchoolId(), TenantUsageService.STAFF, 1);
+        StaffProvisioningService.StaffCreationResult result;
+        try {
+            result = staffProvisioningService.createStaffAccount(
+                    req.getEmail(), req.getLastName(), req.getFirstName(),
+                    req.getMiddleInitial(), req.getSuffix(), "teacher", schoolAdmin.getSchoolId());
+        } catch (Exception e) {
+            tenantUsageService.release(schoolAdmin.getSchoolId(), TenantUsageService.STAFF, 1);
+            throw e;
+        }
 
         auditService.record(schoolAdmin, "staff.invited", "user", result.getUid(),
                 Map.of("role", "teacher", "email", req.getEmail()));
@@ -178,12 +188,22 @@ public class SchoolAdminController {
             throw new NotFoundException("Teacher not found in your school");
         }
         boolean active = req.isActive();
-        firebaseAuth.updateUser(new UserRecord.UpdateRequest(uid).setDisabled(!active));
-        if (!active) firebaseAuth.revokeRefreshTokens(uid);
-        firestore.collection("users").document(uid).update(
-                "isActive", active,
-                "statusUpdatedAt", FieldValue.serverTimestamp(),
-                "statusUpdatedBy", schoolAdmin.getUid()).get();
+        boolean wasActive = teacherDoc.getBoolean("isActive") == null || Boolean.TRUE.equals(teacherDoc.getBoolean("isActive"));
+        boolean activating = active && !wasActive;
+        boolean deactivating = !active && wasActive;
+        if (activating) tenantUsageService.reserve(schoolAdmin.getSchoolId(), TenantUsageService.STAFF, 1);
+        try {
+            firebaseAuth.updateUser(new UserRecord.UpdateRequest(uid).setDisabled(!active));
+            if (!active) firebaseAuth.revokeRefreshTokens(uid);
+            firestore.collection("users").document(uid).update(
+                    "isActive", active,
+                    "statusUpdatedAt", FieldValue.serverTimestamp(),
+                    "statusUpdatedBy", schoolAdmin.getUid()).get();
+        } catch (Exception e) {
+            if (activating) tenantUsageService.release(schoolAdmin.getSchoolId(), TenantUsageService.STAFF, 1);
+            throw e;
+        }
+        if (deactivating) tenantUsageService.release(schoolAdmin.getSchoolId(), TenantUsageService.STAFF, 1);
         auditService.record(schoolAdmin, active ? "staff.reactivated" : "staff.deactivated", "user", uid, Map.of());
         return ResponseEntity.ok(Map.of("uid", uid, "isActive", active));
     }
