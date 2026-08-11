@@ -90,6 +90,22 @@ class MasterAdminRepository @Inject constructor(private val api: PickupPassApi) 
         ApiResult.Failure(e.message ?: "Network error")
     }
 
+    suspend fun getOperationsOverview(): ApiResult<MasterOperationsOverviewResponse> = try {
+        val response = api.getMasterOperationsOverview()
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not load SaaS operations health")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
+    suspend fun refreshOperations(): ApiResult<MasterOperationsRefreshResponse> = try {
+        val response = api.refreshMasterOperations()
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not refresh SaaS operations health")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
     suspend fun getBillingProfile(schoolId: String): ApiResult<MasterBillingProfileResponse> = try {
         val response = api.getMasterBillingProfile(schoolId)
         response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }

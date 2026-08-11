@@ -7,6 +7,7 @@ import com.pickuppass.android.data.model.MasterSchoolItem
 import com.pickuppass.android.data.model.MasterInvoiceItem
 import com.pickuppass.android.data.model.MasterBillingProfileResponse
 import com.pickuppass.android.data.model.GcashPaymentNoticeItem
+import com.pickuppass.android.data.model.MasterOperationsOverviewResponse
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.AuthRepository
 import com.pickuppass.android.data.repository.MasterAdminRepository
@@ -25,6 +26,8 @@ data class MasterAdminUiState(
     val activeSchools: Int = 0,
     val suspendedSchools: Int = 0,
     val schools: List<MasterSchoolItem> = emptyList(),
+    val operationsLoading: Boolean = false,
+    val operations: MasterOperationsOverviewResponse? = null,
     val plans: Map<String, MasterPlanDefinition> = emptyMap(),
     val featureKeys: List<String> = emptyList(),
     val billingSchoolId: String? = null,
@@ -51,6 +54,7 @@ class MasterAdminViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(loading = true, error = null)
         val plansResult = repository.getPlanCatalog()
         val schoolsResult = repository.listSchools()
+        val operationsResult = repository.getOperationsOverview()
         when (schoolsResult) {
             is ApiResult.Success -> {
                 val planData = when (plansResult) {
@@ -63,12 +67,56 @@ class MasterAdminViewModel @Inject constructor(
                     activeSchools = schoolsResult.data.activeSchools,
                     suspendedSchools = schoolsResult.data.suspendedSchools,
                     schools = schoolsResult.data.schools,
+                    operations = when (operationsResult) {
+                        is ApiResult.Success -> operationsResult.data
+                        is ApiResult.Failure -> _uiState.value.operations
+                    },
                     plans = planData?.plans ?: emptyMap(),
                     featureKeys = planData?.featureKeys ?: emptyList(),
-                    error = if (plansResult is ApiResult.Failure) plansResult.message else null
+                    error = when {
+                        plansResult is ApiResult.Failure -> plansResult.message
+                        operationsResult is ApiResult.Failure -> operationsResult.message
+                        else -> null
+                    }
                 )
             }
             is ApiResult.Failure -> _uiState.value = _uiState.value.copy(loading = false, error = schoolsResult.message)
+        }
+    }
+
+    fun loadOperations(quiet: Boolean = false) = viewModelScope.launch {
+        if (!quiet) _uiState.value = _uiState.value.copy(operationsLoading = true, error = null)
+        when (val r = repository.getOperationsOverview()) {
+            is ApiResult.Success -> _uiState.value = _uiState.value.copy(
+                operationsLoading = false,
+                operations = r.data
+            )
+            is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
+                operationsLoading = false,
+                error = if (quiet) _uiState.value.error else r.message
+            )
+        }
+    }
+
+    fun refreshOperations() {
+        if (_uiState.value.saving) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(saving = true, operationsLoading = true, error = null, message = null)
+            when (val r = repository.refreshOperations()) {
+                is ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        saving = false,
+                        operationsLoading = false,
+                        message = "Operations health refreshed"
+                    )
+                    load()
+                }
+                is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
+                    saving = false,
+                    operationsLoading = false,
+                    error = r.message
+                )
+            }
         }
     }
 
@@ -183,6 +231,7 @@ class MasterAdminViewModel @Inject constructor(
                 is ApiResult.Success -> {
                     _uiState.value = _uiState.value.copy(saving = false, message = message)
                     loadInvoices(schoolId)
+                    loadOperations(quiet = true)
                 }
                 is ApiResult.Failure -> _uiState.value = _uiState.value.copy(saving = false, error = r.message)
             }

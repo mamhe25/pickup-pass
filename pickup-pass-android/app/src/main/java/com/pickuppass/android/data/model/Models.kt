@@ -730,6 +730,67 @@ data class MasterSubscriptionResponse(
 )
 
 
+
+
+// ---- Phase 3: master-admin operations health dashboard ----
+data class MasterOperationsMetrics(
+    val totalSchools: Int = 0,
+    val healthySchools: Int = 0,
+    val attentionNeededSchools: Int = 0,
+    val billingRiskSchools: Int = 0,
+    val overQuotaSchools: Int = 0,
+    val suspendedSchools: Int = 0,
+    val pendingGcashReviews: Int = 0,
+    val overdueInvoices: Int = 0,
+    val expiringSubscriptions: Int = 0,
+    val quotaWarnings: Int = 0,
+    val billingEmailFailures: Int = 0
+)
+
+data class MasterTenantHealthItem(
+    val schoolId: String = "",
+    val schoolName: String = "",
+    val status: String = "active",
+    val plan: String = "trial",
+    val subscriptionStatus: String = "trialing",
+    val healthState: String = "healthy",
+    val activeAlertCount: Int = 0,
+    val criticalAlertCount: Int = 0,
+    val warningAlertCount: Int = 0,
+    val maxQuotaPercent: Long = 0
+)
+
+data class MasterOperationalAlert(
+    val alertId: String = "",
+    val schoolId: String = "",
+    val schoolNameSnapshot: String = "",
+    val type: String = "",
+    val severity: String = "warning",
+    val healthImpact: String = "attention_needed",
+    val title: String = "",
+    val message: String = "",
+    val action: String = "",
+    val resourceId: String = "",
+    val firstSeenAt: String? = null,
+    val lastSeenAt: String? = null
+)
+
+data class MasterOperationsOverviewResponse(
+    val generatedAt: String? = null,
+    val lastScanAt: String? = null,
+    val metrics: MasterOperationsMetrics = MasterOperationsMetrics(),
+    val tenants: List<MasterTenantHealthItem> = emptyList(),
+    val alerts: List<MasterOperationalAlert> = emptyList()
+)
+
+data class MasterOperationsRefreshResponse(
+    val executed: Boolean = false,
+    val activeAlerts: Int = 0,
+    val resolvedAlerts: Int = 0,
+    val status: String = ""
+)
+
+
 // ---- Phase 3: tenant subscription entitlements ----
 data class TenantEntitlementsResponse(
     val plan: String = "trial",

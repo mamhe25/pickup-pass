@@ -88,3 +88,7 @@ pickuppass:
     reminder-scan-ms: ${BILLING_REMINDER_SCAN_MS:21600000}
   payment-webhooks:
     generic-hmac-secret: ${PAYMENT_WEBHOOK_GENERIC_SECRET:}
+  operations:
+    health-scan-ms: ${SAAS_OPERATIONS_HEALTH_SCAN_MS:86400000}
+    stale-hours: ${SAAS_OPERATIONS_STALE_HOURS:24}
+    quota-warning-percent: ${SAAS_OPERATIONS_QUOTA_WARNING_PERCENT:90}

@@ -11,6 +11,7 @@ import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.InvoicePdfService;
 import com.pickuppass.service.ReceiptPdfService;
+import com.pickuppass.service.SaasOperationsHealthService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -38,6 +39,7 @@ public class SchoolBillingController {
     private final AuditService auditService;
     private final InvoicePdfService invoicePdfService;
     private final ReceiptPdfService receiptPdfService;
+    private final SaasOperationsHealthService operationsHealthService;
     private final boolean gcashEnabled;
     private final String gcashAccountName;
     private final String gcashMobile;
@@ -48,6 +50,7 @@ public class SchoolBillingController {
             AuditService auditService,
             InvoicePdfService invoicePdfService,
             ReceiptPdfService receiptPdfService,
+            SaasOperationsHealthService operationsHealthService,
             @Value("${BILLING_GCASH_ENABLED:true}") boolean gcashEnabled,
             @Value("${BILLING_GCASH_ACCOUNT_NAME:}") String gcashAccountName,
             @Value("${BILLING_GCASH_MOBILE:}") String gcashMobile,
@@ -56,6 +59,7 @@ public class SchoolBillingController {
         this.auditService = auditService;
         this.invoicePdfService = invoicePdfService;
         this.receiptPdfService = receiptPdfService;
+        this.operationsHealthService = operationsHealthService;
         this.gcashEnabled = gcashEnabled;
         this.gcashAccountName = clean(gcashAccountName, 120);
         this.gcashMobile = clean(gcashMobile, 40);
@@ -208,7 +212,9 @@ public class SchoolBillingController {
 
         auditService.record(admin, "billing.gcash_payment_notice_submitted", "billingPaymentNotice", noticeRef.getId(),
                 Map.of("invoiceId", invoiceId, "referenceNumber", reference));
-        return ResponseEntity.ok(noticeMap(noticeRef.get().get()));
+        DocumentSnapshot createdNotice = noticeRef.get().get();
+        operationsHealthService.signalPendingGcash(createdNotice);
+        return ResponseEntity.ok(noticeMap(createdNotice));
     }
 
     private Map<String,Object> invoiceMap(DocumentSnapshot d) {

@@ -22,6 +22,8 @@ import com.pickuppass.android.data.model.MasterSchoolItem
 import com.pickuppass.android.data.model.MasterInvoiceItem
 import com.pickuppass.android.data.model.MasterBillingProfileResponse
 import com.pickuppass.android.data.model.GcashPaymentNoticeItem
+import com.pickuppass.android.data.model.MasterOperationalAlert
+import com.pickuppass.android.data.model.MasterTenantHealthItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.theme.Spacing
@@ -48,6 +50,7 @@ fun MasterAdminScreen(
     var adminForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
     var subscriptionForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
     var billingForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
+    val healthBySchool = state.operations?.tenants?.associateBy { it.schoolId }.orEmpty()
 
     Scaffold(
         topBar = {
@@ -82,6 +85,82 @@ fun MasterAdminScreen(
                     MetricCard("Suspended", state.suspendedSchools.toString(), Modifier.weight(1f))
                 }
             }
+            state.operations?.let { operations ->
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("Operations health", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Actionable subscription, billing, quota, and delivery risks across all tenants.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            FilledTonalButton(onClick = { viewModel.refreshOperations() }, enabled = !state.saving && !state.operationsLoading) {
+                                Text("Refresh")
+                            }
+                        }
+                        if (state.operationsLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    }
+                }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            MetricCard("Healthy", operations.metrics.healthySchools.toString(), Modifier.weight(1f))
+                            MetricCard("Needs attention", operations.metrics.attentionNeededSchools.toString(), Modifier.weight(1f))
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            MetricCard("Billing risk", operations.metrics.billingRiskSchools.toString(), Modifier.weight(1f))
+                            MetricCard("Over quota", operations.metrics.overQuotaSchools.toString(), Modifier.weight(1f))
+                        }
+                    }
+                }
+                if (operations.alerts.isNotEmpty()) {
+                    item {
+                        Text("Needs your attention", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    }
+                    items(operations.alerts.take(8), key = { "ops-" + it.alertId }) { alert ->
+                        OperationsAlertCard(
+                            alert = alert,
+                            saving = state.saving,
+                            onReview = {
+                                val school = state.schools.firstOrNull { it.schoolId == alert.schoolId }
+                                if (school != null) {
+                                    when (alert.action) {
+                                        "review_payment", "billing" -> {
+                                            billingForSchool = school
+                                            viewModel.loadInvoices(school.schoolId)
+                                        }
+                                        "subscription", "usage" -> subscriptionForSchool = school
+                                    }
+                                }
+                            }
+                        )
+                    }
+                } else {
+                    item {
+                        OutlinedCard(Modifier.fillMaxWidth()) {
+                            Text(
+                                "No active operational alerts. All monitored tenants are currently healthy.",
+                                modifier = Modifier.padding(Spacing.md),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                item {
+                    val m = operations.metrics
+                    Text(
+                        "Pending GCash ${m.pendingGcashReviews} · Overdue invoices ${m.overdueInvoices} · Expiring subscriptions ${m.expiringSubscriptions} · Quota warnings ${m.quotaWarnings} · Email failures ${m.billingEmailFailures}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             state.error?.let { item { ErrorBanner(it) } }
             state.message?.let { item { Text(it, color = MaterialTheme.colorScheme.primary) } }
             item {
@@ -104,6 +183,7 @@ fun MasterAdminScreen(
             items(state.schools, key = { it.schoolId }) { school ->
                 SchoolCard(
                     school = school,
+                    health = healthBySchool[school.schoolId],
                     saving = state.saving,
                     onToggle = { viewModel.setSchoolActive(school.schoolId, school.status != "active") },
                     onAddAdmin = { adminForSchool = school },
@@ -372,6 +452,7 @@ private fun MetricCard(label: String, value: String, modifier: Modifier = Modifi
 @Composable
 private fun SchoolCard(
     school: MasterSchoolItem,
+    health: MasterTenantHealthItem?,
     saving: Boolean,
     onToggle: () -> Unit,
     onAddAdmin: () -> Unit,
@@ -387,6 +468,13 @@ private fun SchoolCard(
                 Spacer(Modifier.width(Spacing.sm))
                 Column(Modifier.weight(1f)) {
                     Text(school.schoolName, fontWeight = FontWeight.SemiBold)
+                    health?.let {
+                        Text(
+                            healthLabel(it.healthState) + if (it.activeAlertCount > 0) " · ${it.activeAlertCount} alert(s)" else "",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = healthColor(it.healthState)
+                        )
+                    }
                     Text(
                         "${school.plan.replaceFirstChar { it.uppercase() }} · ${school.subscriptionStatus.replace('_', ' ')}",
                         style = MaterialTheme.typography.bodySmall,
@@ -431,6 +519,57 @@ private fun SchoolCard(
             }
         }
     }
+}
+
+
+@Composable
+private fun OperationsAlertCard(
+    alert: MasterOperationalAlert,
+    saving: Boolean,
+    onReview: () -> Unit
+) {
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(alert.title, fontWeight = FontWeight.SemiBold, color = severityColor(alert.severity))
+                    Text(alert.schoolNameSnapshot, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text(alert.severity.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelMedium)
+            }
+            Text(alert.message, style = MaterialTheme.typography.bodySmall)
+            if (alert.action in setOf("review_payment", "billing", "subscription", "usage")) {
+                TextButton(onClick = onReview, enabled = !saving) {
+                    Text(
+                        when (alert.action) {
+                            "review_payment" -> "Review payment"
+                            "billing" -> "Open billing"
+                            "usage" -> "Review plan"
+                            else -> "Review subscription"
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun severityColor(value: String) = if (value == "critical") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
+
+@Composable
+private fun healthColor(value: String) = when (value) {
+    "suspended", "over_quota", "billing_risk" -> MaterialTheme.colorScheme.error
+    "attention_needed" -> MaterialTheme.colorScheme.tertiary
+    else -> MaterialTheme.colorScheme.primary
+}
+
+private fun healthLabel(value: String): String = when (value) {
+    "attention_needed" -> "Attention needed"
+    "billing_risk" -> "Billing risk"
+    "over_quota" -> "Over quota"
+    "suspended" -> "Suspended"
+    else -> "Healthy"
 }
 
 

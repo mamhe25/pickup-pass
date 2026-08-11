@@ -263,6 +263,12 @@ interface PickupPassApi {
         @Path("schoolId") schoolId: String
     ): Response<MasterSubscriptionResponse>
 
+    @GET("master-admin/operations/overview")
+    suspend fun getMasterOperationsOverview(): Response<MasterOperationsOverviewResponse>
+
+    @POST("master-admin/operations/refresh")
+    suspend fun refreshMasterOperations(): Response<MasterOperationsRefreshResponse>
+
     @GET("master-admin/billing/schools/{schoolId}/profile")
     suspend fun getMasterBillingProfile(@Path("schoolId") schoolId: String): Response<MasterBillingProfileResponse>
 

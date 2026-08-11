@@ -29,10 +29,13 @@ public class SubscriptionLifecycleService {
 
     private final Firestore firestore;
     private final AuditService auditService;
+    private final SaasOperationsHealthService operationsHealthService;
 
-    public SubscriptionLifecycleService(Firestore firestore, AuditService auditService) {
+    public SubscriptionLifecycleService(Firestore firestore, AuditService auditService,
+                                        SaasOperationsHealthService operationsHealthService) {
         this.firestore = firestore;
         this.auditService = auditService;
+        this.operationsHealthService = operationsHealthService;
     }
 
     @Scheduled(fixedDelayString = "${pickuppass.subscription-lifecycle-ms:3600000}")
@@ -77,6 +80,9 @@ public class SubscriptionLifecycleService {
 
         if (result.action() != null) {
             auditService.recordSystem(schoolId, result.action(), "school", schoolId, result.details());
+            // Keep the master operations console current after the hourly lifecycle worker
+            // changes a subscription. This is tenant-scoped and best-effort.
+            operationsHealthService.refreshSchool(schoolId);
         }
         return result;
     }

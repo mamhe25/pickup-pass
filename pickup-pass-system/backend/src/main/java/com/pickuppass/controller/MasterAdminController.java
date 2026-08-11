@@ -13,6 +13,7 @@ import com.pickuppass.service.AuditService;
 import com.pickuppass.service.SubscriptionFeatureService;
 import com.pickuppass.service.TenantUsageService;
 import com.pickuppass.service.SubscriptionLifecycleService;
+import com.pickuppass.service.SaasOperationsHealthService;
 import com.pickuppass.security.FirebaseUserDetails;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.constraints.NotBlank;
@@ -45,11 +46,13 @@ public class MasterAdminController {
     private final SubscriptionFeatureService subscriptionFeatureService;
     private final TenantUsageService tenantUsageService;
     private final SubscriptionLifecycleService subscriptionLifecycleService;
+    private final SaasOperationsHealthService operationsHealthService;
 
     public MasterAdminController(Firestore firestore, StaffProvisioningService staffProvisioningService,
                                  FirebaseAuth firebaseAuth, AuditService auditService,
                                  SubscriptionFeatureService subscriptionFeatureService, TenantUsageService tenantUsageService,
-                                 SubscriptionLifecycleService subscriptionLifecycleService) {
+                                 SubscriptionLifecycleService subscriptionLifecycleService,
+                                 SaasOperationsHealthService operationsHealthService) {
         this.firestore = firestore;
         this.staffProvisioningService = staffProvisioningService;
         this.firebaseAuth = firebaseAuth;
@@ -57,6 +60,7 @@ public class MasterAdminController {
         this.subscriptionFeatureService = subscriptionFeatureService;
         this.tenantUsageService = tenantUsageService;
         this.subscriptionLifecycleService = subscriptionLifecycleService;
+        this.operationsHealthService = operationsHealthService;
     }
 
 
@@ -189,6 +193,7 @@ public class MasterAdminController {
             }
         }
         auditService.record(masterAdmin, "school.status_changed", "school", schoolId, Map.of("status", req.getStatus()));
+        operationsHealthService.refreshSchool(schoolId);
 
         return ResponseEntity.ok(Map.of("schoolId", schoolId, "status", req.getStatus()));
     }
@@ -310,6 +315,7 @@ public class MasterAdminController {
         response.put("schoolId", schoolId);
         response.putAll(subscriptionFeatureService.effectiveEntitlements(refreshed));
         response.put("featureOverrides", overrides);
+        operationsHealthService.refreshSchool(schoolId);
         return ResponseEntity.ok(response);
     }
 
@@ -329,6 +335,7 @@ public class MasterAdminController {
         response.put("schoolId", schoolId);
         response.put("transition", result.action() == null ? "none" : result.action());
         response.putAll(subscriptionFeatureService.effectiveEntitlements(refreshed));
+        operationsHealthService.refreshSchool(schoolId);
         return ResponseEntity.ok(response);
     }
 
@@ -373,6 +380,7 @@ public class MasterAdminController {
 
         auditService.record(masterAdmin, "staff.created", "user", result.getUid(), Map.of(
                 "schoolId", schoolId, "role", req.getRole(), "email", req.getEmail()));
+        operationsHealthService.refreshSchool(schoolId);
         return ResponseEntity.ok(Map.of(
                 "uid", result.getUid(),
                 "role", req.getRole(),
@@ -400,6 +408,7 @@ public class MasterAdminController {
         }
         tenantUsageService.reconcile(schoolId);
         auditService.record(masterAdmin, "tenant.usage_reconciled", "school", schoolId, Map.of());
+        operationsHealthService.refreshSchool(schoolId);
         return ResponseEntity.ok(tenantUsageService.snapshot(schoolId));
     }
 

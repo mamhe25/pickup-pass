@@ -13,7 +13,12 @@ import java.time.Instant;
 @Service
 public class BillingInvoiceLifecycleService {
     private final Firestore firestore;
-    public BillingInvoiceLifecycleService(Firestore firestore) { this.firestore = firestore; }
+    private final SaasOperationsHealthService operationsHealthService;
+
+    public BillingInvoiceLifecycleService(Firestore firestore, SaasOperationsHealthService operationsHealthService) {
+        this.firestore = firestore;
+        this.operationsHealthService = operationsHealthService;
+    }
 
     @Scheduled(fixedDelayString = "${pickuppass.billing.reconcile-ms:3600000}")
     public void markPastDueInvoices() {
@@ -24,6 +29,7 @@ public class BillingInvoiceLifecycleService {
                 Timestamp due = d.getTimestamp("dueAt");
                 if (due != null && due.toDate().toInstant().isBefore(now)) {
                     d.getReference().update("status", "overdue", "updatedAt", FieldValue.serverTimestamp()).get();
+                    operationsHealthService.refreshSchool(d.getString("schoolId"));
                 }
             }
         } catch (Exception ignored) {

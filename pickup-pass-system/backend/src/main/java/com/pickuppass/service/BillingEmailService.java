@@ -24,6 +24,7 @@ public class BillingEmailService {
     private final InvoicePdfService invoicePdfService;
     private final ReceiptPdfService receiptPdfService;
     private final AuditService auditService;
+    private final SaasOperationsHealthService operationsHealthService;
     private final String fromEmail;
     private final String fromName;
     private final String supportEmail;
@@ -32,6 +33,7 @@ public class BillingEmailService {
                                InvoicePdfService invoicePdfService,
                                ReceiptPdfService receiptPdfService,
                                AuditService auditService,
+                               SaasOperationsHealthService operationsHealthService,
                                @Value("${pickuppass.billing.from-email:}") String fromEmail,
                                @Value("${pickuppass.billing.from-name:PickupPass Billing}") String fromName,
                                @Value("${pickuppass.billing.support-email:}") String supportEmail) {
@@ -39,6 +41,7 @@ public class BillingEmailService {
         this.invoicePdfService = invoicePdfService;
         this.receiptPdfService = receiptPdfService;
         this.auditService = auditService;
+        this.operationsHealthService = operationsHealthService;
         this.fromEmail = fromEmail == null ? "" : fromEmail.trim();
         this.fromName = fromName == null || fromName.isBlank() ? "PickupPass Billing" : fromName.trim();
         this.supportEmail = supportEmail == null ? "" : supportEmail.trim();
@@ -54,8 +57,14 @@ public class BillingEmailService {
                 + "Due: " + date(invoice, "dueAt") + "\n\n"
                 + "Please keep this message and the attached PDF for your billing records."
                 + supportLine();
-        send(recipient, "PickupPass invoice " + number + " - " + schoolName, body,
-                safeFilename(number) + ".pdf", pdf);
+        try {
+            send(recipient, "PickupPass invoice " + number + " - " + schoolName, body,
+                    safeFilename(number) + ".pdf", pdf);
+            markDeliverySuccess(invoiceRef);
+        } catch (Exception e) {
+            markDeliveryFailure(invoiceRef, "invoice", e);
+            throw e;
+        }
         bestEffortUpdate(invoiceRef, Map.of(
                 "lastEmailedAt", FieldValue.serverTimestamp(),
                 "lastEmailedTo", recipient.trim().toLowerCase(),
@@ -77,8 +86,14 @@ public class BillingEmailService {
                 + "Amount received: " + money(invoice) + "\n"
                 + "Payment reference: " + text(invoice, "paymentReference", "-") + "\n\n"
                 + "Your payment receipt is attached for your records." + supportLine();
-        send(recipient, "PickupPass payment receipt " + number, body,
-                safeFilename(number) + ".pdf", pdf);
+        try {
+            send(recipient, "PickupPass payment receipt " + number, body,
+                    safeFilename(number) + ".pdf", pdf);
+            markDeliverySuccess(invoiceRef);
+        } catch (Exception e) {
+            markDeliveryFailure(invoiceRef, "payment receipt", e);
+            throw e;
+        }
         bestEffortUpdate(invoiceRef, Map.of(
                 "receiptNumber", number,
                 "receiptLastEmailedAt", FieldValue.serverTimestamp(),
@@ -109,7 +124,13 @@ public class BillingEmailService {
                 + "If payment has already been sent via GCash, submit the payment reference in PickupPass for verification."
                 + supportLine();
         byte[] pdf = invoicePdfService.render(invoice);
-        send(recipient, subject, body, safeFilename(number) + ".pdf", pdf);
+        try {
+            send(recipient, subject, body, safeFilename(number) + ".pdf", pdf);
+            markDeliverySuccess(invoiceRef);
+        } catch (Exception e) {
+            markDeliveryFailure(invoiceRef, "payment reminder", e);
+            throw e;
+        }
         auditService.recordSystem(text(invoice, "schoolId", ""), "billing.payment_reminder_emailed", "billingInvoice", invoice.getId(),
                 Map.of("recipient", recipient.trim().toLowerCase(), "type", reminderType));
         return new DeliveryResult(recipient.trim().toLowerCase(), number);
@@ -133,6 +154,32 @@ public class BillingEmailService {
         helper.addAttachment(attachmentName, new ByteArrayResource(attachment), "application/pdf");
         try { mailSender.send(message); }
         catch (MailException e) { throw e; }
+    }
+
+
+
+    private void markDeliverySuccess(DocumentReference ref) {
+        Map<String,Object> update = new java.util.HashMap<>();
+        update.put("emailDeliveryFailed", false);
+        update.put("lastEmailFailureAt", FieldValue.delete());
+        update.put("lastEmailFailureType", FieldValue.delete());
+        update.put("lastEmailFailureMessage", FieldValue.delete());
+        update.put("updatedAt", FieldValue.serverTimestamp());
+        bestEffortUpdate(ref, update, "BILLING_EMAIL_FAILURE_CLEAR_FAILED");
+        operationsHealthService.resolve("billing_email_failed", ref.getId());
+    }
+
+    private void markDeliveryFailure(DocumentReference ref, String type, Exception error) {
+        String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+        if (message.length() > 300) message = message.substring(0, 300);
+        Map<String,Object> update = new java.util.HashMap<>();
+        update.put("emailDeliveryFailed", true);
+        update.put("lastEmailFailureAt", FieldValue.serverTimestamp());
+        update.put("lastEmailFailureType", type);
+        update.put("lastEmailFailureMessage", message);
+        update.put("updatedAt", FieldValue.serverTimestamp());
+        bestEffortUpdate(ref, update, "BILLING_EMAIL_FAILURE_METADATA_UPDATE_FAILED");
+        operationsHealthService.signalBillingEmailFailure(ref, type, message);
     }
 
     private void bestEffortUpdate(DocumentReference ref, Map<String,Object> update, String label) {

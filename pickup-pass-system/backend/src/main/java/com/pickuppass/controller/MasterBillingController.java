@@ -12,6 +12,7 @@ import com.pickuppass.service.AuditService;
 import com.pickuppass.service.BillingEmailService;
 import com.pickuppass.service.InvoicePdfService;
 import com.pickuppass.service.ReceiptPdfService;
+import com.pickuppass.service.SaasOperationsHealthService;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -32,6 +33,7 @@ public class MasterBillingController {
     private final InvoicePdfService invoicePdfService;
     private final BillingEmailService billingEmailService;
     private final ReceiptPdfService receiptPdfService;
+    private final SaasOperationsHealthService operationsHealthService;
     private final boolean gcashEnabled;
     private final String gcashAccountName;
     private final String gcashMobile;
@@ -39,7 +41,7 @@ public class MasterBillingController {
 
     public MasterBillingController(Firestore firestore, AuditService auditService,
                                    InvoicePdfService invoicePdfService, BillingEmailService billingEmailService,
-                                   ReceiptPdfService receiptPdfService,
+                                   ReceiptPdfService receiptPdfService, SaasOperationsHealthService operationsHealthService,
                                    @org.springframework.beans.factory.annotation.Value("${BILLING_GCASH_ENABLED:true}") boolean gcashEnabled,
                                    @org.springframework.beans.factory.annotation.Value("${BILLING_GCASH_ACCOUNT_NAME:}") String gcashAccountName,
                                    @org.springframework.beans.factory.annotation.Value("${BILLING_GCASH_MOBILE:}") String gcashMobile,
@@ -49,6 +51,7 @@ public class MasterBillingController {
         this.invoicePdfService = invoicePdfService;
         this.billingEmailService = billingEmailService;
         this.receiptPdfService = receiptPdfService;
+        this.operationsHealthService = operationsHealthService;
         this.gcashEnabled = gcashEnabled;
         this.gcashAccountName = clean(gcashAccountName, 120);
         this.gcashMobile = clean(gcashMobile, 40);
@@ -133,6 +136,7 @@ public class MasterBillingController {
         data.put("updatedAt", FieldValue.serverTimestamp());
         ref.set(data).get();
         auditService.record(actor, "billing.invoice_created", "billingInvoice", ref.getId(), Map.of("schoolId", schoolId, "invoiceNumber", number));
+        operationsHealthService.refreshSchool(schoolId);
         return ResponseEntity.ok(toInvoice(ref.get().get()));
     }
 
@@ -233,6 +237,7 @@ public class MasterBillingController {
             String recipient = resolveBillingRecipient(paidInvoice);
             if (!recipient.isBlank()) billingEmailService.sendPaymentReceipt(ref, recipient);
         } catch (Exception ignored) { }
+        operationsHealthService.refreshSchool(Optional.ofNullable(invoice.getString("schoolId")).orElse(""));
         return ResponseEntity.ok(toInvoice(ref.get().get()));
     }
 
@@ -246,6 +251,7 @@ public class MasterBillingController {
         if ("paid".equals(invoice.getString("status"))) return ResponseEntity.badRequest().body(Map.of("error", "Paid invoice cannot be voided"));
         ref.update("status", "void", "voidReason", clean(req.reason, 300), "updatedAt", FieldValue.serverTimestamp()).get();
         auditService.record(actor, "billing.invoice_voided", "billingInvoice", invoiceId, Map.of("schoolId", Optional.ofNullable(invoice.getString("schoolId")).orElse("")));
+        operationsHealthService.refreshSchool(Optional.ofNullable(invoice.getString("schoolId")).orElse(""));
         return ResponseEntity.ok(toInvoice(ref.get().get()));
     }
 
@@ -265,6 +271,7 @@ public class MasterBillingController {
             }
         }
         auditService.record(actor, "billing.overdue_reconciled", "school", schoolId, Map.of("changed", changed));
+        operationsHealthService.refreshSchool(schoolId);
         return ResponseEntity.ok(Map.of("changed", changed));
     }
 
@@ -350,6 +357,9 @@ public class MasterBillingController {
 
         auditService.record(actor, "billing.gcash_payment_confirmed", "billingPaymentNotice", noticeId,
                 Map.of("invoiceId", invoiceId));
+        operationsHealthService.resolve("pending_gcash", noticeId);
+        DocumentSnapshot reviewedNotice = noticeRef.get().get();
+        operationsHealthService.refreshSchool(Optional.ofNullable(reviewedNotice.getString("schoolId")).orElse(""));
         try {
             DocumentReference invoiceRef = firestore.collection("billingInvoices").document(invoiceId);
             DocumentSnapshot paidInvoice = invoiceRef.get().get();
@@ -379,6 +389,8 @@ public class MasterBillingController {
         ).get();
         auditService.record(actor, "billing.gcash_payment_rejected", "billingPaymentNotice", noticeId,
                 Map.of("invoiceId", Optional.ofNullable(notice.getString("invoiceId")).orElse("")));
+        operationsHealthService.resolve("pending_gcash", noticeId);
+        operationsHealthService.refreshSchool(Optional.ofNullable(notice.getString("schoolId")).orElse(""));
         return ResponseEntity.ok(toPaymentNotice(ref.get().get()));
     }
 
