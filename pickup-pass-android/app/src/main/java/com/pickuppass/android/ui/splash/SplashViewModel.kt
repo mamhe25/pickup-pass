@@ -19,6 +19,7 @@ sealed class SplashDestination {
     data object ParentHome : SplashDestination()
     data object TeacherHome : SplashDestination()
     data object SchoolAdminHome : SplashDestination()
+    data object MasterAdminHome : SplashDestination()
     data object Offline : SplashDestination()
     data object ServiceUnavailable : SplashDestination()
 }
@@ -78,6 +79,7 @@ class SplashViewModel @Inject constructor(
                 UserRole.Parent -> SplashDestination.ParentHome
                 UserRole.Teacher -> SplashDestination.TeacherHome
                 UserRole.SchoolAdmin -> SplashDestination.SchoolAdminHome
+                UserRole.MasterAdmin -> SplashDestination.MasterAdminHome
                 else -> SplashDestination.Login
             }
         }

@@ -35,7 +35,8 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
     onParentHome: () -> Unit,
     onTeacherHome: () -> Unit,
-    onSchoolAdminHome: () -> Unit
+    onSchoolAdminHome: () -> Unit,
+    onMasterAdminHome: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val loginResult by viewModel.loginResult.collectAsStateWithLifecycle()
@@ -46,6 +47,7 @@ fun LoginScreen(
             LoginResult.ParentHome -> { onParentHome(); viewModel.consumeLoginResult() }
             LoginResult.TeacherHome -> { onTeacherHome(); viewModel.consumeLoginResult() }
             LoginResult.SchoolAdminHome -> { onSchoolAdminHome(); viewModel.consumeLoginResult() }
+            LoginResult.MasterAdminHome -> { onMasterAdminHome(); viewModel.consumeLoginResult() }
             else -> Unit
         }
     }

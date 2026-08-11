@@ -234,4 +234,19 @@ interface PickupPassApi {
         @Body body: UpdateStaffPickupGatesRequest
     ): Response<Map<String, Any?>>
 
+
+
+    // ---- Phase 3: master-admin SaaS console ----
+    @GET("master-admin/schools")
+    suspend fun listMasterSchools(): Response<MasterSchoolListResponse>
+
+    @POST("master-admin/schools")
+    suspend fun createMasterSchool(@Body body: CreateMasterSchoolRequest): Response<CreateMasterSchoolResponse>
+
+    @POST("master-admin/schools/{schoolId}/staff")
+    suspend fun createMasterSchoolStaff(
+        @Path("schoolId") schoolId: String,
+        @Body body: CreateMasterStaffRequest
+    ): Response<CreateMasterStaffResponse>
+
 }

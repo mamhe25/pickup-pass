@@ -31,6 +31,7 @@ sealed class LoginResult {
     data object ParentHome : LoginResult()
     data object TeacherHome : LoginResult()
     data object SchoolAdminHome : LoginResult()
+    data object MasterAdminHome : LoginResult()
     data object UnrecognizedRole : LoginResult()
 }
 
@@ -107,6 +108,7 @@ class LoginViewModel @Inject constructor(
                         UserRole.Parent -> LoginResult.ParentHome
                         UserRole.Teacher -> LoginResult.TeacherHome
                         UserRole.SchoolAdmin -> LoginResult.SchoolAdminHome
+                        UserRole.MasterAdmin -> LoginResult.MasterAdminHome
                         else -> null
                     }
                     if (destination == null) {

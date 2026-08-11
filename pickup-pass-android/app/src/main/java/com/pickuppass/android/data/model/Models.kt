@@ -621,3 +621,43 @@ data class StaffPickupGateResponse(
 )
 
 data class UpdateStaffPickupGatesRequest(val pickupGateIds: List<String>)
+
+
+// ---- Phase 3: master-admin SaaS tenant console ----
+data class MasterSchoolItem(
+    val schoolId: String = "",
+    val schoolName: String = "",
+    val status: String = "active",
+    val createdAt: String? = null,
+    val statusUpdatedAt: String? = null
+)
+
+data class MasterSchoolListResponse(
+    val totalSchools: Int = 0,
+    val activeSchools: Int = 0,
+    val suspendedSchools: Int = 0,
+    val schools: List<MasterSchoolItem> = emptyList()
+)
+
+data class CreateMasterSchoolRequest(val schoolName: String)
+
+data class CreateMasterSchoolResponse(
+    val schoolId: String = "",
+    val schoolName: String = ""
+)
+
+data class CreateMasterStaffRequest(
+    val email: String,
+    val lastName: String,
+    val firstName: String,
+    val middleInitial: String? = null,
+    val suffix: String? = null,
+    val role: String = "school_admin"
+)
+
+data class CreateMasterStaffResponse(
+    val uid: String = "",
+    val role: String = "",
+    val schoolId: String = "",
+    val emailSent: Boolean = false
+)

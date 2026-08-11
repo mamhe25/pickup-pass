@@ -17,7 +17,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -39,6 +42,44 @@ public class MasterAdminController {
         this.staffProvisioningService = staffProvisioningService;
         this.firebaseAuth = firebaseAuth;
         this.auditService = auditService;
+    }
+
+
+    /**
+     * Lists SaaS tenants for the master-admin console. This intentionally
+     * returns tenant metadata only; operational student/pickup analytics stay
+     * in school-scoped endpoints so opening this screen does not scan every
+     * student or exit log in the platform.
+     */
+    @GetMapping("/schools")
+    @PreAuthorize("hasRole('master_admin')")
+    public ResponseEntity<?> listSchools() throws ExecutionException, InterruptedException {
+        QuerySnapshot snapshot = firestore.collection("schools").get().get();
+        List<Map<String, Object>> schools = new ArrayList<>();
+        int active = 0;
+        int suspended = 0;
+
+        for (DocumentSnapshot doc : snapshot.getDocuments()) {
+            String status = doc.getString("status");
+            if (status == null || status.isBlank()) status = "active";
+            if ("suspended".equals(status)) suspended++; else active++;
+
+            Map<String, Object> item = new HashMap<>();
+            item.put("schoolId", doc.getId());
+            item.put("schoolName", doc.getString("schoolName") == null ? "Unnamed school" : doc.getString("schoolName"));
+            item.put("status", status);
+            item.put("createdAt", doc.getTimestamp("createdAt") == null ? null : doc.getTimestamp("createdAt").toDate().toInstant().toString());
+            item.put("statusUpdatedAt", doc.getTimestamp("statusUpdatedAt") == null ? null : doc.getTimestamp("statusUpdatedAt").toDate().toInstant().toString());
+            schools.add(item);
+        }
+
+        schools.sort(Comparator.comparing(v -> String.valueOf(v.get("schoolName")), String.CASE_INSENSITIVE_ORDER));
+        return ResponseEntity.ok(Map.of(
+                "totalSchools", schools.size(),
+                "activeSchools", active,
+                "suspendedSchools", suspended,
+                "schools", schools
+        ));
     }
 
     /** Creates a new tenant. Returns the auto-generated schoolId to use in every other endpoint. */

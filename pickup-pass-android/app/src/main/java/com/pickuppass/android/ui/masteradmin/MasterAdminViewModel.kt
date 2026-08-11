@@ -1,0 +1,70 @@
+package com.pickuppass.android.ui.masteradmin
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.pickuppass.android.data.model.MasterSchoolItem
+import com.pickuppass.android.data.repository.ApiResult
+import com.pickuppass.android.data.repository.AuthRepository
+import com.pickuppass.android.data.repository.MasterAdminRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+data class MasterAdminUiState(
+    val loading: Boolean = true,
+    val saving: Boolean = false,
+    val totalSchools: Int = 0,
+    val activeSchools: Int = 0,
+    val suspendedSchools: Int = 0,
+    val schools: List<MasterSchoolItem> = emptyList(),
+    val error: String? = null,
+    val message: String? = null
+)
+
+@HiltViewModel
+class MasterAdminViewModel @Inject constructor(
+    private val repository: MasterAdminRepository,
+    private val authRepository: AuthRepository
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(MasterAdminUiState())
+    val uiState: StateFlow<MasterAdminUiState> = _uiState
+
+    init { load() }
+
+    fun load() = viewModelScope.launch {
+        _uiState.value = _uiState.value.copy(loading = true, error = null)
+        when (val r = repository.listSchools()) {
+            is ApiResult.Success -> _uiState.value = _uiState.value.copy(
+                loading = false, totalSchools = r.data.totalSchools, activeSchools = r.data.activeSchools,
+                suspendedSchools = r.data.suspendedSchools, schools = r.data.schools
+            )
+            is ApiResult.Failure -> _uiState.value = _uiState.value.copy(loading = false, error = r.message)
+        }
+    }
+
+    fun createSchool(name: String) = runSave("School created") { repository.createSchool(name.trim()) }
+
+    fun setSchoolActive(schoolId: String, active: Boolean) =
+        runSave(if (active) "School reactivated" else "School suspended") { repository.setSchoolActive(schoolId, active) }
+
+    fun createSchoolAdmin(schoolId: String, email: String, lastName: String, firstName: String, middleInitial: String, suffix: String) =
+        runSave("School administrator created") { repository.createSchoolAdmin(schoolId, email, lastName, firstName, middleInitial, suffix) }
+
+    fun signOut() { authRepository.signOut() }
+
+    private fun runSave(message: String, block: suspend () -> ApiResult<*>) {
+        if (_uiState.value.saving) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(saving = true, error = null, message = null)
+            when (val r = block()) {
+                is ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(saving = false, message = message)
+                    load()
+                }
+                is ApiResult.Failure -> _uiState.value = _uiState.value.copy(saving = false, error = r.message)
+            }
+        }
+    }
+}

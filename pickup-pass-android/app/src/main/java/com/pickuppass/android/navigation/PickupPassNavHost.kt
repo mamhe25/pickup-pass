@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pickuppass.android.ui.login.LoginScreen
+import com.pickuppass.android.ui.masteradmin.MasterAdminScreen
 import com.pickuppass.android.ui.parent.guardians.ManageGuardiansScreen
 import com.pickuppass.android.ui.parent.notifications.NotificationsScreen
 import com.pickuppass.android.ui.parent.pass.PickupPassScreen
@@ -60,6 +61,7 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
                         SplashDestination.ParentHome -> Screen.ParentStudents.route
                         SplashDestination.TeacherHome -> Screen.TeacherScanner.route
                         SplashDestination.SchoolAdminHome -> Screen.SchoolAdminBranding.route
+                        SplashDestination.MasterAdminHome -> Screen.MasterAdminHome.route
                         else -> Screen.Login.route
                     }
                     navController.navigate(target) {
@@ -85,8 +87,19 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
                     navController.navigate(Screen.SchoolAdminBranding.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
+                },
+                onMasterAdminHome = {
+                    navController.navigate(Screen.MasterAdminHome.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
                 }
             )
+        }
+
+        // ---- Master admin SaaS flow ----
+
+        composable(Screen.MasterAdminHome.route) {
+            MasterAdminScreen(onSignedOut = { navController.navigateToLoginClearingBackStack() })
         }
 
         // ---- Parent flow ----

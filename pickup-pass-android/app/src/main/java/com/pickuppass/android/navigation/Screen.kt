@@ -31,6 +31,8 @@ sealed class Screen(val route: String) {
 
     data object TeacherBroadcast : Screen("teacher/broadcast")
 
+    data object MasterAdminHome : Screen("master-admin/home")
+
     data object SchoolAdminBranding : Screen("school-admin/branding")
 
     data object SchoolAdminInviteTeacher : Screen("school-admin/invite-teacher")
