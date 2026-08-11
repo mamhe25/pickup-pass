@@ -9,6 +9,7 @@ import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.PUT
 
 interface PickupPassApi {
@@ -29,10 +30,10 @@ interface PickupPassApi {
     suspend fun verifyPickup(@Body body: VerifyRequest): Response<VerifyResponse>
 
     @POST("pickup/approve")
-    suspend fun approvePickup(@Body body: VerifyRequest): Response<ApproveResponse>
+    suspend fun approvePickup(@Header("Idempotency-Key") idempotencyKey: String, @Body body: VerifyRequest): Response<ApproveResponse>
 
     @POST("pickup/manual-override")
-    suspend fun manualOverride(@Body body: ManualOverrideRequest): Response<ManualOverrideResponse>
+    suspend fun manualOverride(@Header("Idempotency-Key") idempotencyKey: String, @Body body: ManualOverrideRequest): Response<ManualOverrideResponse>
 
     @POST("teacher/register-parent")
     suspend fun registerParent(@Body body: RegisterParentRequest): Response<AddGuardianResponse>

@@ -10,6 +10,7 @@ import com.pickuppass.android.data.model.VerifyResponse
 import com.pickuppass.android.data.remote.PickupPassApi
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.UUID
 
 @Singleton
 class PickupRepository @Inject constructor(
@@ -45,7 +46,7 @@ class PickupRepository @Inject constructor(
 
     suspend fun approve(qrToken: String): ApiResult<ApproveResponse> {
         return try {
-            val response = api.approvePickup(VerifyRequest(qrToken))
+            val response = api.approvePickup(UUID.randomUUID().toString(), VerifyRequest(qrToken))
             val body = response.body()
             if (response.isSuccessful && body?.status == "release_approved") {
                 ApiResult.Success(body)
@@ -60,7 +61,7 @@ class PickupRepository @Inject constructor(
 
     suspend fun manualOverride(studentId: String, guardianUid: String, reason: String): ApiResult<ManualOverrideResponse> {
         return try {
-            val response = api.manualOverride(ManualOverrideRequest(studentId, guardianUid, reason.trim()))
+            val response = api.manualOverride(UUID.randomUUID().toString(), ManualOverrideRequest(studentId, guardianUid, reason.trim()))
             val body = response.body()
             if (response.isSuccessful && body?.status == "release_approved") {
                 ApiResult.Success(body)
