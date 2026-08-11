@@ -249,4 +249,16 @@ interface PickupPassApi {
         @Body body: CreateMasterStaffRequest
     ): Response<CreateMasterStaffResponse>
 
+    @GET("master-admin/plans")
+    suspend fun getMasterPlanCatalog(): Response<MasterPlanCatalogResponse>
+
+    @PUT("master-admin/schools/{schoolId}/subscription")
+    suspend fun updateMasterSubscription(
+        @Path("schoolId") schoolId: String,
+        @Body body: UpdateMasterSubscriptionRequest
+    ): Response<MasterSubscriptionResponse>
+
+    @GET("tenant/entitlements")
+    suspend fun getTenantEntitlements(): Response<TenantEntitlementsResponse>
+
 }

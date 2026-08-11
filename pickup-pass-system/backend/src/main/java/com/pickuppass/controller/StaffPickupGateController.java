@@ -7,6 +7,7 @@ import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.pickuppass.exception.NotFoundException;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
+import com.pickuppass.service.SubscriptionFeatureService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,10 +21,13 @@ import java.util.*;
 public class StaffPickupGateController {
     private final Firestore firestore;
     private final AuditService auditService;
+    private final SubscriptionFeatureService subscriptionFeatureService;
 
-    public StaffPickupGateController(Firestore firestore, AuditService auditService) {
+    public StaffPickupGateController(Firestore firestore, AuditService auditService,
+                                     SubscriptionFeatureService subscriptionFeatureService) {
         this.firestore = firestore;
         this.auditService = auditService;
+        this.subscriptionFeatureService = subscriptionFeatureService;
     }
 
     @GetMapping
@@ -76,6 +80,7 @@ public class StaffPickupGateController {
     public ResponseEntity<?> update(@PathVariable String uid,
                                     @RequestBody AssignmentRequest req,
                                     @AuthenticationPrincipal FirebaseUserDetails admin) throws Exception {
+        subscriptionFeatureService.requireFeature(admin.getSchoolId(), "staff_gate_restrictions");
         DocumentSnapshot user = firestore.collection("users").document(uid).get().get();
         if (!user.exists() || !admin.getSchoolId().equals(user.getString("schoolId"))) {
             throw new NotFoundException("Staff account not found in your school");

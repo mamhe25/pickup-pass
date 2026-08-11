@@ -88,6 +88,7 @@ fun ManageGuardiansScreen(
                     row = row,
                     onRemoveClick = { confirmRemoveUid = row.uid },
                     onScheduleClick = { scheduleRow = row },
+                    scheduleEnabled = uiState.guardianSchedulesEnabled,
                     modifier = Modifier.animateItemPlacement(
                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
                     )
@@ -107,16 +108,18 @@ fun ManageGuardiansScreen(
                 )
             }
 
-            item {
-                TemporaryGuardianForm(
-                    isSubmitting = uiState.isSubmitting,
-                    formError = uiState.formError,
-                    formSuccess = uiState.formSuccess,
-                    formIsWarning = uiState.formIsWarning,
-                    onSubmit = { lastName, firstName, mi, suffix, email, relationship, validDate ->
-                        viewModel.addTemporaryGuardian(lastName, firstName, mi, suffix, email, relationship, validDate)
-                    }
-                )
+            if (uiState.temporaryGuardiansEnabled) {
+                item {
+                    TemporaryGuardianForm(
+                        isSubmitting = uiState.isSubmitting,
+                        formError = uiState.formError,
+                        formSuccess = uiState.formSuccess,
+                        formIsWarning = uiState.formIsWarning,
+                        onSubmit = { lastName, firstName, mi, suffix, email, relationship, validDate ->
+                            viewModel.addTemporaryGuardian(lastName, firstName, mi, suffix, email, relationship, validDate)
+                        }
+                    )
+                }
             }
         }
     }
@@ -156,6 +159,7 @@ private fun GuardianRowCard(
     row: GuardianRow,
     onRemoveClick: () -> Unit,
     onScheduleClick: () -> Unit,
+    scheduleEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
     ElevatedCard(shape = MaterialTheme.shapes.medium, modifier = modifier) {
@@ -213,8 +217,10 @@ private fun GuardianRowCard(
                 }
             }
             if (!row.entry.isPrimary && !row.entry.authorizationType.equals("temporary", ignoreCase = true)) {
-                IconButton(onClick = onScheduleClick) {
-                    Icon(Icons.Filled.Schedule, contentDescription = "Pickup schedule")
+                if (scheduleEnabled) {
+                    IconButton(onClick = onScheduleClick) {
+                        Icon(Icons.Filled.Schedule, contentDescription = "Pickup schedule")
+                    }
                 }
             }
             if (!row.entry.isPrimary) {

@@ -10,6 +10,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.UserRecord;
 import com.pickuppass.service.StaffProvisioningService;
 import com.pickuppass.service.AuditService;
+import com.pickuppass.service.SubscriptionFeatureService;
 import com.pickuppass.security.FirebaseUserDetails;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.constraints.NotBlank;
@@ -21,8 +22,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.Date;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ExecutionException;
 
 @RestController
@@ -35,13 +40,16 @@ public class MasterAdminController {
     private final StaffProvisioningService staffProvisioningService;
     private final FirebaseAuth firebaseAuth;
     private final AuditService auditService;
+    private final SubscriptionFeatureService subscriptionFeatureService;
 
     public MasterAdminController(Firestore firestore, StaffProvisioningService staffProvisioningService,
-                                 FirebaseAuth firebaseAuth, AuditService auditService) {
+                                 FirebaseAuth firebaseAuth, AuditService auditService,
+                                 SubscriptionFeatureService subscriptionFeatureService) {
         this.firestore = firestore;
         this.staffProvisioningService = staffProvisioningService;
         this.firebaseAuth = firebaseAuth;
         this.auditService = auditService;
+        this.subscriptionFeatureService = subscriptionFeatureService;
     }
 
 
@@ -70,6 +78,9 @@ public class MasterAdminController {
             item.put("status", status);
             item.put("createdAt", doc.getTimestamp("createdAt") == null ? null : doc.getTimestamp("createdAt").toDate().toInstant().toString());
             item.put("statusUpdatedAt", doc.getTimestamp("statusUpdatedAt") == null ? null : doc.getTimestamp("statusUpdatedAt").toDate().toInstant().toString());
+            item.putAll(subscriptionFeatureService.effectiveEntitlements(doc));
+            Object rawOverrides = doc.get("featureOverrides");
+            item.put("featureOverrides", rawOverrides instanceof Map<?, ?> ? rawOverrides : Map.of());
             schools.add(item);
         }
 
@@ -96,11 +107,20 @@ public class MasterAdminController {
         Map<String, Object> school = new HashMap<>();
         school.put("schoolName", req.getSchoolName());
         school.put("status", "active");
+        school.put("plan", SubscriptionFeatureService.TRIAL);
+        school.put("subscriptionStatus", "trialing");
+        school.put("trialEndsAt", Date.from(Instant.now().plus(30, ChronoUnit.DAYS)));
+        school.put("featureOverrides", Map.of());
         school.put("createdAt", FieldValue.serverTimestamp());
         schoolRef.set(school).get(); // await so a write failure surfaces as an error, not a false success
         auditService.record(masterAdmin, "school.created", "school", schoolRef.getId(), Map.of("schoolName", req.getSchoolName()));
 
-        return ResponseEntity.ok(Map.of("schoolId", schoolRef.getId(), "schoolName", req.getSchoolName()));
+        return ResponseEntity.ok(Map.of(
+                "schoolId", schoolRef.getId(),
+                "schoolName", req.getSchoolName(),
+                "plan", SubscriptionFeatureService.TRIAL,
+                "subscriptionStatus", "trialing"
+        ));
     }
 
     @PostMapping("/schools/{schoolId}/status")
@@ -158,6 +178,81 @@ public class MasterAdminController {
         return ResponseEntity.ok(Map.of("schoolId", schoolId, "status", req.getStatus()));
     }
 
+    @GetMapping("/plans")
+    @PreAuthorize("hasRole('master_admin')")
+    public ResponseEntity<?> planCatalog() {
+        return ResponseEntity.ok(Map.of(
+                "plans", subscriptionFeatureService.getCatalog(),
+                "featureKeys", SubscriptionFeatureService.FEATURES
+        ));
+    }
+
+    @PutMapping("/schools/{schoolId}/subscription")
+    @PreAuthorize("hasRole('master_admin')")
+    public ResponseEntity<?> updateSubscription(
+            @PathVariable String schoolId,
+            @RequestBody SubscriptionUpdateRequest req,
+            @AuthenticationPrincipal FirebaseUserDetails masterAdmin) throws Exception {
+
+        DocumentReference ref = firestore.collection("schools").document(schoolId);
+        DocumentSnapshot school = ref.get().get();
+        if (!school.exists()) {
+            return ResponseEntity.status(404).body(Map.of("error", "School not found"));
+        }
+
+        String plan = subscriptionFeatureService.normalizePlan(req.getPlan());
+        if (req.getPlan() == null || !SubscriptionFeatureService.PLANS.contains(req.getPlan().trim().toLowerCase())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Unknown plan"));
+        }
+
+        String subscriptionStatus = req.getSubscriptionStatus() == null || req.getSubscriptionStatus().isBlank()
+                ? (SubscriptionFeatureService.TRIAL.equals(plan) ? "trialing" : "active")
+                : req.getSubscriptionStatus().trim().toLowerCase();
+        if (!Set.of("trialing", "active", "past_due", "cancelled").contains(subscriptionStatus)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid subscriptionStatus"));
+        }
+
+        Map<String, Boolean> overrides = new HashMap<>();
+        if (req.getFeatureOverrides() != null) {
+            for (Map.Entry<String, Boolean> entry : req.getFeatureOverrides().entrySet()) {
+                if (!SubscriptionFeatureService.FEATURES.contains(entry.getKey())) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Unknown feature: " + entry.getKey()));
+                }
+                if (entry.getValue() != null) overrides.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        Map<String, Object> update = new HashMap<>();
+        update.put("plan", plan);
+        update.put("subscriptionStatus", subscriptionStatus);
+        update.put("featureOverrides", overrides);
+        update.put("subscriptionUpdatedAt", FieldValue.serverTimestamp());
+
+        if (req.getTrialEndsAt() != null && !req.getTrialEndsAt().isBlank()) {
+            try {
+                update.put("trialEndsAt", Date.from(Instant.parse(req.getTrialEndsAt())));
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(Map.of("error", "trialEndsAt must be ISO-8601"));
+            }
+        } else if (SubscriptionFeatureService.TRIAL.equals(plan) && school.getTimestamp("trialEndsAt") == null) {
+            update.put("trialEndsAt", Date.from(Instant.now().plus(30, ChronoUnit.DAYS)));
+        }
+
+        ref.update(update).get();
+        auditService.record(masterAdmin, "school.subscription_updated", "school", schoolId, Map.of(
+                "plan", plan,
+                "subscriptionStatus", subscriptionStatus,
+                "featureOverrides", overrides
+        ));
+
+        DocumentSnapshot refreshed = ref.get().get();
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("schoolId", schoolId);
+        response.putAll(subscriptionFeatureService.effectiveEntitlements(refreshed));
+        response.put("featureOverrides", overrides);
+        return ResponseEntity.ok(response);
+    }
+
     /**
      * Creates a teacher or school_admin account for any school — the initial
      * admin for a newly onboarded school. No try/catch here on purpose:
@@ -210,6 +305,22 @@ public class MasterAdminController {
         private String status;
         public String getStatus() { return status; }
         public void setStatus(String status) { this.status = status; }
+    }
+
+    public static class SubscriptionUpdateRequest {
+        private String plan;
+        private String subscriptionStatus;
+        private String trialEndsAt;
+        private Map<String, Boolean> featureOverrides;
+
+        public String getPlan() { return plan; }
+        public void setPlan(String plan) { this.plan = plan; }
+        public String getSubscriptionStatus() { return subscriptionStatus; }
+        public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
+        public String getTrialEndsAt() { return trialEndsAt; }
+        public void setTrialEndsAt(String trialEndsAt) { this.trialEndsAt = trialEndsAt; }
+        public Map<String, Boolean> getFeatureOverrides() { return featureOverrides; }
+        public void setFeatureOverrides(Map<String, Boolean> featureOverrides) { this.featureOverrides = featureOverrides; }
     }
 
     public static class CreateStaffRequest {

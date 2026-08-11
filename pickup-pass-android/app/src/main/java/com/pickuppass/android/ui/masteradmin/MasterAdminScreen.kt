@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pickuppass.android.data.model.MasterPlanDefinition
 import com.pickuppass.android.data.model.MasterSchoolItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
@@ -28,6 +29,7 @@ fun MasterAdminScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var createSchool by remember { mutableStateOf(false) }
     var adminForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
+    var subscriptionForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
 
     Scaffold(
         topBar = {
@@ -67,7 +69,7 @@ fun MasterAdminScreen(
             item {
                 Text("Tenant management", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    "Create schools, suspend access when needed, and provision the first school administrator.",
+                    "Manage school access, subscription plans, feature flags, and initial administrators.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -86,7 +88,8 @@ fun MasterAdminScreen(
                     school = school,
                     saving = state.saving,
                     onToggle = { viewModel.setSchoolActive(school.schoolId, school.status != "active") },
-                    onAddAdmin = { adminForSchool = school }
+                    onAddAdmin = { adminForSchool = school },
+                    onManageSubscription = { subscriptionForSchool = school }
                 )
             }
         }
@@ -97,7 +100,12 @@ fun MasterAdminScreen(
         AlertDialog(
             onDismissRequest = { createSchool = false },
             title = { Text("Create school") },
-            text = { OutlinedTextField(name, { name = it }, label = { Text("School name") }, singleLine = true) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    OutlinedTextField(name, { name = it }, label = { Text("School name") }, singleLine = true)
+                    Text("New tenants start on a 30-day Trial plan.", style = MaterialTheme.typography.bodySmall)
+                }
+            },
             confirmButton = {
                 Button(enabled = name.isNotBlank() && !state.saving, onClick = {
                     viewModel.createSchool(name); createSchool = false
@@ -138,7 +146,112 @@ fun MasterAdminScreen(
             dismissButton = { TextButton(onClick = { adminForSchool = null }) { Text("Cancel") } }
         )
     }
+
+    subscriptionForSchool?.let { school ->
+        SubscriptionDialog(
+            school = school,
+            plans = state.plans,
+            featureKeys = state.featureKeys,
+            saving = state.saving,
+            onDismiss = { subscriptionForSchool = null },
+            onSave = { plan, status, overrides ->
+                viewModel.updateSubscription(school.schoolId, plan, status, overrides)
+                subscriptionForSchool = null
+            }
+        )
+    }
 }
+
+@Composable
+private fun SubscriptionDialog(
+    school: MasterSchoolItem,
+    plans: Map<String, MasterPlanDefinition>,
+    featureKeys: List<String>,
+    saving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String, String, Map<String, Boolean>) -> Unit
+) {
+    var selectedPlan by remember(school.schoolId) { mutableStateOf(school.plan) }
+    var selectedStatus by remember(school.schoolId) { mutableStateOf(school.subscriptionStatus) }
+    var customize by remember(school.schoolId) { mutableStateOf(school.featureOverrides.isNotEmpty()) }
+    var featureValues by remember(school.schoolId) { mutableStateOf(school.features) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Plan & features") },
+        text = {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                item { Text(school.schoolName, fontWeight = FontWeight.SemiBold) }
+                item { Text("Plan", fontWeight = FontWeight.SemiBold) }
+                items(listOf("trial", "starter", "school", "enterprise")) { key ->
+                    val definition = plans[key]
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(
+                            selected = selectedPlan == key,
+                            onClick = {
+                                selectedPlan = key
+                                if (!customize) featureValues = definition?.features ?: emptyMap()
+                            }
+                        )
+                        Column {
+                            Text(definition?.displayName ?: key.replaceFirstChar { it.uppercase() })
+                            definition?.let {
+                                Text(
+                                    "Students ${limitLabel(it.maxStudents)} · Staff ${limitLabel(it.maxStaff)} · Campuses ${limitLabel(it.maxCampuses)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+                item { Text("Subscription status", fontWeight = FontWeight.SemiBold) }
+                items(listOf("trialing", "active", "past_due", "cancelled")) { status ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = selectedStatus == status, onClick = { selectedStatus = status })
+                        Text(status.replace('_', ' ').replaceFirstChar { it.uppercase() })
+                    }
+                }
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(
+                            checked = customize,
+                            onCheckedChange = {
+                                customize = it
+                                if (it) featureValues = plans[selectedPlan]?.features ?: school.features
+                            }
+                        )
+                        Spacer(Modifier.width(Spacing.sm))
+                        Column {
+                            Text("Customize feature access", fontWeight = FontWeight.SemiBold)
+                            Text("Off = inherit the selected plan defaults", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                if (customize) {
+                    items(featureKeys.sorted()) { feature ->
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(featureLabel(feature), Modifier.weight(1f))
+                            Switch(
+                                checked = featureValues[feature] == true,
+                                onCheckedChange = { enabled -> featureValues = featureValues + (feature to enabled) }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(enabled = !saving && plans.containsKey(selectedPlan), onClick = {
+                onSave(selectedPlan, selectedStatus, if (customize) featureValues else emptyMap())
+            }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+private fun limitLabel(value: Int): String = if (value < 0) "Unlimited" else value.toString()
+private fun featureLabel(value: String): String = value.split('_').joinToString(" ") { it.replaceFirstChar { ch -> ch.uppercase() } }
 
 @Composable
 private fun MetricCard(label: String, value: String, modifier: Modifier = Modifier) {
@@ -155,7 +268,8 @@ private fun SchoolCard(
     school: MasterSchoolItem,
     saving: Boolean,
     onToggle: () -> Unit,
-    onAddAdmin: () -> Unit
+    onAddAdmin: () -> Unit,
+    onManageSubscription: () -> Unit
 ) {
     val active = school.status == "active"
     OutlinedCard(Modifier.fillMaxWidth()) {
@@ -166,6 +280,11 @@ private fun SchoolCard(
                 Column(Modifier.weight(1f)) {
                     Text(school.schoolName, fontWeight = FontWeight.SemiBold)
                     Text(
+                        "${school.plan.replaceFirstChar { it.uppercase() }} · ${school.subscriptionStatus.replace('_', ' ')}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
                         if (active) "Active tenant" else "Suspended tenant",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
@@ -174,7 +293,8 @@ private fun SchoolCard(
                 Switch(checked = active, enabled = !saving, onCheckedChange = { onToggle() })
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                FilledTonalButton(onClick = onAddAdmin, enabled = active && !saving) { Text("Add school admin") }
+                FilledTonalButton(onClick = onManageSubscription, enabled = !saving) { Text("Plan & features") }
+                FilledTonalButton(onClick = onAddAdmin, enabled = active && !saving) { Text("Add admin") }
             }
         }
     }

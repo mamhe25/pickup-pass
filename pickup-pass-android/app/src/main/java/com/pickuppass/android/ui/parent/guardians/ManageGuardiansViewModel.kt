@@ -7,6 +7,7 @@ import com.pickuppass.android.data.model.UserProfile
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.GuardianRepository
 import com.pickuppass.android.data.repository.StudentRepository
+import com.pickuppass.android.data.repository.SchoolRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,13 +28,16 @@ data class ManageGuardiansUiState(
     val formError: String? = null,
     val formSuccess: String? = null,
     val formIsWarning: Boolean = false,
-    val listError: String? = null
+    val listError: String? = null,
+    val temporaryGuardiansEnabled: Boolean = true,
+    val guardianSchedulesEnabled: Boolean = true
 )
 
 @HiltViewModel
 class ManageGuardiansViewModel @Inject constructor(
     private val studentRepository: StudentRepository,
-    private val guardianRepository: GuardianRepository
+    private val guardianRepository: GuardianRepository,
+    private val schoolRepository: SchoolRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ManageGuardiansUiState())
@@ -46,6 +50,10 @@ class ManageGuardiansViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, listError = null)
 
+            val entitlements = when (val result = schoolRepository.getEntitlements()) {
+                is ApiResult.Success -> result.data.features
+                is ApiResult.Failure -> emptyMap()
+            }
             val studentResult = studentRepository.getStudent(studentId)
             val student = studentResult.getOrNull()
             if (student == null) {
@@ -61,7 +69,9 @@ class ManageGuardiansViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 studentName = "${student.fullName} · Grade ${student.grade}",
-                guardians = rows
+                guardians = rows,
+                temporaryGuardiansEnabled = entitlements["temporary_guardians"] != false,
+                guardianSchedulesEnabled = entitlements["guardian_pickup_schedules"] != false
             )
         }
     }

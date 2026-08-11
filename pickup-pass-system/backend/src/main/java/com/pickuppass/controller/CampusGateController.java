@@ -7,6 +7,7 @@ import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.pickuppass.exception.NotFoundException;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
+import com.pickuppass.service.SubscriptionFeatureService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -23,10 +24,13 @@ import java.util.*;
 public class CampusGateController {
     private final Firestore firestore;
     private final AuditService auditService;
+    private final SubscriptionFeatureService subscriptionFeatureService;
 
-    public CampusGateController(Firestore firestore, AuditService auditService) {
+    public CampusGateController(Firestore firestore, AuditService auditService,
+                                SubscriptionFeatureService subscriptionFeatureService) {
         this.firestore = firestore;
         this.auditService = auditService;
+        this.subscriptionFeatureService = subscriptionFeatureService;
     }
 
     @GetMapping
@@ -51,6 +55,14 @@ public class CampusGateController {
     public ResponseEntity<?> createCampus(@Valid @RequestBody CampusRequest req,
                                            @AuthenticationPrincipal FirebaseUserDetails admin) throws Exception {
         String name = req.getName().trim();
+        var existingCampuses = firestore.collection("campuses")
+                .whereEqualTo("schoolId", admin.getSchoolId()).get().get().getDocuments();
+        long activeCampusCount = existingCampuses.stream()
+                .filter(d -> !Boolean.FALSE.equals(d.getBoolean("active")))
+                .count();
+        if (activeCampusCount >= 1) {
+            subscriptionFeatureService.requireFeature(admin.getSchoolId(), "multi_campus");
+        }
         ensureUniqueCampus(admin.getSchoolId(), name, null);
         var ref = firestore.collection("campuses").document();
         Map<String,Object> data = new HashMap<>();
@@ -72,6 +84,16 @@ public class CampusGateController {
         DocumentSnapshot campus = firestore.collection("campuses").document(id).get().get();
         if (!campus.exists() || !admin.getSchoolId().equals(campus.getString("schoolId"))) {
             throw new NotFoundException("Campus not found in your school");
+        }
+        if (req.isActive() && Boolean.FALSE.equals(campus.getBoolean("active"))) {
+            long otherActiveCampuses = firestore.collection("campuses")
+                    .whereEqualTo("schoolId", admin.getSchoolId()).get().get().getDocuments().stream()
+                    .filter(d -> !d.getId().equals(id))
+                    .filter(d -> !Boolean.FALSE.equals(d.getBoolean("active")))
+                    .count();
+            if (otherActiveCampuses >= 1) {
+                subscriptionFeatureService.requireFeature(admin.getSchoolId(), "multi_campus");
+            }
         }
         campus.getReference().update("active", req.isActive(), "updatedAt", FieldValue.serverTimestamp(), "updatedBy", admin.getUid()).get();
         if (!req.isActive()) {

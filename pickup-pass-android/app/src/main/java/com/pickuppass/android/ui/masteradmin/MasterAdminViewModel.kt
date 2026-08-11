@@ -2,6 +2,7 @@ package com.pickuppass.android.ui.masteradmin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pickuppass.android.data.model.MasterPlanDefinition
 import com.pickuppass.android.data.model.MasterSchoolItem
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.AuthRepository
@@ -19,6 +20,8 @@ data class MasterAdminUiState(
     val activeSchools: Int = 0,
     val suspendedSchools: Int = 0,
     val schools: List<MasterSchoolItem> = emptyList(),
+    val plans: Map<String, MasterPlanDefinition> = emptyMap(),
+    val featureKeys: List<String> = emptyList(),
     val error: String? = null,
     val message: String? = null
 )
@@ -35,22 +38,45 @@ class MasterAdminViewModel @Inject constructor(
 
     fun load() = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(loading = true, error = null)
-        when (val r = repository.listSchools()) {
-            is ApiResult.Success -> _uiState.value = _uiState.value.copy(
-                loading = false, totalSchools = r.data.totalSchools, activeSchools = r.data.activeSchools,
-                suspendedSchools = r.data.suspendedSchools, schools = r.data.schools
-            )
-            is ApiResult.Failure -> _uiState.value = _uiState.value.copy(loading = false, error = r.message)
+        val plansResult = repository.getPlanCatalog()
+        val schoolsResult = repository.listSchools()
+        when (schoolsResult) {
+            is ApiResult.Success -> {
+                val planData = when (plansResult) {
+                    is ApiResult.Success -> plansResult.data
+                    is ApiResult.Failure -> null
+                }
+                _uiState.value = _uiState.value.copy(
+                    loading = false,
+                    totalSchools = schoolsResult.data.totalSchools,
+                    activeSchools = schoolsResult.data.activeSchools,
+                    suspendedSchools = schoolsResult.data.suspendedSchools,
+                    schools = schoolsResult.data.schools,
+                    plans = planData?.plans ?: emptyMap(),
+                    featureKeys = planData?.featureKeys ?: emptyList(),
+                    error = if (plansResult is ApiResult.Failure) plansResult.message else null
+                )
+            }
+            is ApiResult.Failure -> _uiState.value = _uiState.value.copy(loading = false, error = schoolsResult.message)
         }
     }
 
-    fun createSchool(name: String) = runSave("School created") { repository.createSchool(name.trim()) }
+    fun createSchool(name: String) = runSave("School created with a 30-day trial") { repository.createSchool(name.trim()) }
 
     fun setSchoolActive(schoolId: String, active: Boolean) =
         runSave(if (active) "School reactivated" else "School suspended") { repository.setSchoolActive(schoolId, active) }
 
     fun createSchoolAdmin(schoolId: String, email: String, lastName: String, firstName: String, middleInitial: String, suffix: String) =
         runSave("School administrator created") { repository.createSchoolAdmin(schoolId, email, lastName, firstName, middleInitial, suffix) }
+
+    fun updateSubscription(
+        schoolId: String,
+        plan: String,
+        subscriptionStatus: String,
+        featureOverrides: Map<String, Boolean>
+    ) = runSave("Subscription and feature access updated") {
+        repository.updateSubscription(schoolId, plan, subscriptionStatus, featureOverrides)
+    }
 
     fun signOut() { authRepository.signOut() }
 

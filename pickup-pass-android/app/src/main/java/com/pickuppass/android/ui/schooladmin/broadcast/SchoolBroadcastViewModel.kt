@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.pickuppass.android.data.model.BroadcastHistoryItem
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.SchoolAdminRepository
+import com.pickuppass.android.data.repository.SchoolRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,18 +20,34 @@ data class SchoolBroadcastUiState(
     val successMessage: String? = null,
     val includeTeachers: Boolean = true,
     val includeParents: Boolean = true,
+    val schedulingEnabled: Boolean = true,
     val history: List<BroadcastHistoryItem> = emptyList()
 )
 
 @HiltViewModel
 class SchoolBroadcastViewModel @Inject constructor(
-    private val schoolAdminRepository: SchoolAdminRepository
+    private val schoolAdminRepository: SchoolAdminRepository,
+    private val schoolRepository: SchoolRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SchoolBroadcastUiState())
     val uiState: StateFlow<SchoolBroadcastUiState> = _uiState
 
-    init { refreshHistory() }
+    init {
+        loadEntitlements()
+        refreshHistory()
+    }
+
+    private fun loadEntitlements() {
+        viewModelScope.launch {
+            when (val result = schoolRepository.getEntitlements()) {
+                is ApiResult.Success -> _uiState.value = _uiState.value.copy(
+                    schedulingEnabled = result.data.features["scheduled_announcements"] != false
+                )
+                is ApiResult.Failure -> Unit // keep backward-compatible default
+            }
+        }
+    }
 
     fun setIncludeTeachers(value: Boolean) {
         _uiState.value = _uiState.value.copy(includeTeachers = value)
@@ -59,6 +76,10 @@ class SchoolBroadcastViewModel @Inject constructor(
     }
 
     fun schedule(title: String, body: String, scheduledAtUtc: String?) {
+        if (!_uiState.value.schedulingEnabled) {
+            _uiState.value = _uiState.value.copy(error = "Scheduled announcements are not enabled for this school plan")
+            return
+        }
         val audience = audienceOrError(title, body) ?: return
         if (scheduledAtUtc.isNullOrBlank()) {
             _uiState.value = _uiState.value.copy(error = "Choose a date and time")

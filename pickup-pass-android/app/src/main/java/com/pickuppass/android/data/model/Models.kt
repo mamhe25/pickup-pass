@@ -628,6 +628,12 @@ data class MasterSchoolItem(
     val schoolId: String = "",
     val schoolName: String = "",
     val status: String = "active",
+    val plan: String = "trial",
+    val subscriptionStatus: String = "trialing",
+    val trialEndsAt: String? = null,
+    val features: Map<String, Boolean> = emptyMap(),
+    val featureOverrides: Map<String, Boolean> = emptyMap(),
+    val limits: Map<String, Int> = emptyMap(),
     val createdAt: String? = null,
     val statusUpdatedAt: String? = null
 )
@@ -660,4 +666,44 @@ data class CreateMasterStaffResponse(
     val role: String = "",
     val schoolId: String = "",
     val emailSent: Boolean = false
+)
+
+data class MasterPlanDefinition(
+    val displayName: String = "",
+    val maxStudents: Int = -1,
+    val maxStaff: Int = -1,
+    val maxCampuses: Int = -1,
+    val features: Map<String, Boolean> = emptyMap()
+)
+
+data class MasterPlanCatalogResponse(
+    val plans: Map<String, MasterPlanDefinition> = emptyMap(),
+    val featureKeys: List<String> = emptyList()
+)
+
+data class UpdateMasterSubscriptionRequest(
+    val plan: String,
+    val subscriptionStatus: String,
+    val trialEndsAt: String? = null,
+    val featureOverrides: Map<String, Boolean> = emptyMap()
+)
+
+data class MasterSubscriptionResponse(
+    val schoolId: String = "",
+    val plan: String = "",
+    val subscriptionStatus: String = "",
+    val trialEndsAt: String? = null,
+    val features: Map<String, Boolean> = emptyMap(),
+    val featureOverrides: Map<String, Boolean> = emptyMap(),
+    val limits: Map<String, Int> = emptyMap()
+)
+
+
+// ---- Phase 3: tenant subscription entitlements ----
+data class TenantEntitlementsResponse(
+    val plan: String = "trial",
+    val subscriptionStatus: String = "trialing",
+    val trialEndsAt: String? = null,
+    val features: Map<String, Boolean> = emptyMap(),
+    val limits: Map<String, Int> = emptyMap()
 )

@@ -3,6 +3,7 @@ package com.pickuppass.android.data.repository
 import android.content.Context
 import android.net.Uri
 import com.pickuppass.android.data.remote.PickupPassApi
+import com.pickuppass.android.data.model.TenantEntitlementsResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -53,6 +54,17 @@ class SchoolRepository @Inject constructor(
             } else {
                 ApiResult.Failure(body?.error ?: "Upload failed — please try a different image")
             }
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun getEntitlements(): ApiResult<TenantEntitlementsResponse> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.getTenantEntitlements()
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure("Could not load plan and feature access")
         } catch (e: Exception) {
             ApiResult.Failure(e.message ?: "Network error")
         }

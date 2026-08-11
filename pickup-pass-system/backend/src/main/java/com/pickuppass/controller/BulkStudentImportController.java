@@ -8,6 +8,7 @@ import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.WriteBatch;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
+import com.pickuppass.service.SubscriptionFeatureService;
 import com.pickuppass.util.NameFormatter;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -48,10 +49,13 @@ public class BulkStudentImportController {
 
     private final Firestore firestore;
     private final AuditService auditService;
+    private final SubscriptionFeatureService subscriptionFeatureService;
 
-    public BulkStudentImportController(Firestore firestore, AuditService auditService) {
+    public BulkStudentImportController(Firestore firestore, AuditService auditService,
+                                       SubscriptionFeatureService subscriptionFeatureService) {
         this.firestore = firestore;
         this.auditService = auditService;
+        this.subscriptionFeatureService = subscriptionFeatureService;
     }
 
     @PostMapping(value = "/import", consumes = "multipart/form-data")
@@ -61,6 +65,7 @@ public class BulkStudentImportController {
             @RequestPart(value = "dryRun", required = false) String dryRunRaw,
             @AuthenticationPrincipal FirebaseUserDetails admin) throws Exception {
 
+        subscriptionFeatureService.requireFeature(admin.getSchoolId(), "bulk_student_import");
         boolean dryRun = dryRunRaw == null || Boolean.parseBoolean(dryRunRaw);
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Choose a CSV or Excel file"));

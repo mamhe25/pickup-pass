@@ -7,6 +7,7 @@ import com.pickuppass.exception.NotFoundException;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.GuardianProvisioningService;
 import com.pickuppass.service.AuditService;
+import com.pickuppass.service.SubscriptionFeatureService;
 import com.pickuppass.service.GuardianAuthorizationService;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -44,6 +45,7 @@ public class ParentGuardianController {
     private final GuardianProvisioningService guardianService;
     private final int maxGuardiansPerStudent;
     private final AuditService auditService;
+    private final SubscriptionFeatureService subscriptionFeatureService;
     private final ZoneId schoolTimeZone;
     private final GuardianAuthorizationService guardianAuthorizationService;
 
@@ -52,12 +54,14 @@ public class ParentGuardianController {
             GuardianProvisioningService guardianService,
             AuditService auditService,
             GuardianAuthorizationService guardianAuthorizationService,
+            SubscriptionFeatureService subscriptionFeatureService,
             @Value("${app.max-guardians-per-student:4}") int maxGuardiansPerStudent,
             @Value("${app.school-time-zone:Asia/Manila}") String schoolTimeZone) {
         this.firestore = firestore;
         this.guardianService = guardianService;
         this.auditService = auditService;
         this.guardianAuthorizationService = guardianAuthorizationService;
+        this.subscriptionFeatureService = subscriptionFeatureService;
         this.maxGuardiansPerStudent = maxGuardiansPerStudent;
         this.schoolTimeZone = ZoneId.of(schoolTimeZone);
     }
@@ -134,6 +138,7 @@ public class ParentGuardianController {
             @RequestBody AddTemporaryGuardianRequest req,
             @AuthenticationPrincipal FirebaseUserDetails parent) throws Exception {
 
+        subscriptionFeatureService.requireFeature(parent.getSchoolId(), "temporary_guardians");
         String schoolId = parent.getSchoolId();
         DocumentReference studentRef = firestore.collection("students").document(req.getStudentId());
         DocumentSnapshot studentSnap = studentRef.get().get();
@@ -231,6 +236,7 @@ public class ParentGuardianController {
             @RequestBody GuardianScheduleRequest req,
             @AuthenticationPrincipal FirebaseUserDetails actor) throws Exception {
 
+        subscriptionFeatureService.requireFeature(actor.getSchoolId(), "guardian_pickup_schedules");
         String schoolId = actor.getSchoolId();
         DocumentReference studentRef = firestore.collection("students").document(req.getStudentId());
         DocumentSnapshot studentSnap = studentRef.get().get();

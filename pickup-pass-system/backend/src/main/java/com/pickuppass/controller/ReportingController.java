@@ -6,6 +6,7 @@ import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
+import com.pickuppass.service.SubscriptionFeatureService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -39,12 +40,15 @@ public class ReportingController {
     private final Firestore firestore;
     private final AuditService auditService;
     private final ZoneId schoolTimeZone;
+    private final SubscriptionFeatureService subscriptionFeatureService;
 
     public ReportingController(Firestore firestore,
                                AuditService auditService,
+                               SubscriptionFeatureService subscriptionFeatureService,
                                @Value("${app.school-time-zone:Asia/Manila}") String timeZone) {
         this.firestore = firestore;
         this.auditService = auditService;
+        this.subscriptionFeatureService = subscriptionFeatureService;
         this.schoolTimeZone = ZoneId.of(timeZone);
     }
 
@@ -57,6 +61,7 @@ public class ReportingController {
             @RequestParam(required = false) String section,
             @AuthenticationPrincipal FirebaseUserDetails admin) throws Exception {
 
+        subscriptionFeatureService.requireFeature(admin.getSchoolId(), "advanced_reporting");
         DateRange range = parseRange(from, to);
         if (range.error != null) return ResponseEntity.badRequest().body(Map.of("error", range.error));
 
@@ -86,6 +91,7 @@ public class ReportingController {
             @RequestParam(required = false) String section,
             @AuthenticationPrincipal FirebaseUserDetails admin) throws Exception {
 
+        subscriptionFeatureService.requireFeature(admin.getSchoolId(), "advanced_reporting");
         DateRange range = parseRange(from, to);
         if (range.error != null) return ResponseEntity.badRequest().body(range.error.getBytes(StandardCharsets.UTF_8));
 

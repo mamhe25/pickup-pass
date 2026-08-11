@@ -45,6 +45,10 @@ fun SchoolBroadcastScreen(
     var scheduleMode by remember { mutableStateOf(false) }
     var scheduledDateTime by remember { mutableStateOf<ZonedDateTime?>(null) }
 
+    LaunchedEffect(uiState.schedulingEnabled) {
+        if (!uiState.schedulingEnabled) scheduleMode = false
+    }
+
     LaunchedEffect(uiState.successMessage) {
         if (uiState.successMessage == "Announcement scheduled." || uiState.successMessage?.startsWith("Sent to") == true) {
             title = ""
@@ -103,7 +107,7 @@ fun SchoolBroadcastScreen(
         ) {
             item {
                 Text(
-                    "Send immediately or schedule an announcement. Recipients receive it as a push notification and in their notification inbox.",
+                    if (uiState.schedulingEnabled) "Send immediately or schedule an announcement. Recipients receive it as a push notification and in their notification inbox." else "Send an announcement now. Scheduled announcements are not enabled for this school plan.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -149,9 +153,11 @@ fun SchoolBroadcastScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = !scheduleMode, onClick = { scheduleMode = false; viewModel.clearMessage() })
                     Text("Send now", Modifier.clickable { scheduleMode = false; viewModel.clearMessage() })
-                    Spacer(Modifier.width(Spacing.md))
-                    RadioButton(selected = scheduleMode, onClick = { scheduleMode = true; viewModel.clearMessage() })
-                    Text("Schedule", Modifier.clickable { scheduleMode = true; viewModel.clearMessage() })
+                    if (uiState.schedulingEnabled) {
+                        Spacer(Modifier.width(Spacing.md))
+                        RadioButton(selected = scheduleMode, onClick = { scheduleMode = true; viewModel.clearMessage() })
+                        Text("Schedule", Modifier.clickable { scheduleMode = true; viewModel.clearMessage() })
+                    }
                 }
             }
 

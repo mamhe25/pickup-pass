@@ -7,6 +7,7 @@ import com.pickuppass.service.PickupMetricsService;
 import com.pickuppass.service.IdempotencyService;
 import com.pickuppass.service.PushNotificationService;
 import com.pickuppass.service.QrVerificationService;
+import com.pickuppass.service.SubscriptionFeatureService;
 import io.micrometer.core.instrument.Timer;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -27,17 +28,20 @@ public class PickupController {
     private final AuditService auditService;
     private final PickupMetricsService metrics;
     private final IdempotencyService idempotencyService;
+    private final SubscriptionFeatureService subscriptionFeatureService;
 
     public PickupController(QrVerificationService qrService,
                             PushNotificationService pushNotificationService,
                             AuditService auditService,
                             PickupMetricsService metrics,
-                            IdempotencyService idempotencyService) {
+                            IdempotencyService idempotencyService,
+                            SubscriptionFeatureService subscriptionFeatureService) {
         this.qrService = qrService;
         this.pushNotificationService = pushNotificationService;
         this.auditService = auditService;
         this.metrics = metrics;
         this.idempotencyService = idempotencyService;
+        this.subscriptionFeatureService = subscriptionFeatureService;
     }
 
     @GetMapping("/gates")
@@ -117,6 +121,7 @@ public class PickupController {
                                              @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
                                              @RequestHeader(value = "X-Pickup-Gate-Id", required = false) String pickupGateId,
                                              @AuthenticationPrincipal FirebaseUserDetails staff) throws Exception {
+        subscriptionFeatureService.requireFeature(staff.getSchoolId(), "manual_override");
         String fingerprint = idempotencyService.fingerprint(
                 req.getStudentId() + "\n" + req.getGuardianUid() + "\n" + req.getReason().trim() + "\n"
                         + (pickupGateId == null ? "" : pickupGateId.trim()));

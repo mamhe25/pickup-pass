@@ -4,6 +4,7 @@ import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.BroadcastService;
 import com.pickuppass.service.ScheduledBroadcastService;
+import com.pickuppass.service.SubscriptionFeatureService;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,13 +29,16 @@ public class BroadcastController {
     private final BroadcastService broadcastService;
     private final AuditService auditService;
     private final ScheduledBroadcastService scheduledBroadcastService;
+    private final SubscriptionFeatureService subscriptionFeatureService;
 
     public BroadcastController(BroadcastService broadcastService,
                                AuditService auditService,
-                               ScheduledBroadcastService scheduledBroadcastService) {
+                               ScheduledBroadcastService scheduledBroadcastService,
+                               SubscriptionFeatureService subscriptionFeatureService) {
         this.broadcastService = broadcastService;
         this.auditService = auditService;
         this.scheduledBroadcastService = scheduledBroadcastService;
+        this.subscriptionFeatureService = subscriptionFeatureService;
     }
 
     @PostMapping("/api/school-admin/broadcasts")
@@ -67,6 +71,7 @@ public class BroadcastController {
             @RequestBody ScheduledBroadcastRequest req,
             @AuthenticationPrincipal FirebaseUserDetails schoolAdmin) throws Exception {
 
+        subscriptionFeatureService.requireFeature(schoolAdmin.getSchoolId(), "scheduled_announcements");
         ResponseEntity<?> validation = validateSchoolBroadcast(req);
         if (validation != null) return validation;
         if (req.getScheduledAt() == null || req.getScheduledAt().isBlank()) {

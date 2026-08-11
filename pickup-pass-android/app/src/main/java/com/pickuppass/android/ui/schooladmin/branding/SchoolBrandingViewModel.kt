@@ -19,6 +19,9 @@ data class SchoolBrandingUiState(
     val isLoading: Boolean = true,
     val schoolName: String = "",
     val logoUrl: String? = null,
+    val plan: String = "trial",
+    val subscriptionStatus: String = "trialing",
+    val features: Map<String, Boolean> = emptyMap(),
     val isUploading: Boolean = false,
     val error: String? = null,
     val successMessage: String? = null
@@ -53,14 +56,26 @@ class SchoolBrandingViewModel @Inject constructor(
             studentRepository.getSchool(session.schoolId)
                 .onSuccess { school ->
                     _uiState.value = _uiState.value.copy(
-                        isLoading = false,
                         schoolName = school?.schoolName.orEmpty(),
                         logoUrl = school?.logoUrl
                     )
                 }
                 .onFailure {
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = "Couldn't load school info")
+                    _uiState.value = _uiState.value.copy(error = "Couldn't load school info")
                 }
+
+            when (val entitlements = schoolRepository.getEntitlements()) {
+                is ApiResult.Success -> _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    plan = entitlements.data.plan,
+                    subscriptionStatus = entitlements.data.subscriptionStatus,
+                    features = entitlements.data.features
+                )
+                is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = entitlements.message
+                )
+            }
         }
     }
 

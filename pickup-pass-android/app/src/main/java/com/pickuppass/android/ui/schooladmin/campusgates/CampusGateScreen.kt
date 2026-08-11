@@ -26,10 +26,18 @@ fun CampusGateScreen(viewModel: CampusGateViewModel = hiltViewModel(), onBack:()
     Scaffold(topBar={ TopAppBar(title={Text("Campuses & Pickup Gates")},navigationIcon={IconButton(onClick=onBack){Icon(Icons.Filled.ArrowBack,"Back")}}) }) { padding ->
         if(state.loading){ Box(Modifier.padding(padding).fillMaxSize()){ FullScreenLoading() }; return@Scaffold }
         LazyColumn(Modifier.padding(padding).fillMaxSize(),contentPadding=PaddingValues(Spacing.lg),verticalArrangement=Arrangement.spacedBy(Spacing.md)){
-            item { Text("Configure physical campuses and the gates used for student release. Archiving a campus also disables its pickup gates.",color=MaterialTheme.colorScheme.onSurfaceVariant) }
+            item {
+                Text("Configure physical campuses and the gates used for student release. Archiving a campus also disables its pickup gates.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+                if (!state.multiCampusEnabled) {
+                    Text("Your current plan supports one active campus. Pickup gates within that campus remain available.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             state.error?.let { item { ErrorBanner(it) } }
             state.message?.let { item { Text(it,color=MaterialTheme.colorScheme.primary) } }
-            item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){ Text("Campuses",fontWeight=FontWeight.Bold); FilledTonalButton(onClick={addCampus=true}){Text("Add campus")} } }
+            item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){ Text("Campuses",fontWeight=FontWeight.Bold); FilledTonalButton(
+                    onClick={addCampus=true},
+                    enabled = state.multiCampusEnabled || state.campuses.none { it.active }
+                ){Text("Add campus")} } }
             if(state.campuses.isEmpty()) item { InfoCard("No campuses configured","Add your main campus, or leave the system single-site until needed.") }
             items(state.campuses,key={it.id}) { c -> OutlinedCard { Row(Modifier.fillMaxWidth().padding(Spacing.md),verticalAlignment=Alignment.CenterVertically){ Column(Modifier.weight(1f)){Text(c.name,fontWeight=FontWeight.SemiBold); if(c.address.isNotBlank()) Text(c.address,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}; Switch(c.active,{viewModel.setCampus(c.id,it)}) } } }
             item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){ Text("Pickup Gates",fontWeight=FontWeight.Bold); FilledTonalButton(onClick={addGate=true}){Text("Add gate")} } }

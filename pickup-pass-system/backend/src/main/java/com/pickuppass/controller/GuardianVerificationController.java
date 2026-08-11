@@ -8,6 +8,7 @@ import com.google.cloud.firestore.WriteBatch;
 import com.pickuppass.exception.NotFoundException;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
+import com.pickuppass.service.SubscriptionFeatureService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
@@ -27,14 +28,18 @@ public class GuardianVerificationController {
 
     private final Firestore firestore;
     private final AuditService auditService;
+    private final SubscriptionFeatureService subscriptionFeatureService;
 
-    public GuardianVerificationController(Firestore firestore, AuditService auditService) {
+    public GuardianVerificationController(Firestore firestore, AuditService auditService,
+                                          SubscriptionFeatureService subscriptionFeatureService) {
         this.firestore = firestore;
         this.auditService = auditService;
+        this.subscriptionFeatureService = subscriptionFeatureService;
     }
 
     @GetMapping
     public ResponseEntity<?> list(@AuthenticationPrincipal FirebaseUserDetails admin) throws Exception {
+        subscriptionFeatureService.requireFeature(admin.getSchoolId(), "guardian_verification");
         String schoolId = admin.getSchoolId();
         DocumentSnapshot school = firestore.collection("schools").document(schoolId).get().get();
         boolean required = Boolean.TRUE.equals(school.getBoolean("guardianVerificationRequired"));
@@ -82,6 +87,7 @@ public class GuardianVerificationController {
     public ResponseEntity<?> updatePolicy(
             @RequestBody VerificationPolicyRequest req,
             @AuthenticationPrincipal FirebaseUserDetails admin) throws Exception {
+        subscriptionFeatureService.requireFeature(admin.getSchoolId(), "guardian_verification");
         firestore.collection("schools").document(admin.getSchoolId()).update(
                 "guardianVerificationRequired", req.required,
                 "guardianVerificationUpdatedAt", FieldValue.serverTimestamp(),
@@ -97,6 +103,7 @@ public class GuardianVerificationController {
             @PathVariable String guardianUid,
             @Valid @RequestBody GuardianStatusRequest req,
             @AuthenticationPrincipal FirebaseUserDetails admin) throws Exception {
+        subscriptionFeatureService.requireFeature(admin.getSchoolId(), "guardian_verification");
         String schoolId = admin.getSchoolId();
         DocumentSnapshot user = firestore.collection("users").document(guardianUid).get().get();
         if (!user.exists() || !schoolId.equals(user.getString("schoolId")) || !"parent".equalsIgnoreCase(user.getString("role"))) {

@@ -106,6 +106,11 @@ fun SchoolBrandingScreen(
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 if (uiState.schoolName.isNotBlank()) {
                     Text(uiState.schoolName, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "${uiState.plan.replaceFirstChar { it.uppercase() }} · ${uiState.subscriptionStatus.replace('_', ' ')}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Spacer(Modifier.height(Spacing.xs))
                 }
                 Text(
@@ -203,8 +208,12 @@ fun SchoolBrandingScreen(
             GroupedActionList {
                 NavListItem(Icons.Filled.Dashboard, "Live Dismissal Dashboard", onGoToDismissalDashboard)
                 NavListItem(Icons.Filled.History, "Dismissal History", onGoToExitLogs)
-                NavListItem(Icons.Filled.Assessment, "Dismissal Reports & Export", onGoToDismissalReports)
-                NavListItem(Icons.Filled.WarningAmber, "Manual Pickup Override", onGoToManualPickup)
+                if (uiState.features["advanced_reporting"] != false) {
+                    NavListItem(Icons.Filled.Assessment, "Dismissal Reports & Export", onGoToDismissalReports)
+                }
+                if (uiState.features["manual_override"] != false) {
+                    NavListItem(Icons.Filled.WarningAmber, "Manual Pickup Override", onGoToManualPickup)
+                }
             }
 
             Spacer(Modifier.height(Spacing.lg))
@@ -212,12 +221,18 @@ fun SchoolBrandingScreen(
             GroupedActionList {
                 NavListItem(Icons.Filled.Groups, "Manage Students", onGoToStudents)
                 NavListItem(Icons.Filled.Class, "School Year & Sections", onGoToAcademicStructure)
-                NavListItem(Icons.Filled.UploadFile, "Bulk Import Students", onGoToBulkStudentImport)
+                if (uiState.features["bulk_student_import"] != false) {
+                    NavListItem(Icons.Filled.UploadFile, "Bulk Import Students", onGoToBulkStudentImport)
+                }
                 NavListItem(Icons.Filled.PersonOff, "Student Lifecycle & Promotion", onGoToStudentLifecycle)
-                NavListItem(Icons.Filled.VerifiedUser, "Guardian Verification", onGoToGuardianVerification)
+                if (uiState.features["guardian_verification"] != false) {
+                    NavListItem(Icons.Filled.VerifiedUser, "Guardian Verification", onGoToGuardianVerification)
+                }
                 NavListItem(Icons.Filled.Schedule, "Pickup Policy", onGoToPickupPolicy)
                 NavListItem(Icons.Filled.LocationOn, "Campuses & Pickup Gates", onGoToCampusGates)
-                NavListItem(Icons.Filled.LocationOn, "Staff Pickup Gates", onGoToStaffPickupGates)
+                if (uiState.features["staff_gate_restrictions"] != false) {
+                    NavListItem(Icons.Filled.LocationOn, "Staff Pickup Gates", onGoToStaffPickupGates)
+                }
             }
 
             Spacer(Modifier.height(Spacing.lg))

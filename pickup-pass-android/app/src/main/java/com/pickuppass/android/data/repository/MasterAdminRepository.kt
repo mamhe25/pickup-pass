@@ -45,4 +45,33 @@ class MasterAdminRepository @Inject constructor(private val api: PickupPassApi) 
     } catch (e: Exception) {
         ApiResult.Failure(e.message ?: "Network error")
     }
+
+    suspend fun getPlanCatalog(): ApiResult<MasterPlanCatalogResponse> = try {
+        val response = api.getMasterPlanCatalog()
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not load subscription plans")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
+    suspend fun updateSubscription(
+        schoolId: String,
+        plan: String,
+        subscriptionStatus: String,
+        featureOverrides: Map<String, Boolean>
+    ): ApiResult<MasterSubscriptionResponse> = try {
+        val response = api.updateMasterSubscription(
+            schoolId,
+            UpdateMasterSubscriptionRequest(
+                plan = plan,
+                subscriptionStatus = subscriptionStatus,
+                featureOverrides = featureOverrides
+            )
+        )
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not update subscription")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
 }
