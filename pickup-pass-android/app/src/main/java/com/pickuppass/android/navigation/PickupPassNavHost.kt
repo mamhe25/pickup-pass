@@ -43,6 +43,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.pickuppass.android.ui.schooladmin.staffgates.StaffPickupGatesScreen
 import com.pickuppass.android.ui.schooladmin.billing.SchoolBillingScreen
 import com.pickuppass.android.ui.schooladmin.dataexport.SchoolDataExportScreen
+import com.pickuppass.android.ui.schooladmin.readiness.LaunchReadinessScreen
 
 @Composable
 fun PickupPassNavHost(navController: NavHostController = rememberNavController()) {
@@ -217,6 +218,7 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
                 onGoToBroadcast = { navController.navigate(Screen.SchoolAdminBroadcast.route) },
                 onGoToBilling = { navController.navigate(Screen.SchoolAdminBilling.route) },
                 onGoToDataExport = { navController.navigate(Screen.SchoolAdminDataExport.route) },
+                onGoToLaunchReadiness = { navController.navigate(Screen.SchoolAdminLaunchReadiness.route) },
                 onSignedOut = { navController.navigateToLoginClearingBackStack() }
             )
         }
@@ -227,6 +229,24 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
 
         composable(Screen.SchoolAdminDataExport.route) {
             SchoolDataExportScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.SchoolAdminLaunchReadiness.route) {
+            LaunchReadinessScreen(
+                onBack = { navController.popBackStack() },
+                onOpenAction = { action ->
+                    val route = when (action) {
+                        "academic" -> Screen.SchoolAdminAcademicStructure.route
+                        "students", "guardians" -> Screen.TeacherStudents.route
+                        "staff" -> Screen.SchoolAdminStaffManagement.route
+                        "pickup_policy" -> Screen.SchoolAdminPickupPolicy.route
+                        "campus_gates" -> Screen.SchoolAdminCampusGates.route
+                        "branding" -> Screen.SchoolAdminBranding.route
+                        else -> null
+                    }
+                    if (route != null) navController.navigate(route)
+                }
+            )
         }
 
         composable(Screen.SchoolAdminInviteTeacher.route) {

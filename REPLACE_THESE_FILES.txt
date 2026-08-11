@@ -1,12 +1,41 @@
-PICKUPPASS PHASE 3 — CUMULATIVE UPDATE 12
+PICKUPPASS PHASE 3 — CUMULATIVE UPDATE 13
 ==========================================
 
-This is a CUMULATIVE replacement pack. It contains the PickupPass replacement files from the earlier Phase 1/2/3 updates plus Phase 3 Update 12.
+This is a CUMULATIVE replacement pack. It contains the PickupPass replacement files from the earlier Phase 1/2/3 updates plus Phase 3 Update 13.
+
+UPDATE 13 — STARTUP SCHOOL ONBOARDING & LAUNCH READINESS
+---------------------------------------------------------
+- Adds an on-demand School Admin Launch Readiness wizard.
+- Adds a platform-owner launch review/approval action to each tenant in the Master Admin console.
+- Keeps the implementation startup-friendly: no scheduler, no Cloud Storage copy, no external service, and no new paid cloud feature.
+- Required automatic checks: active tenant, usable trial/subscription, active school admin, current academic year, active section, student roster, and complete guardian coverage for every active student.
+- Required on-site confirmations: scanner device test, end-to-end guardian QR test, staff briefing, and emergency/fallback procedure review.
+- Pickup gates remain optional: 0 gates is valid, 1 gate auto-selects, 2+ supports selection/restrictions.
+- School admins may complete setup and request review but cannot approve their own tenant for launch.
+- Only master_admin/platform owner can approve or reopen launch review.
+- Approval is dynamically rechecked; an approved tenant with new blockers is shown as approved_needs_attention.
+- Launch readiness never participates in QR authorization or student-release decisions.
+
+NEW BACKEND FILES
+- pickup-pass-system/backend/src/main/java/com/pickuppass/service/LaunchReadinessService.java
+- pickup-pass-system/backend/src/main/java/com/pickuppass/controller/LaunchReadinessController.java
+
+NEW ANDROID FILES
+- pickup-pass-android/app/src/main/java/com/pickuppass/android/ui/schooladmin/readiness/LaunchReadinessViewModel.kt
+- pickup-pass-android/app/src/main/java/com/pickuppass/android/ui/schooladmin/readiness/LaunchReadinessScreen.kt
+
+NEW FIRESTORE RECORD
+- schoolLaunchReadiness/{schoolId}
+
+NO NEW FIRESTORE COMPOSITE INDEX IS REQUIRED BY UPDATE 13.
+
+Review PHASE3_LAUNCH_READINESS_ONBOARDING_NOTES.md before onboarding the first live school.
+
 
 HOW TO APPLY
 1. Stop the backend and close/stop the Android app build if running.
 2. Extract the protected archive.
-3. Open the PickupPass_Phase3_Cumulative_Update_12 folder.
+3. Open the PickupPass_Phase3_Cumulative_Update_13 folder.
 4. Copy everything inside it into the ROOT of your existing "PickupPass - Copy" project.
 5. Choose Replace / Overwrite when Windows asks.
 6. Do not delete project files that are not present in this replacement pack.

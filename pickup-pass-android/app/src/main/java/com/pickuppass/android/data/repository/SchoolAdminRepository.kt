@@ -504,4 +504,33 @@ class SchoolAdminRepository @Inject constructor(
         ApiResult.Failure(e.message ?: "Network error")
     }
 
+
+    suspend fun getLaunchReadiness(): ApiResult<LaunchReadinessResponse> = try {
+        val response = api.getSchoolLaunchReadiness()
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body)
+        else ApiResult.Failure(response.errorBody()?.string()?.take(300) ?: "Could not load launch readiness")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
+    suspend fun updateLaunchManualChecks(checks: Map<String, Boolean>): ApiResult<LaunchReadinessResponse> = try {
+        val response = api.updateSchoolLaunchManualChecks(LaunchManualChecksRequest(checks))
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body)
+        else ApiResult.Failure(response.errorBody()?.string()?.take(300) ?: "Could not update launch checks")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
+    suspend fun requestLaunchReview(): ApiResult<LaunchReadinessResponse> = try {
+        val response = api.requestSchoolLaunchReview()
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body)
+        else ApiResult.Failure(response.errorBody()?.string()?.take(300) ?: "Could not request launch review")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
+
 }

@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.MasterPlanDefinition
@@ -67,6 +68,7 @@ fun MasterAdminScreen(
     var revokeSecurityUser by remember { mutableStateOf<MasterSecurityAlert?>(null) }
     var recoveryProtectionChoice by remember { mutableStateOf<String?>(null) }
     var recoveryBackup by remember { mutableStateOf<MasterBackupItem?>(null) }
+    var launchReadinessForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
     val healthBySchool = state.operations?.tenants?.associateBy { it.schoolId }.orEmpty()
 
     Scaffold(
@@ -414,10 +416,31 @@ fun MasterAdminScreen(
                     onBilling = { billingForSchool = school; viewModel.loadInvoices(school.schoolId) },
                     onReconcileSubscription = { viewModel.reconcileSubscription(school.schoolId) },
                     onToggleExportAccess = { viewModel.setSchoolDataExportAccess(school.schoolId, !school.selfServiceDataExportEnabled) },
-                    onExportData = { viewModel.downloadSchoolDataExport(school) }
+                    onExportData = { viewModel.downloadSchoolDataExport(school) },
+                    onLaunchReadiness = {
+                        launchReadinessForSchool = school
+                        viewModel.loadSchoolLaunchReadiness(school.schoolId)
+                    }
                 )
             }
         }
+    }
+
+    launchReadinessForSchool?.let { school ->
+        LaunchReadinessDialog(
+            school = school,
+            readiness = state.launchReadiness,
+            loading = state.launchReadinessLoading,
+            saving = state.saving,
+            error = state.error,
+            onDismiss = {
+                launchReadinessForSchool = null
+                viewModel.clearSchoolLaunchReadiness()
+            },
+            onRefresh = { viewModel.loadSchoolLaunchReadiness(school.schoolId) },
+            onApprove = { note -> viewModel.approveSchoolLaunch(school.schoolId, note) },
+            onReopen = { reason -> viewModel.reopenSchoolLaunch(school.schoolId, reason) }
+        )
     }
 
     recoveryProtectionChoice?.let { profile ->
@@ -873,7 +896,8 @@ private fun SchoolCard(
     onBilling: () -> Unit,
     onReconcileSubscription: () -> Unit,
     onToggleExportAccess: () -> Unit,
-    onExportData: () -> Unit
+    onExportData: () -> Unit,
+    onLaunchReadiness: () -> Unit
 ) {
     val active = school.status == "active"
     OutlinedCard(Modifier.fillMaxWidth()) {
@@ -894,6 +918,11 @@ private fun SchoolCard(
                         "${school.plan.replaceFirstChar { it.uppercase() }} · ${school.subscriptionStatus.replace('_', ' ')}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Launch: ${launchStatusLabel(school.launchStatus)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (school.launchStatus == "approved") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         if (active) "Active tenant" else "Suspended tenant",
@@ -929,6 +958,9 @@ private fun SchoolCard(
                 FilledTonalButton(onClick = onBilling, enabled = !saving) { Text("Billing records") }
                 FilledTonalButton(onClick = onAddAdmin, enabled = active && !saving) { Text("Add admin") }
             }
+            FilledTonalButton(onClick = onLaunchReadiness, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
+                Text("Launch readiness")
+            }
             TextButton(onClick = onReconcileSubscription, enabled = !saving) {
                 Text("Check subscription lifecycle now")
             }
@@ -956,6 +988,90 @@ private fun SchoolCard(
     }
 }
 
+
+@Composable
+private fun LaunchReadinessDialog(
+    school: MasterSchoolItem,
+    readiness: com.pickuppass.android.data.model.LaunchReadinessResponse?,
+    loading: Boolean,
+    saving: Boolean,
+    error: String?,
+    onDismiss: () -> Unit,
+    onRefresh: () -> Unit,
+    onApprove: (String) -> Unit,
+    onReopen: (String) -> Unit
+) {
+    var note by remember(school.schoolId) { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Launch Readiness · ${school.schoolName}") },
+        text = {
+            Column(
+                modifier = Modifier.heightIn(max = 520.dp),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                when {
+                    loading -> LinearProgressIndicator(Modifier.fillMaxWidth())
+                    readiness != null -> {
+                        Text(
+                            when (readiness.effectiveStatus) {
+                                "approved" -> "Approved and ready for launch"
+                                "approved_needs_attention" -> "Approved, but new blockers need attention"
+                                "review_requested" -> "School requested platform review"
+                                "review_requested_needs_attention" -> "Review requested, but new blockers exist"
+                                else -> "School setup is still in progress"
+                            },
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "${readiness.passedCount} passed · ${readiness.warningCount} warning(s) · ${readiness.blockerCount} blocker(s)",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        readiness.checks.filter { it.status != "pass" }.take(8).forEach { check ->
+                            Text(
+                                "• ${check.label}: ${check.detail}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (check.status == "blocker") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (readiness.checks.count { it.status != "pass" } > 8) {
+                            Text("More items are available in the school-admin readiness wizard.", style = MaterialTheme.typography.bodySmall)
+                        }
+                        OutlinedTextField(
+                            value = note,
+                            onValueChange = { note = it.take(500) },
+                            label = { Text(if (readiness.launchApproved) "Reopen reason" else "Approval note (optional)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
+        confirmButton = {
+            if (readiness?.launchApproved == true) {
+                Button(onClick = { onReopen(note) }, enabled = !saving) { Text("Reopen Review") }
+            } else {
+                Button(
+                    onClick = { onApprove(note) },
+                    enabled = readiness?.readyForReview == true && !saving
+                ) { Text("Approve Launch") }
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onRefresh, enabled = !loading && !saving) { Text("Refresh") }
+                TextButton(onClick = onDismiss) { Text("Close") }
+            }
+        }
+    )
+}
+
+private fun launchStatusLabel(status: String): String = when (status) {
+    "approved" -> "Approved"
+    "review_requested" -> "Review requested"
+    else -> "Draft"
+}
 
 @Composable
 private fun OperationsAlertCard(

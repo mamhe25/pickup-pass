@@ -73,6 +73,7 @@ fun SchoolBrandingScreen(
     onGoToBroadcast: () -> Unit,
     onGoToBilling: () -> Unit,
     onGoToDataExport: () -> Unit,
+    onGoToLaunchReadiness: () -> Unit,
     onSignedOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -245,6 +246,7 @@ fun SchoolBrandingScreen(
                 NavListItem(Icons.Filled.PersonAdd, "Invite a Teacher", onGoToInviteTeacher)
                 NavListItem(Icons.Filled.Class, "Teacher Sections", onGoToManageSections)
                 NavListItem(Icons.Filled.AdminPanelSettings, "Teacher Accounts", onGoToStaffManagement)
+                NavListItem(Icons.Filled.FactCheck, "Launch Readiness", onGoToLaunchReadiness)
                 NavListItem(Icons.Filled.FactCheck, "Audit Log", onGoToAuditLog)
                 NavListItem(Icons.Filled.ReceiptLong, "Subscription & Billing", onGoToBilling)
                 NavListItem(Icons.Filled.Download, "Data Backup & Export", onGoToDataExport)

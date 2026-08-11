@@ -265,4 +265,33 @@ class MasterAdminRepository @Inject constructor(private val api: PickupPassApi) 
             ?: ApiResult.Failure("Could not refresh recovery-drill status")
     } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
 
+
+    suspend fun getSchoolLaunchReadiness(schoolId: String): ApiResult<LaunchReadinessResponse> = try {
+        val response = api.getMasterSchoolLaunchReadiness(schoolId)
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body)
+        else ApiResult.Failure(response.errorBody()?.string()?.take(300) ?: "Could not load launch readiness")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
+    suspend fun approveSchoolLaunch(schoolId: String, note: String): ApiResult<LaunchReadinessResponse> = try {
+        val response = api.approveMasterSchoolLaunch(schoolId, LaunchReviewDecisionRequest(note))
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body)
+        else ApiResult.Failure(response.errorBody()?.string()?.take(300) ?: "Could not approve school launch")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
+    suspend fun reopenSchoolLaunch(schoolId: String, reason: String): ApiResult<LaunchReadinessResponse> = try {
+        val response = api.reopenMasterSchoolLaunch(schoolId, LaunchReviewDecisionRequest(reason))
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body)
+        else ApiResult.Failure(response.errorBody()?.string()?.take(300) ?: "Could not reopen launch review")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
+
 }

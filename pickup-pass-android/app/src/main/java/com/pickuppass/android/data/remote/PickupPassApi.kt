@@ -412,6 +412,37 @@ interface PickupPassApi {
         @Path("jobId") jobId: String
     ): Response<MasterRecoveryJobItem>
 
+
+
+    // ---- Phase 3: startup onboarding + launch readiness ----
+    @GET("school-admin/launch-readiness")
+    suspend fun getSchoolLaunchReadiness(): Response<LaunchReadinessResponse>
+
+    @PUT("school-admin/launch-readiness/manual-checks")
+    suspend fun updateSchoolLaunchManualChecks(
+        @Body body: LaunchManualChecksRequest
+    ): Response<LaunchReadinessResponse>
+
+    @POST("school-admin/launch-readiness/request-review")
+    suspend fun requestSchoolLaunchReview(): Response<LaunchReadinessResponse>
+
+    @GET("master-admin/schools/{schoolId}/launch-readiness")
+    suspend fun getMasterSchoolLaunchReadiness(
+        @Path("schoolId") schoolId: String
+    ): Response<LaunchReadinessResponse>
+
+    @POST("master-admin/schools/{schoolId}/launch-readiness/approve")
+    suspend fun approveMasterSchoolLaunch(
+        @Path("schoolId") schoolId: String,
+        @Body body: LaunchReviewDecisionRequest
+    ): Response<LaunchReadinessResponse>
+
+    @POST("master-admin/schools/{schoolId}/launch-readiness/reopen")
+    suspend fun reopenMasterSchoolLaunch(
+        @Path("schoolId") schoolId: String,
+        @Body body: LaunchReviewDecisionRequest
+    ): Response<LaunchReadinessResponse>
+
     @GET("tenant/entitlements")
     suspend fun getTenantEntitlements(): Response<TenantEntitlementsResponse>
 

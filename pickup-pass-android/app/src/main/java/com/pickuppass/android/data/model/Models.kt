@@ -656,6 +656,8 @@ data class MasterSchoolItem(
     val limits: Map<String, Int> = emptyMap(),
     val usage: TenantUsageSummary = TenantUsageSummary(),
     val selfServiceDataExportEnabled: Boolean = false,
+    val launchStatus: String = "draft",
+    val launchStatusUpdatedAt: String? = null,
     val createdAt: String? = null,
     val statusUpdatedAt: String? = null
 )
@@ -1094,3 +1096,42 @@ data class SchoolDataExportStatusResponse(
 )
 
 data class MasterDataExportAccessRequest(val enabled: Boolean)
+
+
+// ---- Phase 3: startup school onboarding + launch readiness ----
+data class LaunchReadinessCheck(
+    val key: String = "",
+    val label: String = "",
+    val status: String = "blocker",
+    val required: Boolean = true,
+    val detail: String = "",
+    val action: String = ""
+)
+
+data class LaunchReadinessResponse(
+    val schoolId: String = "",
+    val schoolName: String = "",
+    val reviewStatus: String = "draft",
+    val effectiveStatus: String = "draft",
+    val readyForReview: Boolean = false,
+    val launchApproved: Boolean = false,
+    val readyForLaunch: Boolean = false,
+    val blockerCount: Long = 0,
+    val warningCount: Long = 0,
+    val passedCount: Long = 0,
+    val activeStudents: Long = 0,
+    val studentsWithoutGuardian: Long = 0,
+    val activeTeachers: Long = 0,
+    val activeSchoolAdmins: Long = 0,
+    val activeSections: Long = 0,
+    val activeGates: Long = 0,
+    val manualChecks: Map<String, Boolean> = emptyMap(),
+    val checks: List<LaunchReadinessCheck> = emptyList(),
+    val reviewRequestedAt: String? = null,
+    val approvedAt: String? = null,
+    val approvalNote: String = "",
+    val lastAssessedAt: String? = null
+)
+
+data class LaunchManualChecksRequest(val manualChecks: Map<String, Boolean>)
+data class LaunchReviewDecisionRequest(val note: String = "")

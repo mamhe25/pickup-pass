@@ -10,6 +10,7 @@ import com.pickuppass.android.data.model.GcashPaymentNoticeItem
 import com.pickuppass.android.data.model.MasterOperationsOverviewResponse
 import com.pickuppass.android.data.model.MasterSecurityOverviewResponse
 import com.pickuppass.android.data.model.MasterDisasterRecoveryOverviewResponse
+import com.pickuppass.android.data.model.LaunchReadinessResponse
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.AuthRepository
 import com.pickuppass.android.data.repository.MasterAdminRepository
@@ -44,6 +45,9 @@ data class MasterAdminUiState(
     val gcashPaymentNotices: List<GcashPaymentNoticeItem> = emptyList(),
     val invoicePdf: InvoicePdfPayload? = null,
     val dataExportZip: DataExportZipPayload? = null,
+    val launchReadinessLoading: Boolean = false,
+    val launchReadinessSchoolId: String? = null,
+    val launchReadiness: LaunchReadinessResponse? = null,
     val error: String? = null,
     val message: String? = null
 )
@@ -372,6 +376,74 @@ class MasterAdminViewModel @Inject constructor(
                 is ApiResult.Failure -> _uiState.value = _uiState.value.copy(saving = false, error = r.message)
             }
         }
+    }
+
+    fun loadSchoolLaunchReadiness(schoolId: String) = viewModelScope.launch {
+        _uiState.value = _uiState.value.copy(
+            launchReadinessLoading = true,
+            launchReadinessSchoolId = schoolId,
+            launchReadiness = null,
+            error = null
+        )
+        when (val result = repository.getSchoolLaunchReadiness(schoolId)) {
+            is ApiResult.Success -> _uiState.value = _uiState.value.copy(
+                launchReadinessLoading = false,
+                launchReadiness = result.data
+            )
+            is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
+                launchReadinessLoading = false,
+                error = result.message
+            )
+        }
+    }
+
+    fun approveSchoolLaunch(schoolId: String, note: String) =
+        runLaunchReviewAction(schoolId, "School approved for launch") {
+            repository.approveSchoolLaunch(schoolId, note)
+        }
+
+    fun reopenSchoolLaunch(schoolId: String, reason: String) =
+        runLaunchReviewAction(schoolId, "Launch review reopened") {
+            repository.reopenSchoolLaunch(schoolId, reason)
+        }
+
+    private fun runLaunchReviewAction(
+        schoolId: String,
+        message: String,
+        block: suspend () -> ApiResult<LaunchReadinessResponse>
+    ) {
+        if (_uiState.value.saving) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(saving = true, error = null, message = null)
+            when (val result = block()) {
+                is ApiResult.Success -> {
+                    val updatedSchools = _uiState.value.schools.map { school ->
+                        if (school.schoolId == schoolId) school.copy(
+                            launchStatus = result.data.reviewStatus,
+                            launchStatusUpdatedAt = result.data.approvedAt ?: school.launchStatusUpdatedAt
+                        ) else school
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        saving = false,
+                        launchReadiness = result.data,
+                        schools = updatedSchools,
+                        message = message
+                    )
+                }
+                is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
+                    saving = false,
+                    error = result.message
+                )
+            }
+        }
+    }
+
+    fun clearSchoolLaunchReadiness() {
+        _uiState.value = _uiState.value.copy(
+            launchReadinessLoading = false,
+            launchReadinessSchoolId = null,
+            launchReadiness = null
+        )
     }
 
     fun signOut() { authRepository.signOut() }

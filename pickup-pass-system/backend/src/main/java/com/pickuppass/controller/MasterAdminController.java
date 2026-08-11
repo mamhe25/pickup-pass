@@ -103,6 +103,8 @@ public class MasterAdminController {
             item.put("featureOverrides", rawOverrides instanceof Map<?, ?> ? rawOverrides : Map.of());
             item.put("usage", tenantUsageService.snapshot(doc.getId()));
             item.put("selfServiceDataExportEnabled", Boolean.TRUE.equals(doc.getBoolean("selfServiceDataExportEnabled")));
+            item.put("launchStatus", doc.getString("launchStatus") == null ? "draft" : doc.getString("launchStatus"));
+            item.put("launchStatusUpdatedAt", doc.getTimestamp("launchStatusUpdatedAt") == null ? null : doc.getTimestamp("launchStatusUpdatedAt").toDate().toInstant().toString());
             schools.add(item);
         }
 
@@ -142,6 +144,7 @@ public class MasterAdminController {
         // Privacy/cost-safe default: a tenant admin cannot create a full data export
         // until the platform owner intentionally enables self-service export.
         school.put("selfServiceDataExportEnabled", false);
+        school.put("launchStatus", "draft");
         school.put("createdAt", FieldValue.serverTimestamp());
         schoolRef.set(school).get(); // await so a write failure surfaces as an error, not a false success
         tenantUsageService.initializeNewTenant(schoolRef.getId());
