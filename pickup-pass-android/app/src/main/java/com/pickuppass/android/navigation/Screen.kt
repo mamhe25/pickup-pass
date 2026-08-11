@@ -53,4 +53,6 @@ sealed class Screen(val route: String) {
     data object SchoolAdminBulkStudentImport : Screen("school-admin/bulk-student-import")
 
     data object SchoolAdminStudentLifecycle : Screen("school-admin/student-lifecycle")
+
+    data object SchoolAdminDismissalReports : Screen("school-admin/dismissal-reports")
 }

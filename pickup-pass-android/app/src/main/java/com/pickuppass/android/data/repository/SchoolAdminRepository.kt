@@ -236,6 +236,38 @@ class SchoolAdminRepository @Inject constructor(
     }
 
 
+    suspend fun getDismissalReportSummary(
+        from: String,
+        to: String,
+        grade: String? = null,
+        section: String? = null
+    ): ApiResult<DismissalReportSummary> {
+        return try {
+            val response = api.getDismissalReportSummary(from, to, grade, section)
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure("Could not load dismissal report")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun exportDismissalReportCsv(
+        from: String,
+        to: String,
+        grade: String? = null,
+        section: String? = null
+    ): ApiResult<ByteArray> {
+        return try {
+            val response = api.exportDismissalReportCsv(from, to, grade, section)
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body.bytes())
+            else ApiResult.Failure("Could not export dismissal report")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
     suspend fun listStudentLifecycle(status: String? = null): ApiResult<StudentLifecycleResponse> {
         return try {
             val response = api.listStudentLifecycle(status)

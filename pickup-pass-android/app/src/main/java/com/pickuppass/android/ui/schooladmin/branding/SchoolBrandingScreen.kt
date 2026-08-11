@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.UploadFile
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,6 +62,7 @@ fun SchoolBrandingScreen(
     onGoToAcademicStructure: () -> Unit,
     onGoToBulkStudentImport: () -> Unit,
     onGoToStudentLifecycle: () -> Unit,
+    onGoToDismissalReports: () -> Unit,
     onGoToBroadcast: () -> Unit,
     onSignedOut: () -> Unit
 ) {
@@ -196,6 +198,7 @@ fun SchoolBrandingScreen(
             GroupedActionList {
                 NavListItem(Icons.Filled.Dashboard, "Live Dismissal Dashboard", onGoToDismissalDashboard)
                 NavListItem(Icons.Filled.History, "Dismissal History", onGoToExitLogs)
+                NavListItem(Icons.Filled.Assessment, "Dismissal Reports & Export", onGoToDismissalReports)
                 NavListItem(Icons.Filled.WarningAmber, "Manual Pickup Override", onGoToManualPickup)
             }
 

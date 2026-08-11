@@ -3,6 +3,7 @@ package com.pickuppass.android.data.remote
 import com.pickuppass.android.data.model.*
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.Multipart
@@ -13,6 +14,7 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.PUT
 import retrofit2.http.Query
+import retrofit2.http.Streaming
 
 interface PickupPassApi {
 
@@ -134,6 +136,24 @@ interface PickupPassApi {
 
     @POST("school-admin/students/promote")
     suspend fun promoteStudents(@Body body: PromotionRequest): Response<PromotionResponse>
+
+
+    @GET("school-admin/reports/dismissals/summary")
+    suspend fun getDismissalReportSummary(
+        @Query("from") from: String,
+        @Query("to") to: String,
+        @Query("grade") grade: String? = null,
+        @Query("section") section: String? = null
+    ): Response<DismissalReportSummary>
+
+    @Streaming
+    @GET("school-admin/reports/dismissals/export")
+    suspend fun exportDismissalReportCsv(
+        @Query("from") from: String,
+        @Query("to") to: String,
+        @Query("grade") grade: String? = null,
+        @Query("section") section: String? = null
+    ): Response<ResponseBody>
 
     @POST("school-admin/broadcasts")
     suspend fun broadcastToSchool(@Body body: BroadcastRequest): Response<BroadcastResponse>

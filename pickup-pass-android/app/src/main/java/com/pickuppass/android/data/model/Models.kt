@@ -406,3 +406,19 @@ data class PromotionResponse(
     val unresolved: List<PromotionStudentPreview> = emptyList(),
     val error: String? = null
 )
+
+// ---- Phase 2: dismissal reporting / export ----
+
+data class DismissalReportSummary(
+    val from: String = "",
+    val to: String = "",
+    val timeZone: String = "Asia/Manila",
+    val grade: String? = null,
+    val section: String? = null,
+    val totalReleases: Int = 0,
+    val uniqueStudentsReleased: Int = 0,
+    val qrReleases: Int = 0,
+    val manualOverrides: Int = 0,
+    val dailyCounts: Map<String, Int> = emptyMap(),
+    val gradeSectionCounts: Map<String, Int> = emptyMap()
+)

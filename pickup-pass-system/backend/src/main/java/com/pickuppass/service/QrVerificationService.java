@@ -124,6 +124,7 @@ public class QrVerificationService {
         String lockId = safeId(schoolId) + "_" + businessDate + "_" + safeId(result.getStudentId());
         DocumentReference lockRef = firestore.collection("dismissalLocks").document(lockId);
         DocumentReference exitLogRef = firestore.collection("exitLogs").document();
+        ExitSnapshot snapshot = loadExitSnapshot(result.getStudentId(), result.getParentUid(), verifiedByUid, schoolId);
 
         firestore.runTransaction(tx -> {
             DocumentSnapshot token = tx.get(result.getTokenRef()).get();
@@ -143,7 +144,7 @@ public class QrVerificationService {
             lockData.put("createdAt", FieldValue.serverTimestamp());
 
             Map<String, Object> log = buildExitLog(schoolId, result.getStudentId(), result.getParentUid(),
-                    verifiedByUid, "qr_scan", businessDate, null);
+                    verifiedByUid, "qr_scan", businessDate, null, snapshot);
 
             tx.update(result.getTokenRef(), "used", true, "usedAt", FieldValue.serverTimestamp());
             tx.set(lockRef, lockData);
@@ -178,6 +179,7 @@ public class QrVerificationService {
         String lockId = safeId(schoolId) + "_" + businessDate + "_" + safeId(studentId);
         DocumentReference lockRef = firestore.collection("dismissalLocks").document(lockId);
         DocumentReference exitLogRef = firestore.collection("exitLogs").document();
+        ExitSnapshot snapshot = loadExitSnapshot(studentId, guardianUid, verifiedByUid, schoolId);
 
         firestore.runTransaction(tx -> {
             DocumentSnapshot lock = tx.get(lockRef).get();
@@ -191,7 +193,7 @@ public class QrVerificationService {
             lockData.put("createdAt", FieldValue.serverTimestamp());
 
             Map<String, Object> log = buildExitLog(schoolId, studentId, guardianUid,
-                    verifiedByUid, "manual_override", businessDate, reason.trim());
+                    verifiedByUid, "manual_override", businessDate, reason.trim(), snapshot);
             tx.set(lockRef, lockData);
             tx.set(exitLogRef, log);
             return null;
@@ -201,7 +203,7 @@ public class QrVerificationService {
 
     private Map<String, Object> buildExitLog(String schoolId, String studentId, String parentUid,
                                               String verifiedByUid, String method, String businessDate,
-                                              String overrideReason) {
+                                              String overrideReason, ExitSnapshot snapshot) {
         Map<String, Object> log = new HashMap<>();
         log.put("schoolId", schoolId);
         log.put("studentId", studentId);
@@ -210,9 +212,45 @@ public class QrVerificationService {
         log.put("timestamp", FieldValue.serverTimestamp());
         log.put("businessDate", businessDate);
         log.put("method", method);
+        log.put("studentNameSnapshot", snapshot.studentName());
+        log.put("studentNumberSnapshot", snapshot.studentNumber());
+        log.put("gradeSnapshot", snapshot.grade());
+        log.put("sectionSnapshot", snapshot.section());
+        log.put("guardianNameSnapshot", snapshot.guardianName());
+        log.put("verifiedByNameSnapshot", snapshot.staffName());
         if (overrideReason != null) log.put("overrideReason", overrideReason);
         return log;
     }
+
+    private ExitSnapshot loadExitSnapshot(String studentId, String guardianUid, String staffUid, String schoolId)
+            throws ExecutionException, InterruptedException {
+        DocumentSnapshot student = firestore.collection("students").document(studentId).get().get();
+        if (!student.exists() || !schoolId.equals(student.getString("schoolId"))) {
+            throw new NotFoundException("Student not found in your school");
+        }
+        DocumentSnapshot guardian = firestore.collection("users").document(guardianUid).get().get();
+        DocumentSnapshot staff = firestore.collection("users").document(staffUid).get().get();
+        return new ExitSnapshot(
+                stringValue(student.getString("fullName"), "Unknown student"),
+                stringValue(student.getString("studentNumber"), stringValue(student.getString("lrn"), "")),
+                stringValue(student.getString("grade"), ""),
+                stringValue(student.getString("section"), ""),
+                displayName(guardian, "Unknown guardian"),
+                displayName(staff, "Unknown staff")
+        );
+    }
+
+    private String displayName(DocumentSnapshot user, String fallback) {
+        if (user == null || !user.exists()) return fallback;
+        return stringValue(user.getString("displayName"), stringValue(user.getString("email"), fallback));
+    }
+
+    private String stringValue(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private record ExitSnapshot(String studentName, String studentNumber, String grade, String section,
+                                String guardianName, String staffName) { }
 
     @SuppressWarnings("unchecked")
     private String pickupPolicyViolation(String schoolId) throws ExecutionException, InterruptedException {

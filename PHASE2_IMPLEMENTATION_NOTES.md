@@ -48,3 +48,7 @@ firebase deploy --only firestore:indexes
 ```
 
 Wait until the new `exitLogs(schoolId, businessDate, timestamp DESC)` index finishes building in Firebase.
+
+## Cumulative Update 5 — Reporting and export
+
+School administrators now have a tenant-isolated **Dismissal Reports & Export** screen with date-range summary metrics and CSV export. New exit logs also preserve pickup-time student, guardian, grade/section, and approving-staff snapshots so later profile or academic changes do not alter future historical reports. The original direct QR pickup workflow remains unchanged.
