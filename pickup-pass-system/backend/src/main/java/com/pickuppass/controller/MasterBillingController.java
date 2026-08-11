@@ -30,13 +30,25 @@ public class MasterBillingController {
     private final AuditService auditService;
     private final InvoicePdfService invoicePdfService;
     private final BillingEmailService billingEmailService;
+    private final boolean gcashEnabled;
+    private final String gcashAccountName;
+    private final String gcashMobile;
+    private final String gcashNote;
 
     public MasterBillingController(Firestore firestore, AuditService auditService,
-                                   InvoicePdfService invoicePdfService, BillingEmailService billingEmailService) {
+                                   InvoicePdfService invoicePdfService, BillingEmailService billingEmailService,
+                                   @org.springframework.beans.factory.annotation.Value("${BILLING_GCASH_ENABLED:true}") boolean gcashEnabled,
+                                   @org.springframework.beans.factory.annotation.Value("${BILLING_GCASH_ACCOUNT_NAME:}") String gcashAccountName,
+                                   @org.springframework.beans.factory.annotation.Value("${BILLING_GCASH_MOBILE:}") String gcashMobile,
+                                   @org.springframework.beans.factory.annotation.Value("${BILLING_GCASH_NOTE:Send the exact invoice amount and keep your GCash reference number.}") String gcashNote) {
         this.firestore = firestore;
         this.auditService = auditService;
         this.invoicePdfService = invoicePdfService;
         this.billingEmailService = billingEmailService;
+        this.gcashEnabled = gcashEnabled;
+        this.gcashAccountName = clean(gcashAccountName, 120);
+        this.gcashMobile = clean(gcashMobile, 40);
+        this.gcashNote = clean(gcashNote, 500);
     }
 
     @GetMapping("/schools/{schoolId}/profile")
@@ -109,6 +121,10 @@ public class MasterBillingController {
         data.put("status", "open");
         data.put("dueAt", Date.from(dueAt));
         data.put("note", clean(req.note, 500));
+        data.put("gcashEnabledSnapshot", gcashEnabled && !gcashMobile.isBlank());
+        data.put("gcashAccountNameSnapshot", gcashAccountName);
+        data.put("gcashMobileSnapshot", gcashMobile);
+        data.put("gcashNoteSnapshot", gcashNote);
         data.put("createdAt", FieldValue.serverTimestamp());
         data.put("updatedAt", FieldValue.serverTimestamp());
         ref.set(data).get();
@@ -209,6 +225,127 @@ public class MasterBillingController {
         return ResponseEntity.ok(Map.of("changed", changed));
     }
 
+
+    @GetMapping("/schools/{schoolId}/payment-notices")
+    public ResponseEntity<?> paymentNotices(@PathVariable String schoolId) throws Exception {
+        if (!schoolExists(schoolId)) return ResponseEntity.status(404).body(Map.of("error", "School not found"));
+        QuerySnapshot snapshot = firestore.collection("billingPaymentNotices")
+                .whereEqualTo("schoolId", schoolId)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .limit(100).get().get();
+        List<Map<String,Object>> rows = new ArrayList<>();
+        for (DocumentSnapshot d : snapshot.getDocuments()) rows.add(toPaymentNotice(d));
+        return ResponseEntity.ok(Map.of("paymentNotices", rows));
+    }
+
+    @PostMapping("/payment-notices/{noticeId}/confirm")
+    public ResponseEntity<?> confirmGcashPayment(@PathVariable String noticeId,
+                                                  @RequestBody(required = false) PaymentNoticeReviewRequest req,
+                                                  @AuthenticationPrincipal FirebaseUserDetails actor) throws Exception {
+        DocumentReference noticeRef = firestore.collection("billingPaymentNotices").document(noticeId);
+        String reviewNote = req == null ? "" : clean(req.note, 500);
+
+        String invoiceId;
+        try {
+            invoiceId = firestore.runTransaction(tx -> {
+            DocumentSnapshot notice = tx.get(noticeRef).get();
+            if (!notice.exists()) throw new IllegalArgumentException("Payment notice not found");
+            String noticeStatus = Optional.ofNullable(notice.getString("status")).orElse("pending_review");
+            if ("confirmed".equals(noticeStatus)) return Optional.ofNullable(notice.getString("invoiceId")).orElse("");
+            if ("rejected".equals(noticeStatus)) throw new IllegalArgumentException("Rejected payment notice cannot be confirmed");
+
+            String invId = Optional.ofNullable(notice.getString("invoiceId")).orElse("");
+            if (invId.isBlank()) throw new IllegalArgumentException("Payment notice has no invoice");
+            DocumentReference invoiceRef = firestore.collection("billingInvoices").document(invId);
+            DocumentSnapshot invoice = tx.get(invoiceRef).get();
+            if (!invoice.exists()) throw new IllegalArgumentException("Invoice not found");
+            if (!Objects.equals(invoice.getString("schoolId"), notice.getString("schoolId")))
+                throw new IllegalArgumentException("Payment notice does not belong to invoice school");
+            String invoiceStatus = Optional.ofNullable(invoice.getString("status")).orElse("open");
+            if ("void".equals(invoiceStatus)) throw new IllegalArgumentException("Void invoice cannot be paid");
+            if ("paid".equals(invoiceStatus)) {
+                String existingNoticeId = Optional.ofNullable(invoice.getString("paymentNoticeId")).orElse("");
+                if (!noticeId.equals(existingNoticeId)) {
+                    throw new IllegalArgumentException("Invoice is already paid using a different payment record");
+                }
+            }
+
+            long invoiceAmount = Optional.ofNullable(invoice.getLong("amountMinor")).orElse(0L);
+            long noticeAmount = Optional.ofNullable(notice.getLong("amountMinor")).orElse(-1L);
+            if (invoiceAmount != noticeAmount) throw new IllegalArgumentException("Payment amount does not match invoice total");
+
+            if (!"paid".equals(invoiceStatus)) {
+                Map<String,Object> invoiceUpdate = new HashMap<>();
+                invoiceUpdate.put("status", "paid");
+                invoiceUpdate.put("paidAt", FieldValue.serverTimestamp());
+                invoiceUpdate.put("paymentReference", Optional.ofNullable(notice.getString("referenceNumber")).orElse(""));
+                invoiceUpdate.put("paymentMethod", "GCash (manual verification)");
+                invoiceUpdate.put("paymentNote", reviewNote);
+                invoiceUpdate.put("paymentProvider", "gcash_manual");
+                invoiceUpdate.put("paymentNoticeId", noticeId);
+                invoiceUpdate.put("updatedAt", FieldValue.serverTimestamp());
+                tx.update(invoiceRef, invoiceUpdate);
+            }
+
+            Map<String,Object> noticeUpdate = new HashMap<>();
+            noticeUpdate.put("status", "confirmed");
+            noticeUpdate.put("reviewNote", reviewNote);
+            noticeUpdate.put("reviewedByUid", actor.getUid());
+            noticeUpdate.put("reviewedAt", FieldValue.serverTimestamp());
+            noticeUpdate.put("updatedAt", FieldValue.serverTimestamp());
+            tx.update(noticeRef, noticeUpdate);
+            return invId;
+            }).get();
+        } catch (Exception e) {
+            Throwable cause = e;
+            while (cause.getCause() != null) cause = cause.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().body(Map.of("error", cause.getMessage()));
+            }
+            throw e;
+        }
+
+        auditService.record(actor, "billing.gcash_payment_confirmed", "billingPaymentNotice", noticeId,
+                Map.of("invoiceId", invoiceId));
+        return ResponseEntity.ok(toPaymentNotice(noticeRef.get().get()));
+    }
+
+    @PostMapping("/payment-notices/{noticeId}/reject")
+    public ResponseEntity<?> rejectGcashPayment(@PathVariable String noticeId,
+                                                 @RequestBody PaymentNoticeReviewRequest req,
+                                                 @AuthenticationPrincipal FirebaseUserDetails actor) throws Exception {
+        String reason = clean(req == null ? null : req.note, 500);
+        if (reason.isBlank()) return ResponseEntity.badRequest().body(Map.of("error", "Rejection reason is required"));
+        DocumentReference ref = firestore.collection("billingPaymentNotices").document(noticeId);
+        DocumentSnapshot notice = ref.get().get();
+        if (!notice.exists()) return ResponseEntity.status(404).body(Map.of("error", "Payment notice not found"));
+        String status = Optional.ofNullable(notice.getString("status")).orElse("pending_review");
+        if ("confirmed".equals(status)) return ResponseEntity.badRequest().body(Map.of("error", "Confirmed payment notice cannot be rejected"));
+        ref.update(
+                "status", "rejected",
+                "reviewNote", reason,
+                "reviewedByUid", actor.getUid(),
+                "reviewedAt", FieldValue.serverTimestamp(),
+                "updatedAt", FieldValue.serverTimestamp()
+        ).get();
+        auditService.record(actor, "billing.gcash_payment_rejected", "billingPaymentNotice", noticeId,
+                Map.of("invoiceId", Optional.ofNullable(notice.getString("invoiceId")).orElse("")));
+        return ResponseEntity.ok(toPaymentNotice(ref.get().get()));
+    }
+
+    private Map<String,Object> toPaymentNotice(DocumentSnapshot d) {
+        Map<String,Object> m = new LinkedHashMap<>();
+        m.put("noticeId", d.getId());
+        for (String k : List.of("schoolId","invoiceId","invoiceNumber","currency","payerName","referenceNumber","note","status","reviewNote")) {
+            m.put(k, Optional.ofNullable(d.get(k)).orElse(""));
+        }
+        m.put("amountMinor", Optional.ofNullable(d.getLong("amountMinor")).orElse(0L));
+        for (String k : List.of("paidAtClaimed","createdAt","updatedAt","reviewedAt")) {
+            Timestamp ts = d.getTimestamp(k); m.put(k, ts == null ? null : ts.toDate().toInstant().toString());
+        }
+        return m;
+    }
+
     private String resolveBillingRecipient(DocumentSnapshot invoice) throws Exception {
         String schoolId = invoice.getString("schoolId");
         if (schoolId == null || schoolId.isBlank()) return clean(invoice.getString("billingEmailSnapshot"), 254);
@@ -260,4 +397,5 @@ public class MasterBillingController {
     public static class VoidRequest { public String reason; }
     public static class EmailInvoiceRequest { public String recipientEmail; }
     public static class BillingProfileRequest { public String billingName; public String billingEmail; public String billingAddress; public String billingTaxId; }
+    public static class PaymentNoticeReviewRequest { public String note; }
 }

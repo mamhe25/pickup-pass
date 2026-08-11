@@ -21,6 +21,7 @@ import com.pickuppass.android.data.model.MasterPlanDefinition
 import com.pickuppass.android.data.model.MasterSchoolItem
 import com.pickuppass.android.data.model.MasterInvoiceItem
 import com.pickuppass.android.data.model.MasterBillingProfileResponse
+import com.pickuppass.android.data.model.GcashPaymentNoticeItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.theme.Spacing
@@ -170,6 +171,7 @@ fun MasterAdminScreen(
         BillingDialog(
             school = school,
             invoices = if (state.billingSchoolId == school.schoolId) state.invoices else emptyList(),
+            paymentNotices = if (state.billingSchoolId == school.schoolId) state.gcashPaymentNotices else emptyList(),
             loading = state.billingLoading,
             saving = state.saving,
             billingProfile = state.billingProfile,
@@ -180,6 +182,8 @@ fun MasterAdminScreen(
             onDownloadPdf = { invoice -> viewModel.downloadInvoicePdf(invoice) },
             onPaid = { invoiceId, reference, method, note -> viewModel.markInvoicePaid(school.schoolId, invoiceId, reference, method, note) },
             onVoid = { invoiceId, reason -> viewModel.voidInvoice(school.schoolId, invoiceId, reason) },
+            onConfirmGcash = { noticeId, note -> viewModel.confirmGcashPayment(school.schoolId, noticeId, note) },
+            onRejectGcash = { noticeId, reason -> viewModel.rejectGcashPayment(school.schoolId, noticeId, reason) },
             onReconcile = { viewModel.reconcileOverdueInvoices(school.schoolId) }
         )
     }
@@ -434,6 +438,7 @@ private fun SchoolCard(
 private fun BillingDialog(
     school: MasterSchoolItem,
     invoices: List<MasterInvoiceItem>,
+    paymentNotices: List<GcashPaymentNoticeItem>,
     loading: Boolean,
     saving: Boolean,
     billingProfile: MasterBillingProfileResponse?,
@@ -444,6 +449,8 @@ private fun BillingDialog(
     onDownloadPdf: (MasterInvoiceItem) -> Unit,
     onPaid: (String, String, String, String) -> Unit,
     onVoid: (String, String) -> Unit,
+    onConfirmGcash: (String, String) -> Unit,
+    onRejectGcash: (String, String) -> Unit,
     onReconcile: () -> Unit
 ) {
     var showCreate by remember(school.schoolId) { mutableStateOf(false) }
@@ -451,6 +458,7 @@ private fun BillingDialog(
     var emailInvoice by remember(school.schoolId) { mutableStateOf<MasterInvoiceItem?>(null) }
     var payInvoice by remember(school.schoolId) { mutableStateOf<MasterInvoiceItem?>(null) }
     var voidInvoice by remember(school.schoolId) { mutableStateOf<MasterInvoiceItem?>(null) }
+    var reviewGcashNotice by remember(school.schoolId) { mutableStateOf<GcashPaymentNoticeItem?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -468,6 +476,21 @@ private fun BillingDialog(
                     }
                 }
                 if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                val pendingGcash = paymentNotices.filter { it.status == "pending_review" }
+                if (pendingGcash.isNotEmpty()) {
+                    item { Text("GCash payments awaiting verification", fontWeight = FontWeight.SemiBold) }
+                    items(pendingGcash, key = { "gcash-" + it.noticeId }) { notice ->
+                        OutlinedCard(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                                Text("${notice.invoiceNumber} · ${notice.currency} ${moneyLabel(notice.amountMinor)}", fontWeight = FontWeight.SemiBold)
+                                Text("Payer: ${notice.payerName}", style = MaterialTheme.typography.bodySmall)
+                                Text("Reference: ${notice.referenceNumber}", style = MaterialTheme.typography.bodySmall)
+                                Text("Claimed paid: ${notice.paidAtClaimed?.replace('T',' ')?.take(16) ?: "—"}", style = MaterialTheme.typography.bodySmall)
+                                Button(onClick = { reviewGcashNotice = notice }, enabled = !saving) { Text("Verify payment") }
+                            }
+                        }
+                    }
+                }
                 if (!loading && invoices.isEmpty()) item { Text("No billing records yet.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 items(invoices, key = { it.invoiceId }) { invoice ->
                     OutlinedCard(Modifier.fillMaxWidth()) {
@@ -574,6 +597,34 @@ private fun BillingDialog(
             } },
             confirmButton = { Button(enabled = !saving, onClick = { onPaid(invoice.invoiceId, reference, method, note); payInvoice = null }) { Text("Mark paid") } },
             dismissButton = { TextButton(onClick = { payInvoice = null }) { Text("Cancel") } }
+        )
+    }
+
+    reviewGcashNotice?.let { notice ->
+        var note by remember(notice.noticeId) { mutableStateOf("") }
+        var rejecting by remember(notice.noticeId) { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { reviewGcashNotice = null },
+            title = { Text(if (rejecting) "Reject GCash payment" else "Confirm GCash payment") },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Text("${notice.invoiceNumber} · ${notice.currency} ${moneyLabel(notice.amountMinor)}", fontWeight = FontWeight.SemiBold)
+                Text("Payer: ${notice.payerName}")
+                Text("GCash reference: ${notice.referenceNumber}")
+                Text("Check the actual receiving GCash transaction before confirming.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(note, { note = it }, label = { Text(if (rejecting) "Rejection reason" else "Verification note (optional)") })
+            } },
+            confirmButton = {
+                Button(enabled = !saving && (!rejecting || note.isNotBlank()), onClick = {
+                    if (rejecting) onRejectGcash(notice.noticeId, note) else onConfirmGcash(notice.noticeId, note)
+                    reviewGcashNotice = null
+                }) { Text(if (rejecting) "Reject" else "Confirm paid") }
+            },
+            dismissButton = {
+                Row {
+                    if (!rejecting) TextButton(onClick = { rejecting = true }) { Text("Reject instead") }
+                    TextButton(onClick = { reviewGcashNotice = null }) { Text("Cancel") }
+                }
+            }
         )
     }
 

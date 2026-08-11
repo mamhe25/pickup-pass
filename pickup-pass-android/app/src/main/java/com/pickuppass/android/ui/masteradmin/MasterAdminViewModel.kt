@@ -6,6 +6,7 @@ import com.pickuppass.android.data.model.MasterPlanDefinition
 import com.pickuppass.android.data.model.MasterSchoolItem
 import com.pickuppass.android.data.model.MasterInvoiceItem
 import com.pickuppass.android.data.model.MasterBillingProfileResponse
+import com.pickuppass.android.data.model.GcashPaymentNoticeItem
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.AuthRepository
 import com.pickuppass.android.data.repository.MasterAdminRepository
@@ -30,6 +31,7 @@ data class MasterAdminUiState(
     val billingLoading: Boolean = false,
     val invoices: List<MasterInvoiceItem> = emptyList(),
     val billingProfile: MasterBillingProfileResponse? = null,
+    val gcashPaymentNotices: List<GcashPaymentNoticeItem> = emptyList(),
     val invoicePdf: InvoicePdfPayload? = null,
     val error: String? = null,
     val message: String? = null
@@ -105,16 +107,23 @@ class MasterAdminViewModel @Inject constructor(
             is ApiResult.Failure -> null
         }
         val profileError = if (profile is ApiResult.Failure) profile.message else null
+        val notices = repository.listGcashPaymentNotices(schoolId)
+        val noticeData = when (notices) {
+            is ApiResult.Success -> notices.data.paymentNotices
+            is ApiResult.Failure -> emptyList()
+        }
         when (val r = repository.listInvoices(schoolId)) {
             is ApiResult.Success -> _uiState.value = _uiState.value.copy(
                 billingLoading = false,
                 invoices = r.data.invoices,
                 billingProfile = profileData,
-                error = profileError
+                gcashPaymentNotices = noticeData,
+                error = profileError ?: if (notices is ApiResult.Failure) notices.message else null
             )
             is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
                 billingLoading = false,
                 billingProfile = profileData,
+                gcashPaymentNotices = noticeData,
                 error = r.message
             )
         }
@@ -159,6 +168,12 @@ class MasterAdminViewModel @Inject constructor(
 
     fun reconcileOverdueInvoices(schoolId: String) =
         runBillingSave(schoolId, "Overdue invoices checked") { repository.reconcileOverdueInvoices(schoolId) }
+
+    fun confirmGcashPayment(schoolId: String, noticeId: String, note: String) =
+        runBillingSave(schoolId, "GCash payment confirmed") { repository.confirmGcashPaymentNotice(noticeId, note) }
+
+    fun rejectGcashPayment(schoolId: String, noticeId: String, reason: String) =
+        runBillingSave(schoolId, "GCash payment rejected") { repository.rejectGcashPaymentNotice(noticeId, reason) }
 
     private fun runBillingSave(schoolId: String, message: String, block: suspend () -> ApiResult<*>) {
         if (_uiState.value.saving) return

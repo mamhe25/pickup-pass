@@ -148,4 +148,31 @@ class MasterAdminRepository @Inject constructor(private val api: PickupPassApi) 
         if (response.isSuccessful) ApiResult.Success(Unit) else ApiResult.Failure("Could not reconcile overdue invoices")
     } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
 
+    suspend fun listGcashPaymentNotices(schoolId: String): ApiResult<GcashPaymentNoticeListResponse> = try {
+        val response = api.listMasterGcashPaymentNotices(schoolId)
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body)
+        else ApiResult.Failure("Could not load GCash payment notices")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
+    suspend fun confirmGcashPaymentNotice(noticeId: String, note: String): ApiResult<GcashPaymentNoticeItem> = try {
+        val response = api.confirmMasterGcashPaymentNotice(noticeId, GcashPaymentNoticeReviewRequest(note.ifBlank { null }))
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body)
+        else ApiResult.Failure("Could not confirm GCash payment")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
+    suspend fun rejectGcashPaymentNotice(noticeId: String, reason: String): ApiResult<GcashPaymentNoticeItem> = try {
+        val response = api.rejectMasterGcashPaymentNotice(noticeId, GcashPaymentNoticeReviewRequest(reason))
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body)
+        else ApiResult.Failure("Could not reject GCash payment")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
 }

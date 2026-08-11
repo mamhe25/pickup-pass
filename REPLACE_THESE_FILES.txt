@@ -180,3 +180,21 @@ The generic-hmac adapter is intentionally provider-neutral. Configure PAYMENT_WE
 Do not expose that secret in the Android app. Signature verification happens only on the backend.
 See PHASE3_BILLING_DELIVERY_WEBHOOK_NOTES.md for the normalized webhook contract.
 
+
+PHASE 3 UPDATE 7 — STARTUP MANUAL GCASH BILLING
+- Adds School Admin → Subscription & Billing.
+- Shows backend-configured GCash payment instructions without hard-coding wallet details into Android.
+- School can submit payer name, GCash reference number, and claimed payment time for an invoice.
+- A submitted payment remains pending until Master Admin verifies the actual receiving GCash transaction.
+- Master Admin Billing Records now surfaces pending GCash payment notices and can confirm or reject them.
+- Confirmation transactionally marks the invoice paid as "GCash (manual verification)".
+- Rejection requires a reason; school can submit a corrected payment notice afterward.
+- Exact invoice amount is required; invoice ownership is revalidated during confirmation.
+- GCash reference numbers are globally reserved using a SHA-256 keyed claim document to prevent the same payment from being claimed by multiple schools.
+- Invoice PDFs snapshot and display GCash payment instructions for unpaid invoices.
+- No GCash PIN, OTP, password, or wallet login is ever stored.
+- No payment screenshot is required by default.
+- Core QR pickup remains independent from billing and payment verification.
+- New collections: billingPaymentNotices, billingPaymentReferenceClaims.
+- Deploy Firestore indexes after replacement:
+  firebase deploy --only firestore:indexes

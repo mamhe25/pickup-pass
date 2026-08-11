@@ -25,16 +25,28 @@ public class InvoicePdfService {
     private final String companyName;
     private final String companyAddress;
     private final String supportEmail;
+    private final boolean gcashEnabled;
+    private final String gcashAccountName;
+    private final String gcashMobile;
+    private final String gcashNote;
     private final ZoneId displayZone;
 
     public InvoicePdfService(
             @Value("${pickuppass.billing.company-name:PickupPass}") String companyName,
             @Value("${pickuppass.billing.company-address:}") String companyAddress,
             @Value("${pickuppass.billing.support-email:}") String supportEmail,
+            @Value("${BILLING_GCASH_ENABLED:true}") boolean gcashEnabled,
+            @Value("${BILLING_GCASH_ACCOUNT_NAME:}") String gcashAccountName,
+            @Value("${BILLING_GCASH_MOBILE:}") String gcashMobile,
+            @Value("${BILLING_GCASH_NOTE:Send the exact invoice amount and keep your GCash reference number.}") String gcashNote,
             @Value("${app.school-time-zone:Asia/Manila}") String displayZone) {
         this.companyName = blankTo(companyName, "PickupPass");
         this.companyAddress = safe(companyAddress);
         this.supportEmail = safe(supportEmail);
+        this.gcashEnabled = gcashEnabled;
+        this.gcashAccountName = safe(gcashAccountName);
+        this.gcashMobile = safe(gcashMobile);
+        this.gcashNote = safe(gcashNote);
         this.displayZone = ZoneId.of(displayZone);
     }
 
@@ -96,6 +108,13 @@ public class InvoicePdfService {
                 text(cs, bold, 13, 365, y, "TOTAL");
                 text(cs, bold, 13, 430, y, money(invoice));
 
+                boolean invoiceGcashEnabled = invoice.contains("gcashEnabledSnapshot")
+                        ? Boolean.TRUE.equals(invoice.getBoolean("gcashEnabledSnapshot"))
+                        : gcashEnabled;
+                String invoiceGcashName = value(invoice, "gcashAccountNameSnapshot", gcashAccountName);
+                String invoiceGcashMobile = value(invoice, "gcashMobileSnapshot", gcashMobile);
+                String invoiceGcashNote = value(invoice, "gcashNoteSnapshot", gcashNote);
+
                 if ("paid".equalsIgnoreCase(value(invoice, "status", ""))) {
                     y -= 30;
                     text(cs, bold, 11, MARGIN, y, "PAID " + date(invoice.getTimestamp("paidAt")));
@@ -104,6 +123,20 @@ public class InvoicePdfService {
                     if (!ref.isBlank() || !method.isBlank()) {
                         y -= 15;
                         text(cs, regular, 9, MARGIN, y, "Payment: " + (method + " " + ref).trim());
+                    }
+                }
+                else if (invoiceGcashEnabled && !invoiceGcashMobile.isBlank()) {
+                    y -= 34;
+                    text(cs, bold, 11, MARGIN, y, "PAYMENT INSTRUCTIONS - GCASH");
+                    y -= 16;
+                    text(cs, regular, 10, MARGIN, y, "Account: " + (invoiceGcashName.isBlank() ? "Configured GCash account" : invoiceGcashName));
+                    y -= 14;
+                    text(cs, regular, 10, MARGIN, y, "GCash mobile: " + invoiceGcashMobile);
+                    y -= 14;
+                    text(cs, regular, 9, MARGIN, y, "Send the exact invoice total. Submit the GCash reference in PickupPass for manual verification.");
+                    if (!invoiceGcashNote.isBlank()) {
+                        y -= 14;
+                        y = wrapped(cs, regular, 9, MARGIN, y, 470, invoiceGcashNote);
                     }
                 }
 

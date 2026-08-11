@@ -812,3 +812,62 @@ data class EmailMasterInvoiceResponse(
     val recipient: String = "",
     val invoiceNumber: String = ""
 )
+
+
+// ---- Phase 3: startup manual GCash billing ----
+data class SchoolBillingPaymentInstructions(
+    val enabled: Boolean = false,
+    val accountName: String = "",
+    val mobile: String = "",
+    val note: String = "",
+    val verificationMode: String = "manual_review"
+)
+
+data class SchoolBillingInvoiceItem(
+    val invoiceId: String = "",
+    val invoiceNumber: String = "",
+    val planSnapshot: String = "",
+    val amountMinor: Long = 0,
+    val currency: String = "PHP",
+    val status: String = "open",
+    val dueAt: String? = null,
+    val note: String = "",
+    val paymentReference: String = "",
+    val paymentMethod: String = "",
+    val createdAt: String? = null,
+    val paidAt: String? = null
+)
+
+data class GcashPaymentNoticeItem(
+    val noticeId: String = "",
+    val schoolId: String = "",
+    val invoiceId: String = "",
+    val invoiceNumber: String = "",
+    val amountMinor: Long = 0,
+    val currency: String = "PHP",
+    val payerName: String = "",
+    val referenceNumber: String = "",
+    val note: String = "",
+    val status: String = "pending_review",
+    val reviewNote: String = "",
+    val paidAtClaimed: String? = null,
+    val createdAt: String? = null,
+    val reviewedAt: String? = null
+)
+
+data class SchoolBillingCenterResponse(
+    val paymentInstructions: SchoolBillingPaymentInstructions = SchoolBillingPaymentInstructions(),
+    val invoices: List<SchoolBillingInvoiceItem> = emptyList(),
+    val paymentNotices: List<GcashPaymentNoticeItem> = emptyList()
+)
+
+data class SubmitGcashPaymentNoticeRequest(
+    val payerName: String,
+    val referenceNumber: String,
+    val amountMinor: Long? = null,
+    val paidAt: String? = null,
+    val note: String? = null
+)
+
+data class GcashPaymentNoticeListResponse(val paymentNotices: List<GcashPaymentNoticeItem> = emptyList())
+data class GcashPaymentNoticeReviewRequest(val note: String? = null)

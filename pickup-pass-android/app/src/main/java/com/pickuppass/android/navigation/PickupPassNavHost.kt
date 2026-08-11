@@ -41,6 +41,7 @@ import com.pickuppass.android.ui.teacher.students.TeacherStudentsScreen
 import com.pickuppass.android.session.SessionGuardViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pickuppass.android.ui.schooladmin.staffgates.StaffPickupGatesScreen
+import com.pickuppass.android.ui.schooladmin.billing.SchoolBillingScreen
 
 @Composable
 fun PickupPassNavHost(navController: NavHostController = rememberNavController()) {
@@ -213,8 +214,13 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
                 onGoToCampusGates = { navController.navigate(Screen.SchoolAdminCampusGates.route) },
                 onGoToStaffPickupGates = { navController.navigate(Screen.SchoolAdminStaffPickupGates.route) },
                 onGoToBroadcast = { navController.navigate(Screen.SchoolAdminBroadcast.route) },
+                onGoToBilling = { navController.navigate(Screen.SchoolAdminBilling.route) },
                 onSignedOut = { navController.navigateToLoginClearingBackStack() }
             )
+        }
+
+        composable(Screen.SchoolAdminBilling.route) {
+            SchoolBillingScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Screen.SchoolAdminInviteTeacher.route) {

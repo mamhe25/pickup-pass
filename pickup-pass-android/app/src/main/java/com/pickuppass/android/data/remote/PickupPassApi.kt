@@ -306,6 +306,32 @@ interface PickupPassApi {
     @POST("master-admin/billing/schools/{schoolId}/invoices/reconcile-overdue")
     suspend fun reconcileMasterOverdueInvoices(@Path("schoolId") schoolId: String): Response<Map<String, Int>>
 
+    @GET("school-admin/billing")
+    suspend fun getSchoolBillingCenter(): Response<SchoolBillingCenterResponse>
+
+    @POST("school-admin/billing/invoices/{invoiceId}/gcash-payment-notice")
+    suspend fun submitSchoolGcashPaymentNotice(
+        @Path("invoiceId") invoiceId: String,
+        @Body body: SubmitGcashPaymentNoticeRequest
+    ): Response<GcashPaymentNoticeItem>
+
+    @GET("master-admin/billing/schools/{schoolId}/payment-notices")
+    suspend fun listMasterGcashPaymentNotices(
+        @Path("schoolId") schoolId: String
+    ): Response<GcashPaymentNoticeListResponse>
+
+    @POST("master-admin/billing/payment-notices/{noticeId}/confirm")
+    suspend fun confirmMasterGcashPaymentNotice(
+        @Path("noticeId") noticeId: String,
+        @Body body: GcashPaymentNoticeReviewRequest
+    ): Response<GcashPaymentNoticeItem>
+
+    @POST("master-admin/billing/payment-notices/{noticeId}/reject")
+    suspend fun rejectMasterGcashPaymentNotice(
+        @Path("noticeId") noticeId: String,
+        @Body body: GcashPaymentNoticeReviewRequest
+    ): Response<GcashPaymentNoticeItem>
+
     @GET("tenant/entitlements")
     suspend fun getTenantEntitlements(): Response<TenantEntitlementsResponse>
 

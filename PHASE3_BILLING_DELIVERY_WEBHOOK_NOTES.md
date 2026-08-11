@@ -86,3 +86,7 @@ This means a future PayMongo, Xendit, Stripe, or other integration can be added 
 ## Safety boundary
 
 Billing remains operationally separate from student release. SMTP outages, invoice PDF errors, payment-provider downtime, or webhook failures must never prevent a valid QR pickup from being verified and approved.
+
+## Startup manual GCash mode (Update 7)
+
+When subscription payments are received through a personal/manual GCash account, do not emulate a merchant webhook. Use the manual GCash payment-notice flow instead. The provider-neutral webhook architecture remains available for a future merchant/payment-gateway integration, but it is not required for manual GCash collection.
