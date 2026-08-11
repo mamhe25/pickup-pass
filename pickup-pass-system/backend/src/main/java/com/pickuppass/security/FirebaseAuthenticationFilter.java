@@ -2,6 +2,7 @@ package com.pickuppass.security;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseToken;
+import com.pickuppass.service.SecurityEventService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,9 +26,11 @@ import java.util.List;
 public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
 
     private final FirebaseAuth firebaseAuth;
+    private final SecurityEventService securityEvents;
 
-    public FirebaseAuthenticationFilter(FirebaseAuth firebaseAuth) {
+    public FirebaseAuthenticationFilter(FirebaseAuth firebaseAuth, SecurityEventService securityEvents) {
         this.firebaseAuth = firebaseAuth;
+        this.securityEvents = securityEvents;
     }
 
     @Override
@@ -60,8 +63,10 @@ public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authToken);
 
             } catch (Exception e) {
-                // Invalid/expired token: leave context unauthenticated.
-                // Spring Security's authorization rules will reject the request.
+                // Invalid/expired token: leave context unauthenticated. Do not store
+                // the token or raw IP; security telemetry keeps only a keyed fingerprint.
+                request.setAttribute("firebaseTokenRejected", Boolean.TRUE);
+                securityEvents.recordInvalidToken(request, e.getClass().getSimpleName());
                 SecurityContextHolder.clearContext();
             }
         }

@@ -1,6 +1,7 @@
 package com.pickuppass.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pickuppass.service.SecurityEventService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,10 +29,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final ConcurrentHashMap<String, Window> windows = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
     private final boolean enabled;
+    private final SecurityEventService securityEvents;
 
-    public RateLimitFilter(ObjectMapper objectMapper,
+    public RateLimitFilter(ObjectMapper objectMapper, SecurityEventService securityEvents,
                            @Value("${app.rate-limit.enabled:true}") boolean enabled) {
         this.objectMapper = objectMapper;
+        this.securityEvents = securityEvents;
         this.enabled = enabled;
     }
 
@@ -60,6 +63,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         response.setHeader("X-RateLimit-Remaining", String.valueOf(Math.max(0, policy.limit - count)));
 
         if (count > policy.limit) {
+            securityEvents.recordRateLimit(request, policy.name);
             long retryAfter = Math.max(1, policy.windowSeconds - (now - windowStart));
             response.setStatus(429);
             response.setHeader("Retry-After", String.valueOf(retryAfter));

@@ -10,6 +10,7 @@ class ProductionSafetyValidatorTest {
 
     private static final String QR_SECRET = "A9fK3mR8vQ2xT7zP4nL6sD1cH5jW0bYu";
     private static final String BOOTSTRAP_SECRET = "B8gL2nS7wR4xQ9mT1pV6cD3hK5jZ0aXe";
+    private static final String SECURITY_SECRET = "S7vQ4mR9xK2pT6nL1cD8hJ5wB3zF0aYe";
 
     @Test
     void developmentAllowsLocalDefaults() {
@@ -17,7 +18,7 @@ class ProductionSafetyValidatorTest {
         env.setActiveProfiles("dev");
         ProductionSafetyValidator validator = new ProductionSafetyValidator(env,
                 "change-this-to-a-long-random-value-in-production", "", "http://localhost:5500",
-                "http://localhost:5500,http://localhost:5173");
+                "http://localhost:5500,http://localhost:5173", "");
         assertDoesNotThrow(validator::validate);
     }
 
@@ -26,7 +27,7 @@ class ProductionSafetyValidatorTest {
         MockEnvironment env = productionEnvironment();
         ProductionSafetyValidator validator = new ProductionSafetyValidator(env,
                 "change-this-to-a-long-random-value-in-production",
-                BOOTSTRAP_SECRET, "https://app.pickuppass.ph", "https://app.pickuppass.ph");
+                BOOTSTRAP_SECRET, "https://app.pickuppass.ph", "https://app.pickuppass.ph", SECURITY_SECRET);
         assertThrows(IllegalStateException.class, validator::validate);
     }
 
@@ -34,7 +35,7 @@ class ProductionSafetyValidatorTest {
     void productionRejectsWildcardCors() {
         MockEnvironment env = productionEnvironment();
         ProductionSafetyValidator validator = new ProductionSafetyValidator(env,
-                QR_SECRET, BOOTSTRAP_SECRET, "https://app.pickuppass.ph", "*");
+                QR_SECRET, BOOTSTRAP_SECRET, "https://app.pickuppass.ph", "*", SECURITY_SECRET);
         assertThrows(IllegalStateException.class, validator::validate);
     }
 
@@ -42,7 +43,16 @@ class ProductionSafetyValidatorTest {
     void productionRejectsLocalhostCors() {
         MockEnvironment env = productionEnvironment();
         ProductionSafetyValidator validator = new ProductionSafetyValidator(env,
-                QR_SECRET, BOOTSTRAP_SECRET, "https://app.pickuppass.ph", "http://localhost:5173");
+                QR_SECRET, BOOTSTRAP_SECRET, "https://app.pickuppass.ph", "http://localhost:5173", SECURITY_SECRET);
+        assertThrows(IllegalStateException.class, validator::validate);
+    }
+
+    @Test
+    void productionRejectsWeakSecurityFingerprintSecret() {
+        MockEnvironment env = productionEnvironment();
+        ProductionSafetyValidator validator = new ProductionSafetyValidator(env,
+                QR_SECRET, BOOTSTRAP_SECRET,
+                "https://app.pickuppass.ph", "https://app.pickuppass.ph", "too-short");
         assertThrows(IllegalStateException.class, validator::validate);
     }
 
@@ -52,7 +62,7 @@ class ProductionSafetyValidatorTest {
         ProductionSafetyValidator validator = new ProductionSafetyValidator(env,
                 QR_SECRET, BOOTSTRAP_SECRET,
                 "https://app.pickuppass.ph",
-                "https://app.pickuppass.ph,https://admin.pickuppass.ph");
+                "https://app.pickuppass.ph,https://admin.pickuppass.ph", SECURITY_SECRET);
         assertDoesNotThrow(validator::validate);
     }
 

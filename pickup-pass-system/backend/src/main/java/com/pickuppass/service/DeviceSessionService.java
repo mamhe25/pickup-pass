@@ -89,6 +89,20 @@ public class DeviceSessionService {
         return true;
     }
 
+    public int revokeAllByAdmin(String uid, String reason) throws Exception {
+        int count = 0;
+        String safeReason = safe(reason, 240);
+        for (QueryDocumentSnapshot doc : firestore.collection("deviceSessions")
+                .whereEqualTo("uid", uid).get().get().getDocuments()) {
+            if (doc.getTimestamp("revokedAt") != null) continue;
+            doc.getReference().update(
+                    "revokedAt", FieldValue.serverTimestamp(),
+                    "revokedReason", "master_admin:" + safeReason).get();
+            count++;
+        }
+        return count;
+    }
+
     public int revokeOtherDevices(String uid, String currentDeviceId) throws Exception {
         String current = currentDeviceId == null ? "" : normalizeDeviceId(currentDeviceId);
         int count = 0;

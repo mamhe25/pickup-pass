@@ -269,6 +269,24 @@ interface PickupPassApi {
     @POST("master-admin/operations/refresh")
     suspend fun refreshMasterOperations(): Response<MasterOperationsRefreshResponse>
 
+
+
+    // ---- Phase 3: master-admin security center ----
+    @GET("master-admin/security/overview")
+    suspend fun getMasterSecurityOverview(@Query("limit") limit: Int = 100): Response<MasterSecurityOverviewResponse>
+
+    @POST("master-admin/security/alerts/{alertId}/status")
+    suspend fun setMasterSecurityAlertStatus(
+        @Path("alertId") alertId: String,
+        @Body body: MasterSecurityAlertStatusRequest
+    ): Response<Map<String, String>>
+
+    @POST("master-admin/security/users/{uid}/revoke-sessions")
+    suspend fun revokeMasterUserSessions(
+        @Path("uid") uid: String,
+        @Body body: MasterSecurityRevokeSessionsRequest
+    ): Response<Map<String, Any?>>
+
     @GET("master-admin/billing/schools/{schoolId}/profile")
     suspend fun getMasterBillingProfile(@Path("schoolId") schoolId: String): Response<MasterBillingProfileResponse>
 

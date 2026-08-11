@@ -191,4 +191,20 @@ class MasterAdminRepository @Inject constructor(private val api: PickupPassApi) 
         ApiResult.Failure(e.message ?: "Network error")
     }
 
+    suspend fun getSecurityOverview(): ApiResult<MasterSecurityOverviewResponse> = try {
+        val response = api.getMasterSecurityOverview()
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not load security center")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun setSecurityAlertStatus(alertId: String, status: String, note: String): ApiResult<Unit> = try {
+        val response = api.setMasterSecurityAlertStatus(alertId, MasterSecurityAlertStatusRequest(status, note.ifBlank { null }))
+        if (response.isSuccessful) ApiResult.Success(Unit) else ApiResult.Failure("Could not update security alert")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun revokeUserSessions(uid: String, reason: String): ApiResult<Unit> = try {
+        val response = api.revokeMasterUserSessions(uid, MasterSecurityRevokeSessionsRequest(reason))
+        if (response.isSuccessful) ApiResult.Success(Unit) else ApiResult.Failure("Could not revoke user sessions")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
 }

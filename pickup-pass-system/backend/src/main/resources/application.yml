@@ -92,3 +92,5 @@ pickuppass:
     health-scan-ms: ${SAAS_OPERATIONS_HEALTH_SCAN_MS:86400000}
     stale-hours: ${SAAS_OPERATIONS_STALE_HOURS:24}
     quota-warning-percent: ${SAAS_OPERATIONS_QUOTA_WARNING_PERCENT:90}
+  security:
+    fingerprint-secret: ${SECURITY_FINGERPRINT_SECRET:development-security-fingerprint-secret}

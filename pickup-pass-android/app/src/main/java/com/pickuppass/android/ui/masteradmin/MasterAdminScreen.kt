@@ -24,6 +24,8 @@ import com.pickuppass.android.data.model.MasterBillingProfileResponse
 import com.pickuppass.android.data.model.GcashPaymentNoticeItem
 import com.pickuppass.android.data.model.MasterOperationalAlert
 import com.pickuppass.android.data.model.MasterTenantHealthItem
+import com.pickuppass.android.data.model.MasterSecurityAlert
+import com.pickuppass.android.data.model.MasterPrivilegedAuditEvent
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.theme.Spacing
@@ -50,6 +52,7 @@ fun MasterAdminScreen(
     var adminForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
     var subscriptionForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
     var billingForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
+    var revokeSecurityUser by remember { mutableStateOf<MasterSecurityAlert?>(null) }
     val healthBySchool = state.operations?.tenants?.associateBy { it.schoolId }.orEmpty()
 
     Scaffold(
@@ -161,6 +164,57 @@ fun MasterAdminScreen(
                     )
                 }
             }
+            state.security?.let { security ->
+                item {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Security Center", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text("Privacy-preserving authentication, session, and privileged-action monitoring.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(onClick = { viewModel.loadSecurity() }, enabled = !state.securityLoading) {
+                            Text(if (state.securityLoading) "Loading…" else "Refresh")
+                        }
+                    }
+                }
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        MetricCard("Active alerts", security.metrics.activeAlerts.toString(), Modifier.weight(1f))
+                        MetricCard("High", security.metrics.high.toString(), Modifier.weight(1f))
+                        MetricCard("Medium", security.metrics.medium.toString(), Modifier.weight(1f))
+                    }
+                }
+                item {
+                    Text(
+                        "Open ${security.metrics.openAlerts} · Acknowledged ${security.metrics.acknowledged}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (security.alerts.isEmpty()) {
+                    item {
+                        OutlinedCard(Modifier.fillMaxWidth()) {
+                            Text("No active security alerts.", Modifier.padding(Spacing.md), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                } else {
+                    items(security.alerts.take(10), key = { "security-" + it.id }) { alert ->
+                        SecurityAlertCard(
+                            alert = alert,
+                            saving = state.saving,
+                            onAcknowledge = { viewModel.acknowledgeSecurityAlert(alert.id) },
+                            onResolve = { viewModel.resolveSecurityAlert(alert.id, "Reviewed and resolved") },
+                            onRevokeSessions = { revokeSecurityUser = alert }
+                        )
+                    }
+                }
+                if (security.recentPrivilegedActions.isNotEmpty()) {
+                    item { Text("Recent privileged actions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
+                    items(security.recentPrivilegedActions.take(8), key = { "audit-" + it.id }) { event ->
+                        PrivilegedActionCard(event)
+                    }
+                }
+            }
+
             state.error?.let { item { ErrorBanner(it) } }
             state.message?.let { item { Text(it, color = MaterialTheme.colorScheme.primary) } }
             item {
@@ -265,6 +319,31 @@ fun MasterAdminScreen(
             onConfirmGcash = { noticeId, note -> viewModel.confirmGcashPayment(school.schoolId, noticeId, note) },
             onRejectGcash = { noticeId, reason -> viewModel.rejectGcashPayment(school.schoolId, noticeId, reason) },
             onReconcile = { viewModel.reconcileOverdueInvoices(school.schoolId) }
+        )
+    }
+
+    revokeSecurityUser?.let { alert ->
+        var reason by remember(alert.id) { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { revokeSecurityUser = null },
+            title = { Text("Revoke all user sessions") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text("This signs the affected account out from all registered devices and revokes Firebase refresh tokens.")
+                    Text("User: ${alert.uid ?: "Unknown"}", fontWeight = FontWeight.SemiBold)
+                    OutlinedTextField(reason, { reason = it }, label = { Text("Reason") }, minLines = 2)
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = !state.saving && alert.uid != null && reason.trim().length >= 5,
+                    onClick = {
+                        alert.uid?.let { viewModel.revokeSecurityUserSessions(it, reason.trim()) }
+                        revokeSecurityUser = null
+                    }
+                ) { Text("Revoke sessions") }
+            },
+            dismissButton = { TextButton(onClick = { revokeSecurityUser = null }) { Text("Cancel") } }
         )
     }
 
@@ -438,6 +517,57 @@ private fun SubscriptionDialog(
 private fun limitLabel(value: Int): String = if (value < 0) "Unlimited" else value.toString()
 private fun featureLabel(value: String): String = value.split('_').joinToString(" ") { it.replaceFirstChar { ch -> ch.uppercase() } }
 private fun dateLabel(value: String): String = value.take(10)
+
+@Composable
+private fun SecurityAlertCard(
+    alert: MasterSecurityAlert,
+    saving: Boolean,
+    onAcknowledge: () -> Unit,
+    onResolve: () -> Unit,
+    onRevokeSessions: () -> Unit
+) {
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(alert.title, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(alert.severity.uppercase(), style = MaterialTheme.typography.labelMedium, color = securitySeverityColor(alert.severity))
+            }
+            Text(alert.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "${alert.status.replaceFirstChar { it.uppercase() }} · Occurrences: ${alert.occurrences}" +
+                    (alert.role?.let { " · $it" } ?: ""),
+                style = MaterialTheme.typography.bodySmall
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                if (alert.status.equals("open", ignoreCase = true)) {
+                    TextButton(onClick = onAcknowledge, enabled = !saving) { Text("Acknowledge") }
+                }
+                TextButton(onClick = onResolve, enabled = !saving) { Text("Resolve") }
+                if (!alert.uid.isNullOrBlank()) {
+                    TextButton(onClick = onRevokeSessions, enabled = !saving) { Text("Revoke sessions") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrivilegedActionCard(event: MasterPrivilegedAuditEvent) {
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Spacing.sm)) {
+            Text(event.action.replace('_', ' '), fontWeight = FontWeight.SemiBold)
+            Text("${event.resourceType} · ${event.resourceId}", style = MaterialTheme.typography.bodySmall)
+            Text("Actor ${event.actorRole} · ${event.actorUid.take(12)}" + (event.timestamp?.let { " · ${it.take(16).replace('T',' ')}" } ?: ""),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun securitySeverityColor(severity: String) = when (severity.lowercase()) {
+    "critical", "high" -> MaterialTheme.colorScheme.error
+    else -> MaterialTheme.colorScheme.tertiary
+}
 
 @Composable
 private fun MetricCard(label: String, value: String, modifier: Modifier = Modifier) {

@@ -8,6 +8,7 @@ import com.pickuppass.android.data.model.MasterInvoiceItem
 import com.pickuppass.android.data.model.MasterBillingProfileResponse
 import com.pickuppass.android.data.model.GcashPaymentNoticeItem
 import com.pickuppass.android.data.model.MasterOperationsOverviewResponse
+import com.pickuppass.android.data.model.MasterSecurityOverviewResponse
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.AuthRepository
 import com.pickuppass.android.data.repository.MasterAdminRepository
@@ -28,6 +29,8 @@ data class MasterAdminUiState(
     val schools: List<MasterSchoolItem> = emptyList(),
     val operationsLoading: Boolean = false,
     val operations: MasterOperationsOverviewResponse? = null,
+    val securityLoading: Boolean = false,
+    val security: MasterSecurityOverviewResponse? = null,
     val plans: Map<String, MasterPlanDefinition> = emptyMap(),
     val featureKeys: List<String> = emptyList(),
     val billingSchoolId: String? = null,
@@ -55,6 +58,7 @@ class MasterAdminViewModel @Inject constructor(
         val plansResult = repository.getPlanCatalog()
         val schoolsResult = repository.listSchools()
         val operationsResult = repository.getOperationsOverview()
+        val securityResult = repository.getSecurityOverview()
         when (schoolsResult) {
             is ApiResult.Success -> {
                 val planData = when (plansResult) {
@@ -71,11 +75,16 @@ class MasterAdminViewModel @Inject constructor(
                         is ApiResult.Success -> operationsResult.data
                         is ApiResult.Failure -> _uiState.value.operations
                     },
+                    security = when (securityResult) {
+                        is ApiResult.Success -> securityResult.data
+                        is ApiResult.Failure -> _uiState.value.security
+                    },
                     plans = planData?.plans ?: emptyMap(),
                     featureKeys = planData?.featureKeys ?: emptyList(),
                     error = when {
                         plansResult is ApiResult.Failure -> plansResult.message
                         operationsResult is ApiResult.Failure -> operationsResult.message
+                        securityResult is ApiResult.Failure -> securityResult.message
                         else -> null
                     }
                 )
@@ -116,6 +125,43 @@ class MasterAdminViewModel @Inject constructor(
                     operationsLoading = false,
                     error = r.message
                 )
+            }
+        }
+    }
+
+
+    fun loadSecurity(quiet: Boolean = false) = viewModelScope.launch {
+        if (!quiet) _uiState.value = _uiState.value.copy(securityLoading = true, error = null)
+        when (val r = repository.getSecurityOverview()) {
+            is ApiResult.Success -> _uiState.value = _uiState.value.copy(securityLoading = false, security = r.data)
+            is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
+                securityLoading = false, error = if (quiet) _uiState.value.error else r.message
+            )
+        }
+    }
+
+    fun acknowledgeSecurityAlert(alertId: String) = runSecuritySave("Security alert acknowledged") {
+        repository.setSecurityAlertStatus(alertId, "acknowledged", "Reviewed by master admin")
+    }
+
+    fun resolveSecurityAlert(alertId: String, note: String) = runSecuritySave("Security alert resolved") {
+        repository.setSecurityAlertStatus(alertId, "resolved", note)
+    }
+
+    fun revokeSecurityUserSessions(uid: String, reason: String) = runSecuritySave("User sessions revoked") {
+        repository.revokeUserSessions(uid, reason)
+    }
+
+    private fun runSecuritySave(message: String, block: suspend () -> ApiResult<*>) {
+        if (_uiState.value.saving) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(saving = true, error = null, message = null)
+            when (val r = block()) {
+                is ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(saving = false, message = message)
+                    loadSecurity(quiet = true)
+                }
+                is ApiResult.Failure -> _uiState.value = _uiState.value.copy(saving = false, error = r.message)
             }
         }
     }

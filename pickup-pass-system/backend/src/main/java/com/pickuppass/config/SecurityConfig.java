@@ -4,6 +4,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.pickuppass.security.FirebaseAuthenticationFilter;
 import com.pickuppass.security.DeviceSessionFilter;
 import com.pickuppass.service.DeviceSessionService;
+import com.pickuppass.service.SecurityEventService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pickuppass.security.JsonAccessDeniedHandler;
 import com.pickuppass.security.JsonAuthenticationEntryPoint;
@@ -27,13 +28,13 @@ import java.util.List;
 public class SecurityConfig {
 
     @Bean
-    public FirebaseAuthenticationFilter firebaseAuthenticationFilter(FirebaseAuth firebaseAuth) {
-        return new FirebaseAuthenticationFilter(firebaseAuth);
+    public FirebaseAuthenticationFilter firebaseAuthenticationFilter(FirebaseAuth firebaseAuth, SecurityEventService securityEvents) {
+        return new FirebaseAuthenticationFilter(firebaseAuth, securityEvents);
     }
 
     @Bean
-    public DeviceSessionFilter deviceSessionFilter(DeviceSessionService sessions, ObjectMapper objectMapper) {
-        return new DeviceSessionFilter(sessions, objectMapper);
+    public DeviceSessionFilter deviceSessionFilter(DeviceSessionService sessions, ObjectMapper objectMapper, SecurityEventService securityEvents) {
+        return new DeviceSessionFilter(sessions, objectMapper, securityEvents);
     }
 
     @Bean

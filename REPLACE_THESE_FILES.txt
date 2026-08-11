@@ -1,16 +1,51 @@
-PICKUPPASS PHASE 3 — CUMULATIVE UPDATE 9
+PICKUPPASS PHASE 3 — CUMULATIVE UPDATE 10
 ==========================================
 
-This is a CUMULATIVE replacement pack. It contains the PickupPass replacement files from the earlier Phase 1/2/3 updates plus Phase 3 Update 9.
+This is a CUMULATIVE replacement pack. It contains the PickupPass replacement files from the earlier Phase 1/2/3 updates plus Phase 3 Update 10.
 
 HOW TO APPLY
 1. Stop the backend and close/stop the Android app build if running.
 2. Extract the protected archive.
-3. Open the PickupPass_Phase3_Cumulative_Update_9 folder.
+3. Open the PickupPass_Phase3_Cumulative_Update_10 folder.
 4. Copy everything inside it into the ROOT of your existing "PickupPass - Copy" project.
 5. Choose Replace / Overwrite when Windows asks.
 6. Do not delete project files that are not present in this replacement pack.
 7. Run your normal backend tests and Android build before production deployment.
+
+
+UPDATE 10 — MASTER ADMIN AUDIT & SECURITY CENTER
+--------------------------------------------------
+- Adds a Master Admin Security Center with severity metrics, active alerts, acknowledgment/resolution workflow, and recent privileged actions.
+- Privacy-preserving request correlation using HMAC fingerprints; raw client IP addresses and tokens are not stored.
+- Repeated invalid Firebase token attempts are aggregated in 15-minute windows before escalating to a high-severity alert.
+- Revoked device attempts produce deduplicated security alerts.
+- Privileged endpoint access-denied events produce security alerts for authenticated users.
+- Protected API rate-limit events are surfaced without storing request bodies or credentials.
+- Master Admin can acknowledge/resolve alerts.
+- Master Admin can revoke all device sessions and Firebase refresh tokens for a UID with a required reason.
+- Existing systemAuditEvents are shown as recent privileged-action history.
+- Production startup now requires a separate SECURITY_FINGERPRINT_SECRET (32+ random characters).
+- Security telemetry write failures are non-blocking and remain outside the student release transaction.
+
+NEW BACKEND FILES
+- pickup-pass-system/backend/src/main/java/com/pickuppass/service/SecurityEventService.java
+- pickup-pass-system/backend/src/main/java/com/pickuppass/controller/MasterSecurityController.java
+
+NEW BACKEND ENDPOINTS
+- GET  /api/master-admin/security/overview
+- POST /api/master-admin/security/alerts/{alertId}/status
+- POST /api/master-admin/security/users/{uid}/revoke-sessions
+
+NEW FIRESTORE RECORDS
+- securityAlerts/{deterministicHash}
+- securityAuthWindows/{hash}
+
+NEW REQUIRED PRODUCTION SETTING
+- SECURITY_FINGERPRINT_SECRET=<separate random 32+ character secret>
+
+FIRESTORE INDEXES
+No new composite index is required by Update 10.
+Recommended production housekeeping: enable Firestore TTL on securityAuthWindows.expiresAt so seven-day authentication aggregation windows are automatically removed.
 
 UPDATE 9 — SAAS OPERATIONS HEALTH + RECONCILIATION DASHBOARD
 -------------------------------------------------------------

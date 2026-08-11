@@ -791,6 +791,60 @@ data class MasterOperationsRefreshResponse(
 )
 
 
+
+
+// ---- Phase 3: master-admin security center ----
+data class MasterSecurityMetrics(
+    val activeAlerts: Int = 0,
+    val openAlerts: Int = 0,
+    val acknowledged: Int = 0,
+    val critical: Int = 0,
+    val high: Int = 0,
+    val medium: Int = 0
+)
+
+data class MasterSecurityAlert(
+    val id: String = "",
+    val type: String = "",
+    val severity: String = "medium",
+    val schoolId: String? = null,
+    val uid: String? = null,
+    val role: String? = null,
+    val title: String = "",
+    val message: String = "",
+    val action: String = "security",
+    val status: String = "open",
+    val occurrences: Long = 1,
+    val firstSeenAt: String? = null,
+    val lastSeenAt: String? = null,
+    val statusUpdatedAt: String? = null
+)
+
+data class MasterPrivilegedAuditEvent(
+    val id: String = "",
+    val schoolId: String? = null,
+    val actorUid: String = "",
+    val actorRole: String = "",
+    val action: String = "",
+    val resourceType: String = "",
+    val resourceId: String = "",
+    val timestamp: String? = null
+)
+
+data class MasterSecurityOverviewResponse(
+    val generatedAt: String? = null,
+    val metrics: MasterSecurityMetrics = MasterSecurityMetrics(),
+    val alerts: List<MasterSecurityAlert> = emptyList(),
+    val recentPrivilegedActions: List<MasterPrivilegedAuditEvent> = emptyList()
+)
+
+data class MasterSecurityAlertStatusRequest(
+    val status: String,
+    val note: String? = null
+)
+
+data class MasterSecurityRevokeSessionsRequest(val reason: String)
+
 // ---- Phase 3: tenant subscription entitlements ----
 data class TenantEntitlementsResponse(
     val plan: String = "trial",

@@ -2,6 +2,7 @@ package com.pickuppass.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pickuppass.service.DeviceSessionService;
+import com.pickuppass.service.SecurityEventService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,10 +22,12 @@ public class DeviceSessionFilter extends OncePerRequestFilter {
     public static final String DEVICE_NAME = "X-Device-Name";
     private final DeviceSessionService sessions;
     private final ObjectMapper objectMapper;
+    private final SecurityEventService securityEvents;
 
-    public DeviceSessionFilter(DeviceSessionService sessions, ObjectMapper objectMapper) {
+    public DeviceSessionFilter(DeviceSessionService sessions, ObjectMapper objectMapper, SecurityEventService securityEvents) {
         this.sessions = sessions;
         this.objectMapper = objectMapper;
+        this.securityEvents = securityEvents;
     }
 
     @Override
@@ -37,6 +40,7 @@ public class DeviceSessionFilter extends OncePerRequestFilter {
                 var result = sessions.validateAndTouch(user.getUid(), user.getSchoolId(), user.getRole(),
                         deviceId, request.getHeader(DEVICE_NAME), request.getHeader("X-Client-Version"));
                 if (result.revoked()) {
+                    securityEvents.recordRevokedDeviceAttempt(user, request, deviceId);
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                     Map<String,Object> body = new LinkedHashMap<>();

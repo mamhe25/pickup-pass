@@ -16,17 +16,20 @@ public class ProductionSafetyValidator {
     private final String bootstrapSecret;
     private final String frontendUrl;
     private final String corsAllowedOrigins;
+    private final String securityFingerprintSecret;
 
     public ProductionSafetyValidator(Environment environment,
             @Value("${qr.signing.secret:}") String qrSecret,
             @Value("${bootstrap.secret:}") String bootstrapSecret,
             @Value("${app.frontend-base-url:}") String frontendUrl,
-            @Value("${app.cors.allowed-origins:}") String corsAllowedOrigins) {
+            @Value("${app.cors.allowed-origins:}") String corsAllowedOrigins,
+            @Value("${pickuppass.security.fingerprint-secret:}") String securityFingerprintSecret) {
         this.environment = environment;
         this.qrSecret = qrSecret;
         this.bootstrapSecret = bootstrapSecret;
         this.frontendUrl = frontendUrl;
         this.corsAllowedOrigins = corsAllowedOrigins;
+        this.securityFingerprintSecret = securityFingerprintSecret;
     }
 
     @PostConstruct
@@ -40,6 +43,10 @@ public class ProductionSafetyValidator {
         }
         if (bootstrapSecret == null || bootstrapSecret.length() < 32) {
             throw new IllegalStateException("Production requires BOOTSTRAP_SECRET with at least 32 random characters");
+        }
+        if (securityFingerprintSecret == null || securityFingerprintSecret.length() < 32
+                || securityFingerprintSecret.contains("development-security")) {
+            throw new IllegalStateException("Production requires SECURITY_FINGERPRINT_SECRET with at least 32 random characters");
         }
         requireHttpsPublicUrl(frontendUrl, "FRONTEND_BASE_URL");
         validateCorsOrigins(corsAllowedOrigins);
