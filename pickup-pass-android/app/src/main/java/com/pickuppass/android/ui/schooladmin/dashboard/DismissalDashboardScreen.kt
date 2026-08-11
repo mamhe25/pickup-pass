@@ -20,6 +20,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.DashboardRelease
 import com.pickuppass.android.data.model.DashboardStudent
+import com.pickuppass.android.data.model.GateActivityItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.theme.Spacing
@@ -133,6 +134,45 @@ fun DismissalDashboardScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
+                    AssistChip(
+                        onClick = {},
+                        enabled = false,
+                        label = { Text("QR ${dashboard.qrReleaseCount}") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    AssistChip(
+                        onClick = {},
+                        enabled = false,
+                        label = { Text("Manual ${dashboard.manualOverrideCount}") },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            if (dashboard.gateActivity.isNotEmpty()) {
+                item {
+                    Text(
+                        "Pickup Gate Activity",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = Spacing.sm)
+                    )
+                    Text(
+                        "Live release counts by configured gate. A single-gate school requires no staff gate assignment.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                items(dashboard.gateActivity, key = { it.pickupGateId }) { gate ->
+                    GateActivityCard(gate)
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
                     FilterChip(
                         selected = !state.showRemaining,
                         onClick = viewModel::showReleased,
@@ -202,6 +242,42 @@ private fun SummaryCard(
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun GateActivityCard(gate: GateActivityItem) {
+    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    gate.pickupGateName.ifBlank { "Pickup Gate" },
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium
+                )
+                if (gate.campusName.isNotBlank()) {
+                    Text(
+                        gate.campusName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(
+                    "QR ${gate.qrReleaseCount} · Manual ${gate.manualOverrideCount}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                gate.releaseCount.toString(),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

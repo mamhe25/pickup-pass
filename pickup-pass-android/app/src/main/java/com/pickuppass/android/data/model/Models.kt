@@ -286,6 +286,22 @@ data class DashboardRelease(
     val timestamp: String? = null
 )
 
+data class GateActivityItem(
+    val pickupGateId: String = "",
+    val pickupGateName: String = "",
+    val campusId: String = "",
+    val campusName: String = "",
+    val releaseCount: Int = 0,
+    val qrReleaseCount: Int = 0,
+    val manualOverrideCount: Int = 0
+)
+
+data class CampusActivityItem(
+    val campusId: String = "",
+    val campusName: String = "",
+    val releaseCount: Int = 0
+)
+
 data class DismissalDashboardResponse(
     val businessDate: String = "",
     val timeZone: String = "Asia/Manila",
@@ -293,6 +309,10 @@ data class DismissalDashboardResponse(
     val releasedCount: Int = 0,
     val remainingCount: Int = 0,
     val releaseRatePercent: Double = 0.0,
+    val qrReleaseCount: Int = 0,
+    val manualOverrideCount: Int = 0,
+    val gateActivity: List<GateActivityItem> = emptyList(),
+    val campusActivity: List<CampusActivityItem> = emptyList(),
     val recentReleases: List<DashboardRelease> = emptyList(),
     val remainingStudents: List<DashboardStudent> = emptyList(),
     val remainingTruncated: Boolean = false

@@ -88,9 +88,51 @@ public class DismissalDashboardController {
 
         Set<String> releasedStudentIds = new HashSet<>();
         List<Map<String, Object>> recentReleases = new ArrayList<>();
+        Map<String, MutableGateActivity> gateActivity = new LinkedHashMap<>();
+        Map<String, MutableCampusActivity> campusActivity = new LinkedHashMap<>();
+        int qrReleaseCount = 0;
+        int manualOverrideCount = 0;
+
+        // Seed active configured gates so a quiet gate still appears with a zero count.
+        List<QueryDocumentSnapshot> activeGateDocs = firestore.collection("pickupGates")
+                .whereEqualTo("schoolId", schoolId)
+                .get().get().getDocuments();
+        for (QueryDocumentSnapshot gateDoc : activeGateDocs) {
+            if (Boolean.FALSE.equals(gateDoc.getBoolean("active"))) continue;
+            String gateId = gateDoc.getId();
+            String gateName = value(gateDoc.getString("name"), "Unnamed gate");
+            String campusId = value(gateDoc.getString("campusId"), "");
+            String campusName = value(gateDoc.getString("campusName"), "");
+            gateActivity.put(gateId, new MutableGateActivity(gateId, gateName, campusId, campusName));
+            if (!campusId.isBlank()) {
+                campusActivity.putIfAbsent(campusId, new MutableCampusActivity(campusId, campusName));
+            }
+        }
+
         for (QueryDocumentSnapshot doc : releaseDocs) {
             String studentId = doc.getString("studentId");
             if (studentId != null) releasedStudentIds.add(studentId);
+
+            String method = value(doc.getString("method"), "qr_scan");
+            if ("manual_override".equalsIgnoreCase(method)) manualOverrideCount++;
+            else qrReleaseCount++;
+
+            String gateId = value(doc.getString("pickupGateId"), "");
+            String gateName = value(doc.getString("pickupGateNameSnapshot"), "");
+            String campusId = value(doc.getString("campusId"), "");
+            String campusName = value(doc.getString("campusNameSnapshot"), "");
+            if (!gateId.isBlank()) {
+                MutableGateActivity gate = gateActivity.computeIfAbsent(
+                        gateId, id -> new MutableGateActivity(id, gateName, campusId, campusName));
+                gate.releaseCount++;
+                if ("manual_override".equalsIgnoreCase(method)) gate.manualOverrideCount++;
+                else gate.qrReleaseCount++;
+            }
+            if (!campusId.isBlank()) {
+                MutableCampusActivity campus = campusActivity.computeIfAbsent(
+                        campusId, id -> new MutableCampusActivity(id, campusName));
+                campus.releaseCount++;
+            }
 
             if (recentReleases.size() < 50) {
                 Map<String, Object> item = new HashMap<>();
@@ -105,11 +147,11 @@ public class DismissalDashboardController {
                 item.put("guardianUid", value(guardianUid, ""));
                 item.put("guardianName", guardianUid == null ? "Unknown guardian" : namesByUid.getOrDefault(guardianUid, "Unknown guardian"));
                 item.put("staffName", staffUid == null ? "Unknown staff" : namesByUid.getOrDefault(staffUid, "Unknown staff"));
-                item.put("method", value(doc.getString("method"), "qr_scan"));
-                item.put("pickupGateId", value(doc.getString("pickupGateId"), ""));
-                item.put("pickupGateName", value(doc.getString("pickupGateNameSnapshot"), ""));
-                item.put("campusId", value(doc.getString("campusId"), ""));
-                item.put("campusName", value(doc.getString("campusNameSnapshot"), ""));
+                item.put("method", method);
+                item.put("pickupGateId", gateId);
+                item.put("pickupGateName", gateName);
+                item.put("campusId", campusId);
+                item.put("campusName", campusName);
                 Timestamp timestamp = doc.getTimestamp("timestamp");
                 item.put("timestamp", timestamp == null ? null : timestamp.toDate());
                 recentReleases.add(item);
@@ -135,11 +177,80 @@ public class DismissalDashboardController {
         body.put("totalStudents", total);
         body.put("releasedCount", released);
         body.put("remainingCount", remaining);
+        List<Map<String, Object>> gateActivityItems = gateActivity.values().stream()
+                .sorted(Comparator.comparingInt(MutableGateActivity::releaseCount).reversed()
+                        .thenComparing(MutableGateActivity::gateName, String.CASE_INSENSITIVE_ORDER))
+                .map(MutableGateActivity::toMap)
+                .toList();
+        List<Map<String, Object>> campusActivityItems = campusActivity.values().stream()
+                .sorted(Comparator.comparingInt(MutableCampusActivity::releaseCount).reversed()
+                        .thenComparing(MutableCampusActivity::campusName, String.CASE_INSENSITIVE_ORDER))
+                .map(MutableCampusActivity::toMap)
+                .toList();
+
         body.put("releaseRatePercent", releaseRate);
+        body.put("qrReleaseCount", qrReleaseCount);
+        body.put("manualOverrideCount", manualOverrideCount);
+        body.put("gateActivity", gateActivityItems);
+        body.put("campusActivity", campusActivityItems);
         body.put("recentReleases", recentReleases);
         body.put("remainingStudents", remainingStudents);
         body.put("remainingTruncated", remainingTruncated);
         return ResponseEntity.ok(body);
+    }
+
+    private static final class MutableGateActivity {
+        private final String gateId;
+        private final String gateName;
+        private final String campusId;
+        private final String campusName;
+        private int releaseCount;
+        private int qrReleaseCount;
+        private int manualOverrideCount;
+
+        private MutableGateActivity(String gateId, String gateName, String campusId, String campusName) {
+            this.gateId = gateId;
+            this.gateName = value(gateName, "Unnamed gate");
+            this.campusId = value(campusId, "");
+            this.campusName = value(campusName, "");
+        }
+
+        private int releaseCount() { return releaseCount; }
+        private String gateName() { return gateName; }
+
+        private Map<String, Object> toMap() {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("pickupGateId", gateId);
+            map.put("pickupGateName", gateName);
+            map.put("campusId", campusId);
+            map.put("campusName", campusName);
+            map.put("releaseCount", releaseCount);
+            map.put("qrReleaseCount", qrReleaseCount);
+            map.put("manualOverrideCount", manualOverrideCount);
+            return map;
+        }
+    }
+
+    private static final class MutableCampusActivity {
+        private final String campusId;
+        private final String campusName;
+        private int releaseCount;
+
+        private MutableCampusActivity(String campusId, String campusName) {
+            this.campusId = campusId;
+            this.campusName = value(campusName, "Campus");
+        }
+
+        private int releaseCount() { return releaseCount; }
+        private String campusName() { return campusName; }
+
+        private Map<String, Object> toMap() {
+            return Map.of(
+                    "campusId", campusId,
+                    "campusName", campusName,
+                    "releaseCount", releaseCount
+            );
+        }
     }
 
     private static String value(String value, String fallback) {
