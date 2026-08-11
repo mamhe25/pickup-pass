@@ -12,6 +12,7 @@ import com.pickuppass.service.StaffProvisioningService;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.SubscriptionFeatureService;
 import com.pickuppass.service.TenantUsageService;
+import com.pickuppass.service.SubscriptionLifecycleService;
 import com.pickuppass.security.FirebaseUserDetails;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.constraints.NotBlank;
@@ -43,16 +44,19 @@ public class MasterAdminController {
     private final AuditService auditService;
     private final SubscriptionFeatureService subscriptionFeatureService;
     private final TenantUsageService tenantUsageService;
+    private final SubscriptionLifecycleService subscriptionLifecycleService;
 
     public MasterAdminController(Firestore firestore, StaffProvisioningService staffProvisioningService,
                                  FirebaseAuth firebaseAuth, AuditService auditService,
-                                 SubscriptionFeatureService subscriptionFeatureService, TenantUsageService tenantUsageService) {
+                                 SubscriptionFeatureService subscriptionFeatureService, TenantUsageService tenantUsageService,
+                                 SubscriptionLifecycleService subscriptionLifecycleService) {
         this.firestore = firestore;
         this.staffProvisioningService = staffProvisioningService;
         this.firebaseAuth = firebaseAuth;
         this.auditService = auditService;
         this.subscriptionFeatureService = subscriptionFeatureService;
         this.tenantUsageService = tenantUsageService;
+        this.subscriptionLifecycleService = subscriptionLifecycleService;
     }
 
 
@@ -111,9 +115,15 @@ public class MasterAdminController {
         Map<String, Object> school = new HashMap<>();
         school.put("schoolName", req.getSchoolName());
         school.put("status", "active");
+        Instant subscriptionNow = Instant.now();
+        Instant trialEnd = subscriptionNow.plus(30, ChronoUnit.DAYS);
         school.put("plan", SubscriptionFeatureService.TRIAL);
         school.put("subscriptionStatus", "trialing");
-        school.put("trialEndsAt", Date.from(Instant.now().plus(30, ChronoUnit.DAYS)));
+        school.put("trialEndsAt", Date.from(trialEnd));
+        school.put("currentPeriodStart", Date.from(subscriptionNow));
+        school.put("currentPeriodEnd", Date.from(trialEnd));
+        school.put("autoRenew", true);
+        school.put("cancelAtPeriodEnd", false);
         school.put("featureOverrides", Map.of());
         school.put("createdAt", FieldValue.serverTimestamp());
         schoolRef.set(school).get(); // await so a write failure surfaces as an error, not a false success
@@ -227,10 +237,13 @@ public class MasterAdminController {
             }
         }
 
+        Instant now = Instant.now();
         Map<String, Object> update = new HashMap<>();
         update.put("plan", plan);
         update.put("subscriptionStatus", subscriptionStatus);
         update.put("featureOverrides", overrides);
+        update.put("autoRenew", req.getAutoRenew() == null ? !Boolean.FALSE.equals(school.getBoolean("autoRenew")) : req.getAutoRenew());
+        update.put("cancelAtPeriodEnd", Boolean.TRUE.equals(req.getCancelAtPeriodEnd()));
         update.put("subscriptionUpdatedAt", FieldValue.serverTimestamp());
 
         if (req.getTrialEndsAt() != null && !req.getTrialEndsAt().isBlank()) {
@@ -240,21 +253,82 @@ public class MasterAdminController {
                 return ResponseEntity.badRequest().body(Map.of("error", "trialEndsAt must be ISO-8601"));
             }
         } else if (SubscriptionFeatureService.TRIAL.equals(plan) && school.getTimestamp("trialEndsAt") == null) {
-            update.put("trialEndsAt", Date.from(Instant.now().plus(30, ChronoUnit.DAYS)));
+            update.put("trialEndsAt", Date.from(now.plus(30, ChronoUnit.DAYS)));
+        }
+
+        int extendTrialDays = req.getExtendTrialDays() == null ? 0 : req.getExtendTrialDays();
+        if (extendTrialDays < 0 || extendTrialDays > 365) {
+            return ResponseEntity.badRequest().body(Map.of("error", "extendTrialDays must be between 0 and 365"));
+        }
+        if (extendTrialDays > 0) {
+            if (!SubscriptionFeatureService.TRIAL.equals(plan)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Trial extension is only available on the Trial plan"));
+            }
+            Instant existing = school.getTimestamp("trialEndsAt") == null
+                    ? now : school.getTimestamp("trialEndsAt").toDate().toInstant();
+            Instant base = existing.isAfter(now) ? existing : now;
+            Instant extended = base.plus(extendTrialDays, ChronoUnit.DAYS);
+            update.put("trialEndsAt", Date.from(extended));
+            update.put("currentPeriodEnd", Date.from(extended));
+            update.put("subscriptionStatus", "trialing");
+            subscriptionStatus = "trialing";
+            update.put("graceEndsAt", FieldValue.delete());
+            update.put("pastDueAt", FieldValue.delete());
+        }
+
+        boolean startNewPeriod = Boolean.TRUE.equals(req.getStartNewPeriod());
+        boolean planChanged = !plan.equals(subscriptionFeatureService.normalizePlan(school.getString("plan")));
+        if ("active".equals(subscriptionStatus)
+                && (startNewPeriod || planChanged || school.getTimestamp("currentPeriodEnd") == null)) {
+            update.put("currentPeriodStart", Date.from(now));
+            update.put("currentPeriodEnd", Date.from(now.plus(30, ChronoUnit.DAYS)));
+            update.put("graceEndsAt", FieldValue.delete());
+            update.put("pastDueAt", FieldValue.delete());
+            update.put("cancelledAt", FieldValue.delete());
+            update.put("subscriptionAccessBlockedAt", FieldValue.delete());
+        } else if ("past_due".equals(subscriptionStatus) && school.getTimestamp("graceEndsAt") == null) {
+            update.put("pastDueAt", Date.from(now));
+            update.put("graceEndsAt", Date.from(now.plus(7, ChronoUnit.DAYS)));
+        } else if ("cancelled".equals(subscriptionStatus)) {
+            update.put("cancelledAt", Date.from(now));
+            update.put("subscriptionAccessBlockedAt", Date.from(now));
         }
 
         ref.update(update).get();
-        auditService.record(masterAdmin, "school.subscription_updated", "school", schoolId, Map.of(
-                "plan", plan,
-                "subscriptionStatus", subscriptionStatus,
-                "featureOverrides", overrides
-        ));
+        Map<String,Object> audit = new LinkedHashMap<>();
+        audit.put("plan", plan);
+        audit.put("subscriptionStatus", subscriptionStatus);
+        audit.put("autoRenew", update.get("autoRenew"));
+        audit.put("cancelAtPeriodEnd", update.get("cancelAtPeriodEnd"));
+        audit.put("startNewPeriod", startNewPeriod);
+        audit.put("extendTrialDays", extendTrialDays);
+        audit.put("featureOverrides", overrides);
+        auditService.record(masterAdmin, "school.subscription_updated", "school", schoolId, audit);
 
         DocumentSnapshot refreshed = ref.get().get();
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("schoolId", schoolId);
         response.putAll(subscriptionFeatureService.effectiveEntitlements(refreshed));
         response.put("featureOverrides", overrides);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/schools/{schoolId}/subscription/reconcile")
+    @PreAuthorize("hasRole('master_admin')")
+    public ResponseEntity<?> reconcileSubscription(
+            @PathVariable String schoolId,
+            @AuthenticationPrincipal FirebaseUserDetails masterAdmin) throws Exception {
+        if (!firestore.collection("schools").document(schoolId).get().get().exists()) {
+            return ResponseEntity.status(404).body(Map.of("error", "School not found"));
+        }
+        SubscriptionLifecycleService.TransitionResult result = subscriptionLifecycleService.reconcileSchool(schoolId, Instant.now());
+        auditService.record(masterAdmin, "school.subscription_reconciled", "school", schoolId,
+                Map.of("transition", result.action() == null ? "none" : result.action()));
+        DocumentSnapshot refreshed = firestore.collection("schools").document(schoolId).get().get();
+        Map<String,Object> response = new LinkedHashMap<>();
+        response.put("schoolId", schoolId);
+        response.put("transition", result.action() == null ? "none" : result.action());
+        response.putAll(subscriptionFeatureService.effectiveEntitlements(refreshed));
         return ResponseEntity.ok(response);
     }
 
@@ -346,6 +420,10 @@ public class MasterAdminController {
         private String subscriptionStatus;
         private String trialEndsAt;
         private Map<String, Boolean> featureOverrides;
+        private Boolean autoRenew;
+        private Boolean cancelAtPeriodEnd;
+        private Boolean startNewPeriod;
+        private Integer extendTrialDays;
 
         public String getPlan() { return plan; }
         public void setPlan(String plan) { this.plan = plan; }
@@ -355,6 +433,14 @@ public class MasterAdminController {
         public void setTrialEndsAt(String trialEndsAt) { this.trialEndsAt = trialEndsAt; }
         public Map<String, Boolean> getFeatureOverrides() { return featureOverrides; }
         public void setFeatureOverrides(Map<String, Boolean> featureOverrides) { this.featureOverrides = featureOverrides; }
+        public Boolean getAutoRenew() { return autoRenew; }
+        public void setAutoRenew(Boolean autoRenew) { this.autoRenew = autoRenew; }
+        public Boolean getCancelAtPeriodEnd() { return cancelAtPeriodEnd; }
+        public void setCancelAtPeriodEnd(Boolean cancelAtPeriodEnd) { this.cancelAtPeriodEnd = cancelAtPeriodEnd; }
+        public Boolean getStartNewPeriod() { return startNewPeriod; }
+        public void setStartNewPeriod(Boolean startNewPeriod) { this.startNewPeriod = startNewPeriod; }
+        public Integer getExtendTrialDays() { return extendTrialDays; }
+        public void setExtendTrialDays(Integer extendTrialDays) { this.extendTrialDays = extendTrialDays; }
     }
 
     public static class CreateStaffRequest {

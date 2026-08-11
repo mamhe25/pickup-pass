@@ -89,7 +89,8 @@ fun MasterAdminScreen(
                     saving = state.saving,
                     onToggle = { viewModel.setSchoolActive(school.schoolId, school.status != "active") },
                     onAddAdmin = { adminForSchool = school },
-                    onManageSubscription = { subscriptionForSchool = school }
+                    onManageSubscription = { subscriptionForSchool = school },
+                    onReconcileSubscription = { viewModel.reconcileSubscription(school.schoolId) }
                 )
             }
         }
@@ -154,8 +155,11 @@ fun MasterAdminScreen(
             featureKeys = state.featureKeys,
             saving = state.saving,
             onDismiss = { subscriptionForSchool = null },
-            onSave = { plan, status, overrides ->
-                viewModel.updateSubscription(school.schoolId, plan, status, overrides)
+            onSave = { plan, status, overrides, autoRenew, cancelAtPeriodEnd, startNewPeriod, extendTrialDays ->
+                viewModel.updateSubscription(
+                    school.schoolId, plan, status, overrides,
+                    autoRenew, cancelAtPeriodEnd, startNewPeriod, extendTrialDays
+                )
                 subscriptionForSchool = null
             }
         )
@@ -169,12 +173,16 @@ private fun SubscriptionDialog(
     featureKeys: List<String>,
     saving: Boolean,
     onDismiss: () -> Unit,
-    onSave: (String, String, Map<String, Boolean>) -> Unit
+    onSave: (String, String, Map<String, Boolean>, Boolean, Boolean, Boolean, Int) -> Unit
 ) {
     var selectedPlan by remember(school.schoolId) { mutableStateOf(school.plan) }
     var selectedStatus by remember(school.schoolId) { mutableStateOf(school.subscriptionStatus) }
     var customize by remember(school.schoolId) { mutableStateOf(school.featureOverrides.isNotEmpty()) }
     var featureValues by remember(school.schoolId) { mutableStateOf(school.features) }
+    var autoRenew by remember(school.schoolId) { mutableStateOf(school.autoRenew) }
+    var cancelAtPeriodEnd by remember(school.schoolId) { mutableStateOf(school.cancelAtPeriodEnd) }
+    var startNewPeriod by remember(school.schoolId) { mutableStateOf(false) }
+    var extendTrial30 by remember(school.schoolId) { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -213,6 +221,55 @@ private fun SubscriptionDialog(
                     }
                 }
                 item {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        Text("Billing lifecycle", fontWeight = FontWeight.SemiBold)
+                        school.trialEndsAt?.let { Text("Trial ends: ${dateLabel(it)}", style = MaterialTheme.typography.bodySmall) }
+                        school.currentPeriodEnd?.let { Text("Current period ends: ${dateLabel(it)}", style = MaterialTheme.typography.bodySmall) }
+                        school.graceEndsAt?.let { Text("Grace ends: ${dateLabel(it)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+                        Text(
+                            if (school.subscriptionAccessActive) "Optional SaaS features available" else "Optional SaaS features blocked; core QR pickup remains available",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (school.subscriptionAccessActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = autoRenew, onCheckedChange = { autoRenew = it })
+                        Spacer(Modifier.width(Spacing.sm))
+                        Column {
+                            Text("Auto-renew billing period", fontWeight = FontWeight.SemiBold)
+                            Text("Extends the 30-day service period automatically", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = cancelAtPeriodEnd, onCheckedChange = { cancelAtPeriodEnd = it })
+                        Spacer(Modifier.width(Spacing.sm))
+                        Column {
+                            Text("Cancel at period end", fontWeight = FontWeight.SemiBold)
+                            Text("Current access stays until the period ends", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                if (selectedStatus == "active") {
+                    item {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = startNewPeriod, onCheckedChange = { startNewPeriod = it })
+                            Text("Start a new 30-day billing period now")
+                        }
+                    }
+                }
+                if (selectedPlan == "trial") {
+                    item {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = extendTrial30, onCheckedChange = { extendTrial30 = it })
+                            Text("Extend trial by 30 days")
+                        }
+                    }
+                }
+                item {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(
                             checked = customize,
@@ -243,7 +300,15 @@ private fun SubscriptionDialog(
         },
         confirmButton = {
             Button(enabled = !saving && plans.containsKey(selectedPlan), onClick = {
-                onSave(selectedPlan, selectedStatus, if (customize) featureValues else emptyMap())
+                onSave(
+                    selectedPlan,
+                    selectedStatus,
+                    if (customize) featureValues else emptyMap(),
+                    autoRenew,
+                    cancelAtPeriodEnd,
+                    startNewPeriod,
+                    if (extendTrial30) 30 else 0
+                )
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
@@ -252,6 +317,7 @@ private fun SubscriptionDialog(
 
 private fun limitLabel(value: Int): String = if (value < 0) "Unlimited" else value.toString()
 private fun featureLabel(value: String): String = value.split('_').joinToString(" ") { it.replaceFirstChar { ch -> ch.uppercase() } }
+private fun dateLabel(value: String): String = value.take(10)
 
 @Composable
 private fun MetricCard(label: String, value: String, modifier: Modifier = Modifier) {
@@ -269,7 +335,8 @@ private fun SchoolCard(
     saving: Boolean,
     onToggle: () -> Unit,
     onAddAdmin: () -> Unit,
-    onManageSubscription: () -> Unit
+    onManageSubscription: () -> Unit,
+    onReconcileSubscription: () -> Unit
 ) {
     val active = school.status == "active"
     OutlinedCard(Modifier.fillMaxWidth()) {
@@ -289,6 +356,16 @@ private fun SchoolCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                     )
+                    if (!school.subscriptionAccessActive) {
+                        Text(
+                            "Optional features blocked by subscription state",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    school.currentPeriodEnd?.let {
+                        Text("Period ends ${dateLabel(it)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
                 Switch(checked = active, enabled = !saving, onCheckedChange = { onToggle() })
             }
@@ -304,8 +381,11 @@ private fun SchoolCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                FilledTonalButton(onClick = onManageSubscription, enabled = !saving) { Text("Plan & features") }
+                FilledTonalButton(onClick = onManageSubscription, enabled = !saving) { Text("Plan & billing") }
                 FilledTonalButton(onClick = onAddAdmin, enabled = active && !saving) { Text("Add admin") }
+            }
+            TextButton(onClick = onReconcileSubscription, enabled = !saving) {
+                Text("Check subscription lifecycle now")
             }
         }
     }

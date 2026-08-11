@@ -258,6 +258,11 @@ interface PickupPassApi {
         @Body body: UpdateMasterSubscriptionRequest
     ): Response<MasterSubscriptionResponse>
 
+    @POST("master-admin/schools/{schoolId}/subscription/reconcile")
+    suspend fun reconcileMasterSubscription(
+        @Path("schoolId") schoolId: String
+    ): Response<MasterSubscriptionResponse>
+
     @GET("tenant/entitlements")
     suspend fun getTenantEntitlements(): Response<TenantEntitlementsResponse>
 

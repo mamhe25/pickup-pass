@@ -73,10 +73,20 @@ class MasterAdminViewModel @Inject constructor(
         schoolId: String,
         plan: String,
         subscriptionStatus: String,
-        featureOverrides: Map<String, Boolean>
-    ) = runSave("Subscription and feature access updated") {
-        repository.updateSubscription(schoolId, plan, subscriptionStatus, featureOverrides)
+        featureOverrides: Map<String, Boolean>,
+        autoRenew: Boolean,
+        cancelAtPeriodEnd: Boolean,
+        startNewPeriod: Boolean,
+        extendTrialDays: Int
+    ) = runSave("Subscription and billing period updated") {
+        repository.updateSubscription(
+            schoolId, plan, subscriptionStatus, featureOverrides,
+            autoRenew, cancelAtPeriodEnd, startNewPeriod, extendTrialDays
+        )
     }
+
+    fun reconcileSubscription(schoolId: String) =
+        runSave("Subscription lifecycle checked") { repository.reconcileSubscription(schoolId) }
 
     fun signOut() { authRepository.signOut() }
 

@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.time.Instant;
 
 @Service
 public class SubscriptionFeatureService {
@@ -107,10 +108,34 @@ public class SubscriptionFeatureService {
                 }
             }
         }
+        String subscriptionStatus = normalizeStatus(school.getString("subscriptionStatus"), plan);
+        Instant now = Instant.now();
+        Instant trialEndsAt = timestampInstant(school, "trialEndsAt");
+        Instant currentPeriodStart = timestampInstant(school, "currentPeriodStart");
+        Instant currentPeriodEnd = timestampInstant(school, "currentPeriodEnd");
+        Instant graceEndsAt = timestampInstant(school, "graceEndsAt");
+        boolean autoRenew = !Boolean.FALSE.equals(school.getBoolean("autoRenew"));
+        boolean cancelAtPeriodEnd = Boolean.TRUE.equals(school.getBoolean("cancelAtPeriodEnd"));
+
+        // Subscription state only gates optional SaaS features. QR generation,
+        // verification, pickup approval, and immutable exit logging are core
+        // safety functions and are intentionally not part of FEATURES.
+        boolean subscriptionAccessActive = subscriptionAccessActive(
+                subscriptionStatus, trialEndsAt, graceEndsAt, now);
+        if (!subscriptionAccessActive) {
+            defaults.replaceAll((key, value) -> false);
+        }
+
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("plan", plan);
-        response.put("subscriptionStatus", normalizeStatus(school.getString("subscriptionStatus"), plan));
-        response.put("trialEndsAt", school.getTimestamp("trialEndsAt") == null ? null : school.getTimestamp("trialEndsAt").toDate().toInstant().toString());
+        response.put("subscriptionStatus", subscriptionStatus);
+        response.put("subscriptionAccessActive", subscriptionAccessActive);
+        response.put("trialEndsAt", instantString(trialEndsAt));
+        response.put("currentPeriodStart", instantString(currentPeriodStart));
+        response.put("currentPeriodEnd", instantString(currentPeriodEnd));
+        response.put("graceEndsAt", instantString(graceEndsAt));
+        response.put("autoRenew", autoRenew);
+        response.put("cancelAtPeriodEnd", cancelAtPeriodEnd);
         response.put("features", defaults);
         response.put("limits", Map.of(
                 "maxStudents", catalogPlan.get("maxStudents"),
@@ -139,6 +164,32 @@ public class SubscriptionFeatureService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "This feature is not enabled for the school's current plan: " + feature);
         }
+    }
+
+
+    static boolean subscriptionAccessActive(String status, Instant trialEndsAt, Instant graceEndsAt, Instant now) {
+        if ("active".equals(status)) return true;
+        if ("cancelled".equals(status)) return false;
+        if ("past_due".equals(status)) {
+            return graceEndsAt != null && now.isBefore(graceEndsAt);
+        }
+        if ("trialing".equals(status)) {
+            if (trialEndsAt == null || now.isBefore(trialEndsAt)) return true;
+            // The lifecycle scheduler normally moves an expired trial to
+            // past_due and writes graceEndsAt. This fallback keeps behavior
+            // deterministic during the short interval before that job runs.
+            Instant fallbackGrace = trialEndsAt.plusSeconds(7L * 24L * 60L * 60L);
+            return now.isBefore(fallbackGrace);
+        }
+        return false;
+    }
+
+    private Instant timestampInstant(DocumentSnapshot school, String field) {
+        return school.getTimestamp(field) == null ? null : school.getTimestamp(field).toDate().toInstant();
+    }
+
+    private String instantString(Instant value) {
+        return value == null ? null : value.toString();
     }
 
     public String normalizePlan(String value) {

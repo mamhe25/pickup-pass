@@ -58,18 +58,34 @@ class MasterAdminRepository @Inject constructor(private val api: PickupPassApi) 
         schoolId: String,
         plan: String,
         subscriptionStatus: String,
-        featureOverrides: Map<String, Boolean>
+        featureOverrides: Map<String, Boolean>,
+        autoRenew: Boolean,
+        cancelAtPeriodEnd: Boolean,
+        startNewPeriod: Boolean,
+        extendTrialDays: Int
     ): ApiResult<MasterSubscriptionResponse> = try {
         val response = api.updateMasterSubscription(
             schoolId,
             UpdateMasterSubscriptionRequest(
                 plan = plan,
                 subscriptionStatus = subscriptionStatus,
-                featureOverrides = featureOverrides
+                featureOverrides = featureOverrides,
+                autoRenew = autoRenew,
+                cancelAtPeriodEnd = cancelAtPeriodEnd,
+                startNewPeriod = startNewPeriod,
+                extendTrialDays = extendTrialDays
             )
         )
         response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
             ?: ApiResult.Failure("Could not update subscription")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
+    suspend fun reconcileSubscription(schoolId: String): ApiResult<MasterSubscriptionResponse> = try {
+        val response = api.reconcileMasterSubscription(schoolId)
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not reconcile subscription")
     } catch (e: Exception) {
         ApiResult.Failure(e.message ?: "Network error")
     }

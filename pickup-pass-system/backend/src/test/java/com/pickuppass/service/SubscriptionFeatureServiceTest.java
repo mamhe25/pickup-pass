@@ -3,6 +3,7 @@ package com.pickuppass.service;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -37,5 +38,16 @@ class SubscriptionFeatureServiceTest {
         assertEquals("trial", service.normalizePlan(""));
         assertEquals("trial", service.normalizePlan("not-a-plan"));
         assertEquals("school", service.normalizePlan(" SCHOOL "));
+    }
+
+    @Test
+    void subscriptionStateBlocksOnlyOptionalFeatureAccessAfterGrace() {
+        Instant now = Instant.parse("2026-08-11T00:00:00Z");
+        assertTrue(SubscriptionFeatureService.subscriptionAccessActive("active", null, null, now));
+        assertTrue(SubscriptionFeatureService.subscriptionAccessActive(
+                "past_due", null, now.plusSeconds(60), now));
+        assertFalse(SubscriptionFeatureService.subscriptionAccessActive(
+                "past_due", null, now.minusSeconds(1), now));
+        assertFalse(SubscriptionFeatureService.subscriptionAccessActive("cancelled", null, null, now));
     }
 }

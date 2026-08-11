@@ -644,7 +644,13 @@ data class MasterSchoolItem(
     val status: String = "active",
     val plan: String = "trial",
     val subscriptionStatus: String = "trialing",
+    val subscriptionAccessActive: Boolean = true,
     val trialEndsAt: String? = null,
+    val currentPeriodStart: String? = null,
+    val currentPeriodEnd: String? = null,
+    val graceEndsAt: String? = null,
+    val autoRenew: Boolean = true,
+    val cancelAtPeriodEnd: Boolean = false,
     val features: Map<String, Boolean> = emptyMap(),
     val featureOverrides: Map<String, Boolean> = emptyMap(),
     val limits: Map<String, Int> = emptyMap(),
@@ -700,14 +706,24 @@ data class UpdateMasterSubscriptionRequest(
     val plan: String,
     val subscriptionStatus: String,
     val trialEndsAt: String? = null,
-    val featureOverrides: Map<String, Boolean> = emptyMap()
+    val featureOverrides: Map<String, Boolean> = emptyMap(),
+    val autoRenew: Boolean = true,
+    val cancelAtPeriodEnd: Boolean = false,
+    val startNewPeriod: Boolean = false,
+    val extendTrialDays: Int = 0
 )
 
 data class MasterSubscriptionResponse(
     val schoolId: String = "",
     val plan: String = "",
     val subscriptionStatus: String = "",
+    val subscriptionAccessActive: Boolean = true,
     val trialEndsAt: String? = null,
+    val currentPeriodStart: String? = null,
+    val currentPeriodEnd: String? = null,
+    val graceEndsAt: String? = null,
+    val autoRenew: Boolean = true,
+    val cancelAtPeriodEnd: Boolean = false,
     val features: Map<String, Boolean> = emptyMap(),
     val featureOverrides: Map<String, Boolean> = emptyMap(),
     val limits: Map<String, Int> = emptyMap()
@@ -718,7 +734,13 @@ data class MasterSubscriptionResponse(
 data class TenantEntitlementsResponse(
     val plan: String = "trial",
     val subscriptionStatus: String = "trialing",
+    val subscriptionAccessActive: Boolean = true,
     val trialEndsAt: String? = null,
+    val currentPeriodStart: String? = null,
+    val currentPeriodEnd: String? = null,
+    val graceEndsAt: String? = null,
+    val autoRenew: Boolean = true,
+    val cancelAtPeriodEnd: Boolean = false,
     val features: Map<String, Boolean> = emptyMap(),
     val limits: Map<String, Int> = emptyMap()
 )
