@@ -132,12 +132,30 @@ public class SchoolAdminController {
             throw new NotFoundException("Teacher not found in your school");
         }
 
+        List<QueryDocumentSnapshot> configuredSections = firestore.collection("gradeSections")
+                .whereEqualTo("schoolId", schoolAdmin.getSchoolId()).get().get().getDocuments();
+
         List<Map<String, String>> sections = new ArrayList<>();
         for (SectionEntry s : req.getSections()) {
             if (s.getGrade() == null || s.getGrade().isBlank() || s.getSection() == null || s.getSection().isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Each section needs both a grade and a section"));
             }
-            sections.add(Map.of("grade", s.getGrade().trim(), "section", s.getSection().trim()));
+            String grade = s.getGrade().trim();
+            String section = s.getSection().trim();
+
+            // Once the school has a structured academic setup, assignments can
+            // only point at active configured sections. Older schools with no
+            // structure keep the legacy free-text behavior until they migrate.
+            if (!configuredSections.isEmpty()) {
+                boolean valid = configuredSections.stream().anyMatch(doc ->
+                        !Boolean.FALSE.equals(doc.getBoolean("active"))
+                                && grade.equalsIgnoreCase(doc.getString("gradeLevel"))
+                                && section.equalsIgnoreCase(doc.getString("sectionName")));
+                if (!valid) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Teacher assignments must use an active configured grade/section"));
+                }
+            }
+            sections.add(Map.of("grade", grade, "section", section));
         }
 
         firestore.collection("users").document(uid).update("assignedSections", sections, "updatedAt", FieldValue.serverTimestamp()).get();

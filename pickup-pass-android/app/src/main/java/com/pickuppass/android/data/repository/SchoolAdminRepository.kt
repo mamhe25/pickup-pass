@@ -154,4 +154,55 @@ class SchoolAdminRepository @Inject constructor(
         }
     }
 
+    suspend fun getAcademicStructure(): ApiResult<AcademicStructureResponse> {
+        return try {
+            val response = api.getAcademicStructure()
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure("Could not load academic structure")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun createAcademicYear(name: String, startDate: String, endDate: String, current: Boolean): ApiResult<Unit> {
+        return try {
+            val response = api.createAcademicYear(CreateAcademicYearRequest(name, startDate, endDate, current))
+            if (response.isSuccessful) ApiResult.Success(Unit)
+            else ApiResult.Failure("Could not create academic year")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun setCurrentAcademicYear(id: String): ApiResult<Unit> {
+        return try {
+            val response = api.setCurrentAcademicYear(id)
+            if (response.isSuccessful) ApiResult.Success(Unit)
+            else ApiResult.Failure("Could not change current academic year")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun createGradeSection(academicYearId: String, gradeLevel: String, sectionName: String): ApiResult<Unit> {
+        return try {
+            val response = api.createGradeSection(CreateGradeSectionRequest(academicYearId, gradeLevel, sectionName))
+            if (response.isSuccessful) ApiResult.Success(Unit)
+            else ApiResult.Failure("Could not create grade/section")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun setGradeSectionActive(id: String, active: Boolean): ApiResult<Unit> {
+        return try {
+            val response = api.setGradeSectionStatus(id, GradeSectionStatusRequest(active))
+            if (response.isSuccessful) ApiResult.Success(Unit)
+            else ApiResult.Failure("Could not update grade/section")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
 }

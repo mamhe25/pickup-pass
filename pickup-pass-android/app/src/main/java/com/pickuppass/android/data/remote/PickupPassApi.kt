@@ -92,6 +92,25 @@ interface PickupPassApi {
         @retrofit2.http.Query("businessDate") businessDate: String? = null
     ): Response<DismissalDashboardResponse>
 
+
+    @GET("academic-structure")
+    suspend fun getAcademicStructure(): Response<AcademicStructureResponse>
+
+    @POST("school-admin/academic-years")
+    suspend fun createAcademicYear(@Body body: CreateAcademicYearRequest): Response<Map<String, Any?>>
+
+    @PUT("school-admin/academic-years/{id}/current")
+    suspend fun setCurrentAcademicYear(@Path("id") id: String): Response<Map<String, Any?>>
+
+    @POST("school-admin/grade-sections")
+    suspend fun createGradeSection(@Body body: CreateGradeSectionRequest): Response<Map<String, Any?>>
+
+    @PUT("school-admin/grade-sections/{id}/status")
+    suspend fun setGradeSectionStatus(
+        @Path("id") id: String,
+        @Body body: GradeSectionStatusRequest
+    ): Response<Map<String, Any?>>
+
     @POST("school-admin/broadcasts")
     suspend fun broadcastToSchool(@Body body: BroadcastRequest): Response<BroadcastResponse>
 

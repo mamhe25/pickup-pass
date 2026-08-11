@@ -3,6 +3,7 @@ package com.pickuppass.android.ui.schooladmin.sections
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pickuppass.android.data.model.TeacherSection
+import com.pickuppass.android.data.model.GradeSection
 import com.pickuppass.android.data.model.TeacherWithSections
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.SchoolAdminRepository
@@ -18,6 +19,7 @@ data class ManageSectionsUiState(
     val teachers: List<TeacherWithSections> = emptyList(),
     /** uid -> "Saving…" / "Saved" / error message, transient per-row status shown next to that teacher's chips. */
     val saveStatusByUid: Map<String, String> = emptyMap(),
+    val availableSections: List<GradeSection> = emptyList(),
 )
 
 @HiltViewModel
@@ -35,19 +37,26 @@ class ManageSectionsViewModel @Inject constructor(
     fun load() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            when (val result = schoolAdminRepository.listTeachers()) {
-                is ApiResult.Success -> {
-                    _uiState.value = _uiState.value.copy(isLoading = false, teachers = result.data)
-                }
-                is ApiResult.Failure -> {
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = result.message)
-                }
+            val teachersResult = schoolAdminRepository.listTeachers()
+            val structureResult = schoolAdminRepository.getAcademicStructure()
+            if (teachersResult is ApiResult.Failure) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = teachersResult.message)
+                return@launch
             }
+            val teachers = (teachersResult as ApiResult.Success).data
+            val available = when (structureResult) {
+                is ApiResult.Success -> structureResult.data.gradeSections.filter { it.active &&
+                    (structureResult.data.currentAcademicYear == null || it.academicYearId == structureResult.data.currentAcademicYear.id) }
+                is ApiResult.Failure -> emptyList()
+            }
+            _uiState.value = _uiState.value.copy(isLoading = false, teachers = teachers, availableSections = available)
         }
     }
 
     fun addSection(uid: String, grade: String, section: String) {
         if (grade.isBlank() || section.isBlank()) return
+        val current = _uiState.value.teachers.firstOrNull { it.uid == uid } ?: return
+        if (current.assignedSections.any { it.grade.equals(grade.trim(), true) && it.section.equals(section.trim(), true) }) return
         val updated = _uiState.value.teachers.map { t ->
             if (t.uid == uid) t.copy(assignedSections = t.assignedSections + TeacherSection(grade.trim(), section.trim())) else t
         }

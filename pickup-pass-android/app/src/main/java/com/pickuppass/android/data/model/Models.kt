@@ -274,3 +274,46 @@ data class DismissalDashboardResponse(
     val remainingStudents: List<DashboardStudent> = emptyList(),
     val remainingTruncated: Boolean = false
 )
+
+// ---- Phase 2: structured school year / grade / section management ----
+
+data class AcademicYear(
+    val id: String = "",
+    val name: String = "",
+    val startDate: String = "",
+    val endDate: String = "",
+    val isCurrent: Boolean = false,
+    val status: String = "active"
+)
+
+data class GradeSection(
+    val id: String = "",
+    val academicYearId: String = "",
+    val academicYearName: String = "",
+    val gradeLevel: String = "",
+    val sectionName: String = "",
+    val active: Boolean = true
+) {
+    val displayName: String get() = "Grade $gradeLevel · $sectionName"
+}
+
+data class AcademicStructureResponse(
+    val currentAcademicYear: AcademicYear? = null,
+    val academicYears: List<AcademicYear> = emptyList(),
+    val gradeSections: List<GradeSection> = emptyList()
+)
+
+data class CreateAcademicYearRequest(
+    val name: String,
+    val startDate: String = "",
+    val endDate: String = "",
+    val current: Boolean = false
+)
+
+data class CreateGradeSectionRequest(
+    val academicYearId: String,
+    val gradeLevel: String,
+    val sectionName: String
+)
+
+data class GradeSectionStatusRequest(val active: Boolean)

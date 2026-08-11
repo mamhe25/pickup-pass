@@ -56,6 +56,7 @@ fun SchoolBrandingScreen(
     onGoToAuditLog: () -> Unit,
     onGoToDismissalDashboard: () -> Unit,
     onGoToPickupPolicy: () -> Unit,
+    onGoToAcademicStructure: () -> Unit,
     onGoToBroadcast: () -> Unit,
     onSignedOut: () -> Unit
 ) {
@@ -198,6 +199,7 @@ fun SchoolBrandingScreen(
             SectionLabel("Manage")
             GroupedActionList {
                 NavListItem(Icons.Filled.Groups, "Manage Students", onGoToStudents)
+                NavListItem(Icons.Filled.Class, "School Year & Sections", onGoToAcademicStructure)
                 NavListItem(Icons.Filled.Schedule, "Pickup Policy", onGoToPickupPolicy)
             }
 

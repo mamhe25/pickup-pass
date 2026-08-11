@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.TeacherWithSections
+import com.pickuppass.android.data.model.GradeSection
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.theme.Spacing
@@ -78,7 +79,7 @@ fun ManageSectionsScreen(
                 ) {
                     item {
                         Text(
-                            "Assign each teacher's grade/section so their broadcasts reach the right guardians.",
+                            "Assign teachers only to sections configured for the current school year.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = Spacing.xs)
@@ -87,6 +88,7 @@ fun ManageSectionsScreen(
                     items(uiState.teachers, key = { it.uid }) { teacher ->
                         TeacherSectionsCard(
                             teacher = teacher,
+                            availableSections = uiState.availableSections,
                             saveStatus = uiState.saveStatusByUid[teacher.uid],
                             onAddSection = { grade, section -> viewModel.addSection(teacher.uid, grade, section) },
                             onRemoveSection = { index -> viewModel.removeSection(teacher.uid, index) }
@@ -101,12 +103,13 @@ fun ManageSectionsScreen(
 @Composable
 private fun TeacherSectionsCard(
     teacher: TeacherWithSections,
+    availableSections: List<GradeSection>,
     saveStatus: String?,
     onAddSection: (grade: String, section: String) -> Unit,
     onRemoveSection: (index: Int) -> Unit
 ) {
-    var grade by remember { mutableStateOf("") }
-    var section by remember { mutableStateOf("") }
+    var sectionMenuExpanded by remember { mutableStateOf(false) }
+    var selectedSection by remember { mutableStateOf<GradeSection?>(null) }
 
     ElevatedCard(shape = MaterialTheme.shapes.medium) {
         Column(Modifier.padding(Spacing.md)) {
@@ -139,30 +142,44 @@ private fun TeacherSectionsCard(
             }
 
             Spacer(Modifier.height(Spacing.sm))
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = grade,
-                    onValueChange = { grade = it },
-                    label = { Text("Grade") },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.small,
-                    modifier = Modifier.weight(1f)
+            if (availableSections.isEmpty()) {
+                Text(
+                    "Create the school year and grade/sections first in School Year & Sections.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
                 )
-                OutlinedTextField(
-                    value = section,
-                    onValueChange = { section = it },
-                    label = { Text("Section") },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.small,
-                    modifier = Modifier.weight(1f)
-                )
-                FilledTonalButton(onClick = {
-                    onAddSection(grade, section)
-                    grade = ""
-                    section = ""
-                }) {
-                    Text("Add")
+            } else {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { sectionMenuExpanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(selectedSection?.displayName ?: "Choose configured section")
+                    }
+                    DropdownMenu(
+                        expanded = sectionMenuExpanded,
+                        onDismissRequest = { sectionMenuExpanded = false }
+                    ) {
+                        availableSections.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option.displayName) },
+                                onClick = {
+                                    selectedSection = option
+                                    sectionMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
                 }
+                Spacer(Modifier.height(Spacing.xs))
+                FilledTonalButton(
+                    enabled = selectedSection != null,
+                    onClick = {
+                        selectedSection?.let { onAddSection(it.gradeLevel, it.sectionName) }
+                        selectedSection = null
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Assign Section") }
             }
 
             saveStatus?.let {
