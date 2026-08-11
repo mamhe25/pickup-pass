@@ -471,4 +471,19 @@ class SchoolAdminRepository @Inject constructor(
         ApiResult.Failure(e.message ?: "Network error")
     }
 
+
+    suspend fun downloadBillingInvoicePdf(invoiceId: String): ApiResult<ByteArray> = try {
+        val response = api.downloadSchoolInvoicePdf(invoiceId)
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body.bytes())
+        else ApiResult.Failure("Could not download invoice PDF")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun downloadBillingReceiptPdf(invoiceId: String): ApiResult<ByteArray> = try {
+        val response = api.downloadSchoolReceiptPdf(invoiceId)
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body.bytes())
+        else ApiResult.Failure("Could not download payment receipt")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
 }

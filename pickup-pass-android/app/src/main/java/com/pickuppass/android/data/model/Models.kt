@@ -835,7 +835,9 @@ data class SchoolBillingInvoiceItem(
     val paymentReference: String = "",
     val paymentMethod: String = "",
     val createdAt: String? = null,
-    val paidAt: String? = null
+    val paidAt: String? = null,
+    val receiptAvailable: Boolean = false,
+    val receiptNumber: String = ""
 )
 
 data class GcashPaymentNoticeItem(

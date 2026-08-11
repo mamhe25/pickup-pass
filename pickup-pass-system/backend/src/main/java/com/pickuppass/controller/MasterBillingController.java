@@ -11,6 +11,7 @@ import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.BillingEmailService;
 import com.pickuppass.service.InvoicePdfService;
+import com.pickuppass.service.ReceiptPdfService;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -30,6 +31,7 @@ public class MasterBillingController {
     private final AuditService auditService;
     private final InvoicePdfService invoicePdfService;
     private final BillingEmailService billingEmailService;
+    private final ReceiptPdfService receiptPdfService;
     private final boolean gcashEnabled;
     private final String gcashAccountName;
     private final String gcashMobile;
@@ -37,6 +39,7 @@ public class MasterBillingController {
 
     public MasterBillingController(Firestore firestore, AuditService auditService,
                                    InvoicePdfService invoicePdfService, BillingEmailService billingEmailService,
+                                   ReceiptPdfService receiptPdfService,
                                    @org.springframework.beans.factory.annotation.Value("${BILLING_GCASH_ENABLED:true}") boolean gcashEnabled,
                                    @org.springframework.beans.factory.annotation.Value("${BILLING_GCASH_ACCOUNT_NAME:}") String gcashAccountName,
                                    @org.springframework.beans.factory.annotation.Value("${BILLING_GCASH_MOBILE:}") String gcashMobile,
@@ -45,6 +48,7 @@ public class MasterBillingController {
         this.auditService = auditService;
         this.invoicePdfService = invoicePdfService;
         this.billingEmailService = billingEmailService;
+        this.receiptPdfService = receiptPdfService;
         this.gcashEnabled = gcashEnabled;
         this.gcashAccountName = clean(gcashAccountName, 120);
         this.gcashMobile = clean(gcashMobile, 40);
@@ -148,6 +152,40 @@ public class MasterBillingController {
                 .body(pdf);
     }
 
+    @GetMapping("/invoices/{invoiceId}/receipt")
+    public ResponseEntity<?> receipt(@PathVariable String invoiceId,
+                                     @AuthenticationPrincipal FirebaseUserDetails actor) throws Exception {
+        DocumentSnapshot invoice = firestore.collection("billingInvoices").document(invoiceId).get().get();
+        if (!invoice.exists()) return ResponseEntity.status(404).body(Map.of("error", "Invoice not found"));
+        try {
+            byte[] pdf = receiptPdfService.render(invoice);
+            String number = receiptPdfService.receiptNumber(invoice);
+            auditService.record(actor, "billing.receipt_pdf_generated", "billingInvoice", invoiceId,
+                    Map.of("schoolId", Optional.ofNullable(invoice.getString("schoolId")).orElse("")));
+            return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(number + ".pdf").build().toString())
+                    .header(HttpHeaders.CACHE_CONTROL, "no-store").body(pdf);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/invoices/{invoiceId}/reminder")
+    public ResponseEntity<?> reminder(@PathVariable String invoiceId,
+                                      @AuthenticationPrincipal FirebaseUserDetails actor) throws Exception {
+        DocumentReference ref = firestore.collection("billingInvoices").document(invoiceId);
+        DocumentSnapshot invoice = ref.get().get();
+        if (!invoice.exists()) return ResponseEntity.status(404).body(Map.of("error", "Invoice not found"));
+        if ("paid".equalsIgnoreCase(invoice.getString("status")) || "void".equalsIgnoreCase(invoice.getString("status")))
+            return ResponseEntity.badRequest().body(Map.of("error", "Reminder is not available for this invoice"));
+        String recipient = resolveBillingRecipient(invoice);
+        if (recipient.isBlank()) return ResponseEntity.badRequest().body(Map.of("error", "No billing email is configured for this school"));
+        billingEmailService.sendPaymentReminder(ref, recipient,
+                "overdue".equalsIgnoreCase(invoice.getString("status")) ? "overdue" : "manual");
+        auditService.record(actor, "billing.payment_reminder_requested", "billingInvoice", invoiceId, Map.of("recipient", recipient));
+        return ResponseEntity.ok(Map.of("status", "sent", "recipient", recipient));
+    }
+
     @PostMapping("/invoices/{invoiceId}/email")
     public ResponseEntity<?> email(@PathVariable String invoiceId,
                                    @RequestBody(required = false) EmailInvoiceRequest req,
@@ -190,6 +228,11 @@ public class MasterBillingController {
         update.put("updatedAt", FieldValue.serverTimestamp());
         ref.update(update).get();
         auditService.record(actor, "billing.invoice_paid", "billingInvoice", invoiceId, Map.of("schoolId", Optional.ofNullable(invoice.getString("schoolId")).orElse("")));
+        try {
+            DocumentSnapshot paidInvoice = ref.get().get();
+            String recipient = resolveBillingRecipient(paidInvoice);
+            if (!recipient.isBlank()) billingEmailService.sendPaymentReceipt(ref, recipient);
+        } catch (Exception ignored) { }
         return ResponseEntity.ok(toInvoice(ref.get().get()));
     }
 
@@ -307,6 +350,12 @@ public class MasterBillingController {
 
         auditService.record(actor, "billing.gcash_payment_confirmed", "billingPaymentNotice", noticeId,
                 Map.of("invoiceId", invoiceId));
+        try {
+            DocumentReference invoiceRef = firestore.collection("billingInvoices").document(invoiceId);
+            DocumentSnapshot paidInvoice = invoiceRef.get().get();
+            String recipient = resolveBillingRecipient(paidInvoice);
+            if (!recipient.isBlank()) billingEmailService.sendPaymentReceipt(invoiceRef, recipient);
+        } catch (Exception ignored) { }
         return ResponseEntity.ok(toPaymentNotice(noticeRef.get().get()));
     }
 

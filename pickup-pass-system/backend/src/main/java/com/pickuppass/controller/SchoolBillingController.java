@@ -9,7 +9,12 @@ import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.QuerySnapshot;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
+import com.pickuppass.service.InvoicePdfService;
+import com.pickuppass.service.ReceiptPdfService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -31,6 +36,8 @@ import java.util.*;
 public class SchoolBillingController {
     private final Firestore firestore;
     private final AuditService auditService;
+    private final InvoicePdfService invoicePdfService;
+    private final ReceiptPdfService receiptPdfService;
     private final boolean gcashEnabled;
     private final String gcashAccountName;
     private final String gcashMobile;
@@ -39,12 +46,16 @@ public class SchoolBillingController {
     public SchoolBillingController(
             Firestore firestore,
             AuditService auditService,
+            InvoicePdfService invoicePdfService,
+            ReceiptPdfService receiptPdfService,
             @Value("${BILLING_GCASH_ENABLED:true}") boolean gcashEnabled,
             @Value("${BILLING_GCASH_ACCOUNT_NAME:}") String gcashAccountName,
             @Value("${BILLING_GCASH_MOBILE:}") String gcashMobile,
             @Value("${BILLING_GCASH_NOTE:Send the exact invoice amount and keep your GCash reference number.}") String gcashNote) {
         this.firestore = firestore;
         this.auditService = auditService;
+        this.invoicePdfService = invoicePdfService;
+        this.receiptPdfService = receiptPdfService;
         this.gcashEnabled = gcashEnabled;
         this.gcashAccountName = clean(gcashAccountName, 120);
         this.gcashMobile = clean(gcashMobile, 40);
@@ -81,6 +92,35 @@ public class SchoolBillingController {
                 "invoices", invoices,
                 "paymentNotices", notices
         ));
+    }
+
+    @GetMapping("/invoices/{invoiceId}/pdf")
+    public ResponseEntity<?> invoicePdf(@PathVariable String invoiceId,
+                                        @AuthenticationPrincipal FirebaseUserDetails admin) throws Exception {
+        DocumentSnapshot invoice = firestore.collection("billingInvoices").document(invoiceId).get().get();
+        if (!invoice.exists() || !admin.getSchoolId().equals(invoice.getString("schoolId")))
+            return ResponseEntity.status(404).body(Map.of("error", "Invoice not found"));
+        byte[] pdf = invoicePdfService.render(invoice);
+        String name = Optional.ofNullable(invoice.getString("invoiceNumber")).orElse(invoiceId).replaceAll("[^A-Za-z0-9._-]", "_") + ".pdf";
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(name).build().toString())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store").body(pdf);
+    }
+
+    @GetMapping("/invoices/{invoiceId}/receipt")
+    public ResponseEntity<?> receiptPdf(@PathVariable String invoiceId,
+                                        @AuthenticationPrincipal FirebaseUserDetails admin) throws Exception {
+        DocumentSnapshot invoice = firestore.collection("billingInvoices").document(invoiceId).get().get();
+        if (!invoice.exists() || !admin.getSchoolId().equals(invoice.getString("schoolId")))
+            return ResponseEntity.status(404).body(Map.of("error", "Invoice not found"));
+        try {
+            byte[] pdf = receiptPdfService.render(invoice);
+            return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(receiptPdfService.receiptNumber(invoice)+".pdf").build().toString())
+                    .header(HttpHeaders.CACHE_CONTROL, "no-store").body(pdf);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/invoices/{invoiceId}/gcash-payment-notice")
@@ -178,6 +218,8 @@ public class SchoolBillingController {
             m.put(k, Optional.ofNullable(d.get(k)).orElse(""));
         }
         m.put("amountMinor", Optional.ofNullable(d.getLong("amountMinor")).orElse(0L));
+        m.put("receiptAvailable", "paid".equalsIgnoreCase(Optional.ofNullable(d.getString("status")).orElse("")));
+        m.put("receiptNumber", Optional.ofNullable(d.getString("receiptNumber")).orElse(""));
         for (String k : List.of("dueAt","createdAt","paidAt")) {
             Timestamp t = d.getTimestamp(k); m.put(k, t == null ? null : t.toDate().toInstant().toString());
         }

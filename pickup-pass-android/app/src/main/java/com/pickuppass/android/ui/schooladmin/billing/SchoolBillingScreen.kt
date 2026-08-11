@@ -1,5 +1,8 @@
 package com.pickuppass.android.ui.schooladmin.billing
 
+import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -24,7 +28,19 @@ fun SchoolBillingScreen(
     viewModel: SchoolBillingViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var paying by remember { mutableStateOf<SchoolBillingInvoiceItem?>(null) }
+
+    val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        val payload = state.pdfDocument
+        if (uri != null && payload != null) {
+            runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(payload.bytes) } }
+        }
+        viewModel.clearPdf()
+    }
+    LaunchedEffect(state.pdfDocument?.fileName) {
+        state.pdfDocument?.let { pdfLauncher.launch(it.fileName) }
+    }
 
     Scaffold(
         topBar = {
@@ -79,6 +95,16 @@ fun SchoolBillingScreen(
                         }
                         Text("${invoice.currency} ${moneyLabel(invoice.amountMinor)}")
                         Text("Due ${invoice.dueAt?.take(10) ?: "—"}", style = MaterialTheme.typography.bodySmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            OutlinedButton(onClick = { viewModel.downloadInvoice(invoice) }, enabled = !state.saving) {
+                                Text("Invoice PDF")
+                            }
+                            if (invoice.receiptAvailable) {
+                                OutlinedButton(onClick = { viewModel.downloadReceipt(invoice) }, enabled = !state.saving) {
+                                    Text("Receipt PDF")
+                                }
+                            }
+                        }
                         if (pending != null) {
                             Text("GCash payment submitted · awaiting verification", color = MaterialTheme.colorScheme.tertiary)
                             Text("Reference: ${pending.referenceNumber}", style = MaterialTheme.typography.bodySmall)

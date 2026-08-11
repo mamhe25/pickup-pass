@@ -21,8 +21,12 @@ data class SchoolBillingUiState(
     val invoices: List<SchoolBillingInvoiceItem> = emptyList(),
     val paymentNotices: List<GcashPaymentNoticeItem> = emptyList(),
     val error: String? = null,
-    val message: String? = null
+    val message: String? = null,
+    val pdfDocument: BillingPdfPayload? = null
 )
+
+data class BillingPdfPayload(val fileName: String, val bytes: ByteArray)
+
 
 @HiltViewModel
 class SchoolBillingViewModel @Inject constructor(
@@ -66,4 +70,41 @@ class SchoolBillingViewModel @Inject constructor(
             }
         }
     }
+
+    fun downloadInvoice(invoice: SchoolBillingInvoiceItem) {
+        if (_uiState.value.saving) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(saving = true, error = null)
+            when (val r = repository.downloadBillingInvoicePdf(invoice.invoiceId)) {
+                is ApiResult.Success -> _uiState.value = _uiState.value.copy(
+                    saving = false,
+                    pdfDocument = BillingPdfPayload(
+                        fileName = "${invoice.invoiceNumber.ifBlank { "PickupPass-Invoice" }}.pdf",
+                        bytes = r.data
+                    )
+                )
+                is ApiResult.Failure -> _uiState.value = _uiState.value.copy(saving = false, error = r.message)
+            }
+        }
+    }
+
+    fun downloadReceipt(invoice: SchoolBillingInvoiceItem) {
+        if (_uiState.value.saving) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(saving = true, error = null)
+            when (val r = repository.downloadBillingReceiptPdf(invoice.invoiceId)) {
+                is ApiResult.Success -> _uiState.value = _uiState.value.copy(
+                    saving = false,
+                    pdfDocument = BillingPdfPayload(
+                        fileName = "${invoice.receiptNumber.ifBlank { "PickupPass-Receipt-${invoice.invoiceNumber}" }}.pdf",
+                        bytes = r.data
+                    )
+                )
+                is ApiResult.Failure -> _uiState.value = _uiState.value.copy(saving = false, error = r.message)
+            }
+        }
+    }
+
+    fun clearPdf() { _uiState.value = _uiState.value.copy(pdfDocument = null) }
+
 }

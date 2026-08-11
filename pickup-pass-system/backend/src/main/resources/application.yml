@@ -84,5 +84,7 @@ pickuppass:
     support-email: ${BILLING_SUPPORT_EMAIL:}
     from-email: ${BILLING_FROM_EMAIL:}
     from-name: ${BILLING_FROM_NAME:PickupPass Billing}
+    reminders-enabled: ${BILLING_REMINDERS_ENABLED:true}
+    reminder-scan-ms: ${BILLING_REMINDER_SCAN_MS:21600000}
   payment-webhooks:
     generic-hmac-secret: ${PAYMENT_WEBHOOK_GENERIC_SECRET:}

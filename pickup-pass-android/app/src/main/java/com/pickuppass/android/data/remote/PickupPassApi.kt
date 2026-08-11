@@ -309,6 +309,14 @@ interface PickupPassApi {
     @GET("school-admin/billing")
     suspend fun getSchoolBillingCenter(): Response<SchoolBillingCenterResponse>
 
+    @Streaming
+    @GET("school-admin/billing/invoices/{invoiceId}/pdf")
+    suspend fun downloadSchoolInvoicePdf(@Path("invoiceId") invoiceId: String): Response<ResponseBody>
+
+    @Streaming
+    @GET("school-admin/billing/invoices/{invoiceId}/receipt")
+    suspend fun downloadSchoolReceiptPdf(@Path("invoiceId") invoiceId: String): Response<ResponseBody>
+
     @POST("school-admin/billing/invoices/{invoiceId}/gcash-payment-notice")
     suspend fun submitSchoolGcashPaymentNotice(
         @Path("invoiceId") invoiceId: String,

@@ -198,3 +198,11 @@ PHASE 3 UPDATE 7 — STARTUP MANUAL GCASH BILLING
 - New collections: billingPaymentNotices, billingPaymentReferenceClaims.
 - Deploy Firestore indexes after replacement:
   firebase deploy --only firestore:indexes
+
+PHASE 3 UPDATE 8 — RECEIPTS + BILLING REMINDERS
+- Adds ReceiptPdfService and paid-invoice receipt downloads.
+- School Admin Billing Center can save invoice and receipt PDFs.
+- Confirmed payments can email a receipt automatically when SMTP is configured.
+- Adds deduplicated 7-day, 1-day, and overdue reminder stages.
+- Optional manual reminder endpoint for Master Admin.
+- No new Firestore composite index is required.
