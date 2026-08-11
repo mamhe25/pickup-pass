@@ -466,3 +466,26 @@ data class GuardianVerificationStatusResponse(
     val status: String = "",
     val invalidatedTokens: Int = 0
 )
+
+
+// ---- Phase 2: device / session management ----
+
+data class DeviceSessionItem(
+    val deviceId: String = "",
+    val deviceName: String = "",
+    val clientVersion: String = "",
+    val createdAt: String? = null,
+    val lastSeenAt: String? = null,
+    val revokedAt: String? = null,
+    val current: Boolean = false,
+    val active: Boolean = true
+)
+
+data class DeviceSessionsResponse(
+    val devices: List<DeviceSessionItem> = emptyList()
+)
+
+data class DeviceRevokeResponse(
+    val status: String = "",
+    val revokedCount: Int = 0
+)

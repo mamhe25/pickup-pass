@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +34,7 @@ import com.pickuppass.android.ui.theme.Spacing
 fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
     onBack: () -> Unit,
+    onOpenDevices: () -> Unit,
     onSignedOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -137,6 +139,13 @@ fun ProfileScreen(
 
             Text(uiState.displayName, style = MaterialTheme.typography.titleMedium)
             Text(uiState.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Spacer(Modifier.height(Spacing.lg))
+            OutlinedButton(onClick = onOpenDevices, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.Devices, contentDescription = null)
+                Spacer(Modifier.width(Spacing.sm))
+                Text("My Devices & Sessions")
+            }
         }
     }
 }

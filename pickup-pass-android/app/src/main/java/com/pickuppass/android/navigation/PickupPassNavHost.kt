@@ -13,6 +13,7 @@ import com.pickuppass.android.ui.parent.guardians.ManageGuardiansScreen
 import com.pickuppass.android.ui.parent.notifications.NotificationsScreen
 import com.pickuppass.android.ui.parent.pass.PickupPassScreen
 import com.pickuppass.android.ui.parent.profile.ProfileScreen
+import com.pickuppass.android.ui.parent.devices.MyDevicesScreen
 import com.pickuppass.android.ui.parent.students.StudentsScreen
 import com.pickuppass.android.ui.schooladmin.branding.SchoolBrandingScreen
 import com.pickuppass.android.ui.schooladmin.bulkimport.BulkStudentImportScreen
@@ -104,12 +105,17 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
         composable(Screen.ParentProfile.route) {
             ProfileScreen(
                 onBack = { navController.popBackStack() },
+                onOpenDevices = { navController.navigate(Screen.ParentMyDevices.route) },
                 onSignedOut = { navController.navigateToLoginClearingBackStack() }
             )
         }
 
         composable(Screen.ParentNotifications.route) {
             NotificationsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.ParentMyDevices.route) {
+            MyDevicesScreen(onBack = { navController.popBackStack() })
         }
 
         composable(

@@ -2,6 +2,9 @@ package com.pickuppass.config;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.pickuppass.security.FirebaseAuthenticationFilter;
+import com.pickuppass.security.DeviceSessionFilter;
+import com.pickuppass.service.DeviceSessionService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pickuppass.security.JsonAccessDeniedHandler;
 import com.pickuppass.security.JsonAuthenticationEntryPoint;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,8 +32,14 @@ public class SecurityConfig {
     }
 
     @Bean
+    public DeviceSessionFilter deviceSessionFilter(DeviceSessionService sessions, ObjectMapper objectMapper) {
+        return new DeviceSessionFilter(sessions, objectMapper);
+    }
+
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                      FirebaseAuthenticationFilter firebaseFilter,
+                                                     DeviceSessionFilter deviceSessionFilter,
                                                      JsonAuthenticationEntryPoint authenticationEntryPoint,
                                                      JsonAccessDeniedHandler accessDeniedHandler) throws Exception {
         http
@@ -45,7 +54,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/bootstrap/**").permitAll()
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(firebaseFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(firebaseFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(deviceSessionFilter, FirebaseAuthenticationFilter.class);
 
         return http.build();
     }
@@ -60,7 +70,7 @@ public class SecurityConfig {
                 .toList();
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-ID", "X-Client-Version", "Idempotency-Key"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-ID", "X-Client-Version", "X-Device-Id", "X-Device-Name", "Idempotency-Key"));
         config.setExposedHeaders(List.of("X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "Retry-After"));
         config.setAllowCredentials(false);
         config.setMaxAge(3600L);

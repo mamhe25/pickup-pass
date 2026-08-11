@@ -172,6 +172,15 @@ interface PickupPassApi {
         @Body body: GuardianVerificationStatusRequest
     ): Response<GuardianVerificationStatusResponse>
 
+    @GET("session/devices")
+    suspend fun listDeviceSessions(): Response<DeviceSessionsResponse>
+
+    @POST("session/devices/{deviceId}/revoke")
+    suspend fun revokeDeviceSession(@Path("deviceId") deviceId: String): Response<DeviceRevokeResponse>
+
+    @POST("session/devices/revoke-others")
+    suspend fun revokeOtherDeviceSessions(): Response<DeviceRevokeResponse>
+
     @POST("school-admin/broadcasts")
     suspend fun broadcastToSchool(@Body body: BroadcastRequest): Response<BroadcastResponse>
 
