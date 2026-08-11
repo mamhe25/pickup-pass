@@ -3,6 +3,7 @@ package com.pickuppass.android.di
 import com.pickuppass.android.BuildConfig
 import com.pickuppass.android.data.remote.AuthInterceptor
 import com.pickuppass.android.data.remote.PickupPassApi
+import com.pickuppass.android.telemetry.NetworkTelemetryInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -22,8 +23,9 @@ object NetworkModule {
     @Singleton
     fun provideLoggingInterceptor(): HttpLoggingInterceptor =
         HttpLoggingInterceptor().apply {
+            // BODY logging can expose personal data/tokens. Keep it debug-only.
             level = if (BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.BODY
+                HttpLoggingInterceptor.Level.BASIC
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }
@@ -33,13 +35,18 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(
         authInterceptor: AuthInterceptor,
+        networkTelemetryInterceptor: NetworkTelemetryInterceptor,
         loggingInterceptor: HttpLoggingInterceptor
     ): OkHttpClient =
         OkHttpClient.Builder()
+            .addInterceptor(networkTelemetryInterceptor)
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
             .build()
 
     @Provides

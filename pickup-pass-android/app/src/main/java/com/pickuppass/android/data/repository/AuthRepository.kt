@@ -1,6 +1,7 @@
 package com.pickuppass.android.data.repository
 
 import com.google.firebase.auth.FirebaseAuth
+import com.pickuppass.android.telemetry.AppTelemetry
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
@@ -28,7 +29,8 @@ data class SessionInfo(val uid: String, val schoolId: String?, val role: UserRol
 
 @Singleton
 class AuthRepository @Inject constructor(
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth,
+    private val telemetry: AppTelemetry
 ) {
     private companion object {
         const val AUTH_OPERATION_TIMEOUT_MS = 20_000L
@@ -51,7 +53,10 @@ class AuthRepository @Inject constructor(
         Unit
     }
 
-    fun signOut() = firebaseAuth.signOut()
+    fun signOut() {
+        telemetry.clearSignedInUser()
+        firebaseAuth.signOut()
+    }
 
     /**
      * Forces a refreshed ID token (forceRefresh = true) so custom claims
@@ -79,6 +84,7 @@ class AuthRepository @Inject constructor(
             val claims = result?.claims ?: emptyMap()
             val role = UserRole.from(claims["role"] as? String)
             val schoolId = claims["schoolId"] as? String
+            telemetry.setSignedInUser(user.uid, claims["role"] as? String, schoolId)
             SessionInfo(uid = user.uid, schoolId = schoolId, role = role)
         } catch (e: Exception) {
             null

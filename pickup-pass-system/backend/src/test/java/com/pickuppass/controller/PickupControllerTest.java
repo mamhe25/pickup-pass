@@ -4,6 +4,7 @@ import com.pickuppass.dto.QrVerificationResult;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.PushNotificationService;
+import com.pickuppass.service.PickupMetricsService;
 import com.pickuppass.service.QrVerificationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +22,8 @@ class PickupControllerTest {
         QrVerificationService qr = mock(QrVerificationService.class);
         PushNotificationService push = mock(PushNotificationService.class);
         AuditService audit = mock(AuditService.class);
-        PickupController controller = new PickupController(qr, push, audit);
+        PickupMetricsService metrics = mock(PickupMetricsService.class);
+        PickupController controller = new PickupController(qr, push, audit, metrics);
         FirebaseUserDetails staff = new FirebaseUserDetails("staff1", "staff@test.com", "school1", "teacher");
         PickupController.VerifyRequest req = new PickupController.VerifyRequest();
         req.setQrToken("bad-token");
@@ -39,7 +41,8 @@ class PickupControllerTest {
         QrVerificationService qr = mock(QrVerificationService.class);
         PushNotificationService push = mock(PushNotificationService.class);
         AuditService audit = mock(AuditService.class);
-        PickupController controller = new PickupController(qr, push, audit);
+        PickupMetricsService metrics = mock(PickupMetricsService.class);
+        PickupController controller = new PickupController(qr, push, audit, metrics);
         FirebaseUserDetails staff = new FirebaseUserDetails("staff1", "staff@test.com", "school1", "teacher");
         PickupController.VerifyRequest req = new PickupController.VerifyRequest();
         req.setQrToken("good-token");
@@ -59,7 +62,8 @@ class PickupControllerTest {
         QrVerificationService qr = mock(QrVerificationService.class);
         PushNotificationService push = mock(PushNotificationService.class);
         AuditService audit = mock(AuditService.class);
-        PickupController controller = new PickupController(qr, push, audit);
+        PickupMetricsService metrics = mock(PickupMetricsService.class);
+        PickupController controller = new PickupController(qr, push, audit, metrics);
         FirebaseUserDetails admin = new FirebaseUserDetails("admin1", "admin@test.com", "school1", "school_admin");
         PickupController.ManualOverrideRequest req = new PickupController.ManualOverrideRequest();
         req.setStudentId("student1");

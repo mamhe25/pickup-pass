@@ -3,8 +3,10 @@ package com.pickuppass.controller;
 import com.pickuppass.dto.QrVerificationResult;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
+import com.pickuppass.service.PickupMetricsService;
 import com.pickuppass.service.PushNotificationService;
 import com.pickuppass.service.QrVerificationService;
+import io.micrometer.core.instrument.Timer;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -22,58 +24,87 @@ public class PickupController {
     private final QrVerificationService qrService;
     private final PushNotificationService pushNotificationService;
     private final AuditService auditService;
+    private final PickupMetricsService metrics;
 
     public PickupController(QrVerificationService qrService,
                             PushNotificationService pushNotificationService,
-                            AuditService auditService) {
+                            AuditService auditService,
+                            PickupMetricsService metrics) {
         this.qrService = qrService;
         this.pushNotificationService = pushNotificationService;
         this.auditService = auditService;
+        this.metrics = metrics;
     }
 
     @PostMapping("/verify")
     @PreAuthorize("hasAnyRole('teacher','school_admin')")
     public ResponseEntity<?> verify(@Valid @RequestBody VerifyRequest req,
                                      @AuthenticationPrincipal FirebaseUserDetails staff) throws Exception {
-        QrVerificationResult result = qrService.verify(req.getQrToken(), staff.getSchoolId());
-        if (!result.isValid()) {
-            return ResponseEntity.badRequest().body(Map.of("valid", false, "reason", result.getMessage()));
+        Timer.Sample timer = metrics.startTimer();
+        try {
+            QrVerificationResult result = qrService.verify(req.getQrToken(), staff.getSchoolId());
+            if (!result.isValid()) {
+                metrics.verificationFailed();
+                return ResponseEntity.badRequest().body(Map.of("valid", false, "reason", result.getMessage()));
+            }
+            metrics.verificationSucceeded();
+            return ResponseEntity.ok(Map.of(
+                    "valid", true,
+                    "studentId", result.getStudentId(),
+                    "parentUid", result.getParentUid()
+            ));
+        } catch (Exception e) {
+            metrics.verificationFailed();
+            throw e;
+        } finally {
+            metrics.stopVerificationTimer(timer);
         }
-        return ResponseEntity.ok(Map.of(
-                "valid", true,
-                "studentId", result.getStudentId(),
-                "parentUid", result.getParentUid()
-        ));
     }
 
     @PostMapping("/approve")
     @PreAuthorize("hasAnyRole('teacher','school_admin')")
     public ResponseEntity<?> approve(@Valid @RequestBody VerifyRequest req,
                                       @AuthenticationPrincipal FirebaseUserDetails staff) throws Exception {
-        QrVerificationResult result = qrService.verify(req.getQrToken(), staff.getSchoolId());
-        if (!result.isValid()) {
-            return ResponseEntity.badRequest().body(Map.of("valid", false, "reason", result.getMessage()));
+        Timer.Sample timer = metrics.startTimer();
+        try {
+            QrVerificationResult result = qrService.verify(req.getQrToken(), staff.getSchoolId());
+            if (!result.isValid()) {
+                metrics.approvalFailed();
+                return ResponseEntity.badRequest().body(Map.of("valid", false, "reason", result.getMessage()));
+            }
+            String exitLogId = qrService.markUsedAndLog(result, staff.getUid(), staff.getSchoolId());
+            // Pickup success is authoritative even when push delivery fails internally.
+            pushNotificationService.notifyGuardiansOfPickup(result.getStudentId(), result.getParentUid());
+            auditService.record(staff, "pickup.approved", "exitLog", exitLogId,
+                    Map.of("studentId", result.getStudentId(), "method", "qr_scan"));
+            metrics.approvalSucceeded();
+            return ResponseEntity.ok(Map.of("status", "release_approved", "exitLogId", exitLogId));
+        } catch (Exception e) {
+            metrics.approvalFailed();
+            throw e;
+        } finally {
+            metrics.stopApprovalTimer(timer);
         }
-        String exitLogId = qrService.markUsedAndLog(result, staff.getUid(), staff.getSchoolId());
-        // Pickup success is authoritative even when push delivery fails internally.
-        pushNotificationService.notifyGuardiansOfPickup(result.getStudentId(), result.getParentUid());
-        auditService.record(staff, "pickup.approved", "exitLog", exitLogId,
-                Map.of("studentId", result.getStudentId(), "method", "qr_scan"));
-        return ResponseEntity.ok(Map.of("status", "release_approved", "exitLogId", exitLogId));
     }
 
     @PostMapping("/manual-override")
     @PreAuthorize("hasRole('school_admin')")
     public ResponseEntity<?> manualOverride(@Valid @RequestBody ManualOverrideRequest req,
                                              @AuthenticationPrincipal FirebaseUserDetails staff) throws Exception {
-        String exitLogId = qrService.manualOverride(req.getStudentId(), req.getGuardianUid(), req.getReason(),
-                staff.getUid(), staff.getSchoolId());
-        pushNotificationService.notifyGuardiansOfPickup(req.getStudentId(), req.getGuardianUid());
-        auditService.record(staff, "pickup.manual_override", "exitLog", exitLogId, Map.of(
-                "studentId", req.getStudentId(),
-                "guardianUid", req.getGuardianUid(),
-                "reason", req.getReason().trim()));
-        return ResponseEntity.ok(Map.of("status", "release_approved", "method", "manual_override", "exitLogId", exitLogId));
+        try {
+            String exitLogId = qrService.manualOverride(req.getStudentId(), req.getGuardianUid(), req.getReason(),
+                    staff.getUid(), staff.getSchoolId());
+            pushNotificationService.notifyGuardiansOfPickup(req.getStudentId(), req.getGuardianUid());
+            auditService.record(staff, "pickup.manual_override", "exitLog", exitLogId, Map.of(
+                    "studentId", req.getStudentId(),
+                    "guardianUid", req.getGuardianUid(),
+                    "reason", req.getReason().trim()));
+            metrics.manualOverrideSucceeded();
+            return ResponseEntity.ok(Map.of("status", "release_approved", "method", "manual_override", "exitLogId", exitLogId));
+        } catch (Exception e) {
+            metrics.manualOverrideFailed();
+            throw e;
+        }
     }
 
     public static class VerifyRequest {
