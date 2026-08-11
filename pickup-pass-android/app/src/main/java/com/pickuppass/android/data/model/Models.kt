@@ -25,6 +25,9 @@ data class GuardianEntry(
     val relationship: String = "",
     val isPrimary: Boolean = false,
     val addedBy: String = "",
+    val authorizationType: String = "permanent",
+    val validDate: String = "",
+    val remainingUses: Int = 0,
 )
 
 /** Firestore: notifications/{notificationId} */
@@ -117,6 +120,17 @@ data class AddGuardianResponse(
     val status: String? = null,
     val emailSent: Boolean = true,
     val error: String? = null
+)
+
+data class AddTemporaryGuardianRequest(
+    val studentId: String,
+    val guardianEmail: String,
+    val lastName: String,
+    val firstName: String,
+    val middleInitial: String? = null,
+    val suffix: String? = null,
+    val relationship: String,
+    val validDate: String
 )
 
 data class RemoveGuardianRequest(val studentId: String, val guardianUid: String)

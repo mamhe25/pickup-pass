@@ -2,6 +2,7 @@ package com.pickuppass.android.data.repository
 
 import com.pickuppass.android.data.model.AddGuardianRequest
 import com.pickuppass.android.data.model.AddGuardianResponse
+import com.pickuppass.android.data.model.AddTemporaryGuardianRequest
 import com.pickuppass.android.data.model.RemoveGuardianRequest
 import com.pickuppass.android.data.remote.PickupPassApi
 import javax.inject.Inject
@@ -42,6 +43,40 @@ class GuardianRepository @Inject constructor(
                 ApiResult.Success(body)
             } else {
                 ApiResult.Failure(body?.error ?: "Could not add guardian")
+            }
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun addTemporaryGuardian(
+        studentId: String,
+        lastName: String,
+        firstName: String,
+        middleInitial: String,
+        suffix: String,
+        guardianEmail: String,
+        relationship: String,
+        validDate: String
+    ): ApiResult<AddGuardianResponse> {
+        return try {
+            val response = api.addTemporaryGuardian(
+                AddTemporaryGuardianRequest(
+                    studentId = studentId,
+                    guardianEmail = guardianEmail,
+                    lastName = lastName,
+                    firstName = firstName,
+                    middleInitial = middleInitial.ifBlank { null },
+                    suffix = suffix.ifBlank { null },
+                    relationship = relationship,
+                    validDate = validDate
+                )
+            )
+            val body = response.body()
+            if (response.isSuccessful && body?.status != null) {
+                ApiResult.Success(body)
+            } else {
+                ApiResult.Failure(body?.error ?: "Could not authorize temporary guardian")
             }
         } catch (e: Exception) {
             ApiResult.Failure(e.message ?: "Network error")

@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import java.time.LocalDate
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
@@ -102,6 +104,18 @@ fun ManageGuardiansScreen(
                     }
                 )
             }
+
+            item {
+                TemporaryGuardianForm(
+                    isSubmitting = uiState.isSubmitting,
+                    formError = uiState.formError,
+                    formSuccess = uiState.formSuccess,
+                    formIsWarning = uiState.formIsWarning,
+                    onSubmit = { lastName, firstName, mi, suffix, email, relationship, validDate ->
+                        viewModel.addTemporaryGuardian(lastName, firstName, mi, suffix, email, relationship, validDate)
+                    }
+                )
+            }
         }
     }
 
@@ -144,6 +158,13 @@ private fun GuardianRowCard(row: GuardianRow, onRemoveClick: () -> Unit, modifie
                     if (row.entry.isPrimary) {
                         Spacer(Modifier.width(Spacing.xs))
                         AssistChip(onClick = {}, label = { Text("Primary", style = MaterialTheme.typography.bodySmall) })
+                    } else if (row.entry.authorizationType.equals("temporary", ignoreCase = true)) {
+                        Spacer(Modifier.width(Spacing.xs))
+                        AssistChip(
+                            onClick = {},
+                            leadingIcon = { Icon(Icons.Filled.Schedule, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            label = { Text("One-day", style = MaterialTheme.typography.bodySmall) }
+                        )
                     }
                 }
                 Text(
@@ -151,12 +172,107 @@ private fun GuardianRowCard(row: GuardianRow, onRemoveClick: () -> Unit, modifie
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (row.entry.authorizationType.equals("temporary", ignoreCase = true)) {
+                    Text(
+                        "Valid ${row.entry.validDate.ifBlank { "on authorized date" }} · one pickup only",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
             if (!row.entry.isPrimary) {
                 IconButton(onClick = onRemoveClick) {
                     Icon(Icons.Filled.Close, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TemporaryGuardianForm(
+    isSubmitting: Boolean,
+    formError: String?,
+    formSuccess: String?,
+    formIsWarning: Boolean,
+    onSubmit: (lastName: String, firstName: String, middleInitial: String, suffix: String, email: String, relationship: String, validDate: String) -> Unit
+) {
+    var lastName by remember { mutableStateOf("") }
+    var firstName by remember { mutableStateOf("") }
+    var middleInitial by remember { mutableStateOf("") }
+    var suffix by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var relationship by remember { mutableStateOf("authorized pickup") }
+    var validDate by remember { mutableStateOf(LocalDate.now().toString()) }
+
+    ElevatedCard(shape = MaterialTheme.shapes.medium) {
+        Column(Modifier.padding(Spacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(Spacing.xs))
+                Text("Authorize One-Day Pickup", style = MaterialTheme.typography.titleMedium)
+            }
+            Text(
+                "For a relative, caregiver, or other trusted person who should be allowed to pick up this student once on a specific date. After a successful pickup, their access is removed automatically.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = Spacing.xs, bottom = Spacing.sm)
+            )
+
+            OutlinedTextField(
+                value = lastName, onValueChange = { lastName = it }, label = { Text("Last name") },
+                singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(Spacing.sm))
+            OutlinedTextField(
+                value = firstName, onValueChange = { firstName = it }, label = { Text("First name") },
+                singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(Spacing.sm))
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                OutlinedTextField(
+                    value = middleInitial, onValueChange = { middleInitial = it }, label = { Text("M.I.") },
+                    singleLine = true, modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = suffix, onValueChange = { suffix = it }, label = { Text("Suffix") },
+                    singleLine = true, modifier = Modifier.weight(2f)
+                )
+            }
+            Spacer(Modifier.height(Spacing.sm))
+            OutlinedTextField(
+                value = email, onValueChange = { email = it }, label = { Text("Guardian email") },
+                singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(Spacing.sm))
+            OutlinedTextField(
+                value = relationship, onValueChange = { relationship = it }, label = { Text("Relationship") },
+                singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(Spacing.sm))
+            OutlinedTextField(
+                value = validDate, onValueChange = { validDate = it }, label = { Text("Pickup date (YYYY-MM-DD)") },
+                supportingText = { Text("Today through the next 30 days") },
+                singleLine = true, modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(Spacing.sm))
+            formError?.let { ErrorBanner(it, modifier = Modifier.padding(bottom = Spacing.sm)) }
+            formSuccess?.let {
+                if (formIsWarning) WarningBanner(it, modifier = Modifier.padding(bottom = Spacing.sm))
+                else SuccessBanner(it, modifier = Modifier.padding(bottom = Spacing.sm))
+            }
+            PrimaryButton(
+                text = "Authorize One-Day Pickup",
+                loading = isSubmitting,
+                onClick = {
+                    onSubmit(
+                        lastName.trim(), firstName.trim(), middleInitial.trim(), suffix.trim(),
+                        email.trim(), relationship.trim(), validDate.trim()
+                    )
+                }
+            )
         }
     }
 }

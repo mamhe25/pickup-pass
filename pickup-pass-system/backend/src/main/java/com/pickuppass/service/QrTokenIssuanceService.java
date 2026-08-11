@@ -42,16 +42,19 @@ public class QrTokenIssuanceService {
     private final Algorithm hmacAlgorithm;
     private final int tokenTtlMinutes;
     private final int dismissalWindowMinutes;
+    private final GuardianAuthorizationService guardianAuthorizationService;
 
     public QrTokenIssuanceService(
             Firestore firestore,
             @Value("${qr.signing.secret}") String secret,
             @Value("${qr.token-ttl-minutes:15}") int tokenTtlMinutes,
-            @Value("${qr.dismissal-window-minutes:120}") int dismissalWindowMinutes) {
+            @Value("${qr.dismissal-window-minutes:120}") int dismissalWindowMinutes,
+            GuardianAuthorizationService guardianAuthorizationService) {
         this.firestore = firestore;
         this.hmacAlgorithm = Algorithm.HMAC256(secret);
         this.tokenTtlMinutes = tokenTtlMinutes;
         this.dismissalWindowMinutes = dismissalWindowMinutes;
+        this.guardianAuthorizationService = guardianAuthorizationService;
     }
 
     public PickupTokenResponse issueToken(String parentUid, String schoolId, String studentId)
@@ -73,10 +76,10 @@ public class QrTokenIssuanceService {
         if (studentStatus != null && !studentStatus.isBlank() && !"active".equalsIgnoreCase(studentStatus)) {
             throw new ForbiddenException("Pickup access is unavailable because this student is not active");
         }
-        @SuppressWarnings("unchecked")
-        java.util.List<String> guardianUids = (java.util.List<String>) studentSnap.get("guardianUids");
-        if (guardianUids == null || !guardianUids.contains(parentUid)) {
-            throw new ForbiddenException("You are not an authorized guardian for this student");
+        GuardianAuthorizationService.AuthorizationDecision guardianDecision =
+                guardianAuthorizationService.check(studentSnap, parentUid);
+        if (!guardianDecision.allowed()) {
+            throw new ForbiddenException(guardianDecision.reason());
         }
 
         // 2. Invalidate any still-unused, still-fresh token previously issued

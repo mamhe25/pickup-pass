@@ -27,6 +27,9 @@ interface PickupPassApi {
     @POST("parent/add-guardian")
     suspend fun addGuardian(@Body body: AddGuardianRequest): Response<AddGuardianResponse>
 
+    @POST("parent/add-temporary-guardian")
+    suspend fun addTemporaryGuardian(@Body body: AddTemporaryGuardianRequest): Response<AddGuardianResponse>
+
     @POST("parent/remove-guardian")
     suspend fun removeGuardian(@Body body: RemoveGuardianRequest): Response<SimpleStatusResponse>
 

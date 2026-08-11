@@ -99,6 +99,41 @@ class ManageGuardiansViewModel @Inject constructor(
         }
     }
 
+    fun addTemporaryGuardian(
+        lastName: String,
+        firstName: String,
+        middleInitial: String,
+        suffix: String,
+        email: String,
+        relationship: String,
+        validDate: String
+    ) {
+        if (_uiState.value.isSubmitting) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSubmitting = true, formError = null, formSuccess = null)
+            when (val result = guardianRepository.addTemporaryGuardian(
+                currentStudentId, lastName, firstName, middleInitial, suffix, email, relationship, validDate
+            )) {
+                is ApiResult.Success -> {
+                    val message = if (result.data.emailSent) {
+                        "One-day pickup authorized for $validDate. The guardian can sign in and generate a QR only on that date."
+                    } else {
+                        "One-day pickup authorized for $validDate, but the invite email could not be sent. Ask the guardian to use Forgot password with the same email."
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        isSubmitting = false,
+                        formSuccess = message,
+                        formIsWarning = !result.data.emailSent
+                    )
+                    load(currentStudentId)
+                }
+                is ApiResult.Failure -> {
+                    _uiState.value = _uiState.value.copy(isSubmitting = false, formError = result.message)
+                }
+            }
+        }
+    }
+
     fun removeGuardian(guardianUid: String) {
         viewModelScope.launch {
             when (val result = guardianRepository.removeGuardian(currentStudentId, guardianUid)) {

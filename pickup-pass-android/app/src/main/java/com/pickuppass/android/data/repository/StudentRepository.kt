@@ -5,6 +5,7 @@ import com.pickuppass.android.data.model.SchoolInfo
 import com.pickuppass.android.data.model.Student
 import com.pickuppass.android.data.model.UserProfile
 import kotlinx.coroutines.tasks.await
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,7 +23,13 @@ class StudentRepository @Inject constructor(
 
         snapshot.documents.mapNotNull { doc ->
             doc.toObject(Student::class.java)?.also { it.id = doc.id }
-        }.filter { it.status.isBlank() || it.status.equals("active", ignoreCase = true) }
+        }.filter { student ->
+            val activeStudent = student.status.isBlank() || student.status.equals("active", ignoreCase = true)
+            val entry = student.guardians[uid]
+            val guardianCurrentlyAuthorized = entry == null || !entry.authorizationType.equals("temporary", ignoreCase = true) ||
+                (entry.validDate == LocalDate.now().toString() && entry.remainingUses > 0)
+            activeStudent && guardianCurrentlyAuthorized
+        }
     }
 
     suspend fun getStudent(studentId: String): Result<Student?> = runCatching {

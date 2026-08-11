@@ -30,15 +30,18 @@ public class QrVerificationService {
     private final Algorithm hmacAlgorithm;
     private final ZoneId schoolTimeZone;
     private final int dismissalWindowMinutes;
+    private final GuardianAuthorizationService guardianAuthorizationService;
 
     public QrVerificationService(Firestore firestore,
                                   @Value("${qr.signing.secret}") String secret,
                                   @Value("${app.school-time-zone:Asia/Manila}") String schoolTimeZone,
-                                  @Value("${qr.dismissal-window-minutes:120}") int dismissalWindowMinutes) {
+                                  @Value("${qr.dismissal-window-minutes:120}") int dismissalWindowMinutes,
+                                  GuardianAuthorizationService guardianAuthorizationService) {
         this.firestore = firestore;
         this.hmacAlgorithm = Algorithm.HMAC256(secret);
         this.schoolTimeZone = ZoneId.of(schoolTimeZone);
         this.dismissalWindowMinutes = dismissalWindowMinutes;
+        this.guardianAuthorizationService = guardianAuthorizationService;
     }
 
     public QrVerificationResult verify(String qrToken, String scanningSchoolId)
@@ -104,10 +107,10 @@ public class QrVerificationService {
         if (studentStatus != null && !studentStatus.isBlank() && !"active".equalsIgnoreCase(studentStatus)) {
             return QrVerificationResult.fail("Student pickup access is not active");
         }
-        @SuppressWarnings("unchecked")
-        List<String> guardians = (List<String>) studentSnap.get("guardianUids");
-        if (guardians == null || !guardians.contains(parentUid)) {
-            return QrVerificationResult.fail("Guardian is no longer authorized for this student");
+        GuardianAuthorizationService.AuthorizationDecision guardianDecision =
+                guardianAuthorizationService.check(studentSnap, parentUid);
+        if (!guardianDecision.allowed()) {
+            return QrVerificationResult.fail(guardianDecision.reason());
         }
 
         return QrVerificationResult.success(studentId, parentUid, tokenRef);
@@ -124,6 +127,7 @@ public class QrVerificationService {
         String lockId = safeId(schoolId) + "_" + businessDate + "_" + safeId(result.getStudentId());
         DocumentReference lockRef = firestore.collection("dismissalLocks").document(lockId);
         DocumentReference exitLogRef = firestore.collection("exitLogs").document();
+        DocumentReference studentRef = firestore.collection("students").document(result.getStudentId());
         ExitSnapshot snapshot = loadExitSnapshot(result.getStudentId(), result.getParentUid(), verifiedByUid, schoolId);
 
         firestore.runTransaction(tx -> {
@@ -134,6 +138,12 @@ public class QrVerificationService {
             DocumentSnapshot lock = tx.get(lockRef).get();
             if (lock.exists()) {
                 throw new ConflictException("Student has already been dismissed today");
+            }
+            DocumentSnapshot studentTx = tx.get(studentRef).get();
+            GuardianAuthorizationService.AuthorizationDecision authTx =
+                    guardianAuthorizationService.check(studentTx, result.getParentUid());
+            if (!authTx.allowed()) {
+                throw new ForbiddenException(authTx.reason());
             }
 
             Map<String, Object> lockData = new HashMap<>();
@@ -147,6 +157,11 @@ public class QrVerificationService {
                     verifiedByUid, "qr_scan", businessDate, null, snapshot);
 
             tx.update(result.getTokenRef(), "used", true, "usedAt", FieldValue.serverTimestamp());
+            if (authTx.temporary()) {
+                tx.update(studentRef,
+                        "guardianUids", FieldValue.arrayRemove(result.getParentUid()),
+                        "guardians." + result.getParentUid(), FieldValue.delete());
+            }
             tx.set(lockRef, lockData);
             tx.set(exitLogRef, log);
             return null;
@@ -169,10 +184,10 @@ public class QrVerificationService {
         if (!student.exists() || !schoolId.equals(student.getString("schoolId"))) {
             throw new NotFoundException("Student not found in your school");
         }
-        @SuppressWarnings("unchecked")
-        List<String> guardians = (List<String>) student.get("guardianUids");
-        if (guardians == null || !guardians.contains(guardianUid)) {
-            throw new ForbiddenException("Selected guardian is not authorized for this student");
+        GuardianAuthorizationService.AuthorizationDecision guardianDecision =
+                guardianAuthorizationService.check(student, guardianUid);
+        if (!guardianDecision.allowed()) {
+            throw new ForbiddenException(guardianDecision.reason());
         }
 
         String businessDate = LocalDate.now(schoolTimeZone).toString();
@@ -184,6 +199,12 @@ public class QrVerificationService {
         firestore.runTransaction(tx -> {
             DocumentSnapshot lock = tx.get(lockRef).get();
             if (lock.exists()) throw new ConflictException("Student has already been dismissed today");
+            DocumentSnapshot studentTx = tx.get(studentRef).get();
+            GuardianAuthorizationService.AuthorizationDecision guardianDecisionTx =
+                    guardianAuthorizationService.check(studentTx, guardianUid);
+            if (!guardianDecisionTx.allowed()) {
+                throw new ForbiddenException(guardianDecisionTx.reason());
+            }
 
             Map<String, Object> lockData = new HashMap<>();
             lockData.put("schoolId", schoolId);
@@ -194,6 +215,11 @@ public class QrVerificationService {
 
             Map<String, Object> log = buildExitLog(schoolId, studentId, guardianUid,
                     verifiedByUid, "manual_override", businessDate, reason.trim(), snapshot);
+            if (guardianDecisionTx.temporary()) {
+                tx.update(studentRef,
+                        "guardianUids", FieldValue.arrayRemove(guardianUid),
+                        "guardians." + guardianUid, FieldValue.delete());
+            }
             tx.set(lockRef, lockData);
             tx.set(exitLogRef, log);
             return null;
