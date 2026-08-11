@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.pickuppass.service.PlatformObservabilityService;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -19,6 +20,11 @@ import java.io.IOException;
 public class RequestLoggingFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(RequestLoggingFilter.class);
+    private final PlatformObservabilityService observability;
+
+    public RequestLoggingFilter(PlatformObservabilityService observability) {
+        this.observability = observability;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -31,6 +37,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             int status = response.getStatus();
             String method = request.getMethod();
             String path = request.getRequestURI();
+            observability.recordHttp(status, durationMs, path);
             if (status >= 500) {
                 log.error("http_request method={} path={} status={} durationMs={}", method, path, status, durationMs);
             } else if (status >= 400 || durationMs >= 2000) {

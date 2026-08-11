@@ -52,6 +52,7 @@ public class SecurityConfig {
                 .accessDeniedHandler(accessDeniedHandler))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                .requestMatchers("/actuator/metrics", "/actuator/metrics/**", "/actuator/info").hasRole("master_admin")
                 .requestMatchers("/api/bootstrap/**").permitAll()
                 .requestMatchers("/api/webhooks/payments/**").permitAll()
                 .anyRequest().authenticated()

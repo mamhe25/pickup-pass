@@ -796,6 +796,75 @@ data class MasterOperationsRefreshResponse(
 
 
 
+// ---- Phase 3: startup/low-cost platform observability ----
+data class MasterObservabilityRuntime(
+    val instanceStartedAt: String? = null,
+    val uptimeSeconds: Long = 0,
+    val processorCount: Int = 0,
+    val threadCount: Int = 0
+)
+
+data class MasterObservabilityHttpMetrics(
+    val windowMinutes: Int = 15,
+    val requests: Long = 0,
+    val errors4xx: Long = 0,
+    val errors5xx: Long = 0,
+    val slowRequests: Long = 0,
+    val averageDurationMs: Long = 0,
+    val maxDurationMs: Long = 0,
+    val serverErrorRatePercent: Double = 0.0,
+    val slowRequestRatePercent: Double = 0.0
+)
+
+data class MasterObservabilityMemory(
+    val usedBytes: Long = 0,
+    val committedBytes: Long = 0,
+    val maxBytes: Long = 0,
+    val usedPercent: Int = 0
+)
+
+data class MasterObservabilityFirestore(
+    val checked: Boolean = false,
+    val reachable: Boolean = true,
+    val consecutiveFailures: Int = 0,
+    val lastCheckAt: String? = null,
+    val lastSuccessAt: String? = null,
+    val lastError: String = ""
+)
+
+data class MasterPlatformIncident(
+    val id: String = "",
+    val type: String = "",
+    val severity: String = "medium",
+    val status: String = "open",
+    val title: String = "",
+    val message: String = "",
+    val source: String = "runtime_threshold",
+    val occurrences: Long = 1,
+    val firstSeenAt: String? = null,
+    val activatedAt: String? = null,
+    val statusUpdatedAt: String? = null
+)
+
+data class MasterObservabilityOverviewResponse(
+    val generatedAt: String? = null,
+    val mode: String = "startup_low_cost",
+    val externalApmRequired: Boolean = false,
+    val durableIncidentsEnabled: Boolean = true,
+    val incidentStorageAvailable: Boolean = true,
+    val runtime: MasterObservabilityRuntime = MasterObservabilityRuntime(),
+    val http: MasterObservabilityHttpMetrics = MasterObservabilityHttpMetrics(),
+    val memory: MasterObservabilityMemory = MasterObservabilityMemory(),
+    val firestore: MasterObservabilityFirestore = MasterObservabilityFirestore(),
+    val thresholds: Map<String, Double> = emptyMap(),
+    val incidents: List<MasterPlatformIncident> = emptyList()
+)
+
+data class MasterObservabilityIncidentStatusRequest(
+    val status: String,
+    val note: String? = null
+)
+
 // ---- Phase 3: master-admin security center ----
 data class MasterSecurityMetrics(
     val activeAlerts: Int = 0,

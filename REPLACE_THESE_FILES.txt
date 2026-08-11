@@ -1,7 +1,45 @@
-PICKUPPASS PHASE 3 — CUMULATIVE UPDATE 13
+PICKUPPASS PHASE 3 — CUMULATIVE UPDATE 14
 ==========================================
 
-This is a CUMULATIVE replacement pack. It contains the PickupPass replacement files from the earlier Phase 1/2/3 updates plus Phase 3 Update 13.
+This is a CUMULATIVE replacement pack. It contains the PickupPass replacement files from the earlier Phase 1/2/3 updates plus Phase 3 Update 14.
+
+UPDATE 14 — STARTUP OBSERVABILITY & INCIDENT READINESS
+--------------------------------------------------------
+- Adds a Master Admin Platform Health & Incidents section.
+- Uses in-memory rolling HTTP metrics, so there is NO Firestore write per request.
+- Persists only incident state transitions when durable incident storage is enabled.
+- Adds Firestore reachability, 5xx-rate, slow-request-rate, JVM memory, uptime, thread, and request-volume visibility.
+- Adds deduplicated platform incident acknowledgement/resolution.
+- Adds a runtime-only Firestore incident when Firestore is too unavailable to persist its own outage record.
+- Restricts Actuator metrics/info to master_admin while public health probes remain available.
+- Adds no paid APM, no Cloud Storage, no additional database, and no external monitoring dependency.
+- Platform observability is PLATFORM OWNER / master_admin only. School admins do not control shared infrastructure monitoring.
+- QR verification and student release do not depend on observability or incident persistence.
+
+NEW BACKEND FILES
+- pickup-pass-system/backend/src/main/java/com/pickuppass/observability/RollingHttpMetrics.java
+- pickup-pass-system/backend/src/main/java/com/pickuppass/service/PlatformObservabilityService.java
+- pickup-pass-system/backend/src/main/java/com/pickuppass/controller/MasterObservabilityController.java
+- pickup-pass-system/backend/src/test/java/com/pickuppass/observability/RollingHttpMetricsTest.java
+
+UPDATED KEY FILES
+- pickup-pass-system/backend/src/main/java/com/pickuppass/security/RequestLoggingFilter.java
+- pickup-pass-system/backend/src/main/java/com/pickuppass/config/SecurityConfig.java
+- pickup-pass-system/backend/src/main/resources/application.yml
+- pickup-pass-android/app/src/main/java/com/pickuppass/android/data/model/Models.kt
+- pickup-pass-android/app/src/main/java/com/pickuppass/android/data/remote/PickupPassApi.kt
+- pickup-pass-android/app/src/main/java/com/pickuppass/android/data/repository/MasterAdminRepository.kt
+- pickup-pass-android/app/src/main/java/com/pickuppass/android/ui/masteradmin/MasterAdminViewModel.kt
+- pickup-pass-android/app/src/main/java/com/pickuppass/android/ui/masteradmin/MasterAdminScreen.kt
+- production.env.example
+
+NEW FIRESTORE COLLECTION
+- platformIncidents/{deterministicIncidentId}
+
+NO NEW FIRESTORE COMPOSITE INDEX IS REQUIRED BY UPDATE 14.
+
+Review PHASE3_STARTUP_OBSERVABILITY_INCIDENT_NOTES.md before production launch.
+
 
 UPDATE 13 — STARTUP SCHOOL ONBOARDING & LAUNCH READINESS
 ---------------------------------------------------------
@@ -35,7 +73,7 @@ Review PHASE3_LAUNCH_READINESS_ONBOARDING_NOTES.md before onboarding the first l
 HOW TO APPLY
 1. Stop the backend and close/stop the Android app build if running.
 2. Extract the protected archive.
-3. Open the PickupPass_Phase3_Cumulative_Update_13 folder.
+3. Open the PickupPass_Phase3_Cumulative_Update_14 folder.
 4. Copy everything inside it into the ROOT of your existing "PickupPass - Copy" project.
 5. Choose Replace / Overwrite when Windows asks.
 6. Do not delete project files that are not present in this replacement pack.
@@ -241,3 +279,8 @@ OPTIONAL ENVIRONMENT SETTINGS
 
 SAFETY BOUNDARY
 Billing state, payment review, quota warnings, billing email failures, and operations-dashboard refresh failures must never decide whether a valid guardian QR can be verified or whether an already-authorized student release succeeds.
+
+
+PACKAGE CONTENT COUNT
+- Cumulative replacement files in Update 14: 201
+- SHA-256 manifest: PACKAGE_SHA256SUMS.txt

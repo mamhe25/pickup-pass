@@ -58,3 +58,11 @@ Do not deploy if any of these remain true:
 - [ ] Document recovery owner, escalation path, RTO/RPO target, cutover procedure, and temporary recovery-database cleanup.
 - [ ] Enable Firestore TTL only for approved ephemeral fields such as `securityAuthWindows.expiresAt` and `idempotencyKeys.expiresAt`.
 - [ ] Keep student release, audit, and financial-record deletion governed by an explicit retention policy rather than automatic application cleanup.
+
+
+## Startup observability
+- Confirm `/actuator/health/liveness` and `/actuator/health/readiness` respond from the production deployment.
+- Confirm ordinary school/parent accounts cannot access `/actuator/metrics/**`.
+- In the Master Admin console, run **Platform Health & Incidents → Check now**.
+- Keep `OBSERVABILITY_DURABLE_INCIDENTS_ENABLED=true` unless you explicitly prefer zero Firestore incident writes.
+- Do not make external APM/monitoring availability part of QR verification or student release.

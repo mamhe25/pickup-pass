@@ -24,6 +24,7 @@ import com.pickuppass.android.data.model.MasterInvoiceItem
 import com.pickuppass.android.data.model.MasterBillingProfileResponse
 import com.pickuppass.android.data.model.GcashPaymentNoticeItem
 import com.pickuppass.android.data.model.MasterOperationalAlert
+import com.pickuppass.android.data.model.MasterPlatformIncident
 import com.pickuppass.android.data.model.MasterTenantHealthItem
 import com.pickuppass.android.data.model.MasterSecurityAlert
 import com.pickuppass.android.data.model.MasterPrivilegedAuditEvent
@@ -180,6 +181,91 @@ fun MasterAdminScreen(
                     )
                 }
             }
+            state.observability?.let { observability ->
+                item {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Platform Health & Incidents", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Low-cost runtime monitoring. Request metrics stay in memory; Firestore writes occur only when an incident changes state.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        FilledTonalButton(
+                            onClick = { viewModel.evaluateObservability() },
+                            enabled = !state.saving && !state.observabilityLoading
+                        ) { Text(if (state.observabilityLoading) "Checking…" else "Check now") }
+                    }
+                }
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        MetricCard("Uptime", formatUptime(observability.runtime.uptimeSeconds), Modifier.weight(1f))
+                        MetricCard("${observability.http.windowMinutes}m requests", observability.http.requests.toString(), Modifier.weight(1f))
+                        MetricCard("5xx", observability.http.errors5xx.toString(), Modifier.weight(1f))
+                    }
+                }
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        MetricCard("Firestore", if (!observability.firestore.checked) "Unchecked" else if (observability.firestore.reachable) "Online" else "Issue", Modifier.weight(1f))
+                        MetricCard("Memory", "${observability.memory.usedPercent}%", Modifier.weight(1f))
+                        MetricCard("Slow", "${observability.http.slowRequestRatePercent}%", Modifier.weight(1f))
+                    }
+                }
+                item {
+                    Text(
+                        "Server error rate ${observability.http.serverErrorRatePercent}% · Avg ${observability.http.averageDurationMs}ms · Max ${observability.http.maxDurationMs}ms. Metrics reset when this backend instance restarts.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (observability.firestore.checked && !observability.firestore.reachable) {
+                    item {
+                        OutlinedCard(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                                Text("Firestore connectivity needs attention", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
+                                Text(
+                                    observability.firestore.lastError.ifBlank { "The backend failed its latest Firestore reachability check." },
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    "Failed checks: ${observability.firestore.consecutiveFailures}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+                if (observability.incidents.isEmpty()) {
+                    item {
+                        OutlinedCard(Modifier.fillMaxWidth()) {
+                            Text(
+                                "No active platform incidents detected by the startup monitoring rules.",
+                                Modifier.padding(Spacing.md),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    item { Text("Active platform incidents", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
+                    items(observability.incidents.take(10), key = { "incident-" + it.id }) { incident ->
+                        PlatformIncidentCard(
+                            incident = incident,
+                            saving = state.saving,
+                            onAcknowledge = { viewModel.acknowledgePlatformIncident(incident.id) },
+                            onResolve = { viewModel.resolvePlatformIncident(incident.id) }
+                        )
+                    }
+                }
+                item {
+                    Text(
+                        "Mode: startup / low cost · No paid APM required · Durable incident records: ${if (observability.durableIncidentsEnabled) "on" else "off"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             state.security?.let { security ->
                 item {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -780,6 +866,54 @@ private fun SubscriptionDialog(
 private fun limitLabel(value: Int): String = if (value < 0) "Unlimited" else value.toString()
 private fun featureLabel(value: String): String = value.split('_').joinToString(" ") { it.replaceFirstChar { ch -> ch.uppercase() } }
 private fun dateLabel(value: String): String = value.take(10)
+
+private fun formatUptime(seconds: Long): String {
+    val safe = seconds.coerceAtLeast(0)
+    val days = safe / 86_400
+    val hours = (safe % 86_400) / 3_600
+    val minutes = (safe % 3_600) / 60
+    return when {
+        days > 0 -> "${days}d ${hours}h"
+        hours > 0 -> "${hours}h ${minutes}m"
+        else -> "${minutes}m"
+    }
+}
+
+@Composable
+private fun PlatformIncidentCard(
+    incident: MasterPlatformIncident,
+    saving: Boolean,
+    onAcknowledge: () -> Unit,
+    onResolve: () -> Unit
+) {
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(incident.title, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(incident.severity.uppercase(), style = MaterialTheme.typography.labelMedium, color = securitySeverityColor(incident.severity))
+            }
+            Text(incident.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "${incident.status.replace('_', ' ').replaceFirstChar { it.uppercase() }} · Occurrences ${incident.occurrences}",
+                style = MaterialTheme.typography.bodySmall
+            )
+            if (incident.status != "runtime") {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    if (incident.status == "open") {
+                        TextButton(onClick = onAcknowledge, enabled = !saving) { Text("Acknowledge") }
+                    }
+                    TextButton(onClick = onResolve, enabled = !saving) { Text("Resolve") }
+                }
+            } else {
+                Text(
+                    "Live runtime incident. It cannot be acknowledged until Firestore is available to store incident state.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun SecurityAlertCard(

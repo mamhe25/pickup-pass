@@ -106,6 +106,32 @@ class MasterAdminRepository @Inject constructor(private val api: PickupPassApi) 
         ApiResult.Failure(e.message ?: "Network error")
     }
 
+    suspend fun getObservabilityOverview(): ApiResult<MasterObservabilityOverviewResponse> = try {
+        val response = api.getMasterObservabilityOverview()
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not load platform health")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
+    suspend fun evaluateObservability(): ApiResult<MasterObservabilityOverviewResponse> = try {
+        val response = api.evaluateMasterObservability()
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not evaluate platform health")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
+    suspend fun setObservabilityIncidentStatus(incidentId: String, status: String, note: String): ApiResult<Unit> = try {
+        val response = api.setMasterObservabilityIncidentStatus(
+            incidentId, MasterObservabilityIncidentStatusRequest(status, note.ifBlank { null })
+        )
+        if (response.isSuccessful) ApiResult.Success(Unit)
+        else ApiResult.Failure("Could not update platform incident")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
     suspend fun getBillingProfile(schoolId: String): ApiResult<MasterBillingProfileResponse> = try {
         val response = api.getMasterBillingProfile(schoolId)
         response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }

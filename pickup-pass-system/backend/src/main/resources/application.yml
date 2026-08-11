@@ -111,6 +111,19 @@ pickuppass:
     health-scan-ms: ${FIRESTORE_DR_HEALTH_SCAN_MS:21600000}
     max-backup-age-hours: ${FIRESTORE_DR_MAX_BACKUP_AGE_HOURS:48}
     default-profile: ${FIRESTORE_DR_DEFAULT_PROFILE:startup}
+  observability:
+    # Startup-first runtime monitoring. HTTP counters stay in memory; Firestore
+    # receives writes only when an incident changes state. No external APM is required.
+    window-minutes: ${OBSERVABILITY_WINDOW_MINUTES:15}
+    minimum-requests: ${OBSERVABILITY_MINIMUM_REQUESTS:20}
+    server-error-rate-percent: ${OBSERVABILITY_SERVER_ERROR_RATE_PERCENT:10}
+    slow-request-rate-percent: ${OBSERVABILITY_SLOW_REQUEST_RATE_PERCENT:25}
+    slow-request-ms: ${OBSERVABILITY_SLOW_REQUEST_MS:2000}
+    memory-warning-percent: ${OBSERVABILITY_MEMORY_WARNING_PERCENT:85}
+    firestore-failure-threshold: ${OBSERVABILITY_FIRESTORE_FAILURE_THRESHOLD:2}
+    initial-delay-ms: ${OBSERVABILITY_INITIAL_DELAY_MS:60000}
+    evaluate-ms: ${OBSERVABILITY_EVALUATE_MS:300000}
+    durable-incidents-enabled: ${OBSERVABILITY_DURABLE_INCIDENTS_ENABLED:true}
   data-export:
     # Direct-download tenant exports create no recurring Cloud Storage copy.
     # Safety caps prevent accidental high-read/high-memory exports.

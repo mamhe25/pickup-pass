@@ -8,6 +8,7 @@ import com.pickuppass.android.data.model.MasterInvoiceItem
 import com.pickuppass.android.data.model.MasterBillingProfileResponse
 import com.pickuppass.android.data.model.GcashPaymentNoticeItem
 import com.pickuppass.android.data.model.MasterOperationsOverviewResponse
+import com.pickuppass.android.data.model.MasterObservabilityOverviewResponse
 import com.pickuppass.android.data.model.MasterSecurityOverviewResponse
 import com.pickuppass.android.data.model.MasterDisasterRecoveryOverviewResponse
 import com.pickuppass.android.data.model.LaunchReadinessResponse
@@ -32,6 +33,8 @@ data class MasterAdminUiState(
     val schools: List<MasterSchoolItem> = emptyList(),
     val operationsLoading: Boolean = false,
     val operations: MasterOperationsOverviewResponse? = null,
+    val observabilityLoading: Boolean = false,
+    val observability: MasterObservabilityOverviewResponse? = null,
     val securityLoading: Boolean = false,
     val security: MasterSecurityOverviewResponse? = null,
     val disasterRecoveryLoading: Boolean = false,
@@ -67,6 +70,7 @@ class MasterAdminViewModel @Inject constructor(
         val plansResult = repository.getPlanCatalog()
         val schoolsResult = repository.listSchools()
         val operationsResult = repository.getOperationsOverview()
+        val observabilityResult = repository.getObservabilityOverview()
         val securityResult = repository.getSecurityOverview()
         val disasterRecoveryResult = repository.getDisasterRecoveryOverview()
         when (schoolsResult) {
@@ -85,6 +89,10 @@ class MasterAdminViewModel @Inject constructor(
                         is ApiResult.Success -> operationsResult.data
                         is ApiResult.Failure -> _uiState.value.operations
                     },
+                    observability = when (observabilityResult) {
+                        is ApiResult.Success -> observabilityResult.data
+                        is ApiResult.Failure -> _uiState.value.observability
+                    },
                     security = when (securityResult) {
                         is ApiResult.Success -> securityResult.data
                         is ApiResult.Failure -> _uiState.value.security
@@ -98,13 +106,21 @@ class MasterAdminViewModel @Inject constructor(
                     error = when {
                         plansResult is ApiResult.Failure -> plansResult.message
                         operationsResult is ApiResult.Failure -> operationsResult.message
+                        observabilityResult is ApiResult.Failure -> observabilityResult.message
                         securityResult is ApiResult.Failure -> securityResult.message
                         disasterRecoveryResult is ApiResult.Failure -> disasterRecoveryResult.message
                         else -> null
                     }
                 )
             }
-            is ApiResult.Failure -> _uiState.value = _uiState.value.copy(loading = false, error = schoolsResult.message)
+            is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
+                loading = false,
+                observability = when (observabilityResult) {
+                    is ApiResult.Success -> observabilityResult.data
+                    is ApiResult.Failure -> _uiState.value.observability
+                },
+                error = schoolsResult.message
+            )
         }
     }
 
@@ -140,6 +156,57 @@ class MasterAdminViewModel @Inject constructor(
                     operationsLoading = false,
                     error = r.message
                 )
+            }
+        }
+    }
+
+
+    fun loadObservability(quiet: Boolean = false) = viewModelScope.launch {
+        if (!quiet) _uiState.value = _uiState.value.copy(observabilityLoading = true, error = null)
+        when (val r = repository.getObservabilityOverview()) {
+            is ApiResult.Success -> _uiState.value = _uiState.value.copy(
+                observabilityLoading = false, observability = r.data
+            )
+            is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
+                observabilityLoading = false, error = if (quiet) _uiState.value.error else r.message
+            )
+        }
+    }
+
+    fun evaluateObservability() {
+        if (_uiState.value.saving) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(saving = true, observabilityLoading = true, error = null, message = null)
+            when (val r = repository.evaluateObservability()) {
+                is ApiResult.Success -> _uiState.value = _uiState.value.copy(
+                    saving = false, observabilityLoading = false, observability = r.data,
+                    message = "Platform health evaluated"
+                )
+                is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
+                    saving = false, observabilityLoading = false, error = r.message
+                )
+            }
+        }
+    }
+
+    fun acknowledgePlatformIncident(incidentId: String) = runObservabilitySave("Platform incident acknowledged") {
+        repository.setObservabilityIncidentStatus(incidentId, "acknowledged", "Reviewed by platform owner")
+    }
+
+    fun resolvePlatformIncident(incidentId: String) = runObservabilitySave("Platform incident resolved") {
+        repository.setObservabilityIncidentStatus(incidentId, "resolved", "Reviewed and resolved by platform owner")
+    }
+
+    private fun runObservabilitySave(message: String, block: suspend () -> ApiResult<*>) {
+        if (_uiState.value.saving) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(saving = true, error = null, message = null)
+            when (val r = block()) {
+                is ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(saving = false, message = message)
+                    loadObservability(quiet = true)
+                }
+                is ApiResult.Failure -> _uiState.value = _uiState.value.copy(saving = false, error = r.message)
             }
         }
     }

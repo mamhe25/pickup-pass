@@ -269,6 +269,18 @@ interface PickupPassApi {
     @POST("master-admin/operations/refresh")
     suspend fun refreshMasterOperations(): Response<MasterOperationsRefreshResponse>
 
+    // ---- Phase 3: startup/low-cost platform observability ----
+    @GET("master-admin/observability/overview")
+    suspend fun getMasterObservabilityOverview(): Response<MasterObservabilityOverviewResponse>
+
+    @POST("master-admin/observability/evaluate")
+    suspend fun evaluateMasterObservability(): Response<MasterObservabilityOverviewResponse>
+
+    @POST("master-admin/observability/incidents/{incidentId}/status")
+    suspend fun setMasterObservabilityIncidentStatus(
+        @Path("incidentId") incidentId: String,
+        @Body body: MasterObservabilityIncidentStatusRequest
+    ): Response<Map<String, String>>
 
 
     // ---- Phase 3: master-admin security center ----
