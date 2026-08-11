@@ -1,6 +1,7 @@
 package com.pickuppass.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pickuppass.service.SecurityEventService;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -9,6 +10,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 class JsonSecurityHandlersTest {
 
@@ -28,7 +30,7 @@ class JsonSecurityHandlersTest {
 
     @Test
     void accessDeniedHandlerReturnsStable403Payload() throws Exception {
-        JsonAccessDeniedHandler handler = new JsonAccessDeniedHandler(new ObjectMapper());
+        JsonAccessDeniedHandler handler = new JsonAccessDeniedHandler(new ObjectMapper(), mock(SecurityEventService.class));
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute("requestId", "req-456");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -40,3 +42,5 @@ class JsonSecurityHandlersTest {
         assertTrue(response.getContentAsString().contains("req-456"));
     }
 }
+
+

@@ -42,10 +42,11 @@ public class SecurityConfig {
                                                      FirebaseAuthenticationFilter firebaseFilter,
                                                      DeviceSessionFilter deviceSessionFilter,
                                                      JsonAuthenticationEntryPoint authenticationEntryPoint,
-                                                     JsonAccessDeniedHandler accessDeniedHandler) throws Exception {
+                                                     JsonAccessDeniedHandler accessDeniedHandler,
+                                                     CorsConfigurationSource corsConfigurationSource) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .cors(cors -> cors.configurationSource(corsConfigurationSource))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(authenticationEntryPoint)

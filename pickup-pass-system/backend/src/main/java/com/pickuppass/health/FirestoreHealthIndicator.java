@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.TimeUnit;
 
 /** Verifies that the backend can actually reach Firestore, not merely that the JVM is alive. */
-@Component("firestore")
+@Component
 public class FirestoreHealthIndicator implements HealthIndicator {
 
     private final Firestore firestore;

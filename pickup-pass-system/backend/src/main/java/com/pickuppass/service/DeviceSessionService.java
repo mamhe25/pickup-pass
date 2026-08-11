@@ -29,12 +29,12 @@ public class DeviceSessionService {
 
     public ValidationResult validateAndTouch(String uid, String schoolId, String role,
                                              String deviceId, String deviceName, String clientVersion) throws Exception {
-        if (deviceId == null || deviceId.isBlank()) return ValidationResult.allowed();
+        if (deviceId == null || deviceId.isBlank()) return ValidationResult.allowedResult();
         String normalized = normalizeDeviceId(deviceId);
         DocumentReference ref = firestore.collection("deviceSessions").document(docId(uid, normalized));
         DocumentSnapshot doc = ref.get().get();
         if (doc.exists() && doc.getTimestamp("revokedAt") != null) {
-            return ValidationResult.revoked();
+            return ValidationResult.revokedResult();
         }
 
         if (!doc.exists()) {
@@ -56,7 +56,7 @@ public class DeviceSessionService {
             updates.put("clientVersion", safe(clientVersion, 40));
             ref.update(updates).get();
         }
-        return ValidationResult.allowed();
+        return ValidationResult.allowedResult();
     }
 
     public List<Map<String,Object>> listForUser(String uid, String currentDeviceId) throws Exception {
@@ -149,7 +149,7 @@ public class DeviceSessionService {
     }
 
     public record ValidationResult(boolean allowed, boolean revoked) {
-        public static ValidationResult allowed() { return new ValidationResult(true,false); }
-        public static ValidationResult revoked() { return new ValidationResult(false,true); }
+        public static ValidationResult allowedResult() { return new ValidationResult(true,false); }
+        public static ValidationResult revokedResult() { return new ValidationResult(false,true); }
     }
 }

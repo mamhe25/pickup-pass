@@ -82,7 +82,7 @@ public class SaasOperationsHealthService {
         }
         try {
             Instant now = Instant.now();
-            List<DocumentSnapshot> schools = firestore.collection("schools").get().get().getDocuments();
+            List<? extends DocumentSnapshot> schools = firestore.collection("schools").get().get().getDocuments();
             Map<String, List<DocumentSnapshot>> invoicesBySchool = new HashMap<>();
             Map<String, List<DocumentSnapshot>> pendingPaymentsBySchool = new HashMap<>();
             Map<String, List<DocumentSnapshot>> emailFailuresBySchool = new HashMap<>();
