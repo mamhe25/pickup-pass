@@ -418,4 +418,25 @@ class SchoolAdminRepository @Inject constructor(
         } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
     }
 
+    suspend fun getStaffPickupGateAssignments(): ApiResult<StaffPickupGateResponse> {
+        return try {
+            val response = api.getStaffPickupGateAssignments()
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure("Could not load staff pickup-gate assignments")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun updateStaffPickupGates(uid: String, gateIds: List<String>): ApiResult<Unit> {
+        return try {
+            val response = api.updateStaffPickupGates(uid, UpdateStaffPickupGatesRequest(gateIds))
+            if (response.isSuccessful) ApiResult.Success(Unit)
+            else ApiResult.Failure("Could not save pickup-gate assignment")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
 }

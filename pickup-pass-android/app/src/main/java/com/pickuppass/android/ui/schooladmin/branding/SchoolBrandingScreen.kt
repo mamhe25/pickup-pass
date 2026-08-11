@@ -67,6 +67,7 @@ fun SchoolBrandingScreen(
     onGoToDismissalReports: () -> Unit,
     onGoToGuardianVerification: () -> Unit,
     onGoToCampusGates: () -> Unit,
+    onGoToStaffPickupGates: () -> Unit,
     onGoToBroadcast: () -> Unit,
     onSignedOut: () -> Unit
 ) {
@@ -216,6 +217,7 @@ fun SchoolBrandingScreen(
                 NavListItem(Icons.Filled.VerifiedUser, "Guardian Verification", onGoToGuardianVerification)
                 NavListItem(Icons.Filled.Schedule, "Pickup Policy", onGoToPickupPolicy)
                 NavListItem(Icons.Filled.LocationOn, "Campuses & Pickup Gates", onGoToCampusGates)
+                NavListItem(Icons.Filled.LocationOn, "Staff Pickup Gates", onGoToStaffPickupGates)
             }
 
             Spacer(Modifier.height(Spacing.lg))

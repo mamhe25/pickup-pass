@@ -222,4 +222,13 @@ interface PickupPassApi {
     @PUT("school-admin/campus-gates/gates/{id}/status")
     suspend fun setPickupGateStatus(@Path("id") id: String, @Body body: ActiveStatusRequest): Response<Map<String, Any?>>
 
+    @GET("school-admin/staff-gates")
+    suspend fun getStaffPickupGateAssignments(): Response<StaffPickupGateResponse>
+
+    @PUT("school-admin/staff-gates/{uid}")
+    suspend fun updateStaffPickupGates(
+        @Path("uid") uid: String,
+        @Body body: UpdateStaffPickupGatesRequest
+    ): Response<Map<String, Any?>>
+
 }

@@ -560,3 +560,21 @@ data class CampusGateResponse(
 data class CreateCampusRequest(val name: String, val address: String = "")
 data class CreatePickupGateRequest(val campusId: String = "", val name: String, val description: String = "")
 data class ActiveStatusRequest(val active: Boolean)
+
+// ---- Phase 2: staff pickup gate assignments ----
+data class StaffPickupGateAssignment(
+    val uid: String = "",
+    val displayName: String = "",
+    val email: String = "",
+    val role: String = "teacher",
+    val isActive: Boolean = true,
+    val assignedPickupGateIds: List<String> = emptyList(),
+    val allGates: Boolean = true
+)
+
+data class StaffPickupGateResponse(
+    val staff: List<StaffPickupGateAssignment> = emptyList(),
+    val gates: List<PickupGateItem> = emptyList()
+)
+
+data class UpdateStaffPickupGatesRequest(val pickupGateIds: List<String>)

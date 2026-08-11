@@ -138,7 +138,7 @@ public class QrVerificationService {
         DocumentReference exitLogRef = firestore.collection("exitLogs").document();
         DocumentReference studentRef = firestore.collection("students").document(result.getStudentId());
         ExitSnapshot snapshot = loadExitSnapshot(result.getStudentId(), result.getParentUid(), verifiedByUid, schoolId);
-        PickupGateSnapshot gateSnapshot = resolvePickupGate(schoolId, pickupGateId, true);
+        PickupGateSnapshot gateSnapshot = resolvePickupGate(schoolId, pickupGateId, true, verifiedByUid);
 
         firestore.runTransaction(tx -> {
             DocumentSnapshot token = tx.get(result.getTokenRef()).get();
@@ -212,7 +212,7 @@ public class QrVerificationService {
         DocumentReference lockRef = firestore.collection("dismissalLocks").document(lockId);
         DocumentReference exitLogRef = firestore.collection("exitLogs").document();
         ExitSnapshot snapshot = loadExitSnapshot(studentId, guardianUid, verifiedByUid, schoolId);
-        PickupGateSnapshot gateSnapshot = resolvePickupGate(schoolId, pickupGateId, true);
+        PickupGateSnapshot gateSnapshot = resolvePickupGate(schoolId, pickupGateId, true, verifiedByUid);
 
         firestore.runTransaction(tx -> {
             DocumentSnapshot lock = tx.get(lockRef).get();
@@ -303,10 +303,29 @@ public class QrVerificationService {
 
     public List<Map<String, Object>> activePickupGates(String schoolId)
             throws ExecutionException, InterruptedException {
+        return activePickupGates(schoolId, null);
+    }
+
+    /** Returns active pickup gates, optionally restricted by a staff member's assignedPickupGateIds.
+     *  A missing/empty assignment keeps backward-compatible access to every active gate. */
+    public List<Map<String, Object>> activePickupGates(String schoolId, String staffUid)
+            throws ExecutionException, InterruptedException {
+        java.util.Set<String> allowedGateIds = null;
+        if (staffUid != null && !staffUid.isBlank()) {
+            DocumentSnapshot staff = firestore.collection("users").document(staffUid).get().get();
+            if (staff.exists() && schoolId.equals(staff.getString("schoolId"))) {
+                Object raw = staff.get("assignedPickupGateIds");
+                if (raw instanceof java.util.List<?> list && !list.isEmpty()) {
+                    allowedGateIds = new java.util.HashSet<>();
+                    for (Object value : list) if (value != null) allowedGateIds.add(String.valueOf(value));
+                }
+            }
+        }
         List<Map<String, Object>> items = new ArrayList<>();
         for (QueryDocumentSnapshot doc : firestore.collection("pickupGates")
                 .whereEqualTo("schoolId", schoolId).get().get().getDocuments()) {
             if (Boolean.FALSE.equals(doc.getBoolean("active"))) continue;
+            if (allowedGateIds != null && !allowedGateIds.contains(doc.getId())) continue;
             String campusId = stringValue(doc.getString("campusId"), "");
             String campusName = stringValue(doc.getString("campusName"), "");
             if (!campusId.isBlank()) {
@@ -326,11 +345,11 @@ public class QrVerificationService {
         return items;
     }
 
-    private PickupGateSnapshot resolvePickupGate(String schoolId, String pickupGateId, boolean requireWhenConfigured)
+    private PickupGateSnapshot resolvePickupGate(String schoolId, String pickupGateId, boolean requireWhenConfigured, String staffUid)
             throws ExecutionException, InterruptedException {
         String requested = pickupGateId == null ? "" : pickupGateId.trim();
         if (requested.isBlank()) {
-            if (requireWhenConfigured && !activePickupGates(schoolId).isEmpty()) {
+            if (requireWhenConfigured && !activePickupGates(schoolId, staffUid).isEmpty()) {
                 throw new IllegalArgumentException("Select a pickup gate before approving release");
             }
             return PickupGateSnapshot.none();
@@ -339,6 +358,14 @@ public class QrVerificationService {
         DocumentSnapshot gate = firestore.collection("pickupGates").document(requested).get().get();
         if (!gate.exists() || !schoolId.equals(gate.getString("schoolId")) || Boolean.FALSE.equals(gate.getBoolean("active"))) {
             throw new ForbiddenException("Selected pickup gate is not active for this school");
+        }
+        if (staffUid != null && !staffUid.isBlank()) {
+            DocumentSnapshot staff = firestore.collection("users").document(staffUid).get().get();
+            Object raw = staff.exists() ? staff.get("assignedPickupGateIds") : null;
+            if (raw instanceof java.util.List<?> list && !list.isEmpty()) {
+                boolean allowed = list.stream().anyMatch(v -> requested.equals(String.valueOf(v)));
+                if (!allowed) throw new ForbiddenException("You are not assigned to this pickup gate");
+            }
         }
         String campusId = stringValue(gate.getString("campusId"), "");
         String campusName = stringValue(gate.getString("campusName"), "");

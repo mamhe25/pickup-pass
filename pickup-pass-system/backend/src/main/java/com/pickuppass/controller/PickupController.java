@@ -43,7 +43,7 @@ public class PickupController {
     @GetMapping("/gates")
     @PreAuthorize("hasAnyRole('teacher','school_admin')")
     public ResponseEntity<?> activePickupGates(@AuthenticationPrincipal FirebaseUserDetails staff) throws Exception {
-        return ResponseEntity.ok(Map.of("gates", qrService.activePickupGates(staff.getSchoolId())));
+        return ResponseEntity.ok(Map.of("gates", qrService.activePickupGates(staff.getSchoolId(), staff.getUid())));
     }
 
     @PostMapping("/verify")

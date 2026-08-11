@@ -60,4 +60,5 @@ sealed class Screen(val route: String) {
     data object SchoolAdminGuardianVerification : Screen("school-admin/guardian-verification")
 
     data object SchoolAdminCampusGates : Screen("school-admin/campus-gates")
+    data object SchoolAdminStaffPickupGates : Screen("school-admin/staff-pickup-gates")
 }
