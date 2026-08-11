@@ -94,7 +94,7 @@ public class ReportingController {
         ReportData report = loadReport(admin.getSchoolId(), range, gradeFilter, sectionFilter);
 
         StringBuilder csv = new StringBuilder(16_384);
-        csv.append("Business Date,Time,Student Number,Student Name,Grade,Section,Guardian,Verified By,Method,Exit Log ID\r\n");
+        csv.append("Business Date,Time,Student Number,Student Name,Grade,Section,Guardian,Verified By,Campus,Pickup Gate,Method,Exit Log ID\r\n");
         for (ReportRow row : report.rows) {
             csv.append(csv(row.businessDate)).append(',')
                     .append(csv(row.time)).append(',')
@@ -104,6 +104,8 @@ public class ReportingController {
                     .append(csv(row.section)).append(',')
                     .append(csv(row.guardianName)).append(',')
                     .append(csv(row.staffName)).append(',')
+                    .append(csv(row.campusName)).append(',')
+                    .append(csv(row.pickupGateName)).append(',')
                     .append(csv(row.method)).append(',')
                     .append(csv(row.exitLogId)).append("\r\n");
         }
@@ -186,6 +188,8 @@ public class ReportingController {
                     rowSection,
                     value(log.getString("guardianNameSnapshot"), guardianUid == null ? "Unknown guardian" : userNames.getOrDefault(guardianUid, "Unknown guardian")),
                     value(log.getString("verifiedByNameSnapshot"), staffUid == null ? "Unknown staff" : userNames.getOrDefault(staffUid, "Unknown staff")),
+                    value(log.getString("campusNameSnapshot"), ""),
+                    value(log.getString("pickupGateNameSnapshot"), ""),
                     method
             );
             result.rows.add(row);
@@ -236,7 +240,7 @@ public class ReportingController {
     private record StudentInfo(String studentNumber, String fullName, String grade, String section) { }
     private record ReportRow(String exitLogId, String businessDate, String time, String studentNumber,
                              String studentName, String grade, String section, String guardianName,
-                             String staffName, String method) { }
+                             String staffName, String campusName, String pickupGateName, String method) { }
 
     private static class ReportData {
         private final List<ReportRow> rows = new ArrayList<>();

@@ -33,14 +33,25 @@ interface PickupPassApi {
     @POST("parent/remove-guardian")
     suspend fun removeGuardian(@Body body: RemoveGuardianRequest): Response<SimpleStatusResponse>
 
+    @GET("pickup/gates")
+    suspend fun getActivePickupGates(): Response<ActivePickupGatesResponse>
+
     @POST("pickup/verify")
     suspend fun verifyPickup(@Body body: VerifyRequest): Response<VerifyResponse>
 
     @POST("pickup/approve")
-    suspend fun approvePickup(@Header("Idempotency-Key") idempotencyKey: String, @Body body: VerifyRequest): Response<ApproveResponse>
+    suspend fun approvePickup(
+        @Header("Idempotency-Key") idempotencyKey: String,
+        @Header("X-Pickup-Gate-Id") pickupGateId: String?,
+        @Body body: VerifyRequest
+    ): Response<ApproveResponse>
 
     @POST("pickup/manual-override")
-    suspend fun manualOverride(@Header("Idempotency-Key") idempotencyKey: String, @Body body: ManualOverrideRequest): Response<ManualOverrideResponse>
+    suspend fun manualOverride(
+        @Header("Idempotency-Key") idempotencyKey: String,
+        @Header("X-Pickup-Gate-Id") pickupGateId: String?,
+        @Body body: ManualOverrideRequest
+    ): Response<ManualOverrideResponse>
 
     @POST("teacher/register-parent")
     suspend fun registerParent(@Body body: RegisterParentRequest): Response<AddGuardianResponse>

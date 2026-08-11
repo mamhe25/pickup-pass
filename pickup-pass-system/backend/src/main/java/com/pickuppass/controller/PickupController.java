@@ -40,6 +40,12 @@ public class PickupController {
         this.idempotencyService = idempotencyService;
     }
 
+    @GetMapping("/gates")
+    @PreAuthorize("hasAnyRole('teacher','school_admin')")
+    public ResponseEntity<?> activePickupGates(@AuthenticationPrincipal FirebaseUserDetails staff) throws Exception {
+        return ResponseEntity.ok(Map.of("gates", qrService.activePickupGates(staff.getSchoolId())));
+    }
+
     @PostMapping("/verify")
     @PreAuthorize("hasAnyRole('teacher','school_admin')")
     public ResponseEntity<?> verify(@Valid @RequestBody VerifyRequest req,
@@ -69,9 +75,10 @@ public class PickupController {
     @PreAuthorize("hasAnyRole('teacher','school_admin')")
     public ResponseEntity<?> approve(@Valid @RequestBody VerifyRequest req,
                                       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+                                      @RequestHeader(value = "X-Pickup-Gate-Id", required = false) String pickupGateId,
                                       @AuthenticationPrincipal FirebaseUserDetails staff) throws Exception {
         Timer.Sample timer = metrics.startTimer();
-        String fingerprint = idempotencyService.fingerprint(req.getQrToken());
+        String fingerprint = idempotencyService.fingerprint(req.getQrToken() + "\n" + (pickupGateId == null ? "" : pickupGateId.trim()));
         var replay = idempotencyService.findExisting(staff.getSchoolId(), staff.getUid(),
                 "pickup.approve", idempotencyKey, fingerprint);
         if (replay.isPresent()) {
@@ -86,11 +93,12 @@ public class PickupController {
                 metrics.approvalFailed();
                 return ResponseEntity.badRequest().body(Map.of("valid", false, "reason", result.getMessage()));
             }
-            String exitLogId = qrService.markUsedAndLog(result, staff.getUid(), staff.getSchoolId());
+            String exitLogId = qrService.markUsedAndLog(result, staff.getUid(), staff.getSchoolId(), pickupGateId);
             // Pickup success is authoritative even when push delivery fails internally.
             pushNotificationService.notifyGuardiansOfPickup(result.getStudentId(), result.getParentUid());
             auditService.record(staff, "pickup.approved", "exitLog", exitLogId,
-                    Map.of("studentId", result.getStudentId(), "method", "qr_scan"));
+                    Map.of("studentId", result.getStudentId(), "method", "qr_scan",
+                            "pickupGateId", pickupGateId == null ? "" : pickupGateId.trim()));
             idempotencyService.storeResult(staff.getSchoolId(), staff.getUid(),
                     "pickup.approve", idempotencyKey, fingerprint, exitLogId);
             metrics.approvalSucceeded();
@@ -107,9 +115,11 @@ public class PickupController {
     @PreAuthorize("hasRole('school_admin')")
     public ResponseEntity<?> manualOverride(@Valid @RequestBody ManualOverrideRequest req,
                                              @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+                                             @RequestHeader(value = "X-Pickup-Gate-Id", required = false) String pickupGateId,
                                              @AuthenticationPrincipal FirebaseUserDetails staff) throws Exception {
         String fingerprint = idempotencyService.fingerprint(
-                req.getStudentId() + "\n" + req.getGuardianUid() + "\n" + req.getReason().trim());
+                req.getStudentId() + "\n" + req.getGuardianUid() + "\n" + req.getReason().trim() + "\n"
+                        + (pickupGateId == null ? "" : pickupGateId.trim()));
         var replay = idempotencyService.findExisting(staff.getSchoolId(), staff.getUid(),
                 "pickup.manual_override", idempotencyKey, fingerprint);
         if (replay.isPresent()) {
@@ -121,12 +131,13 @@ public class PickupController {
         }
         try {
             String exitLogId = qrService.manualOverride(req.getStudentId(), req.getGuardianUid(), req.getReason(),
-                    staff.getUid(), staff.getSchoolId());
+                    staff.getUid(), staff.getSchoolId(), pickupGateId);
             pushNotificationService.notifyGuardiansOfPickup(req.getStudentId(), req.getGuardianUid());
             auditService.record(staff, "pickup.manual_override", "exitLog", exitLogId, Map.of(
                     "studentId", req.getStudentId(),
                     "guardianUid", req.getGuardianUid(),
-                    "reason", req.getReason().trim()));
+                    "reason", req.getReason().trim(),
+                    "pickupGateId", pickupGateId == null ? "" : pickupGateId.trim()));
             idempotencyService.storeResult(staff.getSchoolId(), staff.getUid(),
                     "pickup.manual_override", idempotencyKey, fingerprint, exitLogId);
             metrics.manualOverrideSucceeded();

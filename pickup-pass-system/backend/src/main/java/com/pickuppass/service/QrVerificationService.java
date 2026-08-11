@@ -17,8 +17,12 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -123,12 +127,18 @@ public class QrVerificationService {
      */
     public String markUsedAndLog(QrVerificationResult result, String verifiedByUid, String schoolId)
             throws ExecutionException, InterruptedException {
+        return markUsedAndLog(result, verifiedByUid, schoolId, null);
+    }
+
+    public String markUsedAndLog(QrVerificationResult result, String verifiedByUid, String schoolId, String pickupGateId)
+            throws ExecutionException, InterruptedException {
         String businessDate = LocalDate.now(schoolTimeZone).toString();
         String lockId = safeId(schoolId) + "_" + businessDate + "_" + safeId(result.getStudentId());
         DocumentReference lockRef = firestore.collection("dismissalLocks").document(lockId);
         DocumentReference exitLogRef = firestore.collection("exitLogs").document();
         DocumentReference studentRef = firestore.collection("students").document(result.getStudentId());
         ExitSnapshot snapshot = loadExitSnapshot(result.getStudentId(), result.getParentUid(), verifiedByUid, schoolId);
+        PickupGateSnapshot gateSnapshot = resolvePickupGate(schoolId, pickupGateId, true);
 
         firestore.runTransaction(tx -> {
             DocumentSnapshot token = tx.get(result.getTokenRef()).get();
@@ -151,10 +161,11 @@ public class QrVerificationService {
             lockData.put("studentId", result.getStudentId());
             lockData.put("businessDate", businessDate);
             lockData.put("exitLogId", exitLogRef.getId());
+            lockData.put("pickupGateId", gateSnapshot.gateId());
             lockData.put("createdAt", FieldValue.serverTimestamp());
 
             Map<String, Object> log = buildExitLog(schoolId, result.getStudentId(), result.getParentUid(),
-                    verifiedByUid, "qr_scan", businessDate, null, snapshot);
+                    verifiedByUid, "qr_scan", businessDate, null, snapshot, gateSnapshot);
 
             tx.update(result.getTokenRef(), "used", true, "usedAt", FieldValue.serverTimestamp());
             if (authTx.temporary()) {
@@ -172,6 +183,12 @@ public class QrVerificationService {
     /** Controlled fallback for dead phones, camera failures, or other documented exceptions. */
     public String manualOverride(String studentId, String guardianUid, String reason,
                                  String verifiedByUid, String schoolId)
+            throws ExecutionException, InterruptedException {
+        return manualOverride(studentId, guardianUid, reason, verifiedByUid, schoolId, null);
+    }
+
+    public String manualOverride(String studentId, String guardianUid, String reason,
+                                 String verifiedByUid, String schoolId, String pickupGateId)
             throws ExecutionException, InterruptedException {
         if (reason == null || reason.trim().length() < 5) {
             throw new IllegalArgumentException("A clear manual override reason is required");
@@ -195,6 +212,7 @@ public class QrVerificationService {
         DocumentReference lockRef = firestore.collection("dismissalLocks").document(lockId);
         DocumentReference exitLogRef = firestore.collection("exitLogs").document();
         ExitSnapshot snapshot = loadExitSnapshot(studentId, guardianUid, verifiedByUid, schoolId);
+        PickupGateSnapshot gateSnapshot = resolvePickupGate(schoolId, pickupGateId, true);
 
         firestore.runTransaction(tx -> {
             DocumentSnapshot lock = tx.get(lockRef).get();
@@ -211,10 +229,11 @@ public class QrVerificationService {
             lockData.put("studentId", studentId);
             lockData.put("businessDate", businessDate);
             lockData.put("exitLogId", exitLogRef.getId());
+            lockData.put("pickupGateId", gateSnapshot.gateId());
             lockData.put("createdAt", FieldValue.serverTimestamp());
 
             Map<String, Object> log = buildExitLog(schoolId, studentId, guardianUid,
-                    verifiedByUid, "manual_override", businessDate, reason.trim(), snapshot);
+                    verifiedByUid, "manual_override", businessDate, reason.trim(), snapshot, gateSnapshot);
             if (guardianDecisionTx.temporary()) {
                 tx.update(studentRef,
                         "guardianUids", FieldValue.arrayRemove(guardianUid),
@@ -229,7 +248,7 @@ public class QrVerificationService {
 
     private Map<String, Object> buildExitLog(String schoolId, String studentId, String parentUid,
                                               String verifiedByUid, String method, String businessDate,
-                                              String overrideReason, ExitSnapshot snapshot) {
+                                              String overrideReason, ExitSnapshot snapshot, PickupGateSnapshot gateSnapshot) {
         Map<String, Object> log = new HashMap<>();
         log.put("schoolId", schoolId);
         log.put("studentId", studentId);
@@ -244,6 +263,10 @@ public class QrVerificationService {
         log.put("sectionSnapshot", snapshot.section());
         log.put("guardianNameSnapshot", snapshot.guardianName());
         log.put("verifiedByNameSnapshot", snapshot.staffName());
+        log.put("pickupGateId", gateSnapshot.gateId());
+        log.put("pickupGateNameSnapshot", gateSnapshot.gateName());
+        log.put("campusId", gateSnapshot.campusId());
+        log.put("campusNameSnapshot", gateSnapshot.campusName());
         if (overrideReason != null) log.put("overrideReason", overrideReason);
         return log;
     }
@@ -277,6 +300,66 @@ public class QrVerificationService {
 
     private record ExitSnapshot(String studentName, String studentNumber, String grade, String section,
                                 String guardianName, String staffName) { }
+
+    public List<Map<String, Object>> activePickupGates(String schoolId)
+            throws ExecutionException, InterruptedException {
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (QueryDocumentSnapshot doc : firestore.collection("pickupGates")
+                .whereEqualTo("schoolId", schoolId).get().get().getDocuments()) {
+            if (Boolean.FALSE.equals(doc.getBoolean("active"))) continue;
+            String campusId = stringValue(doc.getString("campusId"), "");
+            String campusName = stringValue(doc.getString("campusName"), "");
+            if (!campusId.isBlank()) {
+                DocumentSnapshot campus = firestore.collection("campuses").document(campusId).get().get();
+                if (!campus.exists() || Boolean.FALSE.equals(campus.getBoolean("active"))) continue;
+                campusName = stringValue(campus.getString("name"), campusName);
+            }
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", doc.getId());
+            item.put("name", stringValue(doc.getString("name"), "Pickup Gate"));
+            item.put("campusId", campusId);
+            item.put("campusName", campusName);
+            item.put("description", stringValue(doc.getString("description"), ""));
+            items.add(item);
+        }
+        items.sort(Comparator.comparing(m -> (String.valueOf(m.get("campusName")) + " " + String.valueOf(m.get("name"))).toLowerCase(Locale.ROOT)));
+        return items;
+    }
+
+    private PickupGateSnapshot resolvePickupGate(String schoolId, String pickupGateId, boolean requireWhenConfigured)
+            throws ExecutionException, InterruptedException {
+        String requested = pickupGateId == null ? "" : pickupGateId.trim();
+        if (requested.isBlank()) {
+            if (requireWhenConfigured && !activePickupGates(schoolId).isEmpty()) {
+                throw new IllegalArgumentException("Select a pickup gate before approving release");
+            }
+            return PickupGateSnapshot.none();
+        }
+
+        DocumentSnapshot gate = firestore.collection("pickupGates").document(requested).get().get();
+        if (!gate.exists() || !schoolId.equals(gate.getString("schoolId")) || Boolean.FALSE.equals(gate.getBoolean("active"))) {
+            throw new ForbiddenException("Selected pickup gate is not active for this school");
+        }
+        String campusId = stringValue(gate.getString("campusId"), "");
+        String campusName = stringValue(gate.getString("campusName"), "");
+        if (!campusId.isBlank()) {
+            DocumentSnapshot campus = firestore.collection("campuses").document(campusId).get().get();
+            if (!campus.exists() || !schoolId.equals(campus.getString("schoolId")) || Boolean.FALSE.equals(campus.getBoolean("active"))) {
+                throw new ForbiddenException("The selected pickup gate's campus is inactive");
+            }
+            campusName = stringValue(campus.getString("name"), campusName);
+        }
+        return new PickupGateSnapshot(
+                gate.getId(),
+                stringValue(gate.getString("name"), "Pickup Gate"),
+                campusId,
+                campusName
+        );
+    }
+
+    private record PickupGateSnapshot(String gateId, String gateName, String campusId, String campusName) {
+        private static PickupGateSnapshot none() { return new PickupGateSnapshot("", "", "", ""); }
+    }
 
     @SuppressWarnings("unchecked")
     private String pickupPolicyViolation(String schoolId) throws ExecutionException, InterruptedException {

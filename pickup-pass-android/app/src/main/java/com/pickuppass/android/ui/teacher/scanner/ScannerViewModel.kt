@@ -2,6 +2,7 @@ package com.pickuppass.android.ui.teacher.scanner
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pickuppass.android.data.model.PickupGateItem
 import com.pickuppass.android.data.model.SchoolInfo
 import com.pickuppass.android.data.model.Student
 import com.pickuppass.android.data.model.UserProfile
@@ -26,7 +27,7 @@ sealed class ScannerUiState {
         val isApproving: Boolean = false
     ) : ScannerUiState()
     data class Error(val message: String) : ScannerUiState()
-    data object Approved : ScannerUiState()
+    data class Approved(val gateLabel: String = "") : ScannerUiState()
 }
 
 @HiltViewModel
@@ -43,11 +44,21 @@ class ScannerViewModel @Inject constructor(
     private val _school = MutableStateFlow<SchoolInfo?>(null)
     val school: StateFlow<SchoolInfo?> = _school
 
+    private val _pickupGates = MutableStateFlow<List<PickupGateItem>>(emptyList())
+    val pickupGates: StateFlow<List<PickupGateItem>> = _pickupGates
+
+    private val _selectedPickupGate = MutableStateFlow<PickupGateItem?>(null)
+    val selectedPickupGate: StateFlow<PickupGateItem?> = _selectedPickupGate
+
+    private val _gateLoading = MutableStateFlow(true)
+    val gateLoading: StateFlow<Boolean> = _gateLoading
+
+    private val _gateError = MutableStateFlow<String?>(null)
+    val gateError: StateFlow<String?> = _gateError
+
     private val _signedOut = MutableStateFlow(false)
     val signedOut: StateFlow<Boolean> = _signedOut
 
-    // Guards against ML Kit firing the analyzer multiple times for the same
-    // frame burst while a verify call is already in flight.
     private var isProcessing = false
 
     init {
@@ -57,10 +68,47 @@ class ScannerViewModel @Inject constructor(
                 studentRepository.getSchool(schoolId).onSuccess { _school.value = it }
             }
         }
+        loadPickupGates()
+    }
+
+    fun loadPickupGates() {
+        viewModelScope.launch {
+            _gateLoading.value = true
+            _gateError.value = null
+            when (val result = pickupRepository.getActivePickupGates()) {
+                is ApiResult.Success -> {
+                    val gates = result.data
+                    _pickupGates.value = gates
+                    val current = _selectedPickupGate.value
+                    _selectedPickupGate.value = when {
+                        current != null && gates.any { it.id == current.id } -> gates.first { it.id == current.id }
+                        gates.size == 1 -> gates.first()
+                        else -> null
+                    }
+                }
+                is ApiResult.Failure -> {
+                    _pickupGates.value = emptyList()
+                    _selectedPickupGate.value = null
+                    _gateError.value = scanFailureMessage(result.message, "Pickup gate loading")
+                }
+            }
+            _gateLoading.value = false
+        }
+    }
+
+    fun selectPickupGate(gate: PickupGateItem) {
+        if (_pickupGates.value.any { it.id == gate.id }) {
+            _selectedPickupGate.value = gate
+        }
     }
 
     fun onQrCodeScanned(qrToken: String) {
         if (isProcessing) return
+        if (_gateLoading.value || _gateError.value != null) return
+        if (_pickupGates.value.isNotEmpty() && _selectedPickupGate.value == null) {
+            _uiState.value = ScannerUiState.Error("Select the pickup gate being used before scanning a pass")
+            return
+        }
         isProcessing = true
 
         viewModelScope.launch {
@@ -95,13 +143,16 @@ class ScannerViewModel @Inject constructor(
     fun approveRelease() {
         val current = _uiState.value
         if (current !is ScannerUiState.Verified || current.isApproving) return
+        val gate = _selectedPickupGate.value
+        if (_pickupGates.value.isNotEmpty() && gate == null) {
+            _uiState.value = ScannerUiState.Error("Select the pickup gate before approving release")
+            return
+        }
 
-        // Update before launching so two taps in the same UI frame cannot
-        // enqueue duplicate approval requests.
         _uiState.value = current.copy(isApproving = true)
         viewModelScope.launch {
-            when (val result = pickupRepository.approve(current.qrToken)) {
-                is ApiResult.Success -> _uiState.value = ScannerUiState.Approved
+            when (val result = pickupRepository.approve(current.qrToken, gate?.id)) {
+                is ApiResult.Success -> _uiState.value = ScannerUiState.Approved(gate?.displayName.orEmpty())
                 is ApiResult.Failure -> _uiState.value = ScannerUiState.Error(scanFailureMessage(result.message, "Approval"))
             }
         }

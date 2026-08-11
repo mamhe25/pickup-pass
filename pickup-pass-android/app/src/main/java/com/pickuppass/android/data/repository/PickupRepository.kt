@@ -1,6 +1,7 @@
 package com.pickuppass.android.data.repository
 
 import com.pickuppass.android.data.model.ApproveResponse
+import com.pickuppass.android.data.model.PickupGateItem
 import com.pickuppass.android.data.model.GenerateTokenRequest
 import com.pickuppass.android.data.model.PickupTokenResponse
 import com.pickuppass.android.data.model.ManualOverrideRequest
@@ -44,9 +45,20 @@ class PickupRepository @Inject constructor(
         }
     }
 
-    suspend fun approve(qrToken: String): ApiResult<ApproveResponse> {
+    suspend fun getActivePickupGates(): ApiResult<List<PickupGateItem>> {
         return try {
-            val response = api.approvePickup(UUID.randomUUID().toString(), VerifyRequest(qrToken))
+            val response = api.getActivePickupGates()
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body.gates)
+            else ApiResult.Failure(parseError(response.errorBody()?.string()) ?: "Could not load pickup gates")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun approve(qrToken: String, pickupGateId: String? = null): ApiResult<ApproveResponse> {
+        return try {
+            val response = api.approvePickup(UUID.randomUUID().toString(), pickupGateId, VerifyRequest(qrToken))
             val body = response.body()
             if (response.isSuccessful && body?.status == "release_approved") {
                 ApiResult.Success(body)
@@ -59,9 +71,9 @@ class PickupRepository @Inject constructor(
     }
 
 
-    suspend fun manualOverride(studentId: String, guardianUid: String, reason: String): ApiResult<ManualOverrideResponse> {
+    suspend fun manualOverride(studentId: String, guardianUid: String, reason: String, pickupGateId: String? = null): ApiResult<ManualOverrideResponse> {
         return try {
-            val response = api.manualOverride(UUID.randomUUID().toString(), ManualOverrideRequest(studentId, guardianUid, reason.trim()))
+            val response = api.manualOverride(UUID.randomUUID().toString(), pickupGateId, ManualOverrideRequest(studentId, guardianUid, reason.trim()))
             val body = response.body()
             if (response.isSuccessful && body?.status == "release_approved") {
                 ApiResult.Success(body)

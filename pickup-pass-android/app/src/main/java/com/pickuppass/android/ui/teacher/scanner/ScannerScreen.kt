@@ -6,25 +6,20 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import com.pickuppass.android.ui.theme.Gray300
-import com.pickuppass.android.ui.theme.Gray400
-import com.pickuppass.android.ui.theme.Gray800
-import com.pickuppass.android.ui.theme.Gray900
-import com.pickuppass.android.ui.theme.Spacing
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -33,9 +28,15 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
+import com.pickuppass.android.data.model.PickupGateItem
 import com.pickuppass.android.ui.common.BrandedTitle
 import com.pickuppass.android.ui.common.GuardianAvatar
 import com.pickuppass.android.ui.common.PrimaryButton
+import com.pickuppass.android.ui.theme.Gray300
+import com.pickuppass.android.ui.theme.Gray400
+import com.pickuppass.android.ui.theme.Gray800
+import com.pickuppass.android.ui.theme.Gray900
+import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -50,6 +51,10 @@ fun ScannerScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val signedOut by viewModel.signedOut.collectAsStateWithLifecycle()
     val school by viewModel.school.collectAsStateWithLifecycle()
+    val pickupGates by viewModel.pickupGates.collectAsStateWithLifecycle()
+    val selectedPickupGate by viewModel.selectedPickupGate.collectAsStateWithLifecycle()
+    val gateLoading by viewModel.gateLoading.collectAsStateWithLifecycle()
+    val gateError by viewModel.gateError.collectAsStateWithLifecycle()
     val cameraPermission = rememberPermissionState(Manifest.permission.CAMERA)
 
     LaunchedEffect(signedOut) {
@@ -98,28 +103,59 @@ fun ScannerScreen(
                     shouldShowRationale = cameraPermission.status.shouldShowRationale,
                     onRequest = { cameraPermission.launchPermissionRequest() }
                 )
-                uiState is ScannerUiState.Approved -> ApprovedOverlay(onDone = viewModel::resetToScanning)
-                else -> ScanAndVerifyContent(uiState = uiState, viewModel = viewModel)
+                uiState is ScannerUiState.Approved -> ApprovedOverlay(
+                    gateLabel = (uiState as ScannerUiState.Approved).gateLabel,
+                    onDone = viewModel::resetToScanning
+                )
+                else -> ScanAndVerifyContent(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    pickupGates = pickupGates,
+                    selectedPickupGate = selectedPickupGate,
+                    gateLoading = gateLoading,
+                    gateError = gateError
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ScanAndVerifyContent(uiState: ScannerUiState, viewModel: ScannerViewModel) {
+private fun ScanAndVerifyContent(
+    uiState: ScannerUiState,
+    viewModel: ScannerViewModel,
+    pickupGates: List<PickupGateItem>,
+    selectedPickupGate: PickupGateItem?,
+    gateLoading: Boolean,
+    gateError: String?
+) {
+    val gateReady = !gateLoading && gateError == null && (pickupGates.isEmpty() || selectedPickupGate != null)
+
     Box(Modifier.fillMaxSize()) {
-        // Camera stays mounted underneath so it doesn't need to re-initialize
-        // between scans — only the analyzer's `paused` flag toggles.
         QrScannerView(
-            paused = uiState !is ScannerUiState.Scanning,
+            paused = uiState !is ScannerUiState.Scanning || !gateReady,
             onQrDetected = viewModel::onQrCodeScanned
         )
 
+        GateSelectorBar(
+            gates = pickupGates,
+            selected = selectedPickupGate,
+            loading = gateLoading,
+            error = gateError,
+            onSelect = viewModel::selectPickupGate,
+            onRetry = viewModel::loadPickupGates,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
+
         when (uiState) {
-            is ScannerUiState.Scanning -> ScanningOverlay()
+            is ScannerUiState.Scanning -> ScanningOverlay(
+                gateReady = gateReady,
+                selectedGateLabel = selectedPickupGate?.displayName.orEmpty(),
+                hasConfiguredGates = pickupGates.isNotEmpty()
+            )
             is ScannerUiState.Verifying -> RequestOverlay("Verifying pass…")
             is ScannerUiState.Verified -> {
-                VerifiedPanel(uiState, viewModel)
+                VerifiedPanel(uiState, selectedPickupGate, viewModel)
                 if (uiState.isApproving) RequestOverlay("Approving release…")
             }
             is ScannerUiState.Error -> ErrorPanel(uiState.message, onDismiss = viewModel::resetToScanning)
@@ -128,16 +164,109 @@ private fun ScanAndVerifyContent(uiState: ScannerUiState, viewModel: ScannerView
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ScanningOverlay() {
+private fun GateSelectorBar(
+    gates: List<PickupGateItem>,
+    selected: PickupGateItem?,
+    loading: Boolean,
+    error: String?,
+    onSelect: (PickupGateItem) -> Unit,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = Color.Black.copy(alpha = 0.72f),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
+            when {
+                loading -> {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                        Text("Loading pickup gates…", color = Color.White)
+                    }
+                }
+                error != null -> {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(error, color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.weight(1f))
+                        TextButton(onClick = onRetry) { Text("Retry") }
+                    }
+                }
+                gates.isEmpty() -> {
+                    Text("No pickup gate configured · normal scanner mode", color = Gray300, style = MaterialTheme.typography.bodySmall)
+                }
+                else -> {
+                    var expanded by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
+                        OutlinedTextField(
+                            value = selected?.displayName.orEmpty(),
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Active pickup gate") },
+                            placeholder = { Text("Select pickup gate") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = MaterialTheme.colorScheme.secondary,
+                                unfocusedBorderColor = Gray400,
+                                focusedLabelColor = Gray300,
+                                unfocusedLabelColor = Gray300,
+                                focusedPlaceholderColor = Gray400,
+                                unfocusedPlaceholderColor = Gray400
+                            )
+                        )
+                        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            gates.forEach { gate ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(gate.name)
+                                            if (gate.campusName.isNotBlank()) {
+                                                Text(gate.campusName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        onSelect(gate)
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScanningOverlay(gateReady: Boolean, selectedGateLabel: String, hasConfiguredGates: Boolean) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         Surface(color = Color.Black.copy(alpha = 0.6f), modifier = Modifier.fillMaxWidth()) {
-            Text(
-                "Point camera at parent's pass",
-                color = Color.White,
-                modifier = Modifier.padding(Spacing.md),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
+            Column(Modifier.padding(Spacing.md), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    if (gateReady) "Point camera at parent's pass" else "Select a pickup gate before scanning",
+                    color = Color.White,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                if (hasConfiguredGates && selectedGateLabel.isNotBlank()) {
+                    Spacer(Modifier.height(Spacing.xs))
+                    Text(
+                        "Release location: $selectedGateLabel",
+                        color = Gray300,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
         }
     }
 }
@@ -158,7 +287,11 @@ private fun RequestOverlay(message: String) {
 }
 
 @Composable
-private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: ScannerViewModel) {
+private fun BoxScope.VerifiedPanel(
+    state: ScannerUiState.Verified,
+    selectedPickupGate: PickupGateItem?,
+    viewModel: ScannerViewModel
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -172,7 +305,6 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
                         .height(140.dp),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
-                    // Left: student info
                     Surface(
                         color = Gray900,
                         shape = MaterialTheme.shapes.small,
@@ -198,7 +330,6 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
                         }
                     }
 
-                    // Right: guardian photo for face match
                     Surface(
                         color = Gray900,
                         shape = MaterialTheme.shapes.small,
@@ -226,6 +357,15 @@ private fun BoxScope.VerifiedPanel(state: ScannerUiState.Verified, viewModel: Sc
                             )
                         }
                     }
+                }
+
+                selectedPickupGate?.let {
+                    Spacer(Modifier.height(Spacing.sm))
+                    Text(
+                        "Release location: ${it.displayName}",
+                        color = Gray300,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
 
                 Spacer(Modifier.height(Spacing.md))
@@ -266,9 +406,7 @@ private fun BoxScope.ErrorPanel(message: String, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun ApprovedOverlay(onDone: () -> Unit) {
-    // Spring the confirmation check in so a logged release lands with a
-    // satisfying pop — the emotional payoff of the whole scan flow.
+private fun ApprovedOverlay(gateLabel: String, onDone: () -> Unit) {
     val scale = remember { Animatable(0.4f) }
     LaunchedEffect(Unit) {
         scale.animateTo(1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
@@ -287,6 +425,10 @@ private fun ApprovedOverlay(onDone: () -> Unit) {
             )
             Spacer(Modifier.height(Spacing.sm))
             Text("Release Logged", color = Color.White, style = MaterialTheme.typography.titleLarge)
+            if (gateLabel.isNotBlank()) {
+                Spacer(Modifier.height(Spacing.xs))
+                Text(gateLabel, color = Gray300, style = MaterialTheme.typography.bodyMedium)
+            }
         }
     }
 }

@@ -279,6 +279,10 @@ data class DashboardRelease(
     val guardianName: String = "",
     val staffName: String = "",
     val method: String = "qr_scan",
+    val pickupGateId: String = "",
+    val pickupGateName: String = "",
+    val campusId: String = "",
+    val campusName: String = "",
     val timestamp: String? = null
 )
 
@@ -540,6 +544,12 @@ data class PickupGateItem(
     val name: String = "",
     val description: String = "",
     val active: Boolean = true
+) {
+    val displayName: String get() = if (campusName.isBlank()) name else "$campusName · $name"
+}
+
+data class ActivePickupGatesResponse(
+    val gates: List<PickupGateItem> = emptyList()
 )
 
 data class CampusGateResponse(

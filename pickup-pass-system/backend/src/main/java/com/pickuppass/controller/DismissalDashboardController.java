@@ -106,6 +106,10 @@ public class DismissalDashboardController {
                 item.put("guardianName", guardianUid == null ? "Unknown guardian" : namesByUid.getOrDefault(guardianUid, "Unknown guardian"));
                 item.put("staffName", staffUid == null ? "Unknown staff" : namesByUid.getOrDefault(staffUid, "Unknown staff"));
                 item.put("method", value(doc.getString("method"), "qr_scan"));
+                item.put("pickupGateId", value(doc.getString("pickupGateId"), ""));
+                item.put("pickupGateName", value(doc.getString("pickupGateNameSnapshot"), ""));
+                item.put("campusId", value(doc.getString("campusId"), ""));
+                item.put("campusName", value(doc.getString("campusNameSnapshot"), ""));
                 Timestamp timestamp = doc.getTimestamp("timestamp");
                 item.put("timestamp", timestamp == null ? null : timestamp.toDate());
                 recentReleases.add(item);

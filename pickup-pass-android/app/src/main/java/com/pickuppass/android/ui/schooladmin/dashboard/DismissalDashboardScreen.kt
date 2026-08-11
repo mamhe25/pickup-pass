@@ -244,6 +244,13 @@ private fun ReleaseCard(release: DashboardRelease, timeZone: String) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (release.pickupGateName.isNotBlank()) {
+                Text(
+                    "Released at ${if (release.campusName.isBlank()) release.pickupGateName else "${release.campusName} · ${release.pickupGateName}"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

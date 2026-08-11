@@ -30,15 +30,15 @@ class PickupControllerTest {
         PickupController.VerifyRequest req = new PickupController.VerifyRequest();
         req.setQrToken("bad-token");
 
-        when(idempotency.fingerprint("bad-token")).thenReturn("fp-bad");
+        when(idempotency.fingerprint("bad-token\n")).thenReturn("fp-bad");
         when(idempotency.findExisting("school1", "staff1", "pickup.approve", "request-1", "fp-bad"))
                 .thenReturn(Optional.empty());
         when(qr.verify("bad-token", "school1")).thenReturn(QrVerificationResult.fail("Invalid QR"));
 
-        ResponseEntity<?> response = controller.approve(req, "request-1", staff);
+        ResponseEntity<?> response = controller.approve(req, "request-1", null, staff);
 
         assertEquals(400, response.getStatusCode().value());
-        verify(qr, never()).markUsedAndLog(any(), anyString(), anyString());
+        verify(qr, never()).markUsedAndLog(any(), anyString(), anyString(), any());
         verify(idempotency, never()).storeResult(anyString(), anyString(), anyString(), any(), anyString(), anyString());
         verifyNoInteractions(push, audit);
     }
@@ -56,13 +56,13 @@ class PickupControllerTest {
         req.setQrToken("good-token");
         QrVerificationResult result = QrVerificationResult.success("student1", "guardian1", null);
 
-        when(idempotency.fingerprint("good-token")).thenReturn("fp-good");
+        when(idempotency.fingerprint("good-token\n")).thenReturn("fp-good");
         when(idempotency.findExisting("school1", "staff1", "pickup.approve", "request-2", "fp-good"))
                 .thenReturn(Optional.empty());
         when(qr.verify("good-token", "school1")).thenReturn(result);
-        when(qr.markUsedAndLog(result, "staff1", "school1")).thenReturn("log1");
+        when(qr.markUsedAndLog(result, "staff1", "school1", null)).thenReturn("log1");
 
-        ResponseEntity<?> response = controller.approve(req, "request-2", staff);
+        ResponseEntity<?> response = controller.approve(req, "request-2", null, staff);
 
         assertEquals(200, response.getStatusCode().value());
         verify(idempotency).storeResult("school1", "staff1", "pickup.approve", "request-2", "fp-good", "log1");
@@ -82,11 +82,11 @@ class PickupControllerTest {
         PickupController.VerifyRequest req = new PickupController.VerifyRequest();
         req.setQrToken("good-token");
 
-        when(idempotency.fingerprint("good-token")).thenReturn("fp-good");
+        when(idempotency.fingerprint("good-token\n")).thenReturn("fp-good");
         when(idempotency.findExisting("school1", "staff1", "pickup.approve", "request-3", "fp-good"))
                 .thenReturn(Optional.of("existing-log"));
 
-        ResponseEntity<?> response = controller.approve(req, "request-3", staff);
+        ResponseEntity<?> response = controller.approve(req, "request-3", null, staff);
 
         assertEquals(200, response.getStatusCode().value());
         verifyNoInteractions(qr, push, audit);
@@ -107,14 +107,14 @@ class PickupControllerTest {
         req.setGuardianUid("guardian1");
         req.setReason("Parent phone battery is dead");
 
-        String source = "student1\nguardian1\nParent phone battery is dead";
+        String source = "student1\nguardian1\nParent phone battery is dead\n";
         when(idempotency.fingerprint(source)).thenReturn("fp-manual");
         when(idempotency.findExisting("school1", "admin1", "pickup.manual_override", "manual-1", "fp-manual"))
                 .thenReturn(Optional.empty());
-        when(qr.manualOverride("student1", "guardian1", "Parent phone battery is dead", "admin1", "school1"))
+        when(qr.manualOverride("student1", "guardian1", "Parent phone battery is dead", "admin1", "school1", null))
                 .thenReturn("log2");
 
-        ResponseEntity<?> response = controller.manualOverride(req, "manual-1", admin);
+        ResponseEntity<?> response = controller.manualOverride(req, "manual-1", null, admin);
 
         assertEquals(200, response.getStatusCode().value());
         verify(idempotency).storeResult("school1", "admin1", "pickup.manual_override", "manual-1", "fp-manual", "log2");

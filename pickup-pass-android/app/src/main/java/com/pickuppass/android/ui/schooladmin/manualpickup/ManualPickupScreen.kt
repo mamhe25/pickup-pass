@@ -21,6 +21,7 @@ fun ManualPickupScreen(viewModel: ManualPickupViewModel = hiltViewModel(), onBac
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var studentMenu by remember { mutableStateOf(false) }
     var guardianMenu by remember { mutableStateOf(false) }
+    var gateMenu by remember { mutableStateOf(false) }
     var confirm by remember { mutableStateOf(false) }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Manual Pickup Override") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back") } }) }) { padding ->
@@ -50,8 +51,28 @@ fun ManualPickupScreen(viewModel: ManualPickupViewModel = hiltViewModel(), onBac
                 }
             }
 
+
+            if (state.pickupGates.isNotEmpty()) {
+                ExposedDropdownMenuBox(expanded = gateMenu, onExpandedChange = { gateMenu = !gateMenu }) {
+                    OutlinedTextField(
+                        value = state.selectedPickupGate?.displayName ?: "",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Pickup gate") },
+                        placeholder = { Text("Select release location") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(gateMenu) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(expanded = gateMenu, onDismissRequest = { gateMenu = false }) {
+                        state.pickupGates.forEach { gate ->
+                            DropdownMenuItem(text = { Text(gate.displayName) }, onClick = { viewModel.selectPickupGate(gate); gateMenu = false })
+                        }
+                    }
+                }
+            }
+
             OutlinedTextField(value = state.reason, onValueChange = viewModel::setReason, label = { Text("Reason for override") }, supportingText = { Text("Required. Example: guardian phone battery dead; ID checked by school admin.") }, minLines = 3, maxLines = 6, modifier = Modifier.fillMaxWidth())
-            Button(onClick = { confirm = true }, enabled = !state.isSubmitting && state.selectedStudent != null && state.selectedGuardian != null && state.reason.trim().length >= 5, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+            Button(onClick = { confirm = true }, enabled = !state.isSubmitting && state.selectedStudent != null && state.selectedGuardian != null && (state.pickupGates.isEmpty() || state.selectedPickupGate != null) && state.reason.trim().length >= 5, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                 if (state.isSubmitting) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) else Text("Approve Manual Release")
             }
         }

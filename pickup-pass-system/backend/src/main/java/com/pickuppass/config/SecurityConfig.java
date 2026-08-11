@@ -70,7 +70,7 @@ public class SecurityConfig {
                 .toList();
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-ID", "X-Client-Version", "X-Device-Id", "X-Device-Name", "Idempotency-Key"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-ID", "X-Client-Version", "X-Device-Id", "X-Device-Name", "X-Pickup-Gate-Id", "Idempotency-Key"));
         config.setExposedHeaders(List.of("X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "Retry-After"));
         config.setAllowCredentials(false);
         config.setMaxAge(3600L);
