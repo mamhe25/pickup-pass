@@ -372,4 +372,50 @@ class SchoolAdminRepository @Inject constructor(
         }
     }
 
+
+    suspend fun getCampusGates(): ApiResult<CampusGateResponse> {
+        return try {
+            val response = api.getCampusGates()
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure("Could not load campuses and gates")
+        } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+    }
+
+    suspend fun createCampus(name: String, address: String): ApiResult<Map<String, Any?>> {
+        return try {
+            val response = api.createCampus(CreateCampusRequest(name, address))
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure("Could not create campus")
+        } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+    }
+
+    suspend fun setCampusActive(id: String, active: Boolean): ApiResult<Map<String, Any?>> {
+        return try {
+            val response = api.setCampusStatus(id, ActiveStatusRequest(active))
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure("Could not update campus")
+        } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+    }
+
+    suspend fun createPickupGate(campusId: String, name: String, description: String): ApiResult<Map<String, Any?>> {
+        return try {
+            val response = api.createPickupGate(CreatePickupGateRequest(campusId, name, description))
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure("Could not create pickup gate")
+        } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+    }
+
+    suspend fun setPickupGateActive(id: String, active: Boolean): ApiResult<Map<String, Any?>> {
+        return try {
+            val response = api.setPickupGateStatus(id, ActiveStatusRequest(active))
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure("Could not update pickup gate")
+        } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+    }
+
 }

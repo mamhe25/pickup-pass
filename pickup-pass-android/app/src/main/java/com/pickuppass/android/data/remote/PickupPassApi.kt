@@ -195,4 +195,20 @@ interface PickupPassApi {
 
     @POST("teacher/broadcasts")
     suspend fun broadcastToSection(@Body body: BroadcastRequest): Response<BroadcastResponse>
+
+    @GET("school-admin/campus-gates")
+    suspend fun getCampusGates(): Response<CampusGateResponse>
+
+    @POST("school-admin/campus-gates/campuses")
+    suspend fun createCampus(@Body body: CreateCampusRequest): Response<Map<String, Any?>>
+
+    @PUT("school-admin/campus-gates/campuses/{id}/status")
+    suspend fun setCampusStatus(@Path("id") id: String, @Body body: ActiveStatusRequest): Response<Map<String, Any?>>
+
+    @POST("school-admin/campus-gates/gates")
+    suspend fun createPickupGate(@Body body: CreatePickupGateRequest): Response<Map<String, Any?>>
+
+    @PUT("school-admin/campus-gates/gates/{id}/status")
+    suspend fun setPickupGateStatus(@Path("id") id: String, @Body body: ActiveStatusRequest): Response<Map<String, Any?>>
+
 }

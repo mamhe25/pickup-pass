@@ -523,3 +523,30 @@ data class BroadcastHistoryItem(
 data class BroadcastHistoryResponse(
     val broadcasts: List<BroadcastHistoryItem> = emptyList()
 )
+
+
+// ---- Phase 2: campus and pickup gate management ----
+data class CampusItem(
+    val id: String = "",
+    val name: String = "",
+    val address: String = "",
+    val active: Boolean = true
+)
+
+data class PickupGateItem(
+    val id: String = "",
+    val campusId: String = "",
+    val campusName: String = "",
+    val name: String = "",
+    val description: String = "",
+    val active: Boolean = true
+)
+
+data class CampusGateResponse(
+    val campuses: List<CampusItem> = emptyList(),
+    val gates: List<PickupGateItem> = emptyList()
+)
+
+data class CreateCampusRequest(val name: String, val address: String = "")
+data class CreatePickupGateRequest(val campusId: String = "", val name: String, val description: String = "")
+data class ActiveStatusRequest(val active: Boolean)
