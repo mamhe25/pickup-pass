@@ -13,6 +13,9 @@ import retrofit2.http.PUT
 
 interface PickupPassApi {
 
+    @GET("session/me")
+    suspend fun sessionMe(): Response<SessionStatusResponse>
+
     @POST("parent/generate-token")
     suspend fun generateToken(@Body body: GenerateTokenRequest): Response<PickupTokenResponse>
 

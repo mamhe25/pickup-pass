@@ -209,3 +209,11 @@ data class AuditEvent(
 )
 
 data class AuditEventsResponse(val events: List<AuditEvent> = emptyList())
+
+
+data class SessionStatusResponse(
+    val uid: String = "",
+    val role: String = "",
+    val schoolId: String? = null,
+    val status: String = ""
+)

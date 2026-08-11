@@ -1,6 +1,7 @@
 package com.pickuppass.android.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -27,9 +28,18 @@ import com.pickuppass.android.ui.teacher.exitlogs.ExitLogsScreen
 import com.pickuppass.android.ui.teacher.registerparent.RegisterParentScreen
 import com.pickuppass.android.ui.teacher.scanner.ScannerScreen
 import com.pickuppass.android.ui.teacher.students.TeacherStudentsScreen
+import com.pickuppass.android.session.SessionGuardViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun PickupPassNavHost(navController: NavHostController = rememberNavController()) {
+    val sessionGuard: SessionGuardViewModel = hiltViewModel()
+
+    LaunchedEffect(sessionGuard, navController) {
+        sessionGuard.sessionExpiryManager.events.collect {
+            navController.navigateToLoginClearingBackStack()
+        }
+    }
 
     NavHost(navController = navController, startDestination = Screen.Splash.route) {
 

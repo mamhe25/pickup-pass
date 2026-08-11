@@ -2,6 +2,7 @@ package com.pickuppass.android.di
 
 import com.pickuppass.android.BuildConfig
 import com.pickuppass.android.data.remote.AuthInterceptor
+import com.pickuppass.android.data.remote.AuthFailureInterceptor
 import com.pickuppass.android.data.remote.PickupPassApi
 import com.pickuppass.android.telemetry.NetworkTelemetryInterceptor
 import dagger.Module
@@ -35,12 +36,14 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(
         authInterceptor: AuthInterceptor,
+        authFailureInterceptor: AuthFailureInterceptor,
         networkTelemetryInterceptor: NetworkTelemetryInterceptor,
         loggingInterceptor: HttpLoggingInterceptor
     ): OkHttpClient =
         OkHttpClient.Builder()
             .addInterceptor(networkTelemetryInterceptor)
             .addInterceptor(authInterceptor)
+            .addInterceptor(authFailureInterceptor)
             .addInterceptor(loggingInterceptor)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)

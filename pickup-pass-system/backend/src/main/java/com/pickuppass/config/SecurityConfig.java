@@ -2,6 +2,8 @@ package com.pickuppass.config;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.pickuppass.security.FirebaseAuthenticationFilter;
+import com.pickuppass.security.JsonAccessDeniedHandler;
+import com.pickuppass.security.JsonAuthenticationEntryPoint;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,11 +30,16 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                     FirebaseAuthenticationFilter firebaseFilter) throws Exception {
+                                                     FirebaseAuthenticationFilter firebaseFilter,
+                                                     JsonAuthenticationEntryPoint authenticationEntryPoint,
+                                                     JsonAccessDeniedHandler accessDeniedHandler) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers("/api/bootstrap/**").permitAll()
