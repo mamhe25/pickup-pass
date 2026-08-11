@@ -94,3 +94,17 @@ pickuppass:
     quota-warning-percent: ${SAAS_OPERATIONS_QUOTA_WARNING_PERCENT:90}
   security:
     fingerprint-secret: ${SECURITY_FINGERPRINT_SECRET:development-security-fingerprint-secret}
+  disaster-recovery:
+    # Native Firestore scheduled backups/PITR/restore controls. Disabled until the
+    # deployment service account is intentionally granted the required GCP permissions.
+    enabled: ${FIRESTORE_DR_ENABLED:false}
+    allow-restore-drills: ${FIRESTORE_DR_ALLOW_RESTORE_DRILLS:false}
+    project-id: ${FIRESTORE_DR_PROJECT_ID:}
+    database-id: ${FIRESTORE_DR_DATABASE_ID:(default)}
+    credentials-path: ${FIRESTORE_DR_CREDENTIALS_PATH:${FIREBASE_CREDENTIALS_PATH:}}
+    daily-retention-days: ${FIRESTORE_DR_DAILY_RETENTION_DAYS:14}
+    weekly-retention-days: ${FIRESTORE_DR_WEEKLY_RETENTION_DAYS:84}
+    weekly-day: ${FIRESTORE_DR_WEEKLY_DAY:SUNDAY}
+    health-initial-delay-ms: ${FIRESTORE_DR_HEALTH_INITIAL_DELAY_MS:120000}
+    health-scan-ms: ${FIRESTORE_DR_HEALTH_SCAN_MS:21600000}
+    max-backup-age-hours: ${FIRESTORE_DR_MAX_BACKUP_AGE_HOURS:48}

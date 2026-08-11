@@ -1,17 +1,85 @@
-PICKUPPASS PHASE 3 — CUMULATIVE UPDATE 10
+PICKUPPASS PHASE 3 — CUMULATIVE UPDATE 11
 ==========================================
 
-This is a CUMULATIVE replacement pack. It contains the PickupPass replacement files from the earlier Phase 1/2/3 updates plus Phase 3 Update 10.
+This is a CUMULATIVE replacement pack. It contains the PickupPass replacement files from the earlier Phase 1/2/3 updates plus Phase 3 Update 11.
 
 HOW TO APPLY
 1. Stop the backend and close/stop the Android app build if running.
 2. Extract the protected archive.
-3. Open the PickupPass_Phase3_Cumulative_Update_10 folder.
+3. Open the PickupPass_Phase3_Cumulative_Update_11 folder.
 4. Copy everything inside it into the ROOT of your existing "PickupPass - Copy" project.
 5. Choose Replace / Overwrite when Windows asks.
 6. Do not delete project files that are not present in this replacement pack.
-7. Run your normal backend tests and Android build before production deployment.
+7. Review PHASE3_DISASTER_RECOVERY_RETENTION_NOTES.md before enabling DR.
+8. Run your normal backend tests and Android build before production deployment.
 
+
+UPDATE 11 — BACKUP, DISASTER RECOVERY & DATA RETENTION
+-------------------------------------------------------
+- Adds Master Admin Backup & Disaster Recovery control/health center.
+- Uses native Firestore scheduled backups/PITR/delete protection instead of application-level document copying.
+- Recommended profile: daily backup 14 days, weekly backup 84 days, PITR enabled, database delete protection enabled.
+- Backup age health threshold defaults to 48 hours and is configurable.
+- DR integration is OFF by default until cloud IAM/project configuration is intentional.
+- Restore drills are independently OFF by default.
+- Recovery drills restore a READY backup to a separate generated Firestore database; production is never overwritten or switched automatically.
+- Restored database source metadata is checked against the selected backup before a drill is marked verified.
+- Long-running PITR/delete-protection updates are tracked asynchronously so the mobile request does not wait for the cloud operation to finish.
+- Adds six-hour non-blocking recovery-health snapshot by default.
+- Adds seven-day expiresAt to idempotency records so server-side Firestore TTL can be used safely.
+- Surfaces retention guardrails: ephemeral technical records can use TTL; exit logs, audit records, and financial records are not automatically deleted.
+- Production startup validates DR project configuration when DR is enabled.
+- DR/health failures remain completely outside guardian QR verification, student release, and exit-log success.
+
+NEW BACKEND FILES
+- pickup-pass-system/backend/src/main/java/com/pickuppass/service/FirestoreDisasterRecoveryService.java
+- pickup-pass-system/backend/src/main/java/com/pickuppass/controller/MasterDisasterRecoveryController.java
+- pickup-pass-system/backend/src/test/java/com/pickuppass/service/FirestoreDisasterRecoveryServiceTest.java
+
+UPDATED KEY FILES
+- pickup-pass-system/backend/src/main/java/com/pickuppass/config/ProductionSafetyValidator.java
+- pickup-pass-system/backend/src/test/java/com/pickuppass/config/ProductionSafetyValidatorTest.java
+- pickup-pass-system/backend/src/main/java/com/pickuppass/service/IdempotencyService.java
+- pickup-pass-system/backend/src/main/resources/application.yml
+- pickup-pass-android/app/src/main/java/com/pickuppass/android/data/model/Models.kt
+- pickup-pass-android/app/src/main/java/com/pickuppass/android/data/remote/PickupPassApi.kt
+- pickup-pass-android/app/src/main/java/com/pickuppass/android/data/repository/MasterAdminRepository.kt
+- pickup-pass-android/app/src/main/java/com/pickuppass/android/ui/masteradmin/MasterAdminViewModel.kt
+- pickup-pass-android/app/src/main/java/com/pickuppass/android/ui/masteradmin/MasterAdminScreen.kt
+- production.env.example
+- PHASE1_PRODUCTION_CHECKLIST.md
+
+NEW BACKEND ENDPOINTS
+- GET  /api/master-admin/disaster-recovery/overview
+- POST /api/master-admin/disaster-recovery/protection/recommended
+- POST /api/master-admin/disaster-recovery/recovery-drills
+- POST /api/master-admin/disaster-recovery/recovery-drills/{jobId}/refresh
+All require master_admin.
+
+NEW FIRESTORE RECORDS
+- disasterRecoveryJobs/{jobId}
+- disasterRecoveryControl/global
+- disasterRecoveryHealth/global
+
+FIRESTORE INDEXES
+No new composite index is required by Update 11.
+Recommended housekeeping: enable Firestore TTL on securityAuthWindows.expiresAt and idempotencyKeys.expiresAt after reviewing retention policy.
+
+ENVIRONMENT SETTINGS
+- FIRESTORE_DR_ENABLED=false
+- FIRESTORE_DR_ALLOW_RESTORE_DRILLS=false
+- FIRESTORE_DR_PROJECT_ID=your-google-cloud-project-id
+- FIRESTORE_DR_DATABASE_ID=(default)
+- FIRESTORE_DR_CREDENTIALS_PATH=
+- FIRESTORE_DR_DAILY_RETENTION_DAYS=14
+- FIRESTORE_DR_WEEKLY_RETENTION_DAYS=84
+- FIRESTORE_DR_WEEKLY_DAY=SUNDAY
+- FIRESTORE_DR_HEALTH_INITIAL_DELAY_MS=120000
+- FIRESTORE_DR_HEALTH_SCAN_MS=21600000
+- FIRESTORE_DR_MAX_BACKUP_AGE_HOURS=48
+
+SAFETY BOUNDARY
+A backup API outage, backup-health warning, failed restore drill, or recovery-control error must never decide whether a valid guardian QR can be verified or whether an authorized student release succeeds.
 
 UPDATE 10 — MASTER ADMIN AUDIT & SECURITY CENTER
 --------------------------------------------------

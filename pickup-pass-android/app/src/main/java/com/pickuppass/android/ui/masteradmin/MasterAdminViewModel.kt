@@ -9,6 +9,7 @@ import com.pickuppass.android.data.model.MasterBillingProfileResponse
 import com.pickuppass.android.data.model.GcashPaymentNoticeItem
 import com.pickuppass.android.data.model.MasterOperationsOverviewResponse
 import com.pickuppass.android.data.model.MasterSecurityOverviewResponse
+import com.pickuppass.android.data.model.MasterDisasterRecoveryOverviewResponse
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.AuthRepository
 import com.pickuppass.android.data.repository.MasterAdminRepository
@@ -31,6 +32,8 @@ data class MasterAdminUiState(
     val operations: MasterOperationsOverviewResponse? = null,
     val securityLoading: Boolean = false,
     val security: MasterSecurityOverviewResponse? = null,
+    val disasterRecoveryLoading: Boolean = false,
+    val disasterRecovery: MasterDisasterRecoveryOverviewResponse? = null,
     val plans: Map<String, MasterPlanDefinition> = emptyMap(),
     val featureKeys: List<String> = emptyList(),
     val billingSchoolId: String? = null,
@@ -59,6 +62,7 @@ class MasterAdminViewModel @Inject constructor(
         val schoolsResult = repository.listSchools()
         val operationsResult = repository.getOperationsOverview()
         val securityResult = repository.getSecurityOverview()
+        val disasterRecoveryResult = repository.getDisasterRecoveryOverview()
         when (schoolsResult) {
             is ApiResult.Success -> {
                 val planData = when (plansResult) {
@@ -79,12 +83,17 @@ class MasterAdminViewModel @Inject constructor(
                         is ApiResult.Success -> securityResult.data
                         is ApiResult.Failure -> _uiState.value.security
                     },
+                    disasterRecovery = when (disasterRecoveryResult) {
+                        is ApiResult.Success -> disasterRecoveryResult.data
+                        is ApiResult.Failure -> _uiState.value.disasterRecovery
+                    },
                     plans = planData?.plans ?: emptyMap(),
                     featureKeys = planData?.featureKeys ?: emptyList(),
                     error = when {
                         plansResult is ApiResult.Failure -> plansResult.message
                         operationsResult is ApiResult.Failure -> operationsResult.message
                         securityResult is ApiResult.Failure -> securityResult.message
+                        disasterRecoveryResult is ApiResult.Failure -> disasterRecoveryResult.message
                         else -> null
                     }
                 )
@@ -162,6 +171,47 @@ class MasterAdminViewModel @Inject constructor(
                     loadSecurity(quiet = true)
                 }
                 is ApiResult.Failure -> _uiState.value = _uiState.value.copy(saving = false, error = r.message)
+            }
+        }
+    }
+
+    fun loadDisasterRecovery(quiet: Boolean = false) = viewModelScope.launch {
+        if (!quiet) _uiState.value = _uiState.value.copy(disasterRecoveryLoading = true, error = null)
+        when (val r = repository.getDisasterRecoveryOverview()) {
+            is ApiResult.Success -> _uiState.value = _uiState.value.copy(
+                disasterRecoveryLoading = false, disasterRecovery = r.data
+            )
+            is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
+                disasterRecoveryLoading = false, error = if (quiet) _uiState.value.error else r.message
+            )
+        }
+    }
+
+    fun applyRecommendedRecoveryProtection() = runDisasterRecoverySave("Recovery protection update requested; refresh status shortly") {
+        repository.applyRecommendedRecoveryProtection()
+    }
+
+    fun startRecoveryDrill(backupName: String, reason: String, confirmationText: String) =
+        runDisasterRecoverySave("Isolated recovery drill started") {
+            repository.startRecoveryDrill(backupName, reason, confirmationText)
+        }
+
+    fun refreshRecoveryDrill(jobId: String) = runDisasterRecoverySave("Recovery-drill status refreshed") {
+        repository.refreshRecoveryDrill(jobId)
+    }
+
+    private fun runDisasterRecoverySave(message: String, block: suspend () -> ApiResult<*>) {
+        if (_uiState.value.saving) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(saving = true, disasterRecoveryLoading = true, error = null, message = null)
+            when (val r = block()) {
+                is ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(saving = false, disasterRecoveryLoading = false, message = message)
+                    loadDisasterRecovery(quiet = true)
+                }
+                is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
+                    saving = false, disasterRecoveryLoading = false, error = r.message
+                )
             }
         }
     }

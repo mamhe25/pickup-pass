@@ -45,3 +45,15 @@ Do not deploy if any of these remain true:
 - Cross-school data can be read or modified.
 - One student can obtain two exit logs for the same business date through QR/manual approval races.
 - Revoked staff sessions continue accessing protected APIs.
+
+
+## Backup & disaster recovery readiness (Phase 3 Update 11)
+
+- [ ] Configure the intended Google Cloud project/database and least-privilege DR identity before setting `FIRESTORE_DR_ENABLED=true`.
+- [ ] Confirm daily + weekly Firestore backup schedules are active in Google Cloud.
+- [ ] Confirm PITR and Firestore database delete protection are enabled.
+- [ ] Confirm at least one READY backup is younger than the configured health threshold.
+- [ ] Run and verify an isolated restore drill before production launch; never test recovery by overwriting production.
+- [ ] Document recovery owner, escalation path, RTO/RPO target, cutover procedure, and temporary recovery-database cleanup.
+- [ ] Enable Firestore TTL only for approved ephemeral fields such as `securityAuthWindows.expiresAt` and `idempotencyKeys.expiresAt`.
+- [ ] Keep student release, audit, and financial-record deletion governed by an explicit retention policy rather than automatic application cleanup.

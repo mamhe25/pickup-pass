@@ -26,6 +26,8 @@ import com.pickuppass.android.data.model.MasterOperationalAlert
 import com.pickuppass.android.data.model.MasterTenantHealthItem
 import com.pickuppass.android.data.model.MasterSecurityAlert
 import com.pickuppass.android.data.model.MasterPrivilegedAuditEvent
+import com.pickuppass.android.data.model.MasterBackupItem
+import com.pickuppass.android.data.model.MasterRecoveryJobItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.theme.Spacing
@@ -53,6 +55,8 @@ fun MasterAdminScreen(
     var subscriptionForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
     var billingForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
     var revokeSecurityUser by remember { mutableStateOf<MasterSecurityAlert?>(null) }
+    var showRecoveryProtectionDialog by remember { mutableStateOf(false) }
+    var recoveryBackup by remember { mutableStateOf<MasterBackupItem?>(null) }
     val healthBySchool = state.operations?.tenants?.associateBy { it.schoolId }.orEmpty()
 
     Scaffold(
@@ -215,6 +219,137 @@ fun MasterAdminScreen(
                 }
             }
 
+            state.disasterRecovery?.let { recovery ->
+                item {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Backup & Disaster Recovery", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Native Firestore protection, retention guardrails, and isolated recovery drills.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        TextButton(onClick = { viewModel.loadDisasterRecovery() }, enabled = !state.disasterRecoveryLoading) {
+                            Text(if (state.disasterRecoveryLoading) "Loading…" else "Refresh")
+                        }
+                    }
+                }
+                if (!recovery.enabled) {
+                    item {
+                        OutlinedCard(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                                Text("Recovery integration not enabled", fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    recovery.message ?: "Configure the backend disaster-recovery environment variables before enabling this control.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                } else if (!recovery.configured) {
+                    item {
+                        OutlinedCard(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                                Text("Recovery configuration needs attention", fontWeight = FontWeight.SemiBold)
+                                Text(recovery.message ?: "PickupPass could not read the Firestore recovery configuration.")
+                            }
+                        }
+                    }
+                } else {
+                    item {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            MetricCard("PITR", if (recovery.pitrEnabled) "On" else "Off", Modifier.weight(1f))
+                            MetricCard("Delete protect", if (recovery.deleteProtectionEnabled) "On" else "Off", Modifier.weight(1f))
+                            MetricCard("Ready backups", recovery.backups.count { it.state == "READY" }.toString(), Modifier.weight(1f))
+                        }
+                    }
+                    item {
+                        OutlinedCard(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                                Text("Protection profile", fontWeight = FontWeight.SemiBold)
+                                Text("Database ${recovery.databaseId} · ${recovery.locationId ?: "location unavailable"}")
+                                Text(
+                                    if (recovery.latestBackupAgeHours >= 0)
+                                        "Health ${recovery.healthState.ifBlank { if (recovery.protectionHealthy) "healthy" else "warning" }} · latest READY backup ${recovery.latestBackupAgeHours}h old · target ≤ ${recovery.maxBackupAgeHours}h"
+                                    else
+                                        "Health ${recovery.healthState.ifBlank { "warning" }} · no READY backup age available",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (recovery.protectionHealthy) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    "Daily ${recovery.dailySchedule?.retentionDays ?: 0} days · Weekly ${recovery.weeklySchedule?.retentionDays ?: 0} days",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    "PITR version window: ${recovery.versionRetentionPeriod ?: "not reported"}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (recovery.databaseProtectionUpdatePending) {
+                                    Text(
+                                        "Database protection update is still being applied by Google Cloud. Refresh this page shortly.",
+                                        color = MaterialTheme.colorScheme.tertiary
+                                    )
+                                } else if (!recovery.pitrEnabled || !recovery.deleteProtectionEnabled || recovery.dailySchedule == null || recovery.weeklySchedule == null) {
+                                    FilledTonalButton(
+                                        onClick = { showRecoveryProtectionDialog = true },
+                                        enabled = !state.saving
+                                    ) { Text("Apply recommended protection") }
+                                    if (recovery.databaseProtectionUpdateStatus == "failed") {
+                                        Text("The previous database-protection operation failed. Review Google Cloud/IAM before retrying.", color = MaterialTheme.colorScheme.error)
+                                    }
+                                } else {
+                                    Text("Native backup schedules and database protections are configured.", color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        Text("Recent Firestore backups", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    }
+                    if (recovery.backups.isEmpty()) {
+                        item {
+                            OutlinedCard(Modifier.fillMaxWidth()) {
+                                Text(
+                                    "No backup is visible yet. A newly created schedule may need to complete its first backup before a recovery drill is available.",
+                                    Modifier.padding(Spacing.md),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    } else {
+                        items(recovery.backups.take(6), key = { "backup-" + it.name }) { backup ->
+                            BackupItemCard(
+                                backup = backup,
+                                allowRestoreDrills = recovery.allowRestoreDrills,
+                                saving = state.saving,
+                                onTestRestore = { recoveryBackup = backup }
+                            )
+                        }
+                    }
+                    if (recovery.recoveryJobs.isNotEmpty()) {
+                        item { Text("Recovery drills", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
+                        items(recovery.recoveryJobs.take(6), key = { "dr-job-" + it.jobId }) { job ->
+                            RecoveryJobCard(job = job, saving = state.saving, onRefresh = { viewModel.refreshRecoveryDrill(job.jobId) })
+                        }
+                    }
+                    item {
+                        OutlinedCard(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                                Text("Retention guardrails", fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "Technical retry/security telemetry can use TTL. Student release, audit, and financial records are never auto-deleted by PickupPass without an explicit retention policy.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                recovery.retentionPolicies.filter { it.ttlEligible }.forEach { policy ->
+                                    Text("• ${policy.collection}: ${policy.retentionDays} days via ${policy.ttlField}", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             state.error?.let { item { ErrorBanner(it) } }
             state.message?.let { item { Text(it, color = MaterialTheme.colorScheme.primary) } }
             item {
@@ -247,6 +382,55 @@ fun MasterAdminScreen(
                 )
             }
         }
+    }
+
+    if (showRecoveryProtectionDialog) {
+        AlertDialog(
+            onDismissRequest = { showRecoveryProtectionDialog = false },
+            title = { Text("Enable recommended recovery protection") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text("PickupPass will request native Firestore daily and weekly backup schedules, enable point-in-time recovery, and enable database delete protection.")
+                    Text("Google Cloud backup/PITR usage may incur charges. This action strengthens protection and does not modify student pickup behavior.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            confirmButton = {
+                Button(enabled = !state.saving, onClick = {
+                    viewModel.applyRecommendedRecoveryProtection()
+                    showRecoveryProtectionDialog = false
+                }) { Text("Enable protection") }
+            },
+            dismissButton = { TextButton(onClick = { showRecoveryProtectionDialog = false }) { Text("Cancel") } }
+        )
+    }
+
+    recoveryBackup?.let { backup ->
+        var reason by remember(backup.name) { mutableStateOf("") }
+        var confirmation by remember(backup.name) { mutableStateOf("") }
+        val requiredPhrase = "RESTORE TO ISOLATED DATABASE"
+        AlertDialog(
+            onDismissRequest = { recoveryBackup = null },
+            title = { Text("Start isolated recovery drill") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text("This creates a separate Firestore database from the selected backup. PickupPass never switches production automatically.")
+                    Text("Backup: ${backup.snapshotTime?.take(19) ?: backup.name.substringAfterLast('/')}" , fontWeight = FontWeight.SemiBold)
+                    OutlinedTextField(reason, { reason = it }, label = { Text("Reason for drill") }, minLines = 2)
+                    Text("Type $requiredPhrase to confirm.", style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(confirmation, { confirmation = it }, label = { Text("Confirmation") }, singleLine = true)
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = !state.saving && reason.trim().length >= 10 && confirmation.trim() == requiredPhrase,
+                    onClick = {
+                        viewModel.startRecoveryDrill(backup.name, reason.trim(), confirmation.trim())
+                        recoveryBackup = null
+                    }
+                ) { Text("Start recovery drill") }
+            },
+            dismissButton = { TextButton(onClick = { recoveryBackup = null }) { Text("Cancel") } }
+        )
     }
 
     if (createSchool) {
@@ -567,6 +751,49 @@ private fun PrivilegedActionCard(event: MasterPrivilegedAuditEvent) {
 private fun securitySeverityColor(severity: String) = when (severity.lowercase()) {
     "critical", "high" -> MaterialTheme.colorScheme.error
     else -> MaterialTheme.colorScheme.tertiary
+}
+
+@Composable
+private fun BackupItemCard(
+    backup: MasterBackupItem,
+    allowRestoreDrills: Boolean,
+    saving: Boolean,
+    onTestRestore: () -> Unit
+) {
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(backup.snapshotTime?.replace('T', ' ')?.take(19) ?: "Backup", fontWeight = FontWeight.SemiBold)
+                    Text("${backup.state} · expires ${backup.expireTime?.take(10) ?: "n/a"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (allowRestoreDrills && backup.state == "READY") {
+                    TextButton(enabled = !saving, onClick = onTestRestore) { Text("Test restore") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecoveryJobCard(job: MasterRecoveryJobItem, saving: Boolean, onRefresh: () -> Unit) {
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(job.targetDatabaseId.ifBlank { "Recovery database" }, fontWeight = FontWeight.SemiBold)
+                    Text(job.status.replace('_', ' ').replaceFirstChar { it.uppercase() }, color = if (job.status == "verified") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    job.requestedAt?.let { Text("Started ${it.take(19).replace('T', ' ')}", style = MaterialTheme.typography.bodySmall) }
+                    if (job.sourceVerified) Text("Backup source verified", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    job.error?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+                }
+                if (job.status == "running" || job.status == "restore_completed_unverified") {
+                    TextButton(enabled = !saving, onClick = onRefresh) { Text("Refresh") }
+                }
+            }
+            Text("Production cutover: manual only", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 @Composable

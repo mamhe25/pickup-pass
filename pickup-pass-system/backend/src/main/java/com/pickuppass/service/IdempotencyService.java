@@ -12,6 +12,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.Date;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
@@ -69,14 +73,17 @@ public class IdempotencyService {
                 }
                 return null;
             }
-            tx.set(ref, Map.of(
-                    "schoolId", schoolId,
-                    "actorUid", actorUid,
-                    "operation", operation,
-                    "requestFingerprint", requestFingerprint,
-                    "exitLogId", exitLogId,
-                    "createdAt", FieldValue.serverTimestamp()
-            ));
+            Map<String, Object> data = new HashMap<>();
+            data.put("schoolId", schoolId);
+            data.put("actorUid", actorUid);
+            data.put("operation", operation);
+            data.put("requestFingerprint", requestFingerprint);
+            data.put("exitLogId", exitLogId);
+            data.put("createdAt", FieldValue.serverTimestamp());
+            // Safe TTL candidate: this record only protects a short network-retry window.
+            // Configure Firestore TTL on expiresAt rather than running destructive cleanup in-app.
+            data.put("expiresAt", Date.from(Instant.now().plus(7, ChronoUnit.DAYS)));
+            tx.set(ref, data);
             return null;
         }).get();
     }

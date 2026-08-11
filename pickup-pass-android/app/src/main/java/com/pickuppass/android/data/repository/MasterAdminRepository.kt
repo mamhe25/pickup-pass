@@ -207,4 +207,32 @@ class MasterAdminRepository @Inject constructor(private val api: PickupPassApi) 
         if (response.isSuccessful) ApiResult.Success(Unit) else ApiResult.Failure("Could not revoke user sessions")
     } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
 
+    suspend fun getDisasterRecoveryOverview(): ApiResult<MasterDisasterRecoveryOverviewResponse> = try {
+        val response = api.getMasterDisasterRecoveryOverview()
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not load backup and recovery status")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun applyRecommendedRecoveryProtection(): ApiResult<Unit> = try {
+        val response = api.applyMasterRecommendedRecoveryProtection(
+            MasterApplyRecoveryProtectionRequest("ENABLE BACKUP PROTECTION")
+        )
+        if (response.isSuccessful) ApiResult.Success(Unit)
+        else ApiResult.Failure("Could not apply recommended Firestore protection")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun startRecoveryDrill(backupName: String, reason: String, confirmationText: String): ApiResult<MasterRecoveryJobItem> = try {
+        val response = api.startMasterRecoveryDrill(
+            MasterStartRecoveryDrillRequest(backupName, reason, confirmationText)
+        )
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not start isolated recovery drill")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun refreshRecoveryDrill(jobId: String): ApiResult<MasterRecoveryJobItem> = try {
+        val response = api.refreshMasterRecoveryDrill(jobId)
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not refresh recovery-drill status")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
 }

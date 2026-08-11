@@ -364,6 +364,25 @@ interface PickupPassApi {
         @Body body: GcashPaymentNoticeReviewRequest
     ): Response<GcashPaymentNoticeItem>
 
+    // ---- Phase 3: master-admin disaster recovery ----
+    @GET("master-admin/disaster-recovery/overview")
+    suspend fun getMasterDisasterRecoveryOverview(): Response<MasterDisasterRecoveryOverviewResponse>
+
+    @POST("master-admin/disaster-recovery/protection/recommended")
+    suspend fun applyMasterRecommendedRecoveryProtection(
+        @Body body: MasterApplyRecoveryProtectionRequest
+    ): Response<Map<String, Any?>>
+
+    @POST("master-admin/disaster-recovery/recovery-drills")
+    suspend fun startMasterRecoveryDrill(
+        @Body body: MasterStartRecoveryDrillRequest
+    ): Response<MasterRecoveryJobItem>
+
+    @POST("master-admin/disaster-recovery/recovery-drills/{jobId}/refresh")
+    suspend fun refreshMasterRecoveryDrill(
+        @Path("jobId") jobId: String
+    ): Response<MasterRecoveryJobItem>
+
     @GET("tenant/entitlements")
     suspend fun getTenantEntitlements(): Response<TenantEntitlementsResponse>
 

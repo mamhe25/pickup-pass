@@ -988,3 +988,89 @@ data class SubmitGcashPaymentNoticeRequest(
 
 data class GcashPaymentNoticeListResponse(val paymentNotices: List<GcashPaymentNoticeItem> = emptyList())
 data class GcashPaymentNoticeReviewRequest(val note: String? = null)
+
+// ---- Phase 3: master-admin disaster recovery / backup readiness ----
+data class MasterBackupScheduleItem(
+    val name: String = "",
+    val retention: String = "",
+    val retentionDays: Long = 0,
+    val dailyRecurrence: Map<String, Any?>? = null,
+    val weeklyRecurrence: Map<String, Any?>? = null,
+    val createTime: String? = null,
+    val updateTime: String? = null
+)
+
+data class MasterBackupItem(
+    val name: String = "",
+    val database: String = "",
+    val state: String = "",
+    val snapshotTime: String? = null,
+    val expireTime: String? = null,
+    val stats: Map<String, Any?> = emptyMap()
+)
+
+data class MasterRecoveryJobItem(
+    val jobId: String = "",
+    val kind: String = "isolated_restore_drill",
+    val status: String = "",
+    val backupName: String = "",
+    val backupSnapshotTime: String? = null,
+    val targetDatabaseId: String = "",
+    val operationName: String = "",
+    val reason: String = "",
+    val requestedBy: String = "",
+    val requestedAt: String? = null,
+    val lastCheckedAt: String? = null,
+    val completedAt: String? = null,
+    val sourceVerified: Boolean = false,
+    val productionCutoverAutomatic: Boolean = false,
+    val error: String? = null
+)
+
+data class MasterRetentionPolicyItem(
+    val collection: String = "",
+    val classification: String = "",
+    val retentionDays: Int = -1,
+    val ttlField: String = "",
+    val ttlEligible: Boolean = false,
+    val automaticDeletionEnabledByCode: Boolean = false,
+    val note: String = ""
+)
+
+data class MasterDisasterRecoveryOverviewResponse(
+    val enabled: Boolean = false,
+    val configured: Boolean = false,
+    val allowRestoreDrills: Boolean = false,
+    val projectId: String? = null,
+    val databaseId: String = "(default)",
+    val locationId: String? = null,
+    val pitrEnabled: Boolean = false,
+    val deleteProtectionEnabled: Boolean = false,
+    val protectionHealthy: Boolean = false,
+    val healthState: String = "",
+    val latestBackupAgeHours: Long = -1,
+    val maxBackupAgeHours: Int = 48,
+    val databaseProtectionUpdatePending: Boolean = false,
+    val databaseProtectionUpdateStatus: String = "",
+    val databaseProtectionOperation: String = "",
+    val versionRetentionPeriod: String? = null,
+    val earliestVersionTime: String? = null,
+    val recommendedDailyRetentionDays: Int = 14,
+    val recommendedWeeklyRetentionDays: Int = 84,
+    val recommendedWeeklyDay: String = "SUNDAY",
+    val dailySchedule: MasterBackupScheduleItem? = null,
+    val weeklySchedule: MasterBackupScheduleItem? = null,
+    val backups: List<MasterBackupItem> = emptyList(),
+    val latestReadyBackup: MasterBackupItem? = null,
+    val recoveryJobs: List<MasterRecoveryJobItem> = emptyList(),
+    val retentionPolicies: List<MasterRetentionPolicyItem> = emptyList(),
+    val message: String? = null
+)
+
+data class MasterApplyRecoveryProtectionRequest(val confirmationText: String)
+
+data class MasterStartRecoveryDrillRequest(
+    val backupName: String,
+    val reason: String,
+    val confirmationText: String
+)

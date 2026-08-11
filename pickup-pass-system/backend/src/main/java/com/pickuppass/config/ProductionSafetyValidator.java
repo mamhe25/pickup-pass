@@ -17,19 +17,25 @@ public class ProductionSafetyValidator {
     private final String frontendUrl;
     private final String corsAllowedOrigins;
     private final String securityFingerprintSecret;
+    private final boolean disasterRecoveryEnabled;
+    private final String disasterRecoveryProjectId;
 
     public ProductionSafetyValidator(Environment environment,
             @Value("${qr.signing.secret:}") String qrSecret,
             @Value("${bootstrap.secret:}") String bootstrapSecret,
             @Value("${app.frontend-base-url:}") String frontendUrl,
             @Value("${app.cors.allowed-origins:}") String corsAllowedOrigins,
-            @Value("${pickuppass.security.fingerprint-secret:}") String securityFingerprintSecret) {
+            @Value("${pickuppass.security.fingerprint-secret:}") String securityFingerprintSecret,
+            @Value("${pickuppass.disaster-recovery.enabled:false}") boolean disasterRecoveryEnabled,
+            @Value("${pickuppass.disaster-recovery.project-id:}") String disasterRecoveryProjectId) {
         this.environment = environment;
         this.qrSecret = qrSecret;
         this.bootstrapSecret = bootstrapSecret;
         this.frontendUrl = frontendUrl;
         this.corsAllowedOrigins = corsAllowedOrigins;
         this.securityFingerprintSecret = securityFingerprintSecret;
+        this.disasterRecoveryEnabled = disasterRecoveryEnabled;
+        this.disasterRecoveryProjectId = disasterRecoveryProjectId;
     }
 
     @PostConstruct
@@ -47,6 +53,12 @@ public class ProductionSafetyValidator {
         if (securityFingerprintSecret == null || securityFingerprintSecret.length() < 32
                 || securityFingerprintSecret.contains("development-security")) {
             throw new IllegalStateException("Production requires SECURITY_FINGERPRINT_SECRET with at least 32 random characters");
+        }
+        if (disasterRecoveryEnabled) {
+            if (disasterRecoveryProjectId == null || disasterRecoveryProjectId.isBlank()
+                    || !disasterRecoveryProjectId.matches("[A-Za-z0-9._-]+")) {
+                throw new IllegalStateException("FIRESTORE_DR_PROJECT_ID is required and must be a valid project ID when FIRESTORE_DR_ENABLED=true");
+            }
         }
         requireHttpsPublicUrl(frontendUrl, "FRONTEND_BASE_URL");
         validateCorsOrigins(corsAllowedOrigins);
