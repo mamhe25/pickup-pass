@@ -751,6 +751,10 @@ data class MasterInvoiceItem(
     val invoiceId: String = "",
     val schoolId: String = "",
     val schoolNameSnapshot: String = "",
+    val billingNameSnapshot: String = "",
+    val billingEmailSnapshot: String = "",
+    val billingAddressSnapshot: String = "",
+    val billingTaxIdSnapshot: String = "",
     val invoiceNumber: String = "",
     val planSnapshot: String = "",
     val amountMinor: Long = 0,
@@ -761,10 +765,15 @@ data class MasterInvoiceItem(
     val paymentReference: String = "",
     val paymentMethod: String = "",
     val paymentNote: String = "",
+    val paymentProvider: String = "",
+    val providerEventId: String = "",
     val voidReason: String = "",
+    val lastEmailedTo: String = "",
+    val emailDeliveryCount: Long = 0,
     val createdAt: String? = null,
     val updatedAt: String? = null,
-    val paidAt: String? = null
+    val paidAt: String? = null,
+    val lastEmailedAt: String? = null
 )
 
 data class MasterInvoiceListResponse(val invoices: List<MasterInvoiceItem> = emptyList())
@@ -780,3 +789,26 @@ data class MarkMasterInvoicePaidRequest(
     val note: String? = null
 )
 data class VoidMasterInvoiceRequest(val reason: String? = null)
+
+
+data class MasterBillingProfileResponse(
+    val schoolId: String = "",
+    val billingName: String = "",
+    val billingEmail: String = "",
+    val billingAddress: String = "",
+    val billingTaxId: String = ""
+)
+
+data class UpdateMasterBillingProfileRequest(
+    val billingName: String,
+    val billingEmail: String,
+    val billingAddress: String,
+    val billingTaxId: String
+)
+
+data class EmailMasterInvoiceRequest(val recipientEmail: String? = null)
+data class EmailMasterInvoiceResponse(
+    val status: String = "",
+    val recipient: String = "",
+    val invoiceNumber: String = ""
+)

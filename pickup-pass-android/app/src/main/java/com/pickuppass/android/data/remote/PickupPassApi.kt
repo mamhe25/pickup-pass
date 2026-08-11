@@ -263,6 +263,15 @@ interface PickupPassApi {
         @Path("schoolId") schoolId: String
     ): Response<MasterSubscriptionResponse>
 
+    @GET("master-admin/billing/schools/{schoolId}/profile")
+    suspend fun getMasterBillingProfile(@Path("schoolId") schoolId: String): Response<MasterBillingProfileResponse>
+
+    @PUT("master-admin/billing/schools/{schoolId}/profile")
+    suspend fun updateMasterBillingProfile(
+        @Path("schoolId") schoolId: String,
+        @Body body: UpdateMasterBillingProfileRequest
+    ): Response<MasterBillingProfileResponse>
+
     @GET("master-admin/billing/schools/{schoolId}/invoices")
     suspend fun listMasterInvoices(@Path("schoolId") schoolId: String): Response<MasterInvoiceListResponse>
 
@@ -271,6 +280,16 @@ interface PickupPassApi {
         @Path("schoolId") schoolId: String,
         @Body body: CreateMasterInvoiceRequest
     ): Response<MasterInvoiceItem>
+
+    @Streaming
+    @GET("master-admin/billing/invoices/{invoiceId}/pdf")
+    suspend fun downloadMasterInvoicePdf(@Path("invoiceId") invoiceId: String): Response<ResponseBody>
+
+    @POST("master-admin/billing/invoices/{invoiceId}/email")
+    suspend fun emailMasterInvoice(
+        @Path("invoiceId") invoiceId: String,
+        @Body body: EmailMasterInvoiceRequest
+    ): Response<EmailMasterInvoiceResponse>
 
     @POST("master-admin/billing/invoices/{invoiceId}/paid")
     suspend fun markMasterInvoicePaid(

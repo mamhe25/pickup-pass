@@ -90,6 +90,22 @@ class MasterAdminRepository @Inject constructor(private val api: PickupPassApi) 
         ApiResult.Failure(e.message ?: "Network error")
     }
 
+    suspend fun getBillingProfile(schoolId: String): ApiResult<MasterBillingProfileResponse> = try {
+        val response = api.getMasterBillingProfile(schoolId)
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not load billing profile")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun updateBillingProfile(
+        schoolId: String, billingName: String, billingEmail: String, billingAddress: String, billingTaxId: String
+    ): ApiResult<MasterBillingProfileResponse> = try {
+        val response = api.updateMasterBillingProfile(
+            schoolId, UpdateMasterBillingProfileRequest(billingName, billingEmail, billingAddress, billingTaxId)
+        )
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not update billing profile")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
     suspend fun listInvoices(schoolId: String): ApiResult<MasterInvoiceListResponse> = try {
         val response = api.listMasterInvoices(schoolId)
         response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
@@ -100,6 +116,19 @@ class MasterAdminRepository @Inject constructor(private val api: PickupPassApi) 
         val response = api.createMasterInvoice(schoolId, CreateMasterInvoiceRequest(amountMinor, "PHP", dueAt, note.ifBlank { null }))
         response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
             ?: ApiResult.Failure("Could not create invoice")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun downloadInvoicePdf(invoiceId: String): ApiResult<ByteArray> = try {
+        val response = api.downloadMasterInvoicePdf(invoiceId)
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body.bytes())
+        else ApiResult.Failure("Could not generate invoice PDF")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun emailInvoice(invoiceId: String, recipientEmail: String): ApiResult<EmailMasterInvoiceResponse> = try {
+        val response = api.emailMasterInvoice(invoiceId, EmailMasterInvoiceRequest(recipientEmail.ifBlank { null }))
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not email invoice")
     } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
 
     suspend fun markInvoicePaid(invoiceId: String, reference: String, method: String, note: String): ApiResult<MasterInvoiceItem> = try {

@@ -9,6 +9,11 @@ import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.QuerySnapshot;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
+import com.pickuppass.service.BillingEmailService;
+import com.pickuppass.service.InvoicePdfService;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,13 +26,46 @@ import java.util.*;
 @RequestMapping("/api/master-admin/billing")
 @PreAuthorize("hasRole('master_admin')")
 public class MasterBillingController {
-    private static final Set<String> STATUSES = Set.of("open", "paid", "void", "overdue");
     private final Firestore firestore;
     private final AuditService auditService;
+    private final InvoicePdfService invoicePdfService;
+    private final BillingEmailService billingEmailService;
 
-    public MasterBillingController(Firestore firestore, AuditService auditService) {
+    public MasterBillingController(Firestore firestore, AuditService auditService,
+                                   InvoicePdfService invoicePdfService, BillingEmailService billingEmailService) {
         this.firestore = firestore;
         this.auditService = auditService;
+        this.invoicePdfService = invoicePdfService;
+        this.billingEmailService = billingEmailService;
+    }
+
+    @GetMapping("/schools/{schoolId}/profile")
+    public ResponseEntity<?> billingProfile(@PathVariable String schoolId) throws Exception {
+        DocumentSnapshot school = firestore.collection("schools").document(schoolId).get().get();
+        if (!school.exists()) return ResponseEntity.status(404).body(Map.of("error", "School not found"));
+        return ResponseEntity.ok(profileMap(school));
+    }
+
+    @PutMapping("/schools/{schoolId}/profile")
+    public ResponseEntity<?> updateBillingProfile(@PathVariable String schoolId,
+                                                   @RequestBody BillingProfileRequest req,
+                                                   @AuthenticationPrincipal FirebaseUserDetails actor) throws Exception {
+        DocumentReference ref = firestore.collection("schools").document(schoolId);
+        DocumentSnapshot school = ref.get().get();
+        if (!school.exists()) return ResponseEntity.status(404).body(Map.of("error", "School not found"));
+        String email = clean(req.billingEmail, 254).toLowerCase(Locale.ROOT);
+        if (!email.isBlank() && !email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"))
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid billing email"));
+        Map<String,Object> update = new HashMap<>();
+        update.put("billingName", clean(req.billingName, 160));
+        update.put("billingEmail", email);
+        update.put("billingAddress", clean(req.billingAddress, 500));
+        update.put("billingTaxId", clean(req.billingTaxId, 80));
+        update.put("billingProfileUpdatedAt", FieldValue.serverTimestamp());
+        ref.update(update).get();
+        auditService.record(actor, "billing.profile_updated", "school", schoolId,
+                Map.of("schoolId", schoolId, "billingEmail", email));
+        return ResponseEntity.ok(profileMap(ref.get().get()));
     }
 
     @GetMapping("/schools/{schoolId}/invoices")
@@ -55,11 +93,15 @@ public class MasterBillingController {
         try { dueAt = req.dueAt == null || req.dueAt.isBlank() ? Instant.now().plusSeconds(14L*86400) : Instant.parse(req.dueAt); }
         catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", "dueAt must be ISO-8601")); }
         DocumentSnapshot school = firestore.collection("schools").document(schoolId).get().get();
-        String number = "PP-" + Instant.now().toString().substring(0,10).replace("-","") + "-" + UUID.randomUUID().toString().substring(0,8).toUpperCase();
+        String number = "PP-" + Instant.now().toString().substring(0,10).replace("-","") + "-" + UUID.randomUUID().toString().substring(0,8).toUpperCase(Locale.ROOT);
         DocumentReference ref = firestore.collection("billingInvoices").document();
         Map<String,Object> data = new HashMap<>();
         data.put("schoolId", schoolId);
         data.put("schoolNameSnapshot", Optional.ofNullable(school.getString("schoolName")).orElse("Unnamed school"));
+        data.put("billingNameSnapshot", firstNonBlank(school.getString("billingName"), school.getString("schoolName"), "Unnamed school"));
+        data.put("billingEmailSnapshot", clean(school.getString("billingEmail"), 254));
+        data.put("billingAddressSnapshot", clean(school.getString("billingAddress"), 500));
+        data.put("billingTaxIdSnapshot", clean(school.getString("billingTaxId"), 80));
         data.put("invoiceNumber", number);
         data.put("planSnapshot", Optional.ofNullable(school.getString("plan")).orElse("trial"));
         data.put("amountMinor", req.amountMinor);
@@ -72,6 +114,46 @@ public class MasterBillingController {
         ref.set(data).get();
         auditService.record(actor, "billing.invoice_created", "billingInvoice", ref.getId(), Map.of("schoolId", schoolId, "invoiceNumber", number));
         return ResponseEntity.ok(toInvoice(ref.get().get()));
+    }
+
+    @GetMapping("/invoices/{invoiceId}/pdf")
+    public ResponseEntity<?> pdf(@PathVariable String invoiceId,
+                                 @AuthenticationPrincipal FirebaseUserDetails actor) throws Exception {
+        DocumentSnapshot invoice = firestore.collection("billingInvoices").document(invoiceId).get().get();
+        if (!invoice.exists()) return ResponseEntity.status(404).body(Map.of("error", "Invoice not found"));
+        byte[] pdf = invoicePdfService.render(invoice);
+        String fileName = clean(invoice.getString("invoiceNumber"), 80).replaceAll("[^A-Za-z0-9._-]", "_") + ".pdf";
+        auditService.record(actor, "billing.invoice_pdf_generated", "billingInvoice", invoiceId,
+                Map.of("schoolId", Optional.ofNullable(invoice.getString("schoolId")).orElse("")));
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(fileName).build().toString())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(pdf);
+    }
+
+    @PostMapping("/invoices/{invoiceId}/email")
+    public ResponseEntity<?> email(@PathVariable String invoiceId,
+                                   @RequestBody(required = false) EmailInvoiceRequest req,
+                                   @AuthenticationPrincipal FirebaseUserDetails actor) throws Exception {
+        DocumentReference ref = firestore.collection("billingInvoices").document(invoiceId);
+        DocumentSnapshot invoice = ref.get().get();
+        if (!invoice.exists()) return ResponseEntity.status(404).body(Map.of("error", "Invoice not found"));
+        String recipient = req == null ? "" : clean(req.recipientEmail, 254).toLowerCase(Locale.ROOT);
+        if (recipient.isBlank()) recipient = resolveBillingRecipient(invoice);
+        if (recipient.isBlank()) return ResponseEntity.badRequest().body(Map.of("error", "No billing email is configured for this school"));
+        try {
+            BillingEmailService.DeliveryResult delivery = billingEmailService.sendInvoice(ref, recipient);
+            auditService.record(actor, "billing.invoice_email_requested", "billingInvoice", invoiceId,
+                    Map.of("recipient", delivery.recipient()));
+            return ResponseEntity.ok(Map.of("status", "sent", "recipient", delivery.recipient(), "invoiceNumber", delivery.invoiceNumber()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(503).body(Map.of("error", e.getMessage()));
+        } catch (org.springframework.mail.MailException e) {
+            return ResponseEntity.status(502).body(Map.of("error", "Billing email delivery failed"));
+        }
     }
 
     @PostMapping("/invoices/{invoiceId}/paid")
@@ -91,7 +173,7 @@ public class MasterBillingController {
         update.put("paymentNote", clean(req.note, 500));
         update.put("updatedAt", FieldValue.serverTimestamp());
         ref.update(update).get();
-        auditService.record(actor, "billing.invoice_paid", "billingInvoice", invoiceId, Map.of("schoolId", invoice.getString("schoolId")));
+        auditService.record(actor, "billing.invoice_paid", "billingInvoice", invoiceId, Map.of("schoolId", Optional.ofNullable(invoice.getString("schoolId")).orElse("")));
         return ResponseEntity.ok(toInvoice(ref.get().get()));
     }
 
@@ -104,7 +186,7 @@ public class MasterBillingController {
         if (!invoice.exists()) return ResponseEntity.status(404).body(Map.of("error", "Invoice not found"));
         if ("paid".equals(invoice.getString("status"))) return ResponseEntity.badRequest().body(Map.of("error", "Paid invoice cannot be voided"));
         ref.update("status", "void", "voidReason", clean(req.reason, 300), "updatedAt", FieldValue.serverTimestamp()).get();
-        auditService.record(actor, "billing.invoice_voided", "billingInvoice", invoiceId, Map.of("schoolId", invoice.getString("schoolId")));
+        auditService.record(actor, "billing.invoice_voided", "billingInvoice", invoiceId, Map.of("schoolId", Optional.ofNullable(invoice.getString("schoolId")).orElse("")));
         return ResponseEntity.ok(toInvoice(ref.get().get()));
     }
 
@@ -127,23 +209,55 @@ public class MasterBillingController {
         return ResponseEntity.ok(Map.of("changed", changed));
     }
 
+    private String resolveBillingRecipient(DocumentSnapshot invoice) throws Exception {
+        String schoolId = invoice.getString("schoolId");
+        if (schoolId == null || schoolId.isBlank()) return clean(invoice.getString("billingEmailSnapshot"), 254);
+        DocumentSnapshot school = firestore.collection("schools").document(schoolId).get().get();
+        String current = school.exists() ? clean(school.getString("billingEmail"), 254) : "";
+        if (!current.isBlank()) return current;
+        String snapshot = clean(invoice.getString("billingEmailSnapshot"), 254);
+        if (!snapshot.isBlank()) return snapshot;
+        QuerySnapshot admins = firestore.collection("users")
+                .whereEqualTo("schoolId", schoolId).limit(100).get().get();
+        for (DocumentSnapshot admin : admins.getDocuments()) {
+            if (!"school_admin".equals(admin.getString("role"))) continue;
+            if (Boolean.FALSE.equals(admin.getBoolean("isActive"))) continue;
+            String email = clean(admin.getString("email"), 254);
+            if (!email.isBlank()) return email;
+        }
+        return "";
+    }
+
     private boolean schoolExists(String schoolId) throws Exception { return firestore.collection("schools").document(schoolId).get().get().exists(); }
     private String normalizeCurrency(String v) {
         String c = v == null || v.isBlank() ? "PHP" : v.trim().toUpperCase(Locale.ROOT);
         if (!c.matches("[A-Z]{3}")) throw new IllegalArgumentException("currency must be a 3-letter ISO code");
         return c;
     }
-    private String clean(String v, int max) { if (v == null) return ""; String s=v.trim(); return s.length()<=max?s:s.substring(0,max); }
+    private static String clean(String v, int max) { if (v == null) return ""; String s=v.trim(); return s.length()<=max?s:s.substring(0,max); }
+    private static String firstNonBlank(String... values) { for (String v:values) if (v!=null&&!v.isBlank()) return v.trim(); return ""; }
+    private Map<String,Object> profileMap(DocumentSnapshot school) {
+        return Map.of(
+                "schoolId", school.getId(),
+                "billingName", firstNonBlank(school.getString("billingName"), school.getString("schoolName")),
+                "billingEmail", clean(school.getString("billingEmail"), 254),
+                "billingAddress", clean(school.getString("billingAddress"), 500),
+                "billingTaxId", clean(school.getString("billingTaxId"), 80)
+        );
+    }
     private Map<String,Object> toInvoice(DocumentSnapshot d) {
         Map<String,Object> m = new LinkedHashMap<>();
         m.put("invoiceId", d.getId());
-        for (String k : List.of("schoolId","schoolNameSnapshot","invoiceNumber","planSnapshot","currency","status","note","paymentReference","paymentMethod","paymentNote","voidReason")) m.put(k, Optional.ofNullable(d.get(k)).orElse(""));
+        for (String k : List.of("schoolId","schoolNameSnapshot","billingNameSnapshot","billingEmailSnapshot","billingAddressSnapshot","billingTaxIdSnapshot","invoiceNumber","planSnapshot","currency","status","note","paymentReference","paymentMethod","paymentNote","paymentProvider","providerEventId","voidReason","lastEmailedTo")) m.put(k, Optional.ofNullable(d.get(k)).orElse(""));
         m.put("amountMinor", Optional.ofNullable(d.getLong("amountMinor")).orElse(0L));
-        for (String k : List.of("dueAt","createdAt","updatedAt","paidAt")) { Timestamp t=d.getTimestamp(k); m.put(k, t==null?null:t.toDate().toInstant().toString()); }
+        m.put("emailDeliveryCount", Optional.ofNullable(d.getLong("emailDeliveryCount")).orElse(0L));
+        for (String k : List.of("dueAt","createdAt","updatedAt","paidAt","lastEmailedAt")) { Timestamp t=d.getTimestamp(k); m.put(k, t==null?null:t.toDate().toInstant().toString()); }
         return m;
     }
 
     public static class CreateInvoiceRequest { public Long amountMinor; public String currency; public String dueAt; public String note; }
     public static class PaymentRequest { public String paymentReference; public String paymentMethod; public String note; }
     public static class VoidRequest { public String reason; }
+    public static class EmailInvoiceRequest { public String recipientEmail; }
+    public static class BillingProfileRequest { public String billingName; public String billingEmail; public String billingAddress; public String billingTaxId; }
 }

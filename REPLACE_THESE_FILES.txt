@@ -1,0 +1,182 @@
+PICKUPPASS PHASE 3 — CUMULATIVE UPDATE 4
+==========================================
+
+Copy everything in this folder into the root of your existing PickupPass - Copy project and choose Replace/Overwrite.
+
+Update 4 adds billing periods, trial expiration handling, renewal controls, grace periods, cancellation-at-period-end, and automated subscription-state enforcement. It is cumulative and includes all earlier Phase 1, Phase 2, and Phase 3 Update 1–3 replacement files.
+
+NEW/UPDATED IN THIS RELEASE
+- backend/service/SubscriptionLifecycleService.java
+- backend/service/SubscriptionFeatureService.java
+- MasterAdminController.java
+- Android Models.kt
+- Android PickupPassApi.kt
+- Android MasterAdminRepository.kt
+- Android MasterAdminViewModel.kt
+- Android MasterAdminScreen.kt
+- SubscriptionFeatureServiceTest.java
+- SubscriptionLifecycleServiceTest.java
+- production.env.example
+- PHASE3_BILLING_LIFECYCLE_NOTES.md
+
+DEFAULT LIFECYCLE
+- Trial expires -> past_due + 7-day grace
+- Grace expires -> cancelled optional feature access
+- Active period ends + auto-renew -> next 30-day period
+- Active period ends + cancel-at-period-end -> cancelled
+- Core QR pickup remains available regardless of subscription feature state
+
+No new Firestore composite index is required.
+
+IMPORTANT: run your normal backend and Android build/tests after replacement before production deployment.
+
+PICKUPPASS PHASE 3 — CUMULATIVE UPDATE 3
+==========================================
+
+Copy everything in this folder into the root of your existing PickupPass - Copy project and choose Replace/Overwrite.
+
+Update 3 adds production SaaS usage metering and atomic plan quota enforcement. It is cumulative and includes all earlier Phase 1, Phase 2, and Phase 3 Update 1–2 replacement files.
+
+NEW/UPDATED IN THIS RELEASE
+- backend/service/TenantUsageService.java
+- MasterAdminController.java
+- SchoolAdminController.java
+- StudentController.java
+- StudentLifecycleController.java
+- BulkStudentImportController.java
+- CampusGateController.java
+- PickupController.java
+- Android Models.kt
+- Android MasterAdminScreen.kt
+- PHASE3_USAGE_METERING_QUOTAS_NOTES.md
+
+No new Firestore composite index is required.
+
+IMPORTANT: run your normal backend and Android build/tests after replacement before production deployment.
+
+PICKUPPASS PHASE 3 — CUMULATIVE UPDATE 1
+========================================
+
+This ZIP is cumulative. It contains all Phase 1 and Phase 2 replacement files through Phase 2 Update 14, plus Phase 3 Update 1.
+
+HOW TO APPLY
+1. Close Android Studio / stop the backend if they are running.
+2. Extract this ZIP.
+3. Open the PickupPass_Phase3_Cumulative_Update_1 folder.
+4. Copy everything inside it into the ROOT of your existing "PickupPass - Copy" project.
+5. Choose Replace / Overwrite when Windows asks.
+6. Do not delete files that are not included in this patch.
+
+NEW IN UPDATE 9 — SCHEDULED ANNOUNCEMENTS
+- School admins can Send Now or Schedule an announcement.
+- Future announcements are stored as durable Firestore jobs.
+- Server scheduler sends due announcements automatically.
+- Transactional job claiming supports multiple Cloud Run/backend instances.
+- 10-minute processing lease recovery.
+- Announcement history with scheduled/sent/cancelled/failed states.
+- Cancel a pending scheduled announcement.
+- Sent recipient count.
+- Scheduling/delivery/cancellation/failure audit records.
+- Title/body production limits.
+
+REQUIRED AFTER REPLACEMENT
+From pickup-pass-system run:
+  firebase deploy --only firestore:indexes
+
+This deploys the new composite index:
+  broadcastJobs: status ASC, scheduledAt ASC
+
+OPTIONAL ENVIRONMENT VARIABLE
+  BROADCAST_SCHEDULER_MS=30000
+Default is 30 seconds.
+
+CORE PICKUP FLOW IS UNCHANGED
+A guardian with a valid QR can still go directly to pickup staff. No queue or arrival check-in is required.
+
+
+UPDATE 10 — Campuses & Pickup Gates
+- Added CampusGateController.java
+- Added Android CampusGateScreen + ViewModel
+- Added campus/gate API models and repository methods
+- Added School Admin navigation entry
+- No Firestore composite index required for this update
+
+PHASE 2 UPDATE 11
+- Connects active pickup gates to the teacher dismissal scanner.
+- Records campus/gate snapshots in immutable exit logs.
+- Requires a gate for QR approval and manual override only when the school has active gates configured.
+- Adds gate/campus fields to dismissal dashboard recent releases and CSV exports.
+- Adds X-Pickup-Gate-Id to production CORS allowed headers.
+- No new Firestore composite index required.
+
+PHASE 2 UPDATE 12
+- Adds Staff Pickup Gates administration.
+- Adds backend assignment enforcement to active gate discovery and release approval.
+- No new Firestore composite index is required.
+
+PHASE 2 UPDATE 13
+- Adds live QR vs Manual release counts to the School Admin dismissal dashboard.
+- Adds per-gate release activity, including zero-count active gates.
+- Returns campus activity totals for future multi-campus dashboard views.
+- Staff pickup-gate assignment remains optional.
+- One active gate continues to auto-select for authorized staff.
+- No pickup queue or parent arrival check-in is introduced.
+- No new Firestore composite index is required.
+
+
+=== UPDATE 14 ===
+Optional permanent guardian pickup schedules added.
+Also fixes an unmatched brace in ParentGuardianController.java found during Update 14 review.
+No new Firestore index is required.
+
+
+PHASE 3 UPDATE 1 — MASTER ADMIN SAAS CONSOLE
+- Master admin now has a dedicated Android home screen instead of being rejected as an unrecognized app role.
+- Lists all school tenants and shows Active/Suspended totals.
+- Creates new school tenants.
+- Suspends/reactivates tenant access.
+- Provisions the first school_admin account for a selected tenant.
+- No new Firestore composite index is required.
+- Parent QR pickup behavior is unchanged.
+
+PHASE 3 UPDATE 2 — SUBSCRIPTIONS & FEATURE FLAGS
+- Adds Trial / Starter / School / Enterprise plan metadata.
+- Adds per-school feature overrides and tenant entitlement API.
+- Adds Master Admin Plan & Features controls.
+- Adds server-side feature enforcement for premium/optional features.
+- New schools receive a 30-day Trial by default.
+- Legacy schools remain compatible and inherit Trial feature access until a plan is assigned.
+- No new Firestore composite index is required.
+- No payment gateway is introduced in this update.
+
+PHASE 3 UPDATE 5
+- Adds master-admin Billing Records / manual invoice ledger.
+- New Firestore collection: billingInvoices.
+- Deploy Firestore indexes after replacement:
+  firebase deploy --only firestore:indexes
+- Invoices are bookkeeping only and never directly block core QR pickup.
+
+PHASE 3 UPDATE 6 — INVOICE PDF, BILLING EMAIL & PAYMENT WEBHOOK FOUNDATION
+- Adds a school billing profile (name, email, address, tax/registration ID).
+- New invoices snapshot the billing profile so historical PDFs do not change when a school later edits its profile.
+- Adds on-demand PDF invoice generation using Apache PDFBox 3.0.8.
+- Master Admin can save a PDF from Android through the system document picker.
+- Master Admin can email an invoice as a PDF attachment through configured SMTP.
+- Email delivery metadata is tracked without making a post-send metadata failure look like a failed email.
+- Adds provider-neutral payment webhook adapter architecture.
+- Initial adapter: generic-hmac with HMAC-SHA256 signature verification, 5-minute replay window, event-id idempotency, exact invoice amount/currency validation, and transactional invoice payment updates.
+- Public webhook route: POST /api/webhooks/payments/{provider}. Only the webhook route is unauthenticated; cryptographic verification is mandatory.
+- Adds payment webhook rate limiting.
+- New collection: paymentWebhookEvents (direct document-id access; no new composite index required).
+- Existing billingInvoices composite index from Update 5 is still required.
+- Core student QR pickup is never dependent on SMTP, PDF generation, or payment webhooks.
+
+PRODUCTION BILLING EMAIL
+Configure MAIL_HOST / MAIL_PORT / MAIL_USERNAME / MAIL_PASSWORD and BILLING_FROM_EMAIL.
+If billing email is not configured, invoice PDF download still works and the email endpoint returns a controlled service-unavailable response.
+
+PAYMENT WEBHOOK SECURITY
+The generic-hmac adapter is intentionally provider-neutral. Configure PAYMENT_WEBHOOK_GENERIC_SECRET with a long random secret.
+Do not expose that secret in the Android app. Signature verification happens only on the backend.
+See PHASE3_BILLING_DELIVERY_WEBHOOK_NOTES.md for the normalized webhook contract.
+

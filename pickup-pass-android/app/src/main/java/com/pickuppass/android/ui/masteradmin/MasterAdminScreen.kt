@@ -1,5 +1,7 @@
 package com.pickuppass.android.ui.masteradmin
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,12 +13,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.MasterPlanDefinition
 import com.pickuppass.android.data.model.MasterSchoolItem
 import com.pickuppass.android.data.model.MasterInvoiceItem
+import com.pickuppass.android.data.model.MasterBillingProfileResponse
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.theme.Spacing
@@ -28,6 +32,17 @@ fun MasterAdminScreen(
     onSignedOut: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        val payload = state.invoicePdf
+        if (uri != null && payload != null) {
+            runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(payload.bytes) } }
+        }
+        viewModel.clearInvoicePdf()
+    }
+    LaunchedEffect(state.invoicePdf?.fileName) {
+        state.invoicePdf?.let { pdfLauncher.launch(it.fileName) }
+    }
     var createSchool by remember { mutableStateOf(false) }
     var adminForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
     var subscriptionForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
@@ -157,8 +172,12 @@ fun MasterAdminScreen(
             invoices = if (state.billingSchoolId == school.schoolId) state.invoices else emptyList(),
             loading = state.billingLoading,
             saving = state.saving,
+            billingProfile = state.billingProfile,
             onDismiss = { billingForSchool = null },
+            onSaveProfile = { name, email, address, taxId -> viewModel.saveBillingProfile(school.schoolId, name, email, address, taxId) },
             onCreate = { amountMinor, dueAt, note -> viewModel.createInvoice(school.schoolId, amountMinor, dueAt, note) },
+            onEmail = { invoiceId, recipient -> viewModel.emailInvoice(school.schoolId, invoiceId, recipient) },
+            onDownloadPdf = { invoice -> viewModel.downloadInvoicePdf(invoice) },
             onPaid = { invoiceId, reference, method, note -> viewModel.markInvoicePaid(school.schoolId, invoiceId, reference, method, note) },
             onVoid = { invoiceId, reason -> viewModel.voidInvoice(school.schoolId, invoiceId, reason) },
             onReconcile = { viewModel.reconcileOverdueInvoices(school.schoolId) }
@@ -417,13 +436,19 @@ private fun BillingDialog(
     invoices: List<MasterInvoiceItem>,
     loading: Boolean,
     saving: Boolean,
+    billingProfile: MasterBillingProfileResponse?,
     onDismiss: () -> Unit,
+    onSaveProfile: (String, String, String, String) -> Unit,
     onCreate: (Long, String?, String) -> Unit,
+    onEmail: (String, String) -> Unit,
+    onDownloadPdf: (MasterInvoiceItem) -> Unit,
     onPaid: (String, String, String, String) -> Unit,
     onVoid: (String, String) -> Unit,
     onReconcile: () -> Unit
 ) {
     var showCreate by remember(school.schoolId) { mutableStateOf(false) }
+    var showProfile by remember(school.schoolId) { mutableStateOf(false) }
+    var emailInvoice by remember(school.schoolId) { mutableStateOf<MasterInvoiceItem?>(null) }
     var payInvoice by remember(school.schoolId) { mutableStateOf<MasterInvoiceItem?>(null) }
     var voidInvoice by remember(school.schoolId) { mutableStateOf<MasterInvoiceItem?>(null) }
 
@@ -434,9 +459,12 @@ private fun BillingDialog(
             LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 item { Text(school.schoolName, fontWeight = FontWeight.SemiBold) }
                 item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        Button(onClick = { showCreate = true }, enabled = !saving) { Text("New invoice") }
-                        TextButton(onClick = onReconcile, enabled = !saving) { Text("Check overdue") }
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            Button(onClick = { showCreate = true }, enabled = !saving) { Text("New invoice") }
+                            FilledTonalButton(onClick = { showProfile = true }, enabled = !saving) { Text("Billing profile") }
+                        }
+                        TextButton(onClick = onReconcile, enabled = !saving) { Text("Check overdue invoices") }
                     }
                 }
                 if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
@@ -450,6 +478,15 @@ private fun BillingDialog(
                             }
                             Text("${invoice.currency} ${moneyLabel(invoice.amountMinor)} · due ${invoice.dueAt?.take(10) ?: "—"}", style = MaterialTheme.typography.bodySmall)
                             if (invoice.note.isNotBlank()) Text(invoice.note, style = MaterialTheme.typography.bodySmall)
+                            if (invoice.lastEmailedAt != null) {
+                                Text("Last emailed ${invoice.lastEmailedAt.take(10)} to ${invoice.lastEmailedTo}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                                TextButton(onClick = { onDownloadPdf(invoice) }, enabled = !saving) { Text("PDF") }
+                                if (invoice.status != "void") {
+                                    TextButton(onClick = { emailInvoice = invoice }, enabled = !saving) { Text("Email") }
+                                }
+                            }
                             if (invoice.status == "paid") {
                                 Text("Paid ${invoice.paidAt?.take(10) ?: ""} ${invoice.paymentReference}".trim(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                             } else if (invoice.status != "void") {
@@ -466,6 +503,28 @@ private fun BillingDialog(
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
     )
 
+    if (showProfile) {
+        var billingName by remember(billingProfile?.schoolId, billingProfile?.billingName) { mutableStateOf(billingProfile?.billingName ?: school.schoolName) }
+        var billingEmail by remember(billingProfile?.schoolId, billingProfile?.billingEmail) { mutableStateOf(billingProfile?.billingEmail ?: "") }
+        var billingAddress by remember(billingProfile?.schoolId, billingProfile?.billingAddress) { mutableStateOf(billingProfile?.billingAddress ?: "") }
+        var billingTaxId by remember(billingProfile?.schoolId, billingProfile?.billingTaxId) { mutableStateOf(billingProfile?.billingTaxId ?: "") }
+        AlertDialog(
+            onDismissRequest = { showProfile = false },
+            title = { Text("Billing profile") },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Text("These details are snapshotted into new invoices.", style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(billingName, { billingName = it }, label = { Text("Billing name") })
+                OutlinedTextField(billingEmail, { billingEmail = it }, label = { Text("Billing email") }, singleLine = true)
+                OutlinedTextField(billingAddress, { billingAddress = it }, label = { Text("Billing address") })
+                OutlinedTextField(billingTaxId, { billingTaxId = it }, label = { Text("Tax / Registration ID (optional)") })
+            } },
+            confirmButton = { Button(enabled = billingName.isNotBlank() && !saving, onClick = {
+                onSaveProfile(billingName, billingEmail, billingAddress, billingTaxId); showProfile = false
+            }) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { showProfile = false }) { Text("Cancel") } }
+        )
+    }
+
     if (showCreate) {
         var amount by remember { mutableStateOf("") }
         var dueAt by remember { mutableStateOf("") }
@@ -481,6 +540,23 @@ private fun BillingDialog(
             } },
             confirmButton = { Button(enabled = amountMinor != null && amountMinor >= 0 && !saving, onClick = { onCreate(amountMinor!!, dueAt.trim().ifBlank { null }, note); showCreate = false }) { Text("Create") } },
             dismissButton = { TextButton(onClick = { showCreate = false }) { Text("Cancel") } }
+        )
+    }
+
+    emailInvoice?.let { invoice ->
+        var recipient by remember(invoice.invoiceId) { mutableStateOf(billingProfile?.billingEmail?.ifBlank { invoice.billingEmailSnapshot } ?: invoice.billingEmailSnapshot) }
+        AlertDialog(
+            onDismissRequest = { emailInvoice = null },
+            title = { Text("Email invoice") },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Text(invoice.invoiceNumber, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(recipient, { recipient = it }, label = { Text("Recipient email") }, singleLine = true)
+                Text("A generated PDF invoice will be attached.", style = MaterialTheme.typography.bodySmall)
+            } },
+            confirmButton = { Button(enabled = recipient.isNotBlank() && !saving, onClick = {
+                onEmail(invoice.invoiceId, recipient); emailInvoice = null
+            }) { Text("Send") } },
+            dismissButton = { TextButton(onClick = { emailInvoice = null }) { Text("Cancel") } }
         )
     }
 

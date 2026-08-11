@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.pickuppass.android.data.model.MasterPlanDefinition
 import com.pickuppass.android.data.model.MasterSchoolItem
 import com.pickuppass.android.data.model.MasterInvoiceItem
+import com.pickuppass.android.data.model.MasterBillingProfileResponse
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.AuthRepository
 import com.pickuppass.android.data.repository.MasterAdminRepository
@@ -13,6 +14,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class InvoicePdfPayload(val fileName: String, val bytes: ByteArray)
 
 data class MasterAdminUiState(
     val loading: Boolean = true,
@@ -26,6 +29,8 @@ data class MasterAdminUiState(
     val billingSchoolId: String? = null,
     val billingLoading: Boolean = false,
     val invoices: List<MasterInvoiceItem> = emptyList(),
+    val billingProfile: MasterBillingProfileResponse? = null,
+    val invoicePdf: InvoicePdfPayload? = null,
     val error: String? = null,
     val message: String? = null
 )
@@ -94,14 +99,57 @@ class MasterAdminViewModel @Inject constructor(
 
     fun loadInvoices(schoolId: String) = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(billingSchoolId = schoolId, billingLoading = true, error = null)
+        val profile = repository.getBillingProfile(schoolId)
+        val profileData = when (profile) {
+            is ApiResult.Success -> profile.data
+            is ApiResult.Failure -> null
+        }
+        val profileError = if (profile is ApiResult.Failure) profile.message else null
         when (val r = repository.listInvoices(schoolId)) {
-            is ApiResult.Success -> _uiState.value = _uiState.value.copy(billingLoading = false, invoices = r.data.invoices)
-            is ApiResult.Failure -> _uiState.value = _uiState.value.copy(billingLoading = false, error = r.message)
+            is ApiResult.Success -> _uiState.value = _uiState.value.copy(
+                billingLoading = false,
+                invoices = r.data.invoices,
+                billingProfile = profileData,
+                error = profileError
+            )
+            is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
+                billingLoading = false,
+                billingProfile = profileData,
+                error = r.message
+            )
         }
     }
 
+    fun saveBillingProfile(schoolId: String, billingName: String, billingEmail: String, billingAddress: String, billingTaxId: String) =
+        runBillingSave(schoolId, "Billing profile updated") {
+            repository.updateBillingProfile(schoolId, billingName, billingEmail, billingAddress, billingTaxId)
+        }
+
     fun createInvoice(schoolId: String, amountMinor: Long, dueAt: String?, note: String) =
         runBillingSave(schoolId, "Invoice created") { repository.createInvoice(schoolId, amountMinor, dueAt, note) }
+
+    fun emailInvoice(schoolId: String, invoiceId: String, recipientEmail: String) =
+        runBillingSave(schoolId, "Invoice emailed") { repository.emailInvoice(invoiceId, recipientEmail) }
+
+    fun downloadInvoicePdf(invoice: MasterInvoiceItem) {
+        if (_uiState.value.saving) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(saving = true, error = null, message = null)
+            when (val r = repository.downloadInvoicePdf(invoice.invoiceId)) {
+                is ApiResult.Success -> _uiState.value = _uiState.value.copy(
+                    saving = false,
+                    invoicePdf = InvoicePdfPayload(
+                        fileName = (invoice.invoiceNumber.ifBlank { "PickupPass-Invoice" }) + ".pdf",
+                        bytes = r.data
+                    ),
+                    message = "Invoice PDF ready to save"
+                )
+                is ApiResult.Failure -> _uiState.value = _uiState.value.copy(saving = false, error = r.message)
+            }
+        }
+    }
+
+    fun clearInvoicePdf() { _uiState.value = _uiState.value.copy(invoicePdf = null) }
 
     fun markInvoicePaid(schoolId: String, invoiceId: String, reference: String, method: String, note: String) =
         runBillingSave(schoolId, "Invoice marked paid") { repository.markInvoicePaid(invoiceId, reference, method, note) }

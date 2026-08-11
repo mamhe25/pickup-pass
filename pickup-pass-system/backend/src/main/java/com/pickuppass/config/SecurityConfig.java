@@ -52,6 +52,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers("/api/bootstrap/**").permitAll()
+                .requestMatchers("/api/webhooks/payments/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(firebaseFilter, UsernamePasswordAuthenticationFilter.class)

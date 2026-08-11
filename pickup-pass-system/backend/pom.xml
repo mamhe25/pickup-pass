@@ -63,6 +63,13 @@
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
+        <!-- Invoice PDF generation. Apache PDFBox 3.0.8 is the current 3.0.x release. -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.8</version>
+        </dependency>
+
         <!-- Bulk roster import: robust CSV and Excel parsing. -->
         <dependency>
             <groupId>org.apache.commons</groupId>

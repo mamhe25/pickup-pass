@@ -25,6 +25,9 @@ spring:
           auth: true
           starttls:
             enable: true
+          connectiontimeout: ${MAIL_CONNECTION_TIMEOUT_MS:10000}
+          timeout: ${MAIL_READ_TIMEOUT_MS:10000}
+          writetimeout: ${MAIL_WRITE_TIMEOUT_MS:10000}
 
 management:
   endpoints:
@@ -74,3 +77,12 @@ logging:
 # Firestore transaction claiming prevents normal duplicate processing.
 pickuppass:
   broadcast-scheduler-ms: ${BROADCAST_SCHEDULER_MS:30000}
+  billing:
+    reconcile-ms: ${BILLING_RECONCILE_MS:3600000}
+    company-name: ${BILLING_COMPANY_NAME:PickupPass}
+    company-address: ${BILLING_COMPANY_ADDRESS:}
+    support-email: ${BILLING_SUPPORT_EMAIL:}
+    from-email: ${BILLING_FROM_EMAIL:}
+    from-name: ${BILLING_FROM_NAME:PickupPass Billing}
+  payment-webhooks:
+    generic-hmac-secret: ${PAYMENT_WEBHOOK_GENERIC_SECRET:}
