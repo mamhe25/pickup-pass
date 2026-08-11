@@ -1,10 +1,14 @@
 package com.pickuppass.controller;
 
 import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.FieldValue;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.UserRecord;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.pickuppass.exception.NotFoundException;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.SchoolLogoService;
+import com.pickuppass.service.AuditService;
 import com.pickuppass.service.StaffProvisioningService;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
@@ -26,12 +30,17 @@ public class SchoolAdminController {
     private final Firestore firestore;
     private final SchoolLogoService logoService;
     private final StaffProvisioningService staffProvisioningService;
+    private final FirebaseAuth firebaseAuth;
+    private final AuditService auditService;
 
     public SchoolAdminController(
-            Firestore firestore, SchoolLogoService logoService, StaffProvisioningService staffProvisioningService) {
+            Firestore firestore, SchoolLogoService logoService, StaffProvisioningService staffProvisioningService,
+            FirebaseAuth firebaseAuth, AuditService auditService) {
         this.firestore = firestore;
         this.logoService = logoService;
         this.staffProvisioningService = staffProvisioningService;
+        this.firebaseAuth = firebaseAuth;
+        this.auditService = auditService;
     }
 
     /** A school admin can update their own school's logo — no schoolId param, always their own claim. */
@@ -42,6 +51,7 @@ public class SchoolAdminController {
             @AuthenticationPrincipal FirebaseUserDetails schoolAdmin) throws Exception {
         try {
             String logoUrl = logoService.uploadLogo(schoolAdmin.getSchoolId(), file);
+            auditService.record(schoolAdmin, "school.logo_updated", "school", schoolAdmin.getSchoolId(), Map.of());
             return ResponseEntity.ok(Map.of("logoUrl", logoUrl));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -71,6 +81,8 @@ public class SchoolAdminController {
                 req.getEmail(), req.getLastName(), req.getFirstName(),
                 req.getMiddleInitial(), req.getSuffix(), "teacher", schoolAdmin.getSchoolId());
 
+        auditService.record(schoolAdmin, "staff.invited", "user", result.getUid(),
+                Map.of("role", "teacher", "email", req.getEmail()));
         return ResponseEntity.ok(Map.of(
                 "uid", result.getUid(),
                 "role", "teacher",
@@ -126,9 +138,50 @@ public class SchoolAdminController {
             sections.add(Map.of("grade", s.getGrade().trim(), "section", s.getSection().trim()));
         }
 
-        firestore.collection("users").document(uid).update("assignedSections", sections).get();
+        firestore.collection("users").document(uid).update("assignedSections", sections, "updatedAt", FieldValue.serverTimestamp()).get();
+        auditService.record(schoolAdmin, "staff.sections_updated", "user", uid, Map.of("assignedSections", sections));
 
         return ResponseEntity.ok(Map.of("uid", uid, "assignedSections", sections));
+    }
+
+
+    /** Deactivate/reactivate a teacher account and revoke existing sessions when deactivating. */
+    @PutMapping("/staff/{uid}/status")
+    @PreAuthorize("hasRole('school_admin')")
+    public ResponseEntity<?> setTeacherStatus(
+            @PathVariable String uid,
+            @RequestBody StaffStatusRequest req,
+            @AuthenticationPrincipal FirebaseUserDetails schoolAdmin) throws Exception {
+        var teacherDoc = firestore.collection("users").document(uid).get().get();
+        if (!teacherDoc.exists() || !schoolAdmin.getSchoolId().equals(teacherDoc.getString("schoolId"))
+                || !"teacher".equals(teacherDoc.getString("role"))) {
+            throw new NotFoundException("Teacher not found in your school");
+        }
+        boolean active = req.isActive();
+        firebaseAuth.updateUser(new UserRecord.UpdateRequest(uid).setDisabled(!active));
+        if (!active) firebaseAuth.revokeRefreshTokens(uid);
+        firestore.collection("users").document(uid).update(
+                "isActive", active,
+                "statusUpdatedAt", FieldValue.serverTimestamp(),
+                "statusUpdatedBy", schoolAdmin.getUid()).get();
+        auditService.record(schoolAdmin, active ? "staff.reactivated" : "staff.deactivated", "user", uid, Map.of());
+        return ResponseEntity.ok(Map.of("uid", uid, "isActive", active));
+    }
+
+    /** Immediately invalidates a teacher's refresh tokens (lost/stolen device or forced logout). */
+    @PostMapping("/staff/{uid}/revoke-sessions")
+    @PreAuthorize("hasRole('school_admin')")
+    public ResponseEntity<?> revokeTeacherSessions(
+            @PathVariable String uid,
+            @AuthenticationPrincipal FirebaseUserDetails schoolAdmin) throws Exception {
+        var teacherDoc = firestore.collection("users").document(uid).get().get();
+        if (!teacherDoc.exists() || !schoolAdmin.getSchoolId().equals(teacherDoc.getString("schoolId"))
+                || !"teacher".equals(teacherDoc.getString("role"))) {
+            throw new NotFoundException("Teacher not found in your school");
+        }
+        firebaseAuth.revokeRefreshTokens(uid);
+        auditService.record(schoolAdmin, "staff.sessions_revoked", "user", uid, Map.of());
+        return ResponseEntity.ok(Map.of("uid", uid, "status", "sessions_revoked"));
     }
 
     public static class InviteTeacherRequest {
@@ -148,6 +201,12 @@ public class SchoolAdminController {
         public void setMiddleInitial(String v) { this.middleInitial = v; }
         public String getSuffix() { return suffix; }
         public void setSuffix(String v) { this.suffix = v; }
+    }
+
+    public static class StaffStatusRequest {
+        private boolean active;
+        public boolean isActive() { return active; }
+        public void setActive(boolean active) { this.active = active; }
     }
 
     public static class SectionEntry {

@@ -5,6 +5,7 @@ import com.google.cloud.firestore.FieldValue;
 import com.google.cloud.firestore.Firestore;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.GuardianProvisioningService;
+import com.pickuppass.service.AuditService;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,10 +28,12 @@ public class TeacherOnboardingController {
 
     private final Firestore firestore;
     private final GuardianProvisioningService guardianService;
+    private final AuditService auditService;
 
-    public TeacherOnboardingController(Firestore firestore, GuardianProvisioningService guardianService) {
+    public TeacherOnboardingController(Firestore firestore, GuardianProvisioningService guardianService, AuditService auditService) {
         this.firestore = firestore;
         this.guardianService = guardianService;
+        this.auditService = auditService;
     }
 
     @PostMapping("/register-parent")
@@ -73,6 +76,8 @@ public class TeacherOnboardingController {
         String status = result.isNewlyCreated()
                 ? (result.isEmailSent() ? "created_and_linked" : "created_and_linked_email_failed")
                 : "linked_existing";
+        auditService.record(teacher, "guardian.primary_registered", "student", req.getStudentId(), Map.of(
+                "guardianUid", result.getUid(), "relationship", guardianEntry.get("relationship")));
 
         return ResponseEntity.ok(Map.of(
                 "parentUid", result.getUid(),

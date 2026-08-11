@@ -6,7 +6,12 @@ import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.FieldValue;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QuerySnapshot;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.UserRecord;
 import com.pickuppass.service.StaffProvisioningService;
+import com.pickuppass.service.AuditService;
+import com.pickuppass.security.FirebaseUserDetails;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,16 +30,22 @@ public class MasterAdminController {
 
     private final Firestore firestore;
     private final StaffProvisioningService staffProvisioningService;
+    private final FirebaseAuth firebaseAuth;
+    private final AuditService auditService;
 
-    public MasterAdminController(Firestore firestore, StaffProvisioningService staffProvisioningService) {
+    public MasterAdminController(Firestore firestore, StaffProvisioningService staffProvisioningService,
+                                 FirebaseAuth firebaseAuth, AuditService auditService) {
         this.firestore = firestore;
         this.staffProvisioningService = staffProvisioningService;
+        this.firebaseAuth = firebaseAuth;
+        this.auditService = auditService;
     }
 
     /** Creates a new tenant. Returns the auto-generated schoolId to use in every other endpoint. */
     @PostMapping("/schools")
     @PreAuthorize("hasRole('master_admin')")
-    public ResponseEntity<?> createSchool(@RequestBody CreateSchoolRequest req) throws ExecutionException, InterruptedException {
+    public ResponseEntity<?> createSchool(@RequestBody CreateSchoolRequest req,
+                                           @AuthenticationPrincipal FirebaseUserDetails masterAdmin) throws ExecutionException, InterruptedException {
         if (req.getSchoolName() == null || req.getSchoolName().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "schoolName is required"));
         }
@@ -46,6 +57,7 @@ public class MasterAdminController {
         school.put("status", "active");
         school.put("createdAt", FieldValue.serverTimestamp());
         schoolRef.set(school).get(); // await so a write failure surfaces as an error, not a false success
+        auditService.record(masterAdmin, "school.created", "school", schoolRef.getId(), Map.of("schoolName", req.getSchoolName()));
 
         return ResponseEntity.ok(Map.of("schoolId", schoolRef.getId(), "schoolName", req.getSchoolName()));
     }
@@ -54,7 +66,8 @@ public class MasterAdminController {
     @PreAuthorize("hasRole('master_admin')")
     public ResponseEntity<?> setSchoolStatus(
             @PathVariable String schoolId,
-            @RequestBody SchoolStatusRequest req) throws ExecutionException, InterruptedException {
+            @RequestBody SchoolStatusRequest req,
+            @AuthenticationPrincipal FirebaseUserDetails masterAdmin) throws ExecutionException, InterruptedException {
 
         if (!req.getStatus().equals("active") && !req.getStatus().equals("suspended")) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid status"));
@@ -71,15 +84,35 @@ public class MasterAdminController {
         update.put("statusUpdatedAt", FieldValue.serverTimestamp());
         schoolRef.update(update).get();
 
-        // Cascading effect: deactivate all school users to hard-block access
-        // immediately, without waiting for individual sessions to expire.
-        if (req.getStatus().equals("suspended")) {
-            ApiFuture<QuerySnapshot> users = firestore.collection("users")
-                    .whereEqualTo("schoolId", schoolId).get();
-            for (DocumentSnapshot doc : users.get().getDocuments()) {
-                doc.getReference().update("isActive", false).get();
+        ApiFuture<QuerySnapshot> users = firestore.collection("users")
+                .whereEqualTo("schoolId", schoolId).get();
+        for (DocumentSnapshot doc : users.get().getDocuments()) {
+            String uid = doc.getId();
+            if (req.getStatus().equals("suspended")) {
+                // Remember that this specific disable came from tenant suspension so a
+                // later reactivation does not accidentally re-enable a teacher that an
+                // admin had independently deactivated before the suspension.
+                if (!Boolean.FALSE.equals(doc.getBoolean("isActive"))) {
+                    doc.getReference().update(
+                            "isActive", false,
+                            "suspendedBySchool", true,
+                            "statusUpdatedAt", FieldValue.serverTimestamp()).get();
+                    try {
+                        firebaseAuth.updateUser(new UserRecord.UpdateRequest(uid).setDisabled(true));
+                        firebaseAuth.revokeRefreshTokens(uid);
+                    } catch (Exception ignored) { }
+                }
+            } else if (Boolean.TRUE.equals(doc.getBoolean("suspendedBySchool"))) {
+                doc.getReference().update(
+                        "isActive", true,
+                        "suspendedBySchool", false,
+                        "statusUpdatedAt", FieldValue.serverTimestamp()).get();
+                try {
+                    firebaseAuth.updateUser(new UserRecord.UpdateRequest(uid).setDisabled(false));
+                } catch (Exception ignored) { }
             }
         }
+        auditService.record(masterAdmin, "school.status_changed", "school", schoolId, Map.of("status", req.getStatus()));
 
         return ResponseEntity.ok(Map.of("schoolId", schoolId, "status", req.getStatus()));
     }
@@ -98,7 +131,8 @@ public class MasterAdminController {
     @PreAuthorize("hasRole('master_admin')")
     public ResponseEntity<?> createStaff(
             @PathVariable String schoolId,
-            @RequestBody CreateStaffRequest req) throws Exception {
+            @RequestBody CreateStaffRequest req,
+            @AuthenticationPrincipal FirebaseUserDetails masterAdmin) throws Exception {
 
         if (!ASSIGNABLE_STAFF_ROLES.contains(req.getRole())) {
             return ResponseEntity.badRequest().body(Map.of("error", "role must be 'teacher' or 'school_admin'"));
@@ -115,6 +149,8 @@ public class MasterAdminController {
                 req.getEmail(), req.getLastName(), req.getFirstName(),
                 req.getMiddleInitial(), req.getSuffix(), req.getRole(), schoolId);
 
+        auditService.record(masterAdmin, "staff.created", "user", result.getUid(), Map.of(
+                "schoolId", schoolId, "role", req.getRole(), "email", req.getEmail()));
         return ResponseEntity.ok(Map.of(
                 "uid", result.getUid(),
                 "role", req.getRole(),

@@ -4,6 +4,7 @@ import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.FieldValue;
 import com.google.cloud.firestore.Firestore;
 import com.pickuppass.security.FirebaseUserDetails;
+import com.pickuppass.service.AuditService;
 import com.pickuppass.util.NameFormatter;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
@@ -27,9 +28,11 @@ import java.util.Map;
 public class StudentController {
 
     private final Firestore firestore;
+    private final AuditService auditService;
 
-    public StudentController(Firestore firestore) {
+    public StudentController(Firestore firestore, AuditService auditService) {
         this.firestore = firestore;
+        this.auditService = auditService;
     }
 
     @PostMapping("/students")
@@ -67,6 +70,7 @@ public class StudentController {
         student.put("createdBy", staff.getUid());
 
         studentRef.set(student).get(); // await so a write failure surfaces as an error, not a false success
+        auditService.record(staff, "student.created", "student", studentRef.getId(), Map.of("fullName", fullName));
 
         return ResponseEntity.ok(Map.of(
                 "studentId", studentRef.getId(),

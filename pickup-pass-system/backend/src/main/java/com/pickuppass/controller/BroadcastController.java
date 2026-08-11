@@ -2,6 +2,7 @@ package com.pickuppass.controller;
 
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.BroadcastService;
+import com.pickuppass.service.AuditService;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,9 +20,11 @@ public class BroadcastController {
     private static final Set<String> VALID_AUDIENCE_ROLES = Set.of("teacher", "parent");
 
     private final BroadcastService broadcastService;
+    private final AuditService auditService;
 
-    public BroadcastController(BroadcastService broadcastService) {
+    public BroadcastController(BroadcastService broadcastService, AuditService auditService) {
         this.broadcastService = broadcastService;
+        this.auditService = auditService;
     }
 
     /**
@@ -45,6 +48,8 @@ public class BroadcastController {
         int recipientCount = broadcastService.broadcastToSchool(
                 schoolAdmin.getSchoolId(), schoolAdmin.getUid(),
                 req.getTitle().trim(), req.getBody().trim(), audience);
+        auditService.record(schoolAdmin, "broadcast.school_sent", "broadcast", "", Map.of(
+                "title", req.getTitle().trim(), "audience", audience, "recipientCount", recipientCount));
 
         return ResponseEntity.ok(Map.of("recipientCount", recipientCount));
     }
@@ -68,6 +73,8 @@ public class BroadcastController {
         int recipientCount = broadcastService.broadcastToSection(
                 teacher.getSchoolId(), teacher.getUid(),
                 req.getTitle().trim(), req.getBody().trim());
+        auditService.record(teacher, "broadcast.section_sent", "broadcast", "", Map.of(
+                "title", req.getTitle().trim(), "recipientCount", recipientCount));
 
         return ResponseEntity.ok(Map.of("recipientCount", recipientCount));
     }

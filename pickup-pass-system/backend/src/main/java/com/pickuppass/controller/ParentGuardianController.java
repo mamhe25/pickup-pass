@@ -6,6 +6,7 @@ import com.pickuppass.exception.ForbiddenException;
 import com.pickuppass.exception.NotFoundException;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.GuardianProvisioningService;
+import com.pickuppass.service.AuditService;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -39,13 +40,16 @@ public class ParentGuardianController {
     private final Firestore firestore;
     private final GuardianProvisioningService guardianService;
     private final int maxGuardiansPerStudent;
+    private final AuditService auditService;
 
     public ParentGuardianController(
             Firestore firestore,
             GuardianProvisioningService guardianService,
+            AuditService auditService,
             @Value("${app.max-guardians-per-student:4}") int maxGuardiansPerStudent) {
         this.firestore = firestore;
         this.guardianService = guardianService;
+        this.auditService = auditService;
         this.maxGuardiansPerStudent = maxGuardiansPerStudent;
     }
 
@@ -98,6 +102,8 @@ public class ParentGuardianController {
                 "guardianUids", FieldValue.arrayUnion(result.getUid()),
                 "guardians." + result.getUid(), guardianEntry
         ).get();
+        auditService.record(parent, "guardian.added", "student", req.getStudentId(), Map.of(
+                "guardianUid", result.getUid(), "relationship", guardianEntry.get("relationship")));
 
         return ResponseEntity.ok(Map.of(
                 "guardianUid", result.getUid(),
@@ -153,6 +159,7 @@ public class ParentGuardianController {
         for (DocumentSnapshot tokenDoc : liveTokens.get().getDocuments()) {
             tokenDoc.getReference().update("used", true, "invalidatedReason", "guardian_removed").get();
         }
+        auditService.record(parent, "guardian.removed", "student", req.getStudentId(), Map.of("guardianUid", req.getGuardianUid()));
 
         return ResponseEntity.ok(Map.of("status", "removed"));
     }

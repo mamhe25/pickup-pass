@@ -2,8 +2,12 @@ package com.pickuppass.controller;
 
 import com.pickuppass.dto.QrVerificationResult;
 import com.pickuppass.security.FirebaseUserDetails;
+import com.pickuppass.service.AuditService;
 import com.pickuppass.service.PushNotificationService;
 import com.pickuppass.service.QrVerificationService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,19 +21,23 @@ public class PickupController {
 
     private final QrVerificationService qrService;
     private final PushNotificationService pushNotificationService;
+    private final AuditService auditService;
 
-    public PickupController(QrVerificationService qrService, PushNotificationService pushNotificationService) {
+    public PickupController(QrVerificationService qrService,
+                            PushNotificationService pushNotificationService,
+                            AuditService auditService) {
         this.qrService = qrService;
         this.pushNotificationService = pushNotificationService;
+        this.auditService = auditService;
     }
 
     @PostMapping("/verify")
     @PreAuthorize("hasAnyRole('teacher','school_admin')")
-    public ResponseEntity<?> verify(@RequestBody VerifyRequest req,
+    public ResponseEntity<?> verify(@Valid @RequestBody VerifyRequest req,
                                      @AuthenticationPrincipal FirebaseUserDetails staff) throws Exception {
         QrVerificationResult result = qrService.verify(req.getQrToken(), staff.getSchoolId());
         if (!result.isValid()) {
-            return ResponseEntity.status(400).body(Map.of("valid", false, "reason", result.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("valid", false, "reason", result.getMessage()));
         }
         return ResponseEntity.ok(Map.of(
                 "valid", true,
@@ -40,20 +48,49 @@ public class PickupController {
 
     @PostMapping("/approve")
     @PreAuthorize("hasAnyRole('teacher','school_admin')")
-    public ResponseEntity<?> approve(@RequestBody VerifyRequest req,
+    public ResponseEntity<?> approve(@Valid @RequestBody VerifyRequest req,
                                       @AuthenticationPrincipal FirebaseUserDetails staff) throws Exception {
         QrVerificationResult result = qrService.verify(req.getQrToken(), staff.getSchoolId());
         if (!result.isValid()) {
-            return ResponseEntity.status(400).body(Map.of("valid", false, "reason", result.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("valid", false, "reason", result.getMessage()));
         }
-        qrService.markUsedAndLog(result, staff.getUid(), staff.getSchoolId());
+        String exitLogId = qrService.markUsedAndLog(result, staff.getUid(), staff.getSchoolId());
+        // Pickup success is authoritative even when push delivery fails internally.
         pushNotificationService.notifyGuardiansOfPickup(result.getStudentId(), result.getParentUid());
-        return ResponseEntity.ok(Map.of("status", "release_approved"));
+        auditService.record(staff, "pickup.approved", "exitLog", exitLogId,
+                Map.of("studentId", result.getStudentId(), "method", "qr_scan"));
+        return ResponseEntity.ok(Map.of("status", "release_approved", "exitLogId", exitLogId));
+    }
+
+    @PostMapping("/manual-override")
+    @PreAuthorize("hasRole('school_admin')")
+    public ResponseEntity<?> manualOverride(@Valid @RequestBody ManualOverrideRequest req,
+                                             @AuthenticationPrincipal FirebaseUserDetails staff) throws Exception {
+        String exitLogId = qrService.manualOverride(req.getStudentId(), req.getGuardianUid(), req.getReason(),
+                staff.getUid(), staff.getSchoolId());
+        pushNotificationService.notifyGuardiansOfPickup(req.getStudentId(), req.getGuardianUid());
+        auditService.record(staff, "pickup.manual_override", "exitLog", exitLogId, Map.of(
+                "studentId", req.getStudentId(),
+                "guardianUid", req.getGuardianUid(),
+                "reason", req.getReason().trim()));
+        return ResponseEntity.ok(Map.of("status", "release_approved", "method", "manual_override", "exitLogId", exitLogId));
     }
 
     public static class VerifyRequest {
-        private String qrToken;
+        @NotBlank private String qrToken;
         public String getQrToken() { return qrToken; }
         public void setQrToken(String qrToken) { this.qrToken = qrToken; }
+    }
+
+    public static class ManualOverrideRequest {
+        @NotBlank private String studentId;
+        @NotBlank private String guardianUid;
+        @NotBlank @Size(min = 5, max = 500) private String reason;
+        public String getStudentId() { return studentId; }
+        public void setStudentId(String studentId) { this.studentId = studentId; }
+        public String getGuardianUid() { return guardianUid; }
+        public void setGuardianUid(String guardianUid) { this.guardianUid = guardianUid; }
+        public String getReason() { return reason; }
+        public void setReason(String reason) { this.reason = reason; }
     }
 }
