@@ -234,4 +234,45 @@ class SchoolAdminRepository @Inject constructor(
             ApiResult.Failure(e.message ?: "Network error")
         }
     }
+
+
+    suspend fun listStudentLifecycle(status: String? = null): ApiResult<StudentLifecycleResponse> {
+        return try {
+            val response = api.listStudentLifecycle(status)
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure("Could not load student lifecycle records")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun updateStudentStatus(studentId: String, status: String, reason: String): ApiResult<Unit> {
+        return try {
+            val response = api.updateStudentStatus(studentId, StudentStatusRequest(status, reason))
+            if (response.isSuccessful) ApiResult.Success(Unit)
+            else ApiResult.Failure(response.body()?.error ?: "Could not update student status")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun previewPromotion(targetAcademicYearId: String): ApiResult<PromotionResponse> {
+        return promoteStudents(targetAcademicYearId, dryRun = true)
+    }
+
+    suspend fun executePromotion(targetAcademicYearId: String): ApiResult<PromotionResponse> {
+        return promoteStudents(targetAcademicYearId, dryRun = false)
+    }
+
+    private suspend fun promoteStudents(targetAcademicYearId: String, dryRun: Boolean): ApiResult<PromotionResponse> {
+        return try {
+            val response = api.promoteStudents(PromotionRequest(targetAcademicYearId = targetAcademicYearId, dryRun = dryRun))
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure(body?.error ?: "Could not process student promotion")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
 }

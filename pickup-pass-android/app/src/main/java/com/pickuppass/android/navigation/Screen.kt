@@ -51,4 +51,6 @@ sealed class Screen(val route: String) {
     data object SchoolAdminAcademicStructure : Screen("school-admin/academic-structure")
 
     data object SchoolAdminBulkStudentImport : Screen("school-admin/bulk-student-import")
+
+    data object SchoolAdminStudentLifecycle : Screen("school-admin/student-lifecycle")
 }

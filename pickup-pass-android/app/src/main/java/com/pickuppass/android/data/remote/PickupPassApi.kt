@@ -120,6 +120,21 @@ interface PickupPassApi {
         @Body body: GradeSectionStatusRequest
     ): Response<Map<String, Any?>>
 
+
+    @GET("school-admin/students/lifecycle")
+    suspend fun listStudentLifecycle(
+        @Query("status") status: String? = null
+    ): Response<StudentLifecycleResponse>
+
+    @PUT("school-admin/students/{studentId}/status")
+    suspend fun updateStudentStatus(
+        @Path("studentId") studentId: String,
+        @Body body: StudentStatusRequest
+    ): Response<SimpleStatusResponse>
+
+    @POST("school-admin/students/promote")
+    suspend fun promoteStudents(@Body body: PromotionRequest): Response<PromotionResponse>
+
     @POST("school-admin/broadcasts")
     suspend fun broadcastToSchool(@Body body: BroadcastRequest): Response<BroadcastResponse>
 

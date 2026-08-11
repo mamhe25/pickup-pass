@@ -30,7 +30,7 @@ class TeacherRepository @Inject constructor(
 
         snapshot.documents.mapNotNull { doc ->
             doc.toObject(Student::class.java)?.also { it.id = doc.id }
-        }
+        }.filter { it.status.isBlank() || it.status.equals("active", ignoreCase = true) }
     }
 
     /**
@@ -86,7 +86,9 @@ class TeacherRepository @Inject constructor(
 
             snapshot.documents.forEach { doc ->
                 if (seenIds.add(doc.id)) {
-                    doc.toObject(Student::class.java)?.also { it.id = doc.id }?.let { results.add(it) }
+                    doc.toObject(Student::class.java)?.also { it.id = doc.id }?.let {
+                        if (it.status.isBlank() || it.status.equals("active", ignoreCase = true)) results.add(it)
+                    }
                 }
             }
         }

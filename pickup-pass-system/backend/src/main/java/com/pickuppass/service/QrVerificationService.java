@@ -100,6 +100,10 @@ public class QrVerificationService {
         if (!studentSnap.exists() || !scanningSchoolId.equals(studentSnap.getString("schoolId"))) {
             return QrVerificationResult.fail("Student not found in this school");
         }
+        String studentStatus = studentSnap.getString("status");
+        if (studentStatus != null && !studentStatus.isBlank() && !"active".equalsIgnoreCase(studentStatus)) {
+            return QrVerificationResult.fail("Student pickup access is not active");
+        }
         @SuppressWarnings("unchecked")
         List<String> guardians = (List<String>) studentSnap.get("guardianUids");
         if (guardians == null || !guardians.contains(parentUid)) {

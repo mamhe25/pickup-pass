@@ -64,6 +64,7 @@ public class StudentController {
         student.put("firstName", req.getFirstName().trim());
         student.put("middleInitial", req.getMiddleInitial() != null ? req.getMiddleInitial().trim() : "");
         student.put("suffix", req.getSuffix() != null ? req.getSuffix().trim() : "");
+        student.put("status", "active");
         // Phase 2 structured academic placement. If a gradeSectionId is supplied,
         // it is the source of truth; otherwise we resolve a legacy grade/section
         // pair against the current configured structure when one exists.

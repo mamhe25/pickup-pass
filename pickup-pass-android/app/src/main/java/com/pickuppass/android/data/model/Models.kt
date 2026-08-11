@@ -10,6 +10,11 @@ data class Student(
     val section: String = "",
     val schoolId: String = "",
     val photoUrl: String? = null,
+    val status: String = "active",
+    val academicYearId: String = "",
+    val academicYearName: String = "",
+    val gradeSectionId: String = "",
+    val studentNumber: String = "",
     @get:PropertyName("guardianUids") @set:PropertyName("guardianUids")
     var guardianUids: List<String> = emptyList(),
     @get:PropertyName("guardians") @set:PropertyName("guardians")
@@ -345,3 +350,59 @@ data class BulkStudentImportResponse(
     val error: String? = null
 )
 
+
+
+// ---- Phase 2: student lifecycle + end-of-year promotion ----
+
+data class StudentLifecycleItem(
+    val studentId: String = "",
+    val fullName: String = "",
+    val grade: String = "",
+    val section: String = "",
+    val status: String = "active",
+    val academicYearId: String = "",
+    val academicYearName: String = "",
+    val gradeSectionId: String = "",
+    val studentNumber: String = ""
+)
+
+data class StudentLifecycleResponse(
+    val students: List<StudentLifecycleItem> = emptyList(),
+    val counts: Map<String, Int> = emptyMap()
+)
+
+data class StudentStatusRequest(
+    val status: String,
+    val reason: String = ""
+)
+
+data class PromotionRequest(
+    val targetAcademicYearId: String,
+    val dryRun: Boolean = true,
+    val sectionMappings: Map<String, String> = emptyMap(),
+    val graduateStudentIds: List<String> = emptyList()
+)
+
+data class PromotionStudentPreview(
+    val studentId: String = "",
+    val fullName: String = "",
+    val grade: String = "",
+    val section: String = "",
+    val targetGrade: String = "",
+    val targetSection: String = "",
+    val reason: String = ""
+)
+
+data class PromotionResponse(
+    val dryRun: Boolean = true,
+    val targetAcademicYearId: String = "",
+    val targetAcademicYearName: String = "",
+    val readyCount: Int = 0,
+    val unresolvedCount: Int = 0,
+    val graduatingCount: Int = 0,
+    val promotedCount: Int = 0,
+    val graduatedCount: Int = 0,
+    val readySample: List<PromotionStudentPreview> = emptyList(),
+    val unresolved: List<PromotionStudentPreview> = emptyList(),
+    val error: String? = null
+)

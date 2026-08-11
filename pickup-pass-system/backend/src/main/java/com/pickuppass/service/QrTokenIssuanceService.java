@@ -69,6 +69,10 @@ public class QrTokenIssuanceService {
         if (!schoolId.equals(studentSnap.getString("schoolId"))) {
             throw new ForbiddenException("Student does not belong to this school");
         }
+        String studentStatus = studentSnap.getString("status");
+        if (studentStatus != null && !studentStatus.isBlank() && !"active".equalsIgnoreCase(studentStatus)) {
+            throw new ForbiddenException("Pickup access is unavailable because this student is not active");
+        }
         @SuppressWarnings("unchecked")
         java.util.List<String> guardianUids = (java.util.List<String>) studentSnap.get("guardianUids");
         if (guardianUids == null || !guardianUids.contains(parentUid)) {

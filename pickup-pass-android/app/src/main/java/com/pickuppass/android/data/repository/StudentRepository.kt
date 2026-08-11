@@ -22,7 +22,7 @@ class StudentRepository @Inject constructor(
 
         snapshot.documents.mapNotNull { doc ->
             doc.toObject(Student::class.java)?.also { it.id = doc.id }
-        }
+        }.filter { it.status.isBlank() || it.status.equals("active", ignoreCase = true) }
     }
 
     suspend fun getStudent(studentId: String): Result<Student?> = runCatching {

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.PersonOff
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Schedule
@@ -59,6 +60,7 @@ fun SchoolBrandingScreen(
     onGoToPickupPolicy: () -> Unit,
     onGoToAcademicStructure: () -> Unit,
     onGoToBulkStudentImport: () -> Unit,
+    onGoToStudentLifecycle: () -> Unit,
     onGoToBroadcast: () -> Unit,
     onSignedOut: () -> Unit
 ) {
@@ -203,6 +205,7 @@ fun SchoolBrandingScreen(
                 NavListItem(Icons.Filled.Groups, "Manage Students", onGoToStudents)
                 NavListItem(Icons.Filled.Class, "School Year & Sections", onGoToAcademicStructure)
                 NavListItem(Icons.Filled.UploadFile, "Bulk Import Students", onGoToBulkStudentImport)
+                NavListItem(Icons.Filled.PersonOff, "Student Lifecycle & Promotion", onGoToStudentLifecycle)
                 NavListItem(Icons.Filled.Schedule, "Pickup Policy", onGoToPickupPolicy)
             }
 

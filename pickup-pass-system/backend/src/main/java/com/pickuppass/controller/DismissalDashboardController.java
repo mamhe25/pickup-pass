@@ -62,6 +62,8 @@ public class DismissalDashboardController {
 
         Map<String, Map<String, Object>> studentsById = new HashMap<>();
         for (QueryDocumentSnapshot doc : studentDocs) {
+            String studentStatus = value(doc.getString("status"), "active");
+            if (!"active".equalsIgnoreCase(studentStatus)) continue;
             Map<String, Object> item = new HashMap<>();
             item.put("studentId", doc.getId());
             item.put("studentName", value(doc.getString("fullName"), "Unknown student"));
