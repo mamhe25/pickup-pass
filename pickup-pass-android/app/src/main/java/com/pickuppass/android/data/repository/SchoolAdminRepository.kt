@@ -112,6 +112,38 @@ class SchoolAdminRepository @Inject constructor(
             ApiResult.Failure(e.message ?: "Network error")
         }
     }
+    suspend fun scheduleBroadcast(title: String, body: String, audience: List<String>, scheduledAt: String): ApiResult<ScheduleBroadcastResponse> {
+        return try {
+            val response = api.scheduleSchoolBroadcast(ScheduleBroadcastRequest(title, body, audience, scheduledAt))
+            val payload = response.body()
+            if (response.isSuccessful && payload != null) ApiResult.Success(payload)
+            else ApiResult.Failure(payload?.error ?: "Could not schedule announcement")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun getBroadcastHistory(): ApiResult<List<BroadcastHistoryItem>> {
+        return try {
+            val response = api.getSchoolBroadcastHistory()
+            val payload = response.body()
+            if (response.isSuccessful && payload != null) ApiResult.Success(payload.broadcasts)
+            else ApiResult.Failure("Could not load announcement history")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun cancelScheduledBroadcast(id: String): ApiResult<Unit> {
+        return try {
+            val response = api.cancelSchoolBroadcast(id)
+            if (response.isSuccessful) ApiResult.Success(Unit)
+            else ApiResult.Failure(response.body()?.error ?: "Could not cancel announcement")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
     suspend fun getPickupPolicy(): ApiResult<PickupPolicyResponse> {
         return try {
             val response = api.getPickupPolicy()

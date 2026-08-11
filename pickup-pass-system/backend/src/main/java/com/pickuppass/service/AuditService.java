@@ -20,6 +20,32 @@ public class AuditService {
         this.firestore = firestore;
     }
 
+    public void recordSystem(String schoolId,
+                             String action,
+                             String resourceType,
+                             String resourceId,
+                             Map<String, Object> details) {
+        Map<String, Object> event = new HashMap<>();
+        event.put("schoolId", schoolId);
+        event.put("actorUid", "system");
+        event.put("actorRole", "system");
+        event.put("action", action);
+        event.put("resourceType", resourceType);
+        event.put("resourceId", resourceId != null ? resourceId : "");
+        event.put("details", details != null ? details : Map.of());
+        event.put("timestamp", FieldValue.serverTimestamp());
+        try {
+            if (schoolId != null && !schoolId.isBlank()) {
+                firestore.collection("schools").document(schoolId).collection("auditEvents").add(event).get();
+            } else {
+                firestore.collection("systemAuditEvents").add(event).get();
+            }
+        } catch (Exception e) {
+            log.error("AUDIT_WRITE_FAILED system action={} resourceType={} resourceId={} schoolId={}",
+                    action, resourceType, resourceId, schoolId, e);
+        }
+    }
+
     public void record(FirebaseUserDetails actor,
                        String action,
                        String resourceType,

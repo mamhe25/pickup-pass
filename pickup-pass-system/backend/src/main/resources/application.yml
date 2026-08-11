@@ -69,3 +69,8 @@ logging:
     level: "%5p [requestId:%X{requestId:-}]"
   level:
     com.pickuppass: INFO
+
+# Phase 2 scheduled announcements. Cloud Run instances can all run the sweep;
+# Firestore transaction claiming prevents normal duplicate processing.
+pickuppass:
+  broadcast-scheduler-ms: ${BROADCAST_SCHEDULER_MS:30000}

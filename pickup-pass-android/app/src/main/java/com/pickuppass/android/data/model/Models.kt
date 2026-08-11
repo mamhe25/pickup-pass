@@ -489,3 +489,37 @@ data class DeviceRevokeResponse(
     val status: String = "",
     val revokedCount: Int = 0
 )
+
+// Phase 2: scheduled school announcements and delivery history.
+data class ScheduleBroadcastRequest(
+    val title: String,
+    val body: String,
+    val audience: List<String>,
+    val scheduledAt: String
+)
+
+data class ScheduleBroadcastResponse(
+    val broadcastId: String = "",
+    val status: String = "",
+    val scheduledAt: String? = null,
+    val error: String? = null
+)
+
+data class BroadcastHistoryItem(
+    val id: String = "",
+    val title: String = "",
+    val body: String = "",
+    val status: String = "",
+    val deliveryMode: String = "",
+    val audience: List<String> = emptyList(),
+    val recipientCount: Int = 0,
+    val createdAt: String? = null,
+    val scheduledAt: String? = null,
+    val sentAt: String? = null,
+    val cancelledAt: String? = null,
+    val errorMessage: String? = null
+)
+
+data class BroadcastHistoryResponse(
+    val broadcasts: List<BroadcastHistoryItem> = emptyList()
+)

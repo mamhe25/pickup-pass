@@ -184,6 +184,15 @@ interface PickupPassApi {
     @POST("school-admin/broadcasts")
     suspend fun broadcastToSchool(@Body body: BroadcastRequest): Response<BroadcastResponse>
 
+    @POST("school-admin/broadcasts/schedule")
+    suspend fun scheduleSchoolBroadcast(@Body body: ScheduleBroadcastRequest): Response<ScheduleBroadcastResponse>
+
+    @GET("school-admin/broadcasts/history")
+    suspend fun getSchoolBroadcastHistory(@Query("limit") limit: Int = 50): Response<BroadcastHistoryResponse>
+
+    @retrofit2.http.DELETE("school-admin/broadcasts/{broadcastId}")
+    suspend fun cancelSchoolBroadcast(@Path("broadcastId") broadcastId: String): Response<SimpleStatusResponse>
+
     @POST("teacher/broadcasts")
     suspend fun broadcastToSection(@Body body: BroadcastRequest): Response<BroadcastResponse>
 }
