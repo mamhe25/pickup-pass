@@ -134,6 +134,34 @@ class ManageGuardiansViewModel @Inject constructor(
         }
     }
 
+
+    fun updatePickupSchedule(
+        guardianUid: String,
+        enabled: Boolean,
+        pickupDays: List<String>,
+        startDate: String,
+        endDate: String
+    ) {
+        if (_uiState.value.isSubmitting) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSubmitting = true, formError = null, formSuccess = null)
+            when (val result = guardianRepository.updateGuardianSchedule(
+                currentStudentId, guardianUid, enabled, pickupDays, startDate, endDate
+            )) {
+                is ApiResult.Success -> {
+                    val message = if (enabled) {
+                        "Pickup schedule updated. New QR passes will only work on the selected days."
+                    } else {
+                        "Pickup schedule removed. This guardian can pick up on any allowed school pickup day."
+                    }
+                    _uiState.value = _uiState.value.copy(isSubmitting = false, formSuccess = message, formIsWarning = false)
+                    load(currentStudentId)
+                }
+                is ApiResult.Failure -> _uiState.value = _uiState.value.copy(isSubmitting = false, formError = result.message)
+            }
+        }
+    }
+
     fun removeGuardian(guardianUid: String) {
         viewModelScope.launch {
             when (val result = guardianRepository.removeGuardian(currentStudentId, guardianUid)) {

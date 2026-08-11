@@ -48,6 +48,7 @@ fun ManageGuardiansScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var confirmRemoveUid by remember { mutableStateOf<String?>(null) }
+    var scheduleRow by remember { mutableStateOf<GuardianRow?>(null) }
 
     LaunchedEffect(studentId) { viewModel.load(studentId) }
 
@@ -86,6 +87,7 @@ fun ManageGuardiansScreen(
                 GuardianRowCard(
                     row = row,
                     onRemoveClick = { confirmRemoveUid = row.uid },
+                    onScheduleClick = { scheduleRow = row },
                     modifier = Modifier.animateItemPlacement(
                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
                     )
@@ -119,6 +121,18 @@ fun ManageGuardiansScreen(
         }
     }
 
+    scheduleRow?.let { row ->
+        GuardianScheduleDialog(
+            row = row,
+            isSubmitting = uiState.isSubmitting,
+            onDismiss = { scheduleRow = null },
+            onSave = { enabled, days, startDate, endDate ->
+                viewModel.updatePickupSchedule(row.uid, enabled, days, startDate, endDate)
+                scheduleRow = null
+            }
+        )
+    }
+
     confirmRemoveUid?.let { uid ->
         AlertDialog(
             onDismissRequest = { confirmRemoveUid = null },
@@ -138,7 +152,12 @@ fun ManageGuardiansScreen(
 }
 
 @Composable
-private fun GuardianRowCard(row: GuardianRow, onRemoveClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun GuardianRowCard(
+    row: GuardianRow,
+    onRemoveClick: () -> Unit,
+    onScheduleClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     ElevatedCard(shape = MaterialTheme.shapes.medium, modifier = modifier) {
         Row(
             modifier = Modifier
@@ -178,6 +197,24 @@ private fun GuardianRowCard(row: GuardianRow, onRemoveClick: () -> Unit, modifie
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
+                } else if (row.entry.pickupScheduleEnabled) {
+                    val days = row.entry.pickupDays.joinToString(", ") { it.take(3).lowercase().replaceFirstChar { c -> c.uppercase() } }
+                    val range = when {
+                        row.entry.scheduleStartDate.isNotBlank() && row.entry.scheduleEndDate.isNotBlank() -> " · ${row.entry.scheduleStartDate} to ${row.entry.scheduleEndDate}"
+                        row.entry.scheduleStartDate.isNotBlank() -> " · from ${row.entry.scheduleStartDate}"
+                        row.entry.scheduleEndDate.isNotBlank() -> " · through ${row.entry.scheduleEndDate}"
+                        else -> ""
+                    }
+                    Text(
+                        "Scheduled: $days$range",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            if (!row.entry.isPrimary && !row.entry.authorizationType.equals("temporary", ignoreCase = true)) {
+                IconButton(onClick = onScheduleClick) {
+                    Icon(Icons.Filled.Schedule, contentDescription = "Pickup schedule")
                 }
             }
             if (!row.entry.isPrimary) {
@@ -187,6 +224,80 @@ private fun GuardianRowCard(row: GuardianRow, onRemoveClick: () -> Unit, modifie
             }
         }
     }
+}
+
+
+@Composable
+private fun GuardianScheduleDialog(
+    row: GuardianRow,
+    isSubmitting: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (enabled: Boolean, days: List<String>, startDate: String, endDate: String) -> Unit
+) {
+    val allDays = listOf("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY")
+    var enabled by remember(row.uid) { mutableStateOf(row.entry.pickupScheduleEnabled) }
+    var selectedDays by remember(row.uid) { mutableStateOf(row.entry.pickupDays.toSet()) }
+    var startDate by remember(row.uid) { mutableStateOf(row.entry.scheduleStartDate) }
+    var endDate by remember(row.uid) { mutableStateOf(row.entry.scheduleEndDate) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pickup schedule") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    row.profile?.displayName?.ifBlank { "Guardian" } ?: "Guardian",
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    "Optional. Leave this off to allow pickup on any day permitted by the school's pickup policy.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(checked = enabled, onCheckedChange = { enabled = it })
+                    Spacer(Modifier.width(8.dp))
+                    Text("Limit pickup to selected days")
+                }
+                if (enabled) {
+                    allDays.forEach { day ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = selectedDays.contains(day),
+                                onCheckedChange = { checked ->
+                                    selectedDays = if (checked) selectedDays + day else selectedDays - day
+                                }
+                            )
+                            Text(day.lowercase().replaceFirstChar { c -> c.uppercase() })
+                        }
+                    }
+                    OutlinedTextField(
+                        value = startDate,
+                        onValueChange = { startDate = it },
+                        label = { Text("Start date (optional)") },
+                        supportingText = { Text("YYYY-MM-DD") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = endDate,
+                        onValueChange = { endDate = it },
+                        label = { Text("End date (optional)") },
+                        supportingText = { Text("YYYY-MM-DD") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !isSubmitting && (!enabled || selectedDays.isNotEmpty()),
+                onClick = { onSave(enabled, selectedDays.toList(), startDate.trim(), endDate.trim()) }
+            ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

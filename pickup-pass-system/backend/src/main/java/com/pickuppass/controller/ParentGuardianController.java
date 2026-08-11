@@ -224,6 +224,104 @@ public class ParentGuardianController {
         ));
     }
 
+    @PutMapping("/guardian-schedule")
+    @PreAuthorize("hasAnyRole('parent', 'teacher', 'school_admin')")
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<?> updateGuardianSchedule(
+            @RequestBody GuardianScheduleRequest req,
+            @AuthenticationPrincipal FirebaseUserDetails actor) throws Exception {
+
+        String schoolId = actor.getSchoolId();
+        DocumentReference studentRef = firestore.collection("students").document(req.getStudentId());
+        DocumentSnapshot studentSnap = studentRef.get().get();
+        if (!studentSnap.exists() || !schoolId.equals(studentSnap.getString("schoolId"))) {
+            throw new NotFoundException("Student not found");
+        }
+
+        boolean isSchoolStaff = "teacher".equals(actor.getRole()) || "school_admin".equals(actor.getRole());
+        if (!isSchoolStaff) {
+            GuardianAuthorizationService.AuthorizationDecision actorDecision = guardianAuthorizationService.check(studentSnap, actor.getUid());
+            if (!actorDecision.allowed()) throw new ForbiddenException(actorDecision.reason());
+            if (actorDecision.temporary()) throw new ForbiddenException("Temporary guardians cannot manage pickup schedules");
+            if (actor.getUid().equals(req.getGuardianUid())) {
+                throw new ForbiddenException("A guardian cannot restrict their own pickup schedule. Contact the school office if this is needed.");
+            }
+        }
+
+        Map<String, Object> guardians = (Map<String, Object>) studentSnap.get("guardians");
+        Map<String, Object> target = guardians == null ? null : (Map<String, Object>) guardians.get(req.getGuardianUid());
+        if (target == null) throw new NotFoundException("That guardian is not linked to this student");
+        if ("temporary".equalsIgnoreCase(String.valueOf(target.getOrDefault("authorizationType", "permanent")))) {
+            return ResponseEntity.badRequest().body(Map.of("error", "One-day guardians already have a date-limited authorization"));
+        }
+
+        List<String> normalizedDays = new java.util.ArrayList<>();
+        if (req.isEnabled()) {
+            if (req.getPickupDays() == null || req.getPickupDays().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Select at least one pickup day"));
+            }
+            for (String value : req.getPickupDays()) {
+                try {
+                    String normalized = java.time.DayOfWeek.valueOf(value.trim().toUpperCase()).name();
+                    if (!normalizedDays.contains(normalized)) normalizedDays.add(normalized);
+                } catch (RuntimeException ex) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Invalid pickup day: " + value));
+                }
+            }
+        }
+
+        String startDate = req.getStartDate() == null ? "" : req.getStartDate().trim();
+        String endDate = req.getEndDate() == null ? "" : req.getEndDate().trim();
+        try {
+            LocalDate start = startDate.isBlank() ? null : LocalDate.parse(startDate);
+            LocalDate end = endDate.isBlank() ? null : LocalDate.parse(endDate);
+            if (start != null && end != null && end.isBefore(start)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Schedule end date cannot be before start date"));
+            }
+        } catch (RuntimeException ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Schedule dates must use YYYY-MM-DD"));
+        }
+
+        Map<String, Object> updates = new HashMap<>();
+        String base = "guardians." + req.getGuardianUid() + ".";
+        updates.put(base + "pickupScheduleEnabled", req.isEnabled());
+        updates.put(base + "pickupDays", normalizedDays);
+        updates.put(base + "scheduleStartDate", startDate);
+        updates.put(base + "scheduleEndDate", endDate);
+        updates.put(base + "scheduleUpdatedBy", actor.getUid());
+        updates.put(base + "scheduleUpdatedAt", FieldValue.serverTimestamp());
+        studentRef.update(updates).get();
+
+        // Existing passes are revoked so every subsequent QR is issued under the new schedule.
+        int invalidated = 0;
+        ApiFuture<QuerySnapshot> liveTokens = firestore.collection("pickupTokens")
+                .whereEqualTo("studentId", req.getStudentId())
+                .whereEqualTo("parentUid", req.getGuardianUid())
+                .whereEqualTo("used", false)
+                .get();
+        for (DocumentSnapshot tokenDoc : liveTokens.get().getDocuments()) {
+            tokenDoc.getReference().update("used", true, "invalidatedReason", "guardian_schedule_changed").get();
+            invalidated++;
+        }
+
+        auditService.record(actor, "guardian.pickup_schedule_updated", "student", req.getStudentId(), Map.of(
+                "guardianUid", req.getGuardianUid(),
+                "enabled", req.isEnabled(),
+                "pickupDays", normalizedDays,
+                "startDate", startDate,
+                "endDate", endDate,
+                "invalidatedQrPasses", invalidated));
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "updated");
+        response.put("enabled", req.isEnabled());
+        response.put("pickupDays", normalizedDays);
+        response.put("startDate", startDate);
+        response.put("endDate", endDate);
+        response.put("invalidatedQrPasses", invalidated);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/remove-guardian")
     @PreAuthorize("hasAnyRole('parent', 'teacher', 'school_admin')")
     @SuppressWarnings("unchecked")
@@ -350,6 +448,29 @@ public class ParentGuardianController {
         public void setSuffix(String v) { this.suffix = v; }
         public String getRelationship() { return relationship; }
         public void setRelationship(String v) { this.relationship = v; }
+    }
+
+
+    public static class GuardianScheduleRequest {
+        @NotBlank private String studentId;
+        @NotBlank private String guardianUid;
+        private boolean enabled;
+        private List<String> pickupDays;
+        private String startDate;
+        private String endDate;
+
+        public String getStudentId() { return studentId; }
+        public void setStudentId(String v) { this.studentId = v; }
+        public String getGuardianUid() { return guardianUid; }
+        public void setGuardianUid(String v) { this.guardianUid = v; }
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean v) { this.enabled = v; }
+        public List<String> getPickupDays() { return pickupDays; }
+        public void setPickupDays(List<String> v) { this.pickupDays = v; }
+        public String getStartDate() { return startDate; }
+        public void setStartDate(String v) { this.startDate = v; }
+        public String getEndDate() { return endDate; }
+        public void setEndDate(String v) { this.endDate = v; }
     }
 
     public static class RemoveGuardianRequest {

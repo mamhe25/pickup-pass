@@ -4,6 +4,8 @@ import com.pickuppass.android.data.model.AddGuardianRequest
 import com.pickuppass.android.data.model.AddGuardianResponse
 import com.pickuppass.android.data.model.AddTemporaryGuardianRequest
 import com.pickuppass.android.data.model.RemoveGuardianRequest
+import com.pickuppass.android.data.model.GuardianScheduleRequest
+import com.pickuppass.android.data.model.GuardianScheduleResponse
 import com.pickuppass.android.data.remote.PickupPassApi
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -78,6 +80,27 @@ class GuardianRepository @Inject constructor(
             } else {
                 ApiResult.Failure(body?.error ?: "Could not authorize temporary guardian")
             }
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+
+    suspend fun updateGuardianSchedule(
+        studentId: String,
+        guardianUid: String,
+        enabled: Boolean,
+        pickupDays: List<String>,
+        startDate: String,
+        endDate: String
+    ): ApiResult<GuardianScheduleResponse> {
+        return try {
+            val response = api.updateGuardianSchedule(
+                GuardianScheduleRequest(studentId, guardianUid, enabled, pickupDays, startDate, endDate)
+            )
+            val body = response.body()
+            if (response.isSuccessful && body?.status == "updated") ApiResult.Success(body)
+            else ApiResult.Failure(body?.error ?: "Could not update pickup schedule")
         } catch (e: Exception) {
             ApiResult.Failure(e.message ?: "Network error")
         }

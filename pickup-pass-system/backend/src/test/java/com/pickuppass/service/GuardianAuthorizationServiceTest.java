@@ -27,6 +27,35 @@ class GuardianAuthorizationServiceTest {
         assertFalse(result.temporary());
     }
 
+
+    @Test
+    void scheduledPermanentGuardianIsAllowedOnConfiguredDay() {
+        String today = LocalDate.now(java.time.ZoneId.of("Asia/Manila")).getDayOfWeek().name();
+        DocumentSnapshot student = studentWithGuardian(Map.of(
+                "authorizationType", "permanent",
+                "pickupScheduleEnabled", true,
+                "pickupDays", List.of(today)
+        ));
+
+        var result = service.check(student, "guardian-1");
+        assertTrue(result.allowed());
+    }
+
+    @Test
+    void scheduledPermanentGuardianIsDeniedOnOtherDay() {
+        String today = LocalDate.now(java.time.ZoneId.of("Asia/Manila")).getDayOfWeek().name();
+        String otherDay = java.time.DayOfWeek.valueOf(today).plus(1).name();
+        DocumentSnapshot student = studentWithGuardian(Map.of(
+                "authorizationType", "permanent",
+                "pickupScheduleEnabled", true,
+                "pickupDays", List.of(otherDay)
+        ));
+
+        var result = service.check(student, "guardian-1");
+        assertFalse(result.allowed());
+        assertTrue(result.reason().contains("not authorized"));
+    }
+
     @Test
     void temporaryGuardianIsAllowedOnlyOnAuthorizedDate() {
         DocumentSnapshot student = studentWithGuardian(Map.of(

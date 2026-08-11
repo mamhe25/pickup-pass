@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
@@ -59,7 +60,7 @@ public class GuardianAuthorizationService {
         Map<String, Object> entry = (Map<String, Object>) rawMap;
         String type = stringValue(entry.get("authorizationType"), "permanent");
         if (!"temporary".equalsIgnoreCase(type)) {
-            return AuthorizationDecision.allowed(false);
+            return checkPermanentSchedule(entry);
         }
 
         String validDate = stringValue(entry.get("validDate"), "");
@@ -88,6 +89,41 @@ public class GuardianAuthorizationService {
         }
 
         return AuthorizationDecision.allowed(true);
+    }
+
+    @SuppressWarnings("unchecked")
+    private AuthorizationDecision checkPermanentSchedule(Map<String, Object> entry) {
+        if (!Boolean.TRUE.equals(entry.get("pickupScheduleEnabled"))) {
+            return AuthorizationDecision.allowed(false);
+        }
+
+        LocalDate today = LocalDate.now(schoolTimeZone);
+        String start = stringValue(entry.get("scheduleStartDate"), "").trim();
+        String end = stringValue(entry.get("scheduleEndDate"), "").trim();
+        try {
+            if (!start.isBlank() && today.isBefore(LocalDate.parse(start))) {
+                return AuthorizationDecision.denied("Guardian pickup schedule starts on " + start);
+            }
+            if (!end.isBlank() && today.isAfter(LocalDate.parse(end))) {
+                return AuthorizationDecision.denied("Guardian pickup schedule ended on " + end);
+            }
+        } catch (RuntimeException ex) {
+            return AuthorizationDecision.denied("Guardian pickup schedule is invalid");
+        }
+
+        Object rawDays = entry.get("pickupDays");
+        if (!(rawDays instanceof List<?> days) || days.isEmpty()) {
+            return AuthorizationDecision.denied("Guardian pickup schedule has no authorized days");
+        }
+
+        String todayName = today.getDayOfWeek().name();
+        boolean allowedToday = days.stream().map(String::valueOf).anyMatch(todayName::equalsIgnoreCase);
+        if (!allowedToday) {
+            String friendly = today.getDayOfWeek().name().toLowerCase();
+            friendly = Character.toUpperCase(friendly.charAt(0)) + friendly.substring(1);
+            return AuthorizationDecision.denied("Guardian pickup is not authorized on " + friendly);
+        }
+        return AuthorizationDecision.allowed(false);
     }
 
     private AuthorizationDecision checkVerification(String schoolId, String guardianUid) {

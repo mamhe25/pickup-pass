@@ -28,6 +28,10 @@ data class GuardianEntry(
     val authorizationType: String = "permanent",
     val validDate: String = "",
     val remainingUses: Int = 0,
+    val pickupScheduleEnabled: Boolean = false,
+    val pickupDays: List<String> = emptyList(),
+    val scheduleStartDate: String = "",
+    val scheduleEndDate: String = "",
 )
 
 /** Firestore: notifications/{notificationId} */
@@ -131,6 +135,25 @@ data class AddTemporaryGuardianRequest(
     val suffix: String? = null,
     val relationship: String,
     val validDate: String
+)
+
+data class GuardianScheduleRequest(
+    val studentId: String,
+    val guardianUid: String,
+    val enabled: Boolean,
+    val pickupDays: List<String> = emptyList(),
+    val startDate: String = "",
+    val endDate: String = ""
+)
+
+data class GuardianScheduleResponse(
+    val status: String? = null,
+    val enabled: Boolean = false,
+    val pickupDays: List<String> = emptyList(),
+    val startDate: String = "",
+    val endDate: String = "",
+    val invalidatedQrPasses: Int = 0,
+    val error: String? = null
 )
 
 data class RemoveGuardianRequest(val studentId: String, val guardianUid: String)
