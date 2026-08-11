@@ -24,6 +24,11 @@ interface PickupPassApi {
     @POST("parent/generate-token")
     suspend fun generateToken(@Body body: GenerateTokenRequest): Response<PickupTokenResponse>
 
+    @GET("parent/students/{studentId}/guardian-profiles")
+    suspend fun getGuardianProfiles(
+        @Path("studentId") studentId: String
+    ): Response<GuardianProfilesResponse>
+
     @POST("parent/add-guardian")
     suspend fun addGuardian(@Body body: AddGuardianRequest): Response<AddGuardianResponse>
 

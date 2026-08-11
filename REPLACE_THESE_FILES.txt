@@ -284,3 +284,10 @@ Billing state, payment review, quota warnings, billing email failures, and opera
 PACKAGE CONTENT COUNT
 - Cumulative replacement files in Update 14: 201
 - SHA-256 manifest: PACKAGE_SHA256SUMS.txt
+
+PHASE 3 UPDATE 15 — RELEASE CANDIDATE HARDENING
+- Deploy the updated Firestore rules before first-school launch.
+- BOOTSTRAP_ENABLED must be false after the first master admin is provisioned.
+- Run tools\phase3-rc-verify.ps1 from the project root before a release build.
+- Do not place service-account JSON, keystores or .env files inside the repository.
+- The release Android network config blocks cleartext; local HTTP is debug-only.

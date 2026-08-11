@@ -6,6 +6,7 @@ import com.pickuppass.android.data.model.AddTemporaryGuardianRequest
 import com.pickuppass.android.data.model.RemoveGuardianRequest
 import com.pickuppass.android.data.model.GuardianScheduleRequest
 import com.pickuppass.android.data.model.GuardianScheduleResponse
+import com.pickuppass.android.data.model.UserProfile
 import com.pickuppass.android.data.remote.PickupPassApi
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,6 +20,26 @@ sealed class ApiResult<out T> {
 class GuardianRepository @Inject constructor(
     private val api: PickupPassApi
 ) {
+    suspend fun getGuardianProfiles(studentId: String): ApiResult<Map<String, UserProfile>> {
+        return try {
+            val response = api.getGuardianProfiles(studentId)
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                ApiResult.Success(body.guardians.associate { summary ->
+                    summary.uid to UserProfile(
+                        uid = summary.uid,
+                        displayName = summary.displayName,
+                        photoUrl = summary.photoUrl
+                    )
+                })
+            } else {
+                ApiResult.Failure("Could not load guardian profiles")
+            }
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
     suspend fun addGuardian(
         studentId: String,
         lastName: String,

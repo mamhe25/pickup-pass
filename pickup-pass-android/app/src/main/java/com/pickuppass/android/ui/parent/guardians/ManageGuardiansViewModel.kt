@@ -61,9 +61,12 @@ class ManageGuardiansViewModel @Inject constructor(
                 return@launch
             }
 
+            val profileMap = when (val profiles = guardianRepository.getGuardianProfiles(studentId)) {
+                is ApiResult.Success -> profiles.data
+                is ApiResult.Failure -> emptyMap()
+            }
             val rows = student.guardians.map { (uid, entry) ->
-                val profile = studentRepository.getUserProfile(uid).getOrNull()
-                GuardianRow(uid, entry, profile)
+                GuardianRow(uid, entry, profileMap[uid])
             }.sortedByDescending { it.entry.isPrimary }
 
             _uiState.value = _uiState.value.copy(

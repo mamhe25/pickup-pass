@@ -11,9 +11,6 @@ service cloud.firestore {
     }
 
     function isUserActive() {
-      // Staff accounts created before isActive was introduced have no such
-      // field. Keep those legacy accounts working, while an explicit false
-      // value continues to block a suspended user immediately.
       return !userDoc().keys().hasAll(['isActive']) || userDoc().isActive == true;
     }
 
@@ -32,43 +29,39 @@ service cloud.firestore {
 
     match /schools/{schoolId} {
       allow read: if sameSchool(schoolId) || isMasterAdmin();
-      allow write: if isMasterAdmin();
+      allow write: if false;
     }
 
     match /users/{userId} {
       allow read: if isSignedIn() &&
-        (request.auth.uid == userId || sameSchool(resource.data.schoolId));
-      allow create: if isMasterAdmin() ||
-        (isSignedIn() && userDoc().role == 'school_admin');
-      allow update: if request.auth.uid == userId || isMasterAdmin();
-      allow delete: if isMasterAdmin();
+        (request.auth.uid == userId ||
+         isMasterAdmin() ||
+         isSchoolStaff(resource.data.schoolId));
+
+      allow create: if false;
+      allow update: if isSignedIn() && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoUrl']);
+      allow delete: if false;
     }
 
     match /students/{studentId} {
       allow read: if isSchoolStaff(resource.data.schoolId) ||
         (isSignedIn() && resource.data.guardianUids.hasAny([request.auth.uid]));
-      allow write: if isSchoolStaff(resource.data.schoolId);
+      allow create, update, delete: if false;
     }
 
     match /pickupTokens/{tokenId} {
-      allow create: if isSignedIn() && request.resource.data.parentUid == request.auth.uid;
-      allow read, update: if isSchoolStaff(resource.data.schoolId) ||
-        resource.data.parentUid == request.auth.uid;
-      allow delete: if false;
+      allow read, write: if false;
     }
 
     match /exitLogs/{logId} {
-      allow create: if isSchoolStaff(request.resource.data.schoolId);
       allow read: if isSchoolStaff(resource.data.schoolId) ||
-        resource.data.parentUid == request.auth.uid;
-      allow update, delete: if false; // immutable audit trail
+        (isSignedIn() && resource.data.parentUid == request.auth.uid);
+      allow create, update, delete: if false;
     }
 
     match /notifications/{notificationId} {
       allow read: if isSignedIn() && resource.data.recipientUid == request.auth.uid;
-      // Only the "read" flag should ever change client-side; Admin SDK
-      // (the backend, which creates these) bypasses rules entirely, so
-      // this only governs direct client writes when marking as read.
       allow update: if isSignedIn() && resource.data.recipientUid == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow create, delete: if false;

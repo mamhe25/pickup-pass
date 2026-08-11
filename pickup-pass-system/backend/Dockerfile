@@ -9,7 +9,8 @@ WORKDIR /build
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 COPY src ./src
-RUN mvn clean package -DskipTests -B
+# Release-candidate gate: do not build the production image when tests fail.
+RUN mvn clean verify -B
 
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app

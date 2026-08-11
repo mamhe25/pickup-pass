@@ -5,3 +5,12 @@ target/
 *.iml
 .vscode/
 .git/
+
+# Never send local secrets/signing material into the Docker build context
+secrets/
+.env
+.env.*
+*.pem
+*.p12
+*.jks
+*.keystore

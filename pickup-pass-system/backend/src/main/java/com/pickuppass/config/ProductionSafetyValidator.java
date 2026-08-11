@@ -14,6 +14,7 @@ public class ProductionSafetyValidator {
     private final Environment environment;
     private final String qrSecret;
     private final String bootstrapSecret;
+    private final boolean bootstrapEnabled;
     private final String frontendUrl;
     private final String corsAllowedOrigins;
     private final String securityFingerprintSecret;
@@ -23,6 +24,7 @@ public class ProductionSafetyValidator {
     public ProductionSafetyValidator(Environment environment,
             @Value("${qr.signing.secret:}") String qrSecret,
             @Value("${bootstrap.secret:}") String bootstrapSecret,
+            @Value("${bootstrap.enabled:false}") boolean bootstrapEnabled,
             @Value("${app.frontend-base-url:}") String frontendUrl,
             @Value("${app.cors.allowed-origins:}") String corsAllowedOrigins,
             @Value("${pickuppass.security.fingerprint-secret:}") String securityFingerprintSecret,
@@ -31,6 +33,7 @@ public class ProductionSafetyValidator {
         this.environment = environment;
         this.qrSecret = qrSecret;
         this.bootstrapSecret = bootstrapSecret;
+        this.bootstrapEnabled = bootstrapEnabled;
         this.frontendUrl = frontendUrl;
         this.corsAllowedOrigins = corsAllowedOrigins;
         this.securityFingerprintSecret = securityFingerprintSecret;
@@ -47,8 +50,8 @@ public class ProductionSafetyValidator {
         if (qrSecret == null || qrSecret.length() < 32 || qrSecret.contains("change-this")) {
             throw new IllegalStateException("Production requires QR_SIGNING_SECRET with at least 32 random characters");
         }
-        if (bootstrapSecret == null || bootstrapSecret.length() < 32) {
-            throw new IllegalStateException("Production requires BOOTSTRAP_SECRET with at least 32 random characters");
+        if (bootstrapEnabled && (bootstrapSecret == null || bootstrapSecret.length() < 32)) {
+            throw new IllegalStateException("When BOOTSTRAP_ENABLED=true, production requires BOOTSTRAP_SECRET with at least 32 random characters");
         }
         if (securityFingerprintSecret == null || securityFingerprintSecret.length() < 32
                 || securityFingerprintSecret.contains("development-security")) {

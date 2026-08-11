@@ -109,6 +109,16 @@ data class ApproveResponse(
     val reason: String? = null
 )
 
+data class GuardianProfileSummary(
+    val uid: String = "",
+    val displayName: String = "",
+    val photoUrl: String? = null,
+)
+
+data class GuardianProfilesResponse(
+    val guardians: List<GuardianProfileSummary> = emptyList(),
+)
+
 data class AddGuardianRequest(
     val studentId: String,
     val guardianEmail: String,

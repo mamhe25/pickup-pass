@@ -22,4 +22,12 @@ out/
 # OS
 .DS_Store
 Thumbs.db
-production.env.example
+# Secrets / production credentials
+**/secrets/**
+**/*.keystore
+**/*.jks
+**/*.p12
+**/*.pem
+**/.env
+**/.env.*
+!**/.env.example

@@ -18,7 +18,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -64,6 +66,48 @@ public class ParentGuardianController {
         this.subscriptionFeatureService = subscriptionFeatureService;
         this.maxGuardiansPerStudent = maxGuardiansPerStudent;
         this.schoolTimeZone = ZoneId.of(schoolTimeZone);
+    }
+
+    /**
+     * Returns only the guardian identity fields required by the parent UI.
+     * Parents no longer receive direct Firestore read access to the school's
+     * user directory.
+     */
+    @GetMapping("/students/{studentId}/guardian-profiles")
+    @PreAuthorize("hasRole('parent')")
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<?> guardianProfiles(
+            @PathVariable String studentId,
+            @AuthenticationPrincipal FirebaseUserDetails parent) throws Exception {
+
+        DocumentSnapshot studentSnap = firestore.collection("students").document(studentId).get().get();
+        if (!studentSnap.exists() || !parent.getSchoolId().equals(studentSnap.getString("schoolId"))) {
+            throw new NotFoundException("Student not found");
+        }
+
+        GuardianAuthorizationService.AuthorizationDecision decision =
+                guardianAuthorizationService.check(studentSnap, parent.getUid());
+        if (!decision.allowed()) throw new ForbiddenException(decision.reason());
+        if (decision.temporary()) {
+            throw new ForbiddenException("Temporary guardians cannot view or manage the permanent guardian directory");
+        }
+
+        List<String> guardianUids = (List<String>) studentSnap.get("guardianUids");
+        if (guardianUids == null) guardianUids = List.of();
+
+        List<Map<String, Object>> profiles = new ArrayList<>();
+        for (String uid : guardianUids) {
+            if (uid == null || uid.isBlank()) continue;
+            DocumentSnapshot user = firestore.collection("users").document(uid).get().get();
+            if (!user.exists() || !parent.getSchoolId().equals(user.getString("schoolId"))) continue;
+
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("uid", uid);
+            item.put("displayName", user.getString("displayName") == null ? "" : user.getString("displayName"));
+            item.put("photoUrl", user.getString("photoUrl") == null ? "" : user.getString("photoUrl"));
+            profiles.add(item);
+        }
+        return ResponseEntity.ok(Map.of("guardians", profiles));
     }
 
     @PostMapping("/add-guardian")

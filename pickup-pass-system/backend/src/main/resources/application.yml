@@ -65,6 +65,7 @@ app:
     enabled: ${RATE_LIMIT_ENABLED:true}
 
 bootstrap:
+  enabled: ${BOOTSTRAP_ENABLED:false}
   secret: ${BOOTSTRAP_SECRET:}
 
 logging:

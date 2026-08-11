@@ -26,9 +26,9 @@ import java.util.concurrent.ExecutionException;
  *      even with a correct secret — so leaking the secret after initial
  *      setup doesn't let someone mint extra master admins.
  *
- * Operational recommendation: after using this once, unset/rotate
- * BOOTSTRAP_SECRET in your deployment so the endpoint has no valid secret
- * to check against going forward.
+ * Operational recommendation: set BOOTSTRAP_ENABLED=true only for the
+ * initial provisioning window. After the first master admin exists, set
+ * BOOTSTRAP_ENABLED=false and remove/rotate BOOTSTRAP_SECRET.
  */
 @RestController
 @RequestMapping("/api/bootstrap")
@@ -37,14 +37,17 @@ public class BootstrapController {
     private final Firestore firestore;
     private final StaffProvisioningService staffProvisioningService;
     private final String bootstrapSecret;
+    private final boolean bootstrapEnabled;
 
     public BootstrapController(
             Firestore firestore,
             StaffProvisioningService staffProvisioningService,
-            @Value("${bootstrap.secret:}") String bootstrapSecret) {
+            @Value("${bootstrap.secret:}") String bootstrapSecret,
+            @Value("${bootstrap.enabled:false}") boolean bootstrapEnabled) {
         this.firestore = firestore;
         this.staffProvisioningService = staffProvisioningService;
         this.bootstrapSecret = bootstrapSecret;
+        this.bootstrapEnabled = bootstrapEnabled;
     }
 
     @PostMapping("/master-admin")
@@ -52,9 +55,12 @@ public class BootstrapController {
             @RequestHeader(value = "X-Bootstrap-Secret", required = false) String providedSecret,
             @RequestBody CreateMasterAdminRequest req) throws Exception {
 
+        if (!bootstrapEnabled) {
+            return ResponseEntity.status(404).body(Map.of("error", "Bootstrap is disabled"));
+        }
         if (bootstrapSecret.isBlank()) {
-            return ResponseEntity.status(403).body(Map.of(
-                    "error", "Bootstrap is disabled — BOOTSTRAP_SECRET is not set on the server"));
+            return ResponseEntity.status(503).body(Map.of(
+                    "error", "Bootstrap is enabled but BOOTSTRAP_SECRET is not configured"));
         }
         if (providedSecret == null || !constantTimeEquals(providedSecret, bootstrapSecret)) {
             return ResponseEntity.status(403).body(Map.of("error", "Invalid bootstrap secret"));

@@ -98,10 +98,20 @@ async function renderGuardians() {
     return;
   }
 
+  let profileMap = {};
+  try {
+    const profileRes = await authedFetch(`/parent/students/${encodeURIComponent(studentId)}/guardian-profiles`);
+    if (profileRes.ok) {
+      const profileBody = await profileRes.json();
+      profileMap = Object.fromEntries((profileBody.guardians || []).map((p) => [p.uid, p]));
+    }
+  } catch (_) {
+    // Relationship/primary status can still render if profile summaries fail.
+  }
+
   for (const uid of uids) {
     const entry = guardians[uid];
-    const userSnap = await getDoc(doc(db, "users", uid));
-    const userData = userSnap.exists() ? userSnap.data() : {};
+    const userData = profileMap[uid] || {};
 
     const row = document.createElement("div");
     row.className = "pp-card pp-card--pad flex items-center gap-3";
