@@ -263,6 +263,30 @@ interface PickupPassApi {
         @Path("schoolId") schoolId: String
     ): Response<MasterSubscriptionResponse>
 
+    @GET("master-admin/billing/schools/{schoolId}/invoices")
+    suspend fun listMasterInvoices(@Path("schoolId") schoolId: String): Response<MasterInvoiceListResponse>
+
+    @POST("master-admin/billing/schools/{schoolId}/invoices")
+    suspend fun createMasterInvoice(
+        @Path("schoolId") schoolId: String,
+        @Body body: CreateMasterInvoiceRequest
+    ): Response<MasterInvoiceItem>
+
+    @POST("master-admin/billing/invoices/{invoiceId}/paid")
+    suspend fun markMasterInvoicePaid(
+        @Path("invoiceId") invoiceId: String,
+        @Body body: MarkMasterInvoicePaidRequest
+    ): Response<MasterInvoiceItem>
+
+    @POST("master-admin/billing/invoices/{invoiceId}/void")
+    suspend fun voidMasterInvoice(
+        @Path("invoiceId") invoiceId: String,
+        @Body body: VoidMasterInvoiceRequest
+    ): Response<MasterInvoiceItem>
+
+    @POST("master-admin/billing/schools/{schoolId}/invoices/reconcile-overdue")
+    suspend fun reconcileMasterOverdueInvoices(@Path("schoolId") schoolId: String): Response<Map<String, Int>>
+
     @GET("tenant/entitlements")
     suspend fun getTenantEntitlements(): Response<TenantEntitlementsResponse>
 

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pickuppass.android.data.model.MasterPlanDefinition
 import com.pickuppass.android.data.model.MasterSchoolItem
+import com.pickuppass.android.data.model.MasterInvoiceItem
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.AuthRepository
 import com.pickuppass.android.data.repository.MasterAdminRepository
@@ -22,6 +23,9 @@ data class MasterAdminUiState(
     val schools: List<MasterSchoolItem> = emptyList(),
     val plans: Map<String, MasterPlanDefinition> = emptyMap(),
     val featureKeys: List<String> = emptyList(),
+    val billingSchoolId: String? = null,
+    val billingLoading: Boolean = false,
+    val invoices: List<MasterInvoiceItem> = emptyList(),
     val error: String? = null,
     val message: String? = null
 )
@@ -87,6 +91,40 @@ class MasterAdminViewModel @Inject constructor(
 
     fun reconcileSubscription(schoolId: String) =
         runSave("Subscription lifecycle checked") { repository.reconcileSubscription(schoolId) }
+
+    fun loadInvoices(schoolId: String) = viewModelScope.launch {
+        _uiState.value = _uiState.value.copy(billingSchoolId = schoolId, billingLoading = true, error = null)
+        when (val r = repository.listInvoices(schoolId)) {
+            is ApiResult.Success -> _uiState.value = _uiState.value.copy(billingLoading = false, invoices = r.data.invoices)
+            is ApiResult.Failure -> _uiState.value = _uiState.value.copy(billingLoading = false, error = r.message)
+        }
+    }
+
+    fun createInvoice(schoolId: String, amountMinor: Long, dueAt: String?, note: String) =
+        runBillingSave(schoolId, "Invoice created") { repository.createInvoice(schoolId, amountMinor, dueAt, note) }
+
+    fun markInvoicePaid(schoolId: String, invoiceId: String, reference: String, method: String, note: String) =
+        runBillingSave(schoolId, "Invoice marked paid") { repository.markInvoicePaid(invoiceId, reference, method, note) }
+
+    fun voidInvoice(schoolId: String, invoiceId: String, reason: String) =
+        runBillingSave(schoolId, "Invoice voided") { repository.voidInvoice(invoiceId, reason) }
+
+    fun reconcileOverdueInvoices(schoolId: String) =
+        runBillingSave(schoolId, "Overdue invoices checked") { repository.reconcileOverdueInvoices(schoolId) }
+
+    private fun runBillingSave(schoolId: String, message: String, block: suspend () -> ApiResult<*>) {
+        if (_uiState.value.saving) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(saving = true, error = null, message = null)
+            when (val r = block()) {
+                is ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(saving = false, message = message)
+                    loadInvoices(schoolId)
+                }
+                is ApiResult.Failure -> _uiState.value = _uiState.value.copy(saving = false, error = r.message)
+            }
+        }
+    }
 
     fun signOut() { authRepository.signOut() }
 

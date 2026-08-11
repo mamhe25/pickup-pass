@@ -16,6 +16,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.MasterPlanDefinition
 import com.pickuppass.android.data.model.MasterSchoolItem
+import com.pickuppass.android.data.model.MasterInvoiceItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.theme.Spacing
@@ -30,6 +31,7 @@ fun MasterAdminScreen(
     var createSchool by remember { mutableStateOf(false) }
     var adminForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
     var subscriptionForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
+    var billingForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
 
     Scaffold(
         topBar = {
@@ -90,6 +92,7 @@ fun MasterAdminScreen(
                     onToggle = { viewModel.setSchoolActive(school.schoolId, school.status != "active") },
                     onAddAdmin = { adminForSchool = school },
                     onManageSubscription = { subscriptionForSchool = school },
+                    onBilling = { billingForSchool = school; viewModel.loadInvoices(school.schoolId) },
                     onReconcileSubscription = { viewModel.reconcileSubscription(school.schoolId) }
                 )
             }
@@ -145,6 +148,20 @@ fun MasterAdminScreen(
                 ) { Text("Create admin") }
             },
             dismissButton = { TextButton(onClick = { adminForSchool = null }) { Text("Cancel") } }
+        )
+    }
+
+    billingForSchool?.let { school ->
+        BillingDialog(
+            school = school,
+            invoices = if (state.billingSchoolId == school.schoolId) state.invoices else emptyList(),
+            loading = state.billingLoading,
+            saving = state.saving,
+            onDismiss = { billingForSchool = null },
+            onCreate = { amountMinor, dueAt, note -> viewModel.createInvoice(school.schoolId, amountMinor, dueAt, note) },
+            onPaid = { invoiceId, reference, method, note -> viewModel.markInvoicePaid(school.schoolId, invoiceId, reference, method, note) },
+            onVoid = { invoiceId, reason -> viewModel.voidInvoice(school.schoolId, invoiceId, reason) },
+            onReconcile = { viewModel.reconcileOverdueInvoices(school.schoolId) }
         )
     }
 
@@ -336,6 +353,7 @@ private fun SchoolCard(
     onToggle: () -> Unit,
     onAddAdmin: () -> Unit,
     onManageSubscription: () -> Unit,
+    onBilling: () -> Unit,
     onReconcileSubscription: () -> Unit
 ) {
     val active = school.status == "active"
@@ -381,7 +399,8 @@ private fun SchoolCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                FilledTonalButton(onClick = onManageSubscription, enabled = !saving) { Text("Plan & billing") }
+                FilledTonalButton(onClick = onManageSubscription, enabled = !saving) { Text("Plan") }
+                FilledTonalButton(onClick = onBilling, enabled = !saving) { Text("Billing records") }
                 FilledTonalButton(onClick = onAddAdmin, enabled = active && !saving) { Text("Add admin") }
             }
             TextButton(onClick = onReconcileSubscription, enabled = !saving) {
@@ -390,5 +409,109 @@ private fun SchoolCard(
         }
     }
 }
+
+
+@Composable
+private fun BillingDialog(
+    school: MasterSchoolItem,
+    invoices: List<MasterInvoiceItem>,
+    loading: Boolean,
+    saving: Boolean,
+    onDismiss: () -> Unit,
+    onCreate: (Long, String?, String) -> Unit,
+    onPaid: (String, String, String, String) -> Unit,
+    onVoid: (String, String) -> Unit,
+    onReconcile: () -> Unit
+) {
+    var showCreate by remember(school.schoolId) { mutableStateOf(false) }
+    var payInvoice by remember(school.schoolId) { mutableStateOf<MasterInvoiceItem?>(null) }
+    var voidInvoice by remember(school.schoolId) { mutableStateOf<MasterInvoiceItem?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Billing records") },
+        text = {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                item { Text(school.schoolName, fontWeight = FontWeight.SemiBold) }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        Button(onClick = { showCreate = true }, enabled = !saving) { Text("New invoice") }
+                        TextButton(onClick = onReconcile, enabled = !saving) { Text("Check overdue") }
+                    }
+                }
+                if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                if (!loading && invoices.isEmpty()) item { Text("No billing records yet.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                items(invoices, key = { it.invoiceId }) { invoice ->
+                    OutlinedCard(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(invoice.invoiceNumber, fontWeight = FontWeight.SemiBold)
+                                Text(invoice.status.replace('_',' ').replaceFirstChar { it.uppercase() })
+                            }
+                            Text("${invoice.currency} ${moneyLabel(invoice.amountMinor)} · due ${invoice.dueAt?.take(10) ?: "—"}", style = MaterialTheme.typography.bodySmall)
+                            if (invoice.note.isNotBlank()) Text(invoice.note, style = MaterialTheme.typography.bodySmall)
+                            if (invoice.status == "paid") {
+                                Text("Paid ${invoice.paidAt?.take(10) ?: ""} ${invoice.paymentReference}".trim(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                            } else if (invoice.status != "void") {
+                                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                                    TextButton(onClick = { payInvoice = invoice }, enabled = !saving) { Text("Mark paid") }
+                                    TextButton(onClick = { voidInvoice = invoice }, enabled = !saving) { Text("Void") }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+    )
+
+    if (showCreate) {
+        var amount by remember { mutableStateOf("") }
+        var dueAt by remember { mutableStateOf("") }
+        var note by remember { mutableStateOf("") }
+        val amountMinor = amount.toDoubleOrNull()?.let { (it * 100.0).toLong() }
+        AlertDialog(
+            onDismissRequest = { showCreate = false },
+            title = { Text("New invoice") },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                OutlinedTextField(amount, { amount = it }, label = { Text("Amount (PHP)") }, singleLine = true)
+                OutlinedTextField(dueAt, { dueAt = it }, label = { Text("Due date/time ISO-8601 (optional)") })
+                OutlinedTextField(note, { note = it }, label = { Text("Note (optional)") })
+            } },
+            confirmButton = { Button(enabled = amountMinor != null && amountMinor >= 0 && !saving, onClick = { onCreate(amountMinor!!, dueAt.trim().ifBlank { null }, note); showCreate = false }) { Text("Create") } },
+            dismissButton = { TextButton(onClick = { showCreate = false }) { Text("Cancel") } }
+        )
+    }
+
+    payInvoice?.let { invoice ->
+        var reference by remember(invoice.invoiceId) { mutableStateOf("") }
+        var method by remember(invoice.invoiceId) { mutableStateOf("Manual") }
+        var note by remember(invoice.invoiceId) { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { payInvoice = null }, title = { Text("Mark invoice paid") },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Text(invoice.invoiceNumber)
+                OutlinedTextField(reference, { reference = it }, label = { Text("Payment reference (optional)") })
+                OutlinedTextField(method, { method = it }, label = { Text("Payment method") })
+                OutlinedTextField(note, { note = it }, label = { Text("Note (optional)") })
+            } },
+            confirmButton = { Button(enabled = !saving, onClick = { onPaid(invoice.invoiceId, reference, method, note); payInvoice = null }) { Text("Mark paid") } },
+            dismissButton = { TextButton(onClick = { payInvoice = null }) { Text("Cancel") } }
+        )
+    }
+
+    voidInvoice?.let { invoice ->
+        var reason by remember(invoice.invoiceId) { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { voidInvoice = null }, title = { Text("Void invoice") },
+            text = { OutlinedTextField(reason, { reason = it }, label = { Text("Reason") }) },
+            confirmButton = { Button(enabled = reason.isNotBlank() && !saving, onClick = { onVoid(invoice.invoiceId, reason); voidInvoice = null }) { Text("Void") } },
+            dismissButton = { TextButton(onClick = { voidInvoice = null }) { Text("Cancel") } }
+        )
+    }
+}
+
+private fun moneyLabel(amountMinor: Long): String = "%.2f".format(amountMinor / 100.0)
 
 private fun usageLabel(current: Long, limit: Long): String = if (limit < 0) "$current/∞" else "$current/$limit"

@@ -744,3 +744,39 @@ data class TenantEntitlementsResponse(
     val features: Map<String, Boolean> = emptyMap(),
     val limits: Map<String, Int> = emptyMap()
 )
+
+
+// ---- Phase 3: master-admin billing ledger ----
+data class MasterInvoiceItem(
+    val invoiceId: String = "",
+    val schoolId: String = "",
+    val schoolNameSnapshot: String = "",
+    val invoiceNumber: String = "",
+    val planSnapshot: String = "",
+    val amountMinor: Long = 0,
+    val currency: String = "PHP",
+    val status: String = "open",
+    val dueAt: String? = null,
+    val note: String = "",
+    val paymentReference: String = "",
+    val paymentMethod: String = "",
+    val paymentNote: String = "",
+    val voidReason: String = "",
+    val createdAt: String? = null,
+    val updatedAt: String? = null,
+    val paidAt: String? = null
+)
+
+data class MasterInvoiceListResponse(val invoices: List<MasterInvoiceItem> = emptyList())
+data class CreateMasterInvoiceRequest(
+    val amountMinor: Long,
+    val currency: String = "PHP",
+    val dueAt: String? = null,
+    val note: String? = null
+)
+data class MarkMasterInvoicePaidRequest(
+    val paymentReference: String? = null,
+    val paymentMethod: String? = null,
+    val note: String? = null
+)
+data class VoidMasterInvoiceRequest(val reason: String? = null)

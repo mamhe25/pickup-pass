@@ -90,4 +90,33 @@ class MasterAdminRepository @Inject constructor(private val api: PickupPassApi) 
         ApiResult.Failure(e.message ?: "Network error")
     }
 
+    suspend fun listInvoices(schoolId: String): ApiResult<MasterInvoiceListResponse> = try {
+        val response = api.listMasterInvoices(schoolId)
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not load billing records")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun createInvoice(schoolId: String, amountMinor: Long, dueAt: String?, note: String): ApiResult<MasterInvoiceItem> = try {
+        val response = api.createMasterInvoice(schoolId, CreateMasterInvoiceRequest(amountMinor, "PHP", dueAt, note.ifBlank { null }))
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not create invoice")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun markInvoicePaid(invoiceId: String, reference: String, method: String, note: String): ApiResult<MasterInvoiceItem> = try {
+        val response = api.markMasterInvoicePaid(invoiceId, MarkMasterInvoicePaidRequest(reference.ifBlank { null }, method.ifBlank { null }, note.ifBlank { null }))
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not mark invoice paid")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun voidInvoice(invoiceId: String, reason: String): ApiResult<MasterInvoiceItem> = try {
+        val response = api.voidMasterInvoice(invoiceId, VoidMasterInvoiceRequest(reason.ifBlank { null }))
+        response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }
+            ?: ApiResult.Failure("Could not void invoice")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun reconcileOverdueInvoices(schoolId: String): ApiResult<Unit> = try {
+        val response = api.reconcileMasterOverdueInvoices(schoolId)
+        if (response.isSuccessful) ApiResult.Success(Unit) else ApiResult.Failure("Could not reconcile overdue invoices")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
 }
