@@ -1,5 +1,8 @@
 package com.pickuppass.android.data.repository
 
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import com.pickuppass.android.data.model.*
 import com.pickuppass.android.data.remote.PickupPassApi
 import javax.inject.Inject
@@ -205,4 +208,30 @@ class SchoolAdminRepository @Inject constructor(
         }
     }
 
+
+    suspend fun importStudents(
+        bytes: ByteArray,
+        filename: String,
+        dryRun: Boolean
+    ): ApiResult<BulkStudentImportResponse> {
+        return try {
+            val contentType = when {
+                filename.lowercase().endsWith(".csv") -> "text/csv"
+                filename.lowercase().endsWith(".xls") -> "application/vnd.ms-excel"
+                else -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }.toMediaType()
+            val fileBody = bytes.toRequestBody(contentType)
+            val filePart = MultipartBody.Part.createFormData("file", filename, fileBody)
+            val dryRunBody = dryRun.toString().toRequestBody("text/plain".toMediaType())
+            val response = api.importStudents(filePart, dryRunBody)
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                ApiResult.Success(body)
+            } else {
+                ApiResult.Failure(body?.error ?: "Could not process student import")
+            }
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
 }

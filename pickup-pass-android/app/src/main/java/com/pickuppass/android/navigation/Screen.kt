@@ -49,4 +49,6 @@ sealed class Screen(val route: String) {
     data object SchoolAdminPickupPolicy : Screen("school-admin/pickup-policy")
 
     data object SchoolAdminAcademicStructure : Screen("school-admin/academic-structure")
+
+    data object SchoolAdminBulkStudentImport : Screen("school-admin/bulk-student-import")
 }

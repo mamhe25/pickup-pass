@@ -15,6 +15,7 @@ import com.pickuppass.android.ui.parent.pass.PickupPassScreen
 import com.pickuppass.android.ui.parent.profile.ProfileScreen
 import com.pickuppass.android.ui.parent.students.StudentsScreen
 import com.pickuppass.android.ui.schooladmin.branding.SchoolBrandingScreen
+import com.pickuppass.android.ui.schooladmin.bulkimport.BulkStudentImportScreen
 import com.pickuppass.android.ui.schooladmin.broadcast.SchoolBroadcastScreen
 import com.pickuppass.android.ui.schooladmin.sections.ManageSectionsScreen
 import com.pickuppass.android.ui.schooladmin.manualpickup.ManualPickupScreen
@@ -181,6 +182,7 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
                 onGoToDismissalDashboard = { navController.navigate(Screen.SchoolAdminDismissalDashboard.route) },
                 onGoToPickupPolicy = { navController.navigate(Screen.SchoolAdminPickupPolicy.route) },
                 onGoToAcademicStructure = { navController.navigate(Screen.SchoolAdminAcademicStructure.route) },
+                onGoToBulkStudentImport = { navController.navigate(Screen.SchoolAdminBulkStudentImport.route) },
                 onGoToBroadcast = { navController.navigate(Screen.SchoolAdminBroadcast.route) },
                 onSignedOut = { navController.navigateToLoginClearingBackStack() }
             )
@@ -220,6 +222,10 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
 
         composable(Screen.SchoolAdminAcademicStructure.route) {
             AcademicStructureScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.SchoolAdminBulkStudentImport.route) {
+            BulkStudentImportScreen(onBack = { navController.popBackStack() })
         }
     }
 }

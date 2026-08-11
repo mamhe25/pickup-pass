@@ -317,3 +317,31 @@ data class CreateGradeSectionRequest(
 )
 
 data class GradeSectionStatusRequest(val active: Boolean)
+// ---- Phase 2: production bulk student import ----
+
+data class BulkImportError(
+    val row: Int = 0,
+    val field: String = "",
+    val message: String = ""
+)
+
+data class BulkImportSampleStudent(
+    val studentNumber: String = "",
+    val fullName: String = "",
+    val grade: String = "",
+    val section: String = ""
+)
+
+data class BulkStudentImportResponse(
+    val dryRun: Boolean = true,
+    val totalRows: Int = 0,
+    val validRows: Int = 0,
+    val invalidRows: Int = 0,
+    val duplicateRows: Int = 0,
+    val importedRows: Int = 0,
+    val readyToImport: Boolean = false,
+    val errors: List<BulkImportError> = emptyList(),
+    val sample: List<BulkImportSampleStudent> = emptyList(),
+    val error: String? = null
+)
+

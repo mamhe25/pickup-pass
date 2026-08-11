@@ -2,6 +2,7 @@ package com.pickuppass.android.data.remote
 
 import com.pickuppass.android.data.model.*
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.Multipart
@@ -11,6 +12,7 @@ import retrofit2.http.Path
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.PUT
+import retrofit2.http.Query
 
 interface PickupPassApi {
 
@@ -53,6 +55,13 @@ interface PickupPassApi {
     @Multipart
     @POST("school-admin/logo")
     suspend fun uploadSchoolLogo(@Part file: MultipartBody.Part): Response<LogoUploadResponse>
+
+    @Multipart
+    @POST("school-admin/students/import")
+    suspend fun importStudents(
+        @Part file: MultipartBody.Part,
+        @Part("dryRun") dryRun: RequestBody
+    ): Response<BulkStudentImportResponse>
 
     @POST("master-admin/schools/{schoolId}/status")
     suspend fun setSchoolStatus(
