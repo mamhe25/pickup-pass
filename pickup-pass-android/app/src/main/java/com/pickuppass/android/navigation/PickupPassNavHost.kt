@@ -20,6 +20,8 @@ import com.pickuppass.android.ui.schooladmin.sections.ManageSectionsScreen
 import com.pickuppass.android.ui.schooladmin.manualpickup.ManualPickupScreen
 import com.pickuppass.android.ui.schooladmin.staffmanagement.StaffManagementScreen
 import com.pickuppass.android.ui.schooladmin.audit.AuditLogScreen
+import com.pickuppass.android.ui.schooladmin.dashboard.DismissalDashboardScreen
+import com.pickuppass.android.ui.schooladmin.pickuppolicy.PickupPolicyScreen
 import com.pickuppass.android.ui.schooladmin.staff.InviteTeacherScreen
 import com.pickuppass.android.ui.splash.SplashDestination
 import com.pickuppass.android.ui.splash.SplashScreen
@@ -175,6 +177,8 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
                 onGoToStaffManagement = { navController.navigate(Screen.SchoolAdminStaffManagement.route) },
                 onGoToManualPickup = { navController.navigate(Screen.SchoolAdminManualPickup.route) },
                 onGoToAuditLog = { navController.navigate(Screen.SchoolAdminAuditLog.route) },
+                onGoToDismissalDashboard = { navController.navigate(Screen.SchoolAdminDismissalDashboard.route) },
+                onGoToPickupPolicy = { navController.navigate(Screen.SchoolAdminPickupPolicy.route) },
                 onGoToBroadcast = { navController.navigate(Screen.SchoolAdminBroadcast.route) },
                 onSignedOut = { navController.navigateToLoginClearingBackStack() }
             )
@@ -202,6 +206,14 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
 
         composable(Screen.SchoolAdminAuditLog.route) {
             AuditLogScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.SchoolAdminDismissalDashboard.route) {
+            DismissalDashboardScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.SchoolAdminPickupPolicy.route) {
+            PickupPolicyScreen(onBack = { navController.popBackStack() })
         }
     }
 }

@@ -45,12 +45,20 @@ data class ExitLogEntry(
     val timestampMillis: Long? = null,
 )
 
+data class PickupPolicyInfo(
+    val mode: String = "unrestricted",
+    val earliestPickupTime: String = "",
+    val latestPickupTime: String = "",
+    val allowManualOverride: Boolean = true
+)
+
 /** Firestore: schools/{schoolId} */
 data class SchoolInfo(
     var id: String = "",
     val schoolName: String = "",
     val status: String = "",
     val logoUrl: String? = null,
+    val pickupPolicy: PickupPolicyInfo? = null,
 )
 
 /** Firestore: users/{uid} */
@@ -216,4 +224,53 @@ data class SessionStatusResponse(
     val role: String = "",
     val schoolId: String? = null,
     val status: String = ""
+)
+
+// ---- Phase 2: school pickup policy + live dismissal dashboard ----
+
+data class PickupPolicyResponse(
+    val mode: String = "unrestricted",
+    val earliestPickupTime: String = "",
+    val latestPickupTime: String = "",
+    val allowManualOverride: Boolean = true,
+    val timeZone: String = "Asia/Manila"
+)
+
+data class UpdatePickupPolicyRequest(
+    val mode: String,
+    val earliestPickupTime: String? = null,
+    val latestPickupTime: String? = null,
+    val allowManualOverride: Boolean = true
+)
+
+data class DashboardStudent(
+    val studentId: String = "",
+    val studentName: String = "",
+    val grade: String = "",
+    val section: String = ""
+)
+
+data class DashboardRelease(
+    val exitLogId: String = "",
+    val studentId: String = "",
+    val studentName: String = "",
+    val grade: String = "",
+    val section: String = "",
+    val guardianUid: String = "",
+    val guardianName: String = "",
+    val staffName: String = "",
+    val method: String = "qr_scan",
+    val timestamp: String? = null
+)
+
+data class DismissalDashboardResponse(
+    val businessDate: String = "",
+    val timeZone: String = "Asia/Manila",
+    val totalStudents: Int = 0,
+    val releasedCount: Int = 0,
+    val remainingCount: Int = 0,
+    val releaseRatePercent: Double = 0.0,
+    val recentReleases: List<DashboardRelease> = emptyList(),
+    val remainingStudents: List<DashboardStudent> = emptyList(),
+    val remainingTruncated: Boolean = false
 )

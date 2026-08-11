@@ -109,4 +109,49 @@ class SchoolAdminRepository @Inject constructor(
             ApiResult.Failure(e.message ?: "Network error")
         }
     }
+    suspend fun getPickupPolicy(): ApiResult<PickupPolicyResponse> {
+        return try {
+            val response = api.getPickupPolicy()
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure("Could not load pickup policy")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun updatePickupPolicy(
+        mode: String,
+        earliestPickupTime: String?,
+        latestPickupTime: String?,
+        allowManualOverride: Boolean
+    ): ApiResult<PickupPolicyResponse> {
+        return try {
+            val response = api.updatePickupPolicy(
+                UpdatePickupPolicyRequest(
+                    mode = mode,
+                    earliestPickupTime = earliestPickupTime,
+                    latestPickupTime = latestPickupTime,
+                    allowManualOverride = allowManualOverride
+                )
+            )
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure(body?.let { null } ?: "Could not save pickup policy")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun getDismissalDashboard(businessDate: String? = null): ApiResult<DismissalDashboardResponse> {
+        return try {
+            val response = api.getDismissalDashboard(businessDate)
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure("Could not load dismissal dashboard")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
 }

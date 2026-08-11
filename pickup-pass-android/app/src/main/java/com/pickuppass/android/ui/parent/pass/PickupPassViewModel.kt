@@ -24,6 +24,7 @@ data class PickupPassUiState(
     val qrBitmap: Bitmap? = null,
     val expiresAt: Date? = null,
     val secondsRemaining: Long = 0,
+    val pickupPolicyText: String = "Any currently valid QR can be presented for pickup.",
     val error: String? = null
 )
 
@@ -44,6 +45,19 @@ class PickupPassViewModel @Inject constructor(
         viewModelScope.launch {
             studentRepository.getStudent(studentId).onSuccess { student ->
                 _uiState.value = _uiState.value.copy(studentName = student?.fullName.orEmpty())
+                val schoolId = student?.schoolId.orEmpty()
+                if (schoolId.isNotBlank()) {
+                    studentRepository.getSchool(schoolId).onSuccess { school ->
+                        val policy = school?.pickupPolicy
+                        val policyText = if (policy?.mode == "time_window" &&
+                            policy.earliestPickupTime.isNotBlank() && policy.latestPickupTime.isNotBlank()) {
+                            "School pickup window: ${policy.earliestPickupTime}–${policy.latestPickupTime}. No queue or check-in is required."
+                        } else {
+                            "Any currently valid QR can be presented for pickup. No queue or check-in is required."
+                        }
+                        _uiState.value = _uiState.value.copy(pickupPolicyText = policyText)
+                    }
+                }
             }
         }
     }

@@ -14,7 +14,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +67,11 @@ public class QrVerificationService {
 
         if (!schoolId.equals(scanningSchoolId)) {
             return QrVerificationResult.fail("QR code does not belong to this school");
+        }
+
+        String policyViolation = pickupPolicyViolation(scanningSchoolId);
+        if (policyViolation != null) {
+            return QrVerificationResult.fail(policyViolation);
         }
 
         DocumentReference tokenRef = firestore.collection("pickupTokens").document(nonce);
@@ -149,6 +156,9 @@ public class QrVerificationService {
         if (reason == null || reason.trim().length() < 5) {
             throw new IllegalArgumentException("A clear manual override reason is required");
         }
+        if (!isManualOverrideAllowed(schoolId)) {
+            throw new ForbiddenException("Manual pickup override is disabled by this school's pickup policy");
+        }
         DocumentReference studentRef = firestore.collection("students").document(studentId);
         DocumentSnapshot student = studentRef.get().get();
         if (!student.exists() || !schoolId.equals(student.getString("schoolId"))) {
@@ -198,6 +208,42 @@ public class QrVerificationService {
         log.put("method", method);
         if (overrideReason != null) log.put("overrideReason", overrideReason);
         return log;
+    }
+
+    @SuppressWarnings("unchecked")
+    private String pickupPolicyViolation(String schoolId) throws ExecutionException, InterruptedException {
+        DocumentSnapshot school = firestore.collection("schools").document(schoolId).get().get();
+        if (!school.exists()) return "School is not active or could not be found";
+
+        Map<String, Object> policy = (Map<String, Object>) school.get("pickupPolicy");
+        if (policy == null || !"time_window".equals(String.valueOf(policy.get("mode")))) {
+            return null; // Original PickupPass behavior: any currently-valid QR can be scanned.
+        }
+
+        Object startObj = policy.get("earliestPickupTime");
+        Object endObj = policy.get("latestPickupTime");
+        if (startObj == null || endObj == null) return null; // fail open for legacy/malformed optional config
+
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+            LocalTime start = LocalTime.parse(String.valueOf(startObj), formatter);
+            LocalTime end = LocalTime.parse(String.valueOf(endObj), formatter);
+            LocalTime now = LocalTime.now(schoolTimeZone);
+            if (now.isBefore(start) || now.isAfter(end)) {
+                return "Pickup is allowed between " + start.format(formatter) + " and " + end.format(formatter);
+            }
+            return null;
+        } catch (RuntimeException ignored) {
+            return null; // administrators can repair malformed policy without blocking dismissal
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean isManualOverrideAllowed(String schoolId) throws ExecutionException, InterruptedException {
+        DocumentSnapshot school = firestore.collection("schools").document(schoolId).get().get();
+        if (!school.exists()) return false;
+        Map<String, Object> policy = (Map<String, Object>) school.get("pickupPolicy");
+        return policy == null || !Boolean.FALSE.equals(policy.get("allowManualOverride"));
     }
 
     private String safeId(String value) {

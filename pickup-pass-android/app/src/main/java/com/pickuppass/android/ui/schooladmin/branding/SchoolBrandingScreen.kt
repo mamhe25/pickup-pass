@@ -22,6 +22,8 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,6 +54,8 @@ fun SchoolBrandingScreen(
     onGoToStaffManagement: () -> Unit,
     onGoToManualPickup: () -> Unit,
     onGoToAuditLog: () -> Unit,
+    onGoToDismissalDashboard: () -> Unit,
+    onGoToPickupPolicy: () -> Unit,
     onGoToBroadcast: () -> Unit,
     onSignedOut: () -> Unit
 ) {
@@ -183,11 +187,18 @@ fun SchoolBrandingScreen(
             )
 
             Spacer(Modifier.height(Spacing.lg))
+            SectionLabel("Dismissal Operations")
+            GroupedActionList {
+                NavListItem(Icons.Filled.Dashboard, "Live Dismissal Dashboard", onGoToDismissalDashboard)
+                NavListItem(Icons.Filled.History, "Dismissal History", onGoToExitLogs)
+                NavListItem(Icons.Filled.WarningAmber, "Manual Pickup Override", onGoToManualPickup)
+            }
+
+            Spacer(Modifier.height(Spacing.lg))
             SectionLabel("Manage")
             GroupedActionList {
                 NavListItem(Icons.Filled.Groups, "Manage Students", onGoToStudents)
-                NavListItem(Icons.Filled.History, "Dismissal History", onGoToExitLogs)
-                NavListItem(Icons.Filled.WarningAmber, "Manual Pickup Override", onGoToManualPickup)
+                NavListItem(Icons.Filled.Schedule, "Pickup Policy", onGoToPickupPolicy)
             }
 
             Spacer(Modifier.height(Spacing.lg))

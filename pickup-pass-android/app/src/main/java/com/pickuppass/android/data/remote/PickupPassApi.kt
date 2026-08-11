@@ -81,6 +81,17 @@ interface PickupPassApi {
     @GET("school-admin/audit-events")
     suspend fun listAuditEvents(@retrofit2.http.Query("limit") limit: Int = 100): Response<AuditEventsResponse>
 
+    @GET("school-admin/pickup-policy")
+    suspend fun getPickupPolicy(): Response<PickupPolicyResponse>
+
+    @PUT("school-admin/pickup-policy")
+    suspend fun updatePickupPolicy(@Body body: UpdatePickupPolicyRequest): Response<PickupPolicyResponse>
+
+    @GET("school-admin/dismissal-dashboard")
+    suspend fun getDismissalDashboard(
+        @retrofit2.http.Query("businessDate") businessDate: String? = null
+    ): Response<DismissalDashboardResponse>
+
     @POST("school-admin/broadcasts")
     suspend fun broadcastToSchool(@Body body: BroadcastRequest): Response<BroadcastResponse>
 

@@ -146,6 +146,13 @@ fun PickupPassScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
+                Spacer(Modifier.height(Spacing.xs))
+                Text(
+                    uiState.pickupPolicyText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center
+                )
             }
 
             uiState.error?.let {
