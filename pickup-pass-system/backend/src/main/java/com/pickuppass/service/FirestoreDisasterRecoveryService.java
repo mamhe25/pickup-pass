@@ -56,6 +56,8 @@ public class FirestoreDisasterRecoveryService {
     private static final Pattern BACKUP_RESOURCE = Pattern.compile(
             "projects/[a-zA-Z0-9._-]+/locations/[a-zA-Z0-9._-]+/backups/[a-zA-Z0-9._-]+");
     private static final String APPLY_CONFIRMATION = "ENABLE BACKUP PROTECTION";
+    private static final String FREE_CONFIRMATION = "ENABLE FREE SAFEGUARDS";
+    private static final String STARTUP_CONFIRMATION = "ENABLE STARTUP BACKUP";
     private static final String RESTORE_CONFIRMATION = "RESTORE TO ISOLATED DATABASE";
 
     private final Firestore firestore;
@@ -71,6 +73,7 @@ public class FirestoreDisasterRecoveryService {
     private final int weeklyRetentionDays;
     private final String weeklyDay;
     private final int maxBackupAgeHours;
+    private final String defaultProfile;
 
     private volatile GoogleCredentials credentials;
 
@@ -86,7 +89,8 @@ public class FirestoreDisasterRecoveryService {
             @Value("${pickuppass.disaster-recovery.daily-retention-days:14}") int dailyRetentionDays,
             @Value("${pickuppass.disaster-recovery.weekly-retention-days:84}") int weeklyRetentionDays,
             @Value("${pickuppass.disaster-recovery.weekly-day:SUNDAY}") String weeklyDay,
-            @Value("${pickuppass.disaster-recovery.max-backup-age-hours:48}") int maxBackupAgeHours) {
+            @Value("${pickuppass.disaster-recovery.max-backup-age-hours:48}") int maxBackupAgeHours,
+            @Value("${pickuppass.disaster-recovery.default-profile:startup}") String defaultProfile) {
         this.firestore = firestore;
         this.objectMapper = objectMapper;
         this.auditService = auditService;
@@ -100,6 +104,7 @@ public class FirestoreDisasterRecoveryService {
         this.weeklyRetentionDays = clamp(weeklyRetentionDays, 1, 98);
         this.weeklyDay = normalizeDay(weeklyDay);
         this.maxBackupAgeHours = clamp(maxBackupAgeHours, 12, 168);
+        this.defaultProfile = normalizeProfile(defaultProfile);
     }
 
     public Map<String, Object> overview() {
@@ -111,6 +116,10 @@ public class FirestoreDisasterRecoveryService {
         response.put("recommendedWeeklyRetentionDays", weeklyRetentionDays);
         response.put("recommendedWeeklyDay", weeklyDay);
         response.put("maxBackupAgeHours", maxBackupAgeHours);
+        response.put("defaultProfile", defaultProfile);
+        response.put("startupOptimized", true);
+        response.put("platformOwnerControlsNativeBackup", true);
+        response.put("schoolAdminsCanControlNativeBackup", false);
         response.put("retentionPolicies", retentionPolicies());
         response.put("recoveryJobs", recentRecoveryJobs(10));
 
@@ -146,15 +155,29 @@ public class FirestoreDisasterRecoveryService {
             response.put("databaseProtectionUpdatePending", Boolean.TRUE.equals(protectionControl.get("pending")));
             response.put("databaseProtectionUpdateStatus", Objects.toString(protectionControl.get("status"), ""));
             response.put("databaseProtectionOperation", Objects.toString(protectionControl.get("operationName"), ""));
+            String activeProfile = normalizeProfile(Objects.toString(protectionControl.get("profile"), defaultProfile));
+            response.put("activeProfile", activeProfile);
             long latestBackupAgeHours = backupAgeHours(Objects.toString(latestReady.get("snapshotTime"), ""));
-            boolean nativeProtectionConfigured =
-                    "POINT_IN_TIME_RECOVERY_ENABLED".equals(database.get("pointInTimeRecoveryEnablement"))
-                            && "DELETE_PROTECTION_ENABLED".equals(database.get("deleteProtectionState"))
-                            && daily != null && weekly != null;
+            boolean deleteProtected = "DELETE_PROTECTION_ENABLED".equals(database.get("deleteProtectionState"));
+            boolean pitrProtected = "POINT_IN_TIME_RECOVERY_ENABLED".equals(database.get("pointInTimeRecoveryEnablement"));
             boolean recentReadyBackup = latestBackupAgeHours >= 0 && latestBackupAgeHours <= maxBackupAgeHours;
+            boolean nativeProtectionConfigured;
+            if ("free".equals(activeProfile)) {
+                nativeProtectionConfigured = deleteProtected;
+            } else if ("growth".equals(activeProfile)) {
+                nativeProtectionConfigured = deleteProtected && pitrProtected && daily != null && weekly != null && recentReadyBackup;
+            } else {
+                nativeProtectionConfigured = deleteProtected && daily != null && recentReadyBackup;
+            }
             response.put("latestBackupAgeHours", latestBackupAgeHours);
-            response.put("protectionHealthy", nativeProtectionConfigured && recentReadyBackup);
-            response.put("healthState", nativeProtectionConfigured && recentReadyBackup ? "healthy" : "warning");
+            response.put("protectionHealthy", nativeProtectionConfigured);
+            response.put("healthState", nativeProtectionConfigured ? "healthy" : "warning");
+            response.put("paidProtectionStillEnabled", pitrProtected || weekly != null);
+            response.put("costProfile", Map.of(
+                    "free", "Delete protection only; no scheduled backup created by PickupPass.",
+                    "startup", "Delete protection plus one daily backup schedule; PITR and weekly backup are not enabled by this profile.",
+                    "growth", "Daily + weekly backups, PITR, and delete protection."
+            ));
         } catch (Exception e) {
             response.put("configured", false);
             response.put("message", safeMessage(e));
@@ -176,6 +199,7 @@ public class FirestoreDisasterRecoveryService {
             snapshot.put("protectionHealthy", current.getOrDefault("protectionHealthy", false));
             snapshot.put("pitrEnabled", current.getOrDefault("pitrEnabled", false));
             snapshot.put("deleteProtectionEnabled", current.getOrDefault("deleteProtectionEnabled", false));
+            snapshot.put("activeProfile", current.getOrDefault("activeProfile", defaultProfile));
             snapshot.put("latestBackupAgeHours", current.getOrDefault("latestBackupAgeHours", -1));
             snapshot.put("latestReadyBackup", current.getOrDefault("latestReadyBackup", Map.of()));
             snapshot.put("lastCheckedAt", FieldValue.serverTimestamp());
@@ -186,6 +210,58 @@ public class FirestoreDisasterRecoveryService {
         }
     }
 
+    public Map<String, Object> applyFreeSafeguards(String confirmationText, FirebaseUserDetails actor) throws Exception {
+        ensureEnabled();
+        validateConfiguration();
+        if (!FREE_CONFIRMATION.equals(trim(confirmationText))) {
+            throw new IllegalArgumentException("Confirmation text does not match the required free-safeguards phrase");
+        }
+        Map<String, Object> database = enableDeleteProtectionOnly();
+        persistProtectionControl(database, actor, "free");
+        boolean pending = Boolean.TRUE.equals(database.get("databaseProtectionUpdatePending"));
+        auditService.record(actor, pending ? "disaster_recovery.free_safeguards_requested" : "disaster_recovery.free_safeguards_applied",
+                "firestore_database", databaseId, Map.of("profile", "free", "deleteProtection", true));
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status", pending ? "protection_update_started" : "protection_applied");
+        result.put("profile", "free");
+        result.put("scheduledBackupCreated", false);
+        result.put("pitrRequested", false);
+        result.put("deleteProtectionEnabled", true);
+        result.put("databaseUpdatePending", pending);
+        return result;
+    }
+
+    public Map<String, Object> applyStartupProtection(String confirmationText, FirebaseUserDetails actor) throws Exception {
+        ensureEnabled();
+        validateConfiguration();
+        if (!STARTUP_CONFIRMATION.equals(trim(confirmationText))) {
+            throw new IllegalArgumentException("Confirmation text does not match the required startup-backup phrase");
+        }
+        List<Map<String, Object>> schedules = listBackupSchedules();
+        Map<String, Object> daily = findSchedule(schedules, "dailyRecurrence");
+        daily = upsertBackupSchedule(daily, true, dailyRetentionDays, null);
+        Map<String, Object> database = enableDeleteProtectionOnly();
+        persistProtectionControl(database, actor, "startup");
+        boolean pending = Boolean.TRUE.equals(database.get("databaseProtectionUpdatePending"));
+        auditService.record(actor, pending ? "disaster_recovery.startup_protection_requested" : "disaster_recovery.startup_protection_applied",
+                "firestore_database", databaseId, Map.of(
+                        "profile", "startup",
+                        "dailyRetentionDays", dailyRetentionDays,
+                        "pitrRequested", false,
+                        "weeklyBackupRequested", false,
+                        "deleteProtection", true));
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status", pending ? "protection_update_started" : "protection_applied");
+        result.put("profile", "startup");
+        result.put("dailySchedule", daily);
+        result.put("pitrRequested", false);
+        result.put("weeklyBackupRequested", false);
+        result.put("deleteProtectionEnabled", true);
+        result.put("databaseUpdatePending", pending);
+        return result;
+    }
+
+    /** Enterprise/growth profile retained as an explicit opt-in. */
     public Map<String, Object> applyRecommendedProtection(String confirmationText, FirebaseUserDetails actor) throws Exception {
         ensureEnabled();
         validateConfiguration();
@@ -200,7 +276,7 @@ public class FirestoreDisasterRecoveryService {
         daily = upsertBackupSchedule(daily, true, dailyRetentionDays, null);
         weekly = upsertBackupSchedule(weekly, false, weeklyRetentionDays, weeklyDay);
         Map<String, Object> database = enablePitrAndDeleteProtection();
-        persistProtectionControl(database, actor);
+        persistProtectionControl(database, actor, "growth");
 
         boolean databaseUpdatePending = Boolean.TRUE.equals(database.get("databaseProtectionUpdatePending"));
         boolean pitrEnabledNow = "POINT_IN_TIME_RECOVERY_ENABLED".equals(database.get("pointInTimeRecoveryEnablement"));
@@ -213,7 +289,8 @@ public class FirestoreDisasterRecoveryService {
                         "weeklyDay", weeklyDay,
                         "pitrEnabledNow", pitrEnabledNow,
                         "deleteProtectionEnabledNow", deleteProtectionEnabledNow,
-                        "databaseUpdatePending", databaseUpdatePending));
+                        "databaseUpdatePending", databaseUpdatePending,
+                        "profile", "growth"));
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("status", databaseUpdatePending ? "protection_update_started" : "protection_applied");
@@ -339,13 +416,15 @@ public class FirestoreDisasterRecoveryService {
                 return Map.of(
                         "pending", false,
                         "status", Objects.toString(doc.get("status"), ""),
-                        "operationName", operationName);
+                        "operationName", operationName,
+                        "profile", normalizeProfile(Objects.toString(doc.get("profile"), defaultProfile)));
             }
 
             validateOperationResource(operationName);
             Map<String, Object> operation = getJson(operationName);
             if (!Boolean.TRUE.equals(operation.get("done"))) {
-                return Map.of("pending", true, "status", "running", "operationName", operationName);
+                return Map.of("pending", true, "status", "running", "operationName", operationName,
+                        "profile", normalizeProfile(Objects.toString(doc.get("profile"), defaultProfile)));
             }
 
             Map<String, Object> update = new HashMap<>();
@@ -362,13 +441,14 @@ public class FirestoreDisasterRecoveryService {
             return Map.of(
                     "pending", false,
                     "status", Objects.toString(update.get("status"), ""),
-                    "operationName", operationName);
+                    "operationName", operationName,
+                    "profile", normalizeProfile(Objects.toString(doc.get("profile"), defaultProfile)));
         } catch (Exception e) {
             return Map.of("pending", true, "status", "monitor_unavailable", "operationName", "");
         }
     }
 
-    private void persistProtectionControl(Map<String, Object> database, FirebaseUserDetails actor) {
+    private void persistProtectionControl(Map<String, Object> database, FirebaseUserDetails actor, String profile) {
         try {
             boolean pending = Boolean.TRUE.equals(database.get("databaseProtectionUpdatePending"));
             String operationName = Objects.toString(database.get("databaseProtectionOperation"), "");
@@ -377,12 +457,43 @@ public class FirestoreDisasterRecoveryService {
             control.put("status", pending ? "running" : "applied");
             control.put("operationName", operationName);
             control.put("requestedBy", actor == null ? "system" : actor.getUid());
+            control.put("profile", normalizeProfile(profile));
             control.put("updatedAt", FieldValue.serverTimestamp());
             if (pending) control.put("requestedAt", FieldValue.serverTimestamp());
             firestore.collection("disasterRecoveryControl").document("global").set(control).get();
         } catch (Exception ignored) {
             // Control telemetry must not turn a successful Google Cloud request into a failure.
         }
+    }
+
+    private Map<String, Object> enableDeleteProtectionOnly() throws Exception {
+        Map<String, Object> current = getJson(databaseResource());
+        boolean deleteProtectionAlreadyEnabled = "DELETE_PROTECTION_ENABLED".equals(current.get("deleteProtectionState"));
+        if (deleteProtectionAlreadyEnabled) {
+            Map<String, Object> ready = new LinkedHashMap<>(current);
+            ready.put("databaseProtectionUpdatePending", false);
+            return ready;
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("name", databaseResource());
+        body.put("deleteProtectionState", "DELETE_PROTECTION_ENABLED");
+        Map<String, Object> operation = patchJson(databaseResource()
+                + "?updateMask=deleteProtectionState", body);
+        String operationName = Objects.toString(operation.get("name"), "");
+        validateOperationResource(operationName);
+        if (operation.containsKey("error")) {
+            throw new IllegalStateException("Firestore configuration operation failed: " + safeJson(operation.get("error"), 700));
+        }
+        if (Boolean.TRUE.equals(operation.get("done"))) {
+            Map<String, Object> completed = new LinkedHashMap<>(getJson(databaseResource()));
+            completed.put("databaseProtectionUpdatePending", false);
+            completed.put("databaseProtectionOperation", operationName);
+            return completed;
+        }
+        Map<String, Object> pending = new LinkedHashMap<>(current);
+        pending.put("databaseProtectionUpdatePending", true);
+        pending.put("databaseProtectionOperation", operationName);
+        return pending;
     }
 
     private Map<String, Object> enablePitrAndDeleteProtection() throws Exception {
@@ -719,6 +830,11 @@ public class FirestoreDisasterRecoveryService {
             throw new IllegalArgumentException("Invalid " + name);
         }
         return v;
+    }
+
+    private static String normalizeProfile(String value) {
+        String profile = trim(value).toLowerCase(Locale.ROOT);
+        return Set.of("free", "startup", "growth").contains(profile) ? profile : "startup";
     }
 
     private static String normalizeDay(String value) {

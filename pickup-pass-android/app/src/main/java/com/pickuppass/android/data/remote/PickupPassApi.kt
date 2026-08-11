@@ -330,6 +330,13 @@ interface PickupPassApi {
     @POST("master-admin/billing/schools/{schoolId}/invoices/reconcile-overdue")
     suspend fun reconcileMasterOverdueInvoices(@Path("schoolId") schoolId: String): Response<Map<String, Int>>
 
+    @GET("school-admin/data-export/status")
+    suspend fun getSchoolDataExportStatus(): Response<SchoolDataExportStatusResponse>
+
+    @Streaming
+    @GET("school-admin/data-export/download")
+    suspend fun downloadSchoolDataExport(): Response<ResponseBody>
+
     @GET("school-admin/billing")
     suspend fun getSchoolBillingCenter(): Response<SchoolBillingCenterResponse>
 
@@ -364,9 +371,31 @@ interface PickupPassApi {
         @Body body: GcashPaymentNoticeReviewRequest
     ): Response<GcashPaymentNoticeItem>
 
+    @PUT("master-admin/schools/{schoolId}/data-export-access")
+    suspend fun setMasterSchoolDataExportAccess(
+        @Path("schoolId") schoolId: String,
+        @Body body: MasterDataExportAccessRequest
+    ): Response<Map<String, Any?>>
+
+    @Streaming
+    @GET("master-admin/schools/{schoolId}/data-export")
+    suspend fun downloadMasterSchoolDataExport(
+        @Path("schoolId") schoolId: String
+    ): Response<ResponseBody>
+
     // ---- Phase 3: master-admin disaster recovery ----
     @GET("master-admin/disaster-recovery/overview")
     suspend fun getMasterDisasterRecoveryOverview(): Response<MasterDisasterRecoveryOverviewResponse>
+
+    @POST("master-admin/disaster-recovery/protection/free")
+    suspend fun applyMasterFreeRecoveryProtection(
+        @Body body: MasterApplyRecoveryProtectionRequest
+    ): Response<Map<String, Any?>>
+
+    @POST("master-admin/disaster-recovery/protection/startup")
+    suspend fun applyMasterStartupRecoveryProtection(
+        @Body body: MasterApplyRecoveryProtectionRequest
+    ): Response<Map<String, Any?>>
 
     @POST("master-admin/disaster-recovery/protection/recommended")
     suspend fun applyMasterRecommendedRecoveryProtection(

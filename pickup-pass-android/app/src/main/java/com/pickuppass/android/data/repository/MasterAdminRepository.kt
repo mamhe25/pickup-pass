@@ -207,6 +207,36 @@ class MasterAdminRepository @Inject constructor(private val api: PickupPassApi) 
         if (response.isSuccessful) ApiResult.Success(Unit) else ApiResult.Failure("Could not revoke user sessions")
     } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
 
+
+    suspend fun setSchoolDataExportAccess(schoolId: String, enabled: Boolean): ApiResult<Unit> = try {
+        val response = api.setMasterSchoolDataExportAccess(schoolId, MasterDataExportAccessRequest(enabled))
+        if (response.isSuccessful) ApiResult.Success(Unit)
+        else ApiResult.Failure("Could not update school data-export access")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun downloadSchoolDataExport(schoolId: String): ApiResult<ByteArray> = try {
+        val response = api.downloadMasterSchoolDataExport(schoolId)
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body.bytes())
+        else ApiResult.Failure(response.errorBody()?.string()?.take(300) ?: "Could not create school data export")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun applyFreeRecoveryProtection(): ApiResult<Unit> = try {
+        val response = api.applyMasterFreeRecoveryProtection(
+            MasterApplyRecoveryProtectionRequest("ENABLE FREE SAFEGUARDS")
+        )
+        if (response.isSuccessful) ApiResult.Success(Unit)
+        else ApiResult.Failure("Could not apply free Firestore safeguards")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
+    suspend fun applyStartupRecoveryProtection(): ApiResult<Unit> = try {
+        val response = api.applyMasterStartupRecoveryProtection(
+            MasterApplyRecoveryProtectionRequest("ENABLE STARTUP BACKUP")
+        )
+        if (response.isSuccessful) ApiResult.Success(Unit)
+        else ApiResult.Failure("Could not apply startup Firestore backup profile")
+    } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
+
     suspend fun getDisasterRecoveryOverview(): ApiResult<MasterDisasterRecoveryOverviewResponse> = try {
         val response = api.getMasterDisasterRecoveryOverview()
         response.body()?.takeIf { response.isSuccessful }?.let { ApiResult.Success(it) }

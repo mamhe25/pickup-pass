@@ -14,10 +14,15 @@ import com.pickuppass.service.SubscriptionFeatureService;
 import com.pickuppass.service.TenantUsageService;
 import com.pickuppass.service.SubscriptionLifecycleService;
 import com.pickuppass.service.SaasOperationsHealthService;
+import com.pickuppass.service.TenantDataExportService;
 import com.pickuppass.security.FirebaseUserDetails;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ContentDisposition;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,6 +36,7 @@ import java.util.Set;
 import java.util.Date;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutionException;
 
 @RestController
@@ -47,12 +53,14 @@ public class MasterAdminController {
     private final TenantUsageService tenantUsageService;
     private final SubscriptionLifecycleService subscriptionLifecycleService;
     private final SaasOperationsHealthService operationsHealthService;
+    private final TenantDataExportService tenantDataExportService;
 
     public MasterAdminController(Firestore firestore, StaffProvisioningService staffProvisioningService,
                                  FirebaseAuth firebaseAuth, AuditService auditService,
                                  SubscriptionFeatureService subscriptionFeatureService, TenantUsageService tenantUsageService,
                                  SubscriptionLifecycleService subscriptionLifecycleService,
-                                 SaasOperationsHealthService operationsHealthService) {
+                                 SaasOperationsHealthService operationsHealthService,
+                                 TenantDataExportService tenantDataExportService) {
         this.firestore = firestore;
         this.staffProvisioningService = staffProvisioningService;
         this.firebaseAuth = firebaseAuth;
@@ -61,6 +69,7 @@ public class MasterAdminController {
         this.tenantUsageService = tenantUsageService;
         this.subscriptionLifecycleService = subscriptionLifecycleService;
         this.operationsHealthService = operationsHealthService;
+        this.tenantDataExportService = tenantDataExportService;
     }
 
 
@@ -93,6 +102,7 @@ public class MasterAdminController {
             Object rawOverrides = doc.get("featureOverrides");
             item.put("featureOverrides", rawOverrides instanceof Map<?, ?> ? rawOverrides : Map.of());
             item.put("usage", tenantUsageService.snapshot(doc.getId()));
+            item.put("selfServiceDataExportEnabled", Boolean.TRUE.equals(doc.getBoolean("selfServiceDataExportEnabled")));
             schools.add(item);
         }
 
@@ -129,6 +139,9 @@ public class MasterAdminController {
         school.put("autoRenew", true);
         school.put("cancelAtPeriodEnd", false);
         school.put("featureOverrides", Map.of());
+        // Privacy/cost-safe default: a tenant admin cannot create a full data export
+        // until the platform owner intentionally enables self-service export.
+        school.put("selfServiceDataExportEnabled", false);
         school.put("createdAt", FieldValue.serverTimestamp());
         schoolRef.set(school).get(); // await so a write failure surfaces as an error, not a false success
         tenantUsageService.initializeNewTenant(schoolRef.getId());
@@ -196,6 +209,39 @@ public class MasterAdminController {
         operationsHealthService.refreshSchool(schoolId);
 
         return ResponseEntity.ok(Map.of("schoolId", schoolId, "status", req.getStatus()));
+    }
+
+    @PutMapping("/schools/{schoolId}/data-export-access")
+    @PreAuthorize("hasRole('master_admin')")
+    public ResponseEntity<?> setSchoolDataExportAccess(
+            @PathVariable String schoolId,
+            @RequestBody DataExportAccessRequest req,
+            @AuthenticationPrincipal FirebaseUserDetails masterAdmin) throws Exception {
+        DocumentReference ref = firestore.collection("schools").document(schoolId);
+        DocumentSnapshot school = ref.get().get();
+        if (!school.exists()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "School not found"));
+        ref.update(
+                "selfServiceDataExportEnabled", req.isEnabled(),
+                "dataExportAccessUpdatedAt", FieldValue.serverTimestamp(),
+                "dataExportAccessUpdatedBy", masterAdmin.getUid()).get();
+        auditService.record(masterAdmin, "school.data_export_access_changed", "school", schoolId,
+                Map.of("enabled", req.isEnabled()));
+        return ResponseEntity.ok(Map.of("schoolId", schoolId, "enabled", req.isEnabled()));
+    }
+
+    @GetMapping("/schools/{schoolId}/data-export")
+    @PreAuthorize("hasRole('master_admin')")
+    public ResponseEntity<?> exportSchoolData(
+            @PathVariable String schoolId,
+            @AuthenticationPrincipal FirebaseUserDetails masterAdmin) throws Exception {
+        TenantDataExportService.ExportResult result = tenantDataExportService.exportSchool(schoolId, masterAdmin);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/zip"));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(result.fileName(), StandardCharsets.UTF_8).build());
+        headers.setContentLength(result.bytes().length);
+        headers.set("Cache-Control", "no-store");
+        return new ResponseEntity<>(result.bytes(), headers, HttpStatus.OK);
     }
 
     @GetMapping("/plans")
@@ -473,4 +519,11 @@ public class MasterAdminController {
         public String getRole() { return role; }
         public void setRole(String role) { this.role = role; }
     }
+
+    public static class DataExportAccessRequest {
+        private boolean enabled;
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    }
+
 }

@@ -655,6 +655,7 @@ data class MasterSchoolItem(
     val featureOverrides: Map<String, Boolean> = emptyMap(),
     val limits: Map<String, Int> = emptyMap(),
     val usage: TenantUsageSummary = TenantUsageSummary(),
+    val selfServiceDataExportEnabled: Boolean = false,
     val createdAt: String? = null,
     val statusUpdatedAt: String? = null
 )
@@ -1040,6 +1041,12 @@ data class MasterRetentionPolicyItem(
 data class MasterDisasterRecoveryOverviewResponse(
     val enabled: Boolean = false,
     val configured: Boolean = false,
+    val activeProfile: String = "startup",
+    val defaultProfile: String = "startup",
+    val startupOptimized: Boolean = true,
+    val paidProtectionStillEnabled: Boolean = false,
+    val platformOwnerControlsNativeBackup: Boolean = true,
+    val schoolAdminsCanControlNativeBackup: Boolean = false,
     val allowRestoreDrills: Boolean = false,
     val projectId: String? = null,
     val databaseId: String = "(default)",
@@ -1055,7 +1062,7 @@ data class MasterDisasterRecoveryOverviewResponse(
     val databaseProtectionOperation: String = "",
     val versionRetentionPeriod: String? = null,
     val earliestVersionTime: String? = null,
-    val recommendedDailyRetentionDays: Int = 14,
+    val recommendedDailyRetentionDays: Int = 7,
     val recommendedWeeklyRetentionDays: Int = 84,
     val recommendedWeeklyDay: String = "SUNDAY",
     val dailySchedule: MasterBackupScheduleItem? = null,
@@ -1064,6 +1071,7 @@ data class MasterDisasterRecoveryOverviewResponse(
     val latestReadyBackup: MasterBackupItem? = null,
     val recoveryJobs: List<MasterRecoveryJobItem> = emptyList(),
     val retentionPolicies: List<MasterRetentionPolicyItem> = emptyList(),
+    val costProfile: Map<String, String> = emptyMap(),
     val message: String? = null
 )
 
@@ -1074,3 +1082,15 @@ data class MasterStartRecoveryDrillRequest(
     val reason: String,
     val confirmationText: String
 )
+
+
+// ---- Phase 3: startup-safe tenant data export ----
+data class SchoolDataExportStatusResponse(
+    val enabled: Boolean = false,
+    val storageMode: String = "direct_download",
+    val cloudCopyCreated: Boolean = false,
+    val platformBackupControlledBy: String = "master_admin",
+    val message: String = ""
+)
+
+data class MasterDataExportAccessRequest(val enabled: Boolean)

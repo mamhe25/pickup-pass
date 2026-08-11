@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class InvoicePdfPayload(val fileName: String, val bytes: ByteArray)
+data class DataExportZipPayload(val fileName: String, val bytes: ByteArray)
 
 data class MasterAdminUiState(
     val loading: Boolean = true,
@@ -42,6 +43,7 @@ data class MasterAdminUiState(
     val billingProfile: MasterBillingProfileResponse? = null,
     val gcashPaymentNotices: List<GcashPaymentNoticeItem> = emptyList(),
     val invoicePdf: InvoicePdfPayload? = null,
+    val dataExportZip: DataExportZipPayload? = null,
     val error: String? = null,
     val message: String? = null
 )
@@ -187,7 +189,15 @@ class MasterAdminViewModel @Inject constructor(
         }
     }
 
-    fun applyRecommendedRecoveryProtection() = runDisasterRecoverySave("Recovery protection update requested; refresh status shortly") {
+    fun applyFreeRecoveryProtection() = runDisasterRecoverySave("Free Firestore safeguards requested") {
+        repository.applyFreeRecoveryProtection()
+    }
+
+    fun applyStartupRecoveryProtection() = runDisasterRecoverySave("Startup backup profile requested; refresh status shortly") {
+        repository.applyStartupRecoveryProtection()
+    }
+
+    fun applyRecommendedRecoveryProtection() = runDisasterRecoverySave("Growth recovery protection requested; refresh status shortly") {
         repository.applyRecommendedRecoveryProtection()
     }
 
@@ -242,6 +252,36 @@ class MasterAdminViewModel @Inject constructor(
 
     fun reconcileSubscription(schoolId: String) =
         runSave("Subscription lifecycle checked") { repository.reconcileSubscription(schoolId) }
+
+    fun setSchoolDataExportAccess(schoolId: String, enabled: Boolean) =
+        runSave(if (enabled) "School self-service data export enabled" else "School self-service data export disabled") {
+            repository.setSchoolDataExportAccess(schoolId, enabled)
+        }
+
+    fun downloadSchoolDataExport(school: MasterSchoolItem) {
+        if (_uiState.value.saving) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(saving = true, error = null, message = null)
+            when (val r = repository.downloadSchoolDataExport(school.schoolId)) {
+                is ApiResult.Success -> {
+                    val safeName = school.schoolName.ifBlank { "School" }
+                        .replace(Regex("[^A-Za-z0-9._-]+"), "_")
+                        .take(50)
+                    _uiState.value = _uiState.value.copy(
+                        saving = false,
+                        dataExportZip = DataExportZipPayload(
+                            fileName = "PickupPass_${safeName}_Data_Export.zip",
+                            bytes = r.data
+                        ),
+                        message = "School data export ready to save"
+                    )
+                }
+                is ApiResult.Failure -> _uiState.value = _uiState.value.copy(saving = false, error = r.message)
+            }
+        }
+    }
+
+    fun clearDataExportZip() { _uiState.value = _uiState.value.copy(dataExportZip = null) }
 
     fun loadInvoices(schoolId: String) = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(billingSchoolId = schoolId, billingLoading = true, error = null)

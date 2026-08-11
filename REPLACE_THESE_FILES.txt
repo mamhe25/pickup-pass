@@ -1,24 +1,64 @@
-PICKUPPASS PHASE 3 — CUMULATIVE UPDATE 11
+PICKUPPASS PHASE 3 — CUMULATIVE UPDATE 12
 ==========================================
 
-This is a CUMULATIVE replacement pack. It contains the PickupPass replacement files from the earlier Phase 1/2/3 updates plus Phase 3 Update 11.
+This is a CUMULATIVE replacement pack. It contains the PickupPass replacement files from the earlier Phase 1/2/3 updates plus Phase 3 Update 12.
 
 HOW TO APPLY
 1. Stop the backend and close/stop the Android app build if running.
 2. Extract the protected archive.
-3. Open the PickupPass_Phase3_Cumulative_Update_11 folder.
+3. Open the PickupPass_Phase3_Cumulative_Update_12 folder.
 4. Copy everything inside it into the ROOT of your existing "PickupPass - Copy" project.
 5. Choose Replace / Overwrite when Windows asks.
 6. Do not delete project files that are not present in this replacement pack.
-7. Review PHASE3_DISASTER_RECOVERY_RETENTION_NOTES.md before enabling DR.
-8. Run your normal backend tests and Android build before production deployment.
+7. Review PHASE3_STARTUP_BACKUP_DATA_EXPORT_NOTES.md before enabling backup/export controls.
+8. Keep FIRESTORE_DR_ENABLED=false until the platform owner intentionally configures cloud IAM.
+9. Run your normal backend tests and Android build before production deployment.
+
+
+
+UPDATE 12 — STARTUP BACKUP MODE & OPTIONAL TENANT DATA EXPORT
+-------------------------------------------------------------
+- Changes the recommended native Firestore protection strategy to startup-first rather than enterprise-first.
+- Free safeguards: database delete protection only; PickupPass creates no scheduled backup or PITR.
+- Startup backup: delete protection + one daily native backup with 7-day default retention; no PITR or weekly backup is created.
+- Growth protection remains opt-in: daily + weekly backups, PITR, and delete protection.
+- Native Firestore backup/restore controls remain MASTER ADMIN / PLATFORM OWNER only because they affect shared infrastructure, IAM, billing, and all tenants.
+- School admins do NOT receive cloud backup, PITR, or restore privileges.
+- Adds optional school-admin tenant data export. It is OFF by default per school and can only be enabled/disabled by the platform owner.
+- Platform owner can always export a selected tenant for support/recovery.
+- Tenant exports are generated on demand and downloaded directly to the selected device location; PickupPass does not create a recurring Cloud Storage copy.
+- Export excludes platform billing/security internals and redacts secret/token-like fields.
+- Export safety defaults: 25,000 documents and 50 MiB archive size.
+- Existing stronger cloud protection is never silently disabled when a startup/free profile is selected.
+
+NEW BACKEND ENDPOINTS
+- POST /api/master-admin/disaster-recovery/protection/free
+- POST /api/master-admin/disaster-recovery/protection/startup
+- PUT  /api/master-admin/schools/{schoolId}/data-export-access
+- GET  /api/master-admin/schools/{schoolId}/data-export
+- GET  /api/school-admin/data-export/status
+- GET  /api/school-admin/data-export/download
+
+NO NEW FIRESTORE COMPOSITE INDEX IS REQUIRED BY UPDATE 12.
+
+STARTUP DEFAULTS
+- FIRESTORE_DR_ENABLED=false
+- FIRESTORE_DR_DEFAULT_PROFILE=startup
+- FIRESTORE_DR_DAILY_RETENTION_DAYS=7
+- FIRESTORE_DR_ALLOW_RESTORE_DRILLS=false
+- TENANT_DATA_EXPORT_MAX_DOCUMENTS=25000
+- TENANT_DATA_EXPORT_MAX_ARCHIVE_BYTES=52428800
+
+ROLE DECISION
+- Platform owner/master_admin: native backup schedules, PITR, delete protection, recovery drills, any-tenant export, and permission to enable school self-service export.
+- School admin/tenant admin: may export only its own tenant and only after the platform owner enables self-service export.
 
 
 UPDATE 11 — BACKUP, DISASTER RECOVERY & DATA RETENTION
 -------------------------------------------------------
 - Adds Master Admin Backup & Disaster Recovery control/health center.
 - Uses native Firestore scheduled backups/PITR/delete protection instead of application-level document copying.
-- Recommended profile: daily backup 14 days, weekly backup 84 days, PITR enabled, database delete protection enabled.
+- Original Update 11 growth profile: daily backup 14 days, weekly backup 84 days, PITR enabled, database delete protection enabled. Update 12 supersedes the startup recommendation.
 - Backup age health threshold defaults to 48 hours and is configurable.
 - DR integration is OFF by default until cloud IAM/project configuration is intentional.
 - Restore drills are independently OFF by default.

@@ -31,6 +31,40 @@ public class MasterDisasterRecoveryController {
         return ResponseEntity.ok(disasterRecoveryService.overview());
     }
 
+    @PostMapping("/protection/free")
+    public ResponseEntity<?> applyFreeSafeguards(
+            @RequestBody ApplyProtectionRequest request,
+            @AuthenticationPrincipal FirebaseUserDetails actor) {
+        try {
+            return ResponseEntity.ok(disasterRecoveryService.applyFreeSafeguards(
+                    request.getConfirmationText(), actor));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of("error", "Could not configure free Firestore safeguards"));
+        }
+    }
+
+    @PostMapping("/protection/startup")
+    public ResponseEntity<?> applyStartupProtection(
+            @RequestBody ApplyProtectionRequest request,
+            @AuthenticationPrincipal FirebaseUserDetails actor) {
+        try {
+            return ResponseEntity.ok(disasterRecoveryService.applyStartupProtection(
+                    request.getConfirmationText(), actor));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of("error", "Could not configure startup Firestore protection"));
+        }
+    }
+
     @PostMapping("/protection/recommended")
     public ResponseEntity<?> applyRecommendedProtection(
             @RequestBody ApplyProtectionRequest request,

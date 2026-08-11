@@ -18,12 +18,13 @@ class FirestoreDisasterRecoveryServiceTest {
     void disabledIntegrationReturnsSafeReadinessWithoutCloudCall() {
         FirestoreDisasterRecoveryService service = new FirestoreDisasterRecoveryService(
                 mock(Firestore.class), new ObjectMapper(), mock(AuditService.class),
-                false, false, "", "(default)", "", 14, 84, "SUNDAY", 48);
+                false, false, "", "(default)", "", 14, 84, "SUNDAY", 48, "startup");
 
         Map<String, Object> overview = service.overview();
         assertFalse((Boolean) overview.get("enabled"));
         assertFalse((Boolean) overview.get("configured"));
         assertEquals(48, overview.get("maxBackupAgeHours"));
+        assertEquals("startup", overview.get("defaultProfile"));
         assertEquals(List.of(), overview.get("backups"));
     }
 
@@ -31,7 +32,7 @@ class FirestoreDisasterRecoveryServiceTest {
     void disabledIntegrationCannotApplyProtection() {
         FirestoreDisasterRecoveryService service = new FirestoreDisasterRecoveryService(
                 mock(Firestore.class), new ObjectMapper(), mock(AuditService.class),
-                false, false, "", "(default)", "", 14, 84, "SUNDAY", 48);
+                false, false, "", "(default)", "", 14, 84, "SUNDAY", 48, "startup");
 
         assertThrows(IllegalStateException.class,
                 () -> service.applyRecommendedProtection("ENABLE BACKUP PROTECTION", null));
@@ -41,7 +42,7 @@ class FirestoreDisasterRecoveryServiceTest {
     void retentionRecommendationsAreClampedToFirestoreSupportedWindow() {
         FirestoreDisasterRecoveryService service = new FirestoreDisasterRecoveryService(
                 mock(Firestore.class), new ObjectMapper(), mock(AuditService.class),
-                false, false, "", "(default)", "", 500, 500, "not-a-day", 48);
+                false, false, "", "(default)", "", 500, 500, "not-a-day", 48, "startup");
 
         Map<String, Object> overview = service.overview();
         assertEquals(98, overview.get("recommendedDailyRetentionDays"));

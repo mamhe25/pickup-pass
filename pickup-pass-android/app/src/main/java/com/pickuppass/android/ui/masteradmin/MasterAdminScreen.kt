@@ -50,12 +50,22 @@ fun MasterAdminScreen(
     LaunchedEffect(state.invoicePdf?.fileName) {
         state.invoicePdf?.let { pdfLauncher.launch(it.fileName) }
     }
+    val zipLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        val payload = state.dataExportZip
+        if (uri != null && payload != null) {
+            runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(payload.bytes) } }
+        }
+        viewModel.clearDataExportZip()
+    }
+    LaunchedEffect(state.dataExportZip?.fileName) {
+        state.dataExportZip?.let { zipLauncher.launch(it.fileName) }
+    }
     var createSchool by remember { mutableStateOf(false) }
     var adminForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
     var subscriptionForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
     var billingForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
     var revokeSecurityUser by remember { mutableStateOf<MasterSecurityAlert?>(null) }
-    var showRecoveryProtectionDialog by remember { mutableStateOf(false) }
+    var recoveryProtectionChoice by remember { mutableStateOf<String?>(null) }
     var recoveryBackup by remember { mutableStateOf<MasterBackupItem?>(null) }
     val healthBySchool = state.operations?.tenants?.associateBy { it.schoolId }.orEmpty()
 
@@ -285,21 +295,45 @@ fun MasterAdminScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                                Text(
+                                    "Active profile: ${recovery.activeProfile.replaceFirstChar { it.uppercase() }}",
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    "Platform owner controls native Firestore backup. School admins cannot enable PITR, schedules, or restore databases.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (recovery.paidProtectionStillEnabled && recovery.activeProfile != "growth") {
+                                    Text(
+                                        "A paid/growth protection component is already enabled (PITR or weekly backup). Startup/free profile actions preserve stronger existing protection instead of silently disabling it. Review Google Cloud billing before turning anything off manually.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.tertiary
+                                    )
+                                }
                                 if (recovery.databaseProtectionUpdatePending) {
                                     Text(
                                         "Database protection update is still being applied by Google Cloud. Refresh this page shortly.",
                                         color = MaterialTheme.colorScheme.tertiary
                                     )
-                                } else if (!recovery.pitrEnabled || !recovery.deleteProtectionEnabled || recovery.dailySchedule == null || recovery.weeklySchedule == null) {
-                                    FilledTonalButton(
-                                        onClick = { showRecoveryProtectionDialog = true },
-                                        enabled = !state.saving
-                                    ) { Text("Apply recommended protection") }
+                                } else {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                                        OutlinedButton(
+                                            onClick = { recoveryProtectionChoice = "free" },
+                                            enabled = !state.saving && !recovery.deleteProtectionEnabled
+                                        ) { Text("Free safeguards") }
+                                        FilledTonalButton(
+                                            onClick = { recoveryProtectionChoice = "startup" },
+                                            enabled = !state.saving && (!recovery.deleteProtectionEnabled || recovery.dailySchedule == null)
+                                        ) { Text("Startup backup") }
+                                    }
+                                    TextButton(
+                                        onClick = { recoveryProtectionChoice = "growth" },
+                                        enabled = !state.saving && (!recovery.pitrEnabled || recovery.weeklySchedule == null)
+                                    ) { Text("Growth protection (paid services)") }
                                     if (recovery.databaseProtectionUpdateStatus == "failed") {
                                         Text("The previous database-protection operation failed. Review Google Cloud/IAM before retrying.", color = MaterialTheme.colorScheme.error)
                                     }
-                                } else {
-                                    Text("Native backup schedules and database protections are configured.", color = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }
@@ -378,29 +412,51 @@ fun MasterAdminScreen(
                     onAddAdmin = { adminForSchool = school },
                     onManageSubscription = { subscriptionForSchool = school },
                     onBilling = { billingForSchool = school; viewModel.loadInvoices(school.schoolId) },
-                    onReconcileSubscription = { viewModel.reconcileSubscription(school.schoolId) }
+                    onReconcileSubscription = { viewModel.reconcileSubscription(school.schoolId) },
+                    onToggleExportAccess = { viewModel.setSchoolDataExportAccess(school.schoolId, !school.selfServiceDataExportEnabled) },
+                    onExportData = { viewModel.downloadSchoolDataExport(school) }
                 )
             }
         }
     }
 
-    if (showRecoveryProtectionDialog) {
+    recoveryProtectionChoice?.let { profile ->
+        val title = when (profile) {
+            "free" -> "Enable free safeguards"
+            "growth" -> "Enable growth protection"
+            else -> "Enable startup backup"
+        }
+        val description = when (profile) {
+            "free" -> "Enables Firestore database delete protection only. PickupPass does not create a scheduled backup or enable PITR in this profile."
+            "growth" -> "Enables daily and weekly native backups, PITR, and delete protection. Google Cloud charges may apply. Use this after the platform has paying schools and stronger recovery requirements."
+            else -> "Recommended for the startup stage: enables delete protection and one daily Firestore backup with short retention. It does not enable PITR or create a weekly backup."
+        }
         AlertDialog(
-            onDismissRequest = { showRecoveryProtectionDialog = false },
-            title = { Text("Enable recommended recovery protection") },
+            onDismissRequest = { recoveryProtectionChoice = null },
+            title = { Text(title) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Text("PickupPass will request native Firestore daily and weekly backup schedules, enable point-in-time recovery, and enable database delete protection.")
-                    Text("Google Cloud backup/PITR usage may incur charges. This action strengthens protection and does not modify student pickup behavior.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(description)
+                    Text(
+                        "This is a platform-level infrastructure setting. Tenant/school administrators cannot change it.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (profile == "startup") {
+                        Text("Existing stronger protections are preserved; this action does not silently turn off an already-enabled PITR or weekly schedule.", style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             },
             confirmButton = {
                 Button(enabled = !state.saving, onClick = {
-                    viewModel.applyRecommendedRecoveryProtection()
-                    showRecoveryProtectionDialog = false
-                }) { Text("Enable protection") }
+                    when (profile) {
+                        "free" -> viewModel.applyFreeRecoveryProtection()
+                        "growth" -> viewModel.applyRecommendedRecoveryProtection()
+                        else -> viewModel.applyStartupRecoveryProtection()
+                    }
+                    recoveryProtectionChoice = null
+                }) { Text("Apply") }
             },
-            dismissButton = { TextButton(onClick = { showRecoveryProtectionDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { recoveryProtectionChoice = null }) { Text("Cancel") } }
         )
     }
 
@@ -815,7 +871,9 @@ private fun SchoolCard(
     onAddAdmin: () -> Unit,
     onManageSubscription: () -> Unit,
     onBilling: () -> Unit,
-    onReconcileSubscription: () -> Unit
+    onReconcileSubscription: () -> Unit,
+    onToggleExportAccess: () -> Unit,
+    onExportData: () -> Unit
 ) {
     val active = school.status == "active"
     OutlinedCard(Modifier.fillMaxWidth()) {
@@ -873,6 +931,26 @@ private fun SchoolCard(
             }
             TextButton(onClick = onReconcileSubscription, enabled = !saving) {
                 Text("Check subscription lifecycle now")
+            }
+            HorizontalDivider()
+            Text(
+                "Tenant data export",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                if (school.selfServiceDataExportEnabled)
+                    "School admin self-service export is enabled. Exports are direct downloads and are not stored in PickupPass cloud storage."
+                else
+                    "School admin self-service export is disabled. The platform owner can still export this tenant when support or recovery requires it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                OutlinedButton(onClick = onExportData, enabled = !saving) { Text("Owner export") }
+                TextButton(onClick = onToggleExportAccess, enabled = !saving) {
+                    Text(if (school.selfServiceDataExportEnabled) "Disable school export" else "Enable school export")
+                }
             }
         }
     }

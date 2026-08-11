@@ -486,4 +486,22 @@ class SchoolAdminRepository @Inject constructor(
         else ApiResult.Failure("Could not download payment receipt")
     } catch (e: Exception) { ApiResult.Failure(e.message ?: "Network error") }
 
+    suspend fun getSchoolDataExportStatus(): ApiResult<SchoolDataExportStatusResponse> = try {
+        val response = api.getSchoolDataExportStatus()
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body)
+        else ApiResult.Failure("Could not load data-export status")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
+    suspend fun downloadSchoolDataExport(): ApiResult<ByteArray> = try {
+        val response = api.downloadSchoolDataExport()
+        val body = response.body()
+        if (response.isSuccessful && body != null) ApiResult.Success(body.bytes())
+        else ApiResult.Failure(response.errorBody()?.string()?.take(300) ?: "Could not create school data export")
+    } catch (e: Exception) {
+        ApiResult.Failure(e.message ?: "Network error")
+    }
+
 }

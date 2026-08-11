@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -71,6 +72,7 @@ fun SchoolBrandingScreen(
     onGoToStaffPickupGates: () -> Unit,
     onGoToBroadcast: () -> Unit,
     onGoToBilling: () -> Unit,
+    onGoToDataExport: () -> Unit,
     onSignedOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -245,6 +247,7 @@ fun SchoolBrandingScreen(
                 NavListItem(Icons.Filled.AdminPanelSettings, "Teacher Accounts", onGoToStaffManagement)
                 NavListItem(Icons.Filled.FactCheck, "Audit Log", onGoToAuditLog)
                 NavListItem(Icons.Filled.ReceiptLong, "Subscription & Billing", onGoToBilling)
+                NavListItem(Icons.Filled.Download, "Data Backup & Export", onGoToDataExport)
             }
 
             Spacer(Modifier.height(Spacing.lg))

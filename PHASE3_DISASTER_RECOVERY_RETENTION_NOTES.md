@@ -2,16 +2,15 @@
 
 ## Objective
 
-Update 11 adds an operator-facing disaster-recovery layer without putting recovery logic in the student pickup transaction. PickupPass uses Google Cloud Firestore native backup/PITR/delete-protection capabilities rather than copying production documents into a second Firestore collection and calling that a backup.
+Update 11 introduced an operator-facing disaster-recovery layer without putting recovery logic in the student pickup transaction. PickupPass uses Google Cloud Firestore native backup/PITR/delete-protection capabilities rather than copying production documents into a second Firestore collection and calling that a backup.
 
 ## Recommended startup protection profile
 
 The application defaults to the following requested protection profile when the Master Admin explicitly applies recommended protection:
 
-- Daily Firestore backup schedule retained for 14 days.
-- Weekly Firestore backup schedule retained for 84 days.
-- Point-in-time recovery (PITR) enabled.
-- Firestore database delete protection enabled.
+- The original growth profile supports daily + weekly backups, PITR, and delete protection.
+- Phase 3 Update 12 changes the recommended startup profile to delete protection + one daily backup retained for 7 days.
+- PITR and weekly backups remain explicit growth-stage options instead of startup defaults.
 - A READY backup older than 48 hours is surfaced as a recovery-health warning by default.
 
 All thresholds are deployment configuration and can be changed without rebuilding Android. PickupPass clamps configured backup retention to 98 days to stay inside the supported Firestore scheduled-backup retention window.
