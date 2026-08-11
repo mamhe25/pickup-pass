@@ -307,4 +307,37 @@ class SchoolAdminRepository @Inject constructor(
             ApiResult.Failure(e.message ?: "Network error")
         }
     }
+
+    suspend fun listGuardianVerification(): ApiResult<GuardianVerificationResponse> {
+        return try {
+            val response = api.listGuardianVerification()
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure("Could not load guardian verification records")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun updateGuardianVerificationPolicy(required: Boolean): ApiResult<Unit> {
+        return try {
+            val response = api.updateGuardianVerificationPolicy(GuardianVerificationPolicyRequest(required))
+            if (response.isSuccessful) ApiResult.Success(Unit)
+            else ApiResult.Failure("Could not update guardian verification policy")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun updateGuardianVerificationStatus(uid: String, status: String, reason: String): ApiResult<GuardianVerificationStatusResponse> {
+        return try {
+            val response = api.updateGuardianVerificationStatus(uid, GuardianVerificationStatusRequest(status, reason))
+            val body = response.body()
+            if (response.isSuccessful && body != null) ApiResult.Success(body)
+            else ApiResult.Failure("Could not update guardian verification status")
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
 }

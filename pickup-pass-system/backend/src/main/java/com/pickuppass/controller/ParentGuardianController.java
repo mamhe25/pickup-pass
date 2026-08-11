@@ -100,6 +100,8 @@ public class ParentGuardianController {
                 req.getGuardianEmail(), req.getLastName(), req.getFirstName(),
                 req.getMiddleInitial(), req.getSuffix(), schoolId);
 
+        initializeGuardianVerification(result.getUid(), schoolId, isSchoolStaff);
+
         if (guardianUids.contains(result.getUid())) {
             return ResponseEntity.status(400).body(Map.of("error", "This person is already an authorized guardian"));
         }
@@ -170,6 +172,8 @@ public class ParentGuardianController {
         GuardianProvisioningService.ProvisionResult result = guardianService.provisionGuardianAccount(
                 req.getGuardianEmail(), req.getLastName(), req.getFirstName(),
                 req.getMiddleInitial(), req.getSuffix(), schoolId);
+
+        initializeGuardianVerification(result.getUid(), schoolId, isSchoolStaff);
 
         Map<String, Object> guardians = (Map<String, Object>) studentSnap.get("guardians");
         Map<String, Object> existing = guardians == null ? null : (Map<String, Object>) guardians.get(result.getUid());
@@ -272,6 +276,26 @@ public class ParentGuardianController {
         auditService.record(parent, "guardian.removed", "student", req.getStudentId(), Map.of("guardianUid", req.getGuardianUid()));
 
         return ResponseEntity.ok(Map.of("status", "removed"));
+    }
+
+
+    private void initializeGuardianVerification(String guardianUid, String schoolId, boolean addedBySchoolStaff) throws Exception {
+        DocumentReference userRef = firestore.collection("users").document(guardianUid);
+        DocumentSnapshot user = userRef.get().get();
+        if (!user.exists()) return;
+        String existing = user.getString("guardianVerificationStatus");
+        if (existing != null && !existing.isBlank()) return;
+
+        DocumentSnapshot school = firestore.collection("schools").document(schoolId).get().get();
+        boolean verificationRequired = school.exists() && Boolean.TRUE.equals(school.getBoolean("guardianVerificationRequired"));
+        String status = addedBySchoolStaff || !verificationRequired ? "verified" : "pending";
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("guardianVerificationStatus", status);
+        updates.put("guardianVerificationUpdatedAt", FieldValue.serverTimestamp());
+        if ("verified".equals(status)) {
+            updates.put("guardianVerifiedAt", FieldValue.serverTimestamp());
+        }
+        userRef.update(updates).get();
     }
 
     public static class AddGuardianRequest {

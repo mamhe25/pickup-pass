@@ -24,6 +24,7 @@ import com.pickuppass.android.ui.schooladmin.staffmanagement.StaffManagementScre
 import com.pickuppass.android.ui.schooladmin.audit.AuditLogScreen
 import com.pickuppass.android.ui.schooladmin.dashboard.DismissalDashboardScreen
 import com.pickuppass.android.ui.schooladmin.reports.DismissalReportsScreen
+import com.pickuppass.android.ui.schooladmin.guardianverification.GuardianVerificationScreen
 import com.pickuppass.android.ui.schooladmin.pickuppolicy.PickupPolicyScreen
 import com.pickuppass.android.ui.schooladmin.academic.AcademicStructureScreen
 import com.pickuppass.android.ui.schooladmin.staff.InviteTeacherScreen
@@ -187,6 +188,7 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
                 onGoToBulkStudentImport = { navController.navigate(Screen.SchoolAdminBulkStudentImport.route) },
                 onGoToStudentLifecycle = { navController.navigate(Screen.SchoolAdminStudentLifecycle.route) },
                 onGoToDismissalReports = { navController.navigate(Screen.SchoolAdminDismissalReports.route) },
+                onGoToGuardianVerification = { navController.navigate(Screen.SchoolAdminGuardianVerification.route) },
                 onGoToBroadcast = { navController.navigate(Screen.SchoolAdminBroadcast.route) },
                 onSignedOut = { navController.navigateToLoginClearingBackStack() }
             )
@@ -238,6 +240,10 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
 
         composable(Screen.SchoolAdminDismissalReports.route) {
             DismissalReportsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.SchoolAdminGuardianVerification.route) {
+            GuardianVerificationScreen(onBack = { navController.popBackStack() })
         }
     }
 }

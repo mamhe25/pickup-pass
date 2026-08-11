@@ -436,3 +436,33 @@ data class DismissalReportSummary(
     val dailyCounts: Map<String, Int> = emptyMap(),
     val gradeSectionCounts: Map<String, Int> = emptyMap()
 )
+
+
+// ---- Phase 2: guardian identity verification ----
+
+data class GuardianVerificationItem(
+    val uid: String = "",
+    val displayName: String = "",
+    val email: String = "",
+    val status: String = "verified",
+    val studentNames: List<String> = emptyList(),
+    val verificationReason: String = "",
+    val verifiedAt: String? = null
+)
+
+data class GuardianVerificationResponse(
+    val verificationRequired: Boolean = false,
+    val guardians: List<GuardianVerificationItem> = emptyList()
+)
+
+data class GuardianVerificationPolicyRequest(val required: Boolean)
+
+data class GuardianVerificationStatusRequest(
+    val status: String,
+    val reason: String = ""
+)
+
+data class GuardianVerificationStatusResponse(
+    val status: String = "",
+    val invalidatedTokens: Int = 0
+)

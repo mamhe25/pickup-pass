@@ -158,6 +158,20 @@ interface PickupPassApi {
         @Query("section") section: String? = null
     ): Response<ResponseBody>
 
+    @GET("school-admin/guardian-verification")
+    suspend fun listGuardianVerification(): Response<GuardianVerificationResponse>
+
+    @PUT("school-admin/guardian-verification/policy")
+    suspend fun updateGuardianVerificationPolicy(
+        @Body body: GuardianVerificationPolicyRequest
+    ): Response<Map<String, Any?>>
+
+    @PUT("school-admin/guardian-verification/{guardianUid}")
+    suspend fun updateGuardianVerificationStatus(
+        @Path("guardianUid") guardianUid: String,
+        @Body body: GuardianVerificationStatusRequest
+    ): Response<GuardianVerificationStatusResponse>
+
     @POST("school-admin/broadcasts")
     suspend fun broadcastToSchool(@Body body: BroadcastRequest): Response<BroadcastResponse>
 

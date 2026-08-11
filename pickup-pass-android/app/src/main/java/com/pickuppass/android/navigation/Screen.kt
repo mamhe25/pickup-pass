@@ -55,4 +55,6 @@ sealed class Screen(val route: String) {
     data object SchoolAdminStudentLifecycle : Screen("school-admin/student-lifecycle")
 
     data object SchoolAdminDismissalReports : Screen("school-admin/dismissal-reports")
+
+    data object SchoolAdminGuardianVerification : Screen("school-admin/guardian-verification")
 }

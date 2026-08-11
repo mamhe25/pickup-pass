@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,6 +64,7 @@ fun SchoolBrandingScreen(
     onGoToBulkStudentImport: () -> Unit,
     onGoToStudentLifecycle: () -> Unit,
     onGoToDismissalReports: () -> Unit,
+    onGoToGuardianVerification: () -> Unit,
     onGoToBroadcast: () -> Unit,
     onSignedOut: () -> Unit
 ) {
@@ -209,6 +211,7 @@ fun SchoolBrandingScreen(
                 NavListItem(Icons.Filled.Class, "School Year & Sections", onGoToAcademicStructure)
                 NavListItem(Icons.Filled.UploadFile, "Bulk Import Students", onGoToBulkStudentImport)
                 NavListItem(Icons.Filled.PersonOff, "Student Lifecycle & Promotion", onGoToStudentLifecycle)
+                NavListItem(Icons.Filled.VerifiedUser, "Guardian Verification", onGoToGuardianVerification)
                 NavListItem(Icons.Filled.Schedule, "Pickup Policy", onGoToPickupPolicy)
             }
 
