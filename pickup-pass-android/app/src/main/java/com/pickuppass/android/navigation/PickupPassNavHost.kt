@@ -16,6 +16,9 @@ import com.pickuppass.android.ui.parent.students.StudentsScreen
 import com.pickuppass.android.ui.schooladmin.branding.SchoolBrandingScreen
 import com.pickuppass.android.ui.schooladmin.broadcast.SchoolBroadcastScreen
 import com.pickuppass.android.ui.schooladmin.sections.ManageSectionsScreen
+import com.pickuppass.android.ui.schooladmin.manualpickup.ManualPickupScreen
+import com.pickuppass.android.ui.schooladmin.staffmanagement.StaffManagementScreen
+import com.pickuppass.android.ui.schooladmin.audit.AuditLogScreen
 import com.pickuppass.android.ui.schooladmin.staff.InviteTeacherScreen
 import com.pickuppass.android.ui.splash.SplashDestination
 import com.pickuppass.android.ui.splash.SplashScreen
@@ -159,6 +162,9 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
                 onGoToExitLogs = { navController.navigate(Screen.TeacherExitLogs.route) },
                 onGoToInviteTeacher = { navController.navigate(Screen.SchoolAdminInviteTeacher.route) },
                 onGoToManageSections = { navController.navigate(Screen.SchoolAdminManageSections.route) },
+                onGoToStaffManagement = { navController.navigate(Screen.SchoolAdminStaffManagement.route) },
+                onGoToManualPickup = { navController.navigate(Screen.SchoolAdminManualPickup.route) },
+                onGoToAuditLog = { navController.navigate(Screen.SchoolAdminAuditLog.route) },
                 onGoToBroadcast = { navController.navigate(Screen.SchoolAdminBroadcast.route) },
                 onSignedOut = { navController.navigateToLoginClearingBackStack() }
             )
@@ -174,6 +180,18 @@ fun PickupPassNavHost(navController: NavHostController = rememberNavController()
 
         composable(Screen.SchoolAdminBroadcast.route) {
             SchoolBroadcastScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.SchoolAdminManualPickup.route) {
+            ManualPickupScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.SchoolAdminStaffManagement.route) {
+            StaffManagementScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.SchoolAdminAuditLog.route) {
+            AuditLogScreen(onBack = { navController.popBackStack() })
         }
     }
 }

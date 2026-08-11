@@ -12,6 +12,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.filled.FactCheck
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Class
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.History
@@ -46,6 +49,9 @@ fun SchoolBrandingScreen(
     onGoToExitLogs: () -> Unit,
     onGoToInviteTeacher: () -> Unit,
     onGoToManageSections: () -> Unit,
+    onGoToStaffManagement: () -> Unit,
+    onGoToManualPickup: () -> Unit,
+    onGoToAuditLog: () -> Unit,
     onGoToBroadcast: () -> Unit,
     onSignedOut: () -> Unit
 ) {
@@ -181,6 +187,7 @@ fun SchoolBrandingScreen(
             GroupedActionList {
                 NavListItem(Icons.Filled.Groups, "Manage Students", onGoToStudents)
                 NavListItem(Icons.Filled.History, "Dismissal History", onGoToExitLogs)
+                NavListItem(Icons.Filled.WarningAmber, "Manual Pickup Override", onGoToManualPickup)
             }
 
             Spacer(Modifier.height(Spacing.lg))
@@ -188,6 +195,8 @@ fun SchoolBrandingScreen(
             GroupedActionList {
                 NavListItem(Icons.Filled.PersonAdd, "Invite a Teacher", onGoToInviteTeacher)
                 NavListItem(Icons.Filled.Class, "Teacher Sections", onGoToManageSections)
+                NavListItem(Icons.Filled.AdminPanelSettings, "Teacher Accounts", onGoToStaffManagement)
+                NavListItem(Icons.Filled.FactCheck, "Audit Log", onGoToAuditLog)
             }
 
             Spacer(Modifier.height(Spacing.lg))

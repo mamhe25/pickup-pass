@@ -105,6 +105,8 @@ public class SchoolAdminController {
             t.put("uid", doc.getId());
             t.put("displayName", doc.getString("displayName"));
             t.put("email", doc.getString("email"));
+            Boolean isActive = doc.getBoolean("isActive");
+            t.put("isActive", isActive == null || isActive);
             t.put("assignedSections", doc.get("assignedSections") != null ? doc.get("assignedSections") : List.of());
             teachers.add(t);
         }

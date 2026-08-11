@@ -3,6 +3,7 @@ package com.pickuppass.controller;
 import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
+import com.google.cloud.Timestamp;
 import com.pickuppass.security.FirebaseUserDetails;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -41,6 +42,10 @@ public class AuditController {
         List<Map<String, Object>> events = new ArrayList<>();
         for (QueryDocumentSnapshot doc : docs) {
             Map<String, Object> event = new HashMap<>(doc.getData());
+            Object ts = event.get("timestamp");
+            if (ts instanceof Timestamp timestamp) {
+                event.put("timestamp", timestamp.toDate().toInstant().toString());
+            }
             event.put("id", doc.getId());
             events.add(event);
         }

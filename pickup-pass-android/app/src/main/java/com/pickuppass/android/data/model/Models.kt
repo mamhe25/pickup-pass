@@ -162,7 +162,8 @@ data class TeacherWithSections(
     val uid: String,
     val displayName: String?,
     val email: String?,
-    val assignedSections: List<TeacherSection> = emptyList()
+    val assignedSections: List<TeacherSection> = emptyList(),
+    val isActive: Boolean = true
 )
 
 data class StaffListResponse(val teachers: List<TeacherWithSections> = emptyList())
@@ -179,3 +180,32 @@ data class BroadcastResponse(
     val recipientCount: Int = 0,
     val error: String? = null
 )
+
+
+data class StaffStatusRequest(val active: Boolean)
+
+data class ManualOverrideRequest(
+    val studentId: String,
+    val guardianUid: String,
+    val reason: String
+)
+
+data class ManualOverrideResponse(
+    val status: String? = null,
+    val method: String? = null,
+    val exitLogId: String? = null,
+    val error: String? = null
+)
+
+data class AuditEvent(
+    val id: String = "",
+    val actorUid: String = "",
+    val actorRole: String = "",
+    val action: String = "",
+    val resourceType: String = "",
+    val resourceId: String = "",
+    val timestamp: String? = null,
+    val details: Map<String, Any?> = emptyMap()
+)
+
+data class AuditEventsResponse(val events: List<AuditEvent> = emptyList())

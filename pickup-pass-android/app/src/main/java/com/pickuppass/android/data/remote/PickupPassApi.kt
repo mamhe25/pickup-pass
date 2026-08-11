@@ -28,6 +28,9 @@ interface PickupPassApi {
     @POST("pickup/approve")
     suspend fun approvePickup(@Body body: VerifyRequest): Response<ApproveResponse>
 
+    @POST("pickup/manual-override")
+    suspend fun manualOverride(@Body body: ManualOverrideRequest): Response<ManualOverrideResponse>
+
     @POST("teacher/register-parent")
     suspend fun registerParent(@Body body: RegisterParentRequest): Response<AddGuardianResponse>
 
@@ -61,6 +64,18 @@ interface PickupPassApi {
         @Path("uid") uid: String,
         @Body body: UpdateSectionsRequest
     ): Response<SimpleStatusResponse>
+
+    @PUT("school-admin/staff/{uid}/status")
+    suspend fun setTeacherStatus(
+        @Path("uid") uid: String,
+        @Body body: StaffStatusRequest
+    ): Response<SimpleStatusResponse>
+
+    @POST("school-admin/staff/{uid}/revoke-sessions")
+    suspend fun revokeTeacherSessions(@Path("uid") uid: String): Response<SimpleStatusResponse>
+
+    @GET("school-admin/audit-events")
+    suspend fun listAuditEvents(@retrofit2.http.Query("limit") limit: Int = 100): Response<AuditEventsResponse>
 
     @POST("school-admin/broadcasts")
     suspend fun broadcastToSchool(@Body body: BroadcastRequest): Response<BroadcastResponse>

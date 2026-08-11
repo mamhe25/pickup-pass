@@ -3,6 +3,8 @@ package com.pickuppass.android.data.repository
 import com.pickuppass.android.data.model.ApproveResponse
 import com.pickuppass.android.data.model.GenerateTokenRequest
 import com.pickuppass.android.data.model.PickupTokenResponse
+import com.pickuppass.android.data.model.ManualOverrideRequest
+import com.pickuppass.android.data.model.ManualOverrideResponse
 import com.pickuppass.android.data.model.VerifyRequest
 import com.pickuppass.android.data.model.VerifyResponse
 import com.pickuppass.android.data.remote.PickupPassApi
@@ -49,6 +51,21 @@ class PickupRepository @Inject constructor(
                 ApiResult.Success(body)
             } else {
                 ApiResult.Failure(body?.reason ?: "Approval failed")
+            }
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
+
+    suspend fun manualOverride(studentId: String, guardianUid: String, reason: String): ApiResult<ManualOverrideResponse> {
+        return try {
+            val response = api.manualOverride(ManualOverrideRequest(studentId, guardianUid, reason.trim()))
+            val body = response.body()
+            if (response.isSuccessful && body?.status == "release_approved") {
+                ApiResult.Success(body)
+            } else {
+                ApiResult.Failure(body?.error ?: parseError(response.errorBody()?.string()) ?: "Manual pickup approval failed")
             }
         } catch (e: Exception) {
             ApiResult.Failure(e.message ?: "Network error")
