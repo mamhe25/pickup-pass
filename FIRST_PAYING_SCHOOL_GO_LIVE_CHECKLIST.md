@@ -1,11 +1,13 @@
 # PickupPass — First Paying School Go-Live Checklist
 
-Use this after applying Phase 3 Update 15.
+Use this after applying Phase 3 Update 16.
 
 ## Platform owner
 
 - [ ] Production backend builds successfully with tests.
 - [ ] Android release build succeeds with the real signing key.
+- [ ] Firebase Hosting deploy succeeds and the current web portal is visible online.
+- [ ] Parent, Teacher/Staff, School Admin, and Master Admin web role routing is verified.
 - [ ] Hardened Firestore rules are deployed.
 - [ ] Current Firestore indexes are deployed.
 - [ ] `SPRING_PROFILES_ACTIVE=prod`.
@@ -16,6 +18,7 @@ Use this after applying Phase 3 Update 15.
 - [ ] Billing/GCash receiver configuration is correct.
 - [ ] Startup backup profile is either intentionally OFF or configured at the desired low-cost level.
 - [ ] Master Admin observability/security dashboards open successfully.
+- [ ] `tools/phase3-u16-web-verify.ps1` passes.
 
 ## School
 
@@ -42,6 +45,7 @@ Do not onboard live students if any of these fail:
 - staff authentication;
 - Firestore rule deployment;
 - production backend build;
+- production web role/API routing;
 - launch-readiness required blockers.
 
 Billing reminders, advanced reports, optional backup profiles and cosmetic branding warnings are not student-safety launch blockers.

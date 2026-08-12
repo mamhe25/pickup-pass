@@ -6,6 +6,7 @@
 <title>Dismissal Scanner — PickupPass</title>
 <link rel="stylesheet" href="../shared/theme.css" />
 <link rel="stylesheet" href="../shared/components.css" />
+<link rel="stylesheet" href="../shared/portal.css" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../shared/tailwind-config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -18,7 +19,7 @@
   .scanner-surface { background-color: #161b22; border: 1px solid #30363d; border-radius: var(--radius-md); }
 </style>
 </head>
-<body class="min-h-screen">
+<body class="min-h-screen pp-portal-body">
 
   <div id="teacherNav" data-active="scanner"></div>
   <script type="module" src="../shared/teacher-nav.js"></script>
@@ -47,6 +48,11 @@
 
   <main class="max-w-md mx-auto p-4">
     <h1 class="text-xl font-bold text-ink-strong mb-3">Dismissal Scanner</h1>
+    <div id="gateBar" class="pp-card pp-card--pad mb-3 hidden">
+      <label id="gateLabel" for="gateSelect" class="text-sm font-semibold text-ink-strong">Pickup gate</label>
+      <select id="gateSelect" class="pp-field mt-2 hidden"></select>
+      <p id="gateHint" class="text-xs text-ink-muted mt-1"></p>
+    </div>
 
     <!-- Scan screen (dark camera stage) -->
     <div id="scanScreen" class="scanner-stage flex flex-col items-center justify-center p-4">
@@ -98,6 +104,8 @@ let currentQrToken = null;
 let html5QrCode = null;
 let isHandlingScan = false;
 let isApprovingRelease = false;
+let currentGateId = "";
+let gateCount = 0;
 
 // Sign-out, the auth guard, the signed-in email and the school identity are all
 // owned by the shared teacher nav. This page keeps its auth listener only to
@@ -112,6 +120,7 @@ onAuthStateChanged(auth, async (user) => {
     );
     return;
   }
+  try { await configurePickupGates(); } catch (err) { showToast(err.message || "Could not load pickup gates.", "error"); }
   html5QrCode = new Html5Qrcode("qrReader");
   startScanner();
 });
@@ -122,6 +131,35 @@ onAuthStateChanged(auth, async (user) => {
  * failed" onto a bare panel. The camera is a live device that can be busy, be
  * denied, or hiccup; the teacher needs to know what to do, not read a stack.
  */
+
+async function configurePickupGates() {
+  const res = await authedFetch("/pickup/gates");
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Could not load pickup gates");
+  const gates = Array.isArray(data.gates) ? data.gates : [];
+  gateCount = gates.length;
+  const bar = document.getElementById("gateBar");
+  const select = document.getElementById("gateSelect");
+  const hint = document.getElementById("gateHint");
+  if (gates.length === 0) {
+    currentGateId = "";
+    bar.classList.add("hidden");
+    return;
+  }
+  bar.classList.remove("hidden");
+  if (gates.length === 1) {
+    currentGateId = gates[0].id;
+    select.classList.add("hidden");
+    hint.textContent = `Gate: ${gates[0].campusName ? gates[0].campusName + " — " : ""}${gates[0].name}. Automatically selected.`;
+    return;
+  }
+  currentGateId = "";
+  select.innerHTML = '<option value="">Select a pickup gate…</option>' + gates.map(g => `<option value="${g.id}">${g.campusName ? g.campusName + " — " : ""}${g.name}</option>`).join('');
+  select.classList.remove("hidden");
+  hint.textContent = "Choose the gate where this release is taking place.";
+  select.addEventListener("change", () => { currentGateId = select.value; });
+}
+
 function friendlyCameraError(err) {
   const name = err && (err.name || err.constructor?.name) || "";
   const raw = (err && (err.message || err.toString())) || "";
@@ -233,7 +271,7 @@ function renderVerifyScreen(student, parent) {
   document.getElementById("studentGrade").textContent = `Grade: ${student.grade}`;
   document.getElementById("studentSection").textContent = `Section: ${student.section}`;
 
-  document.getElementById("parentPhoto").src = parent.photoUrl || "../assets/default-avatar.png";
+  document.getElementById("parentPhoto").src = parent.photoUrl || "../assets/default-avatar.svg";
   document.getElementById("parentName").textContent = parent.displayName || "";
 }
 
@@ -255,6 +293,7 @@ function showError(reason) {
 
 document.getElementById("approveBtn").addEventListener("click", async () => {
   if (isApprovingRelease || !currentQrToken) return;
+  if (gateCount > 1 && !currentGateId) { showToast("Select the pickup gate before approving the release.", "warning"); return; }
   isApprovingRelease = true;
   setRequestBusy(true, "Approving release…");
   const approvalController = new AbortController();
@@ -262,6 +301,7 @@ document.getElementById("approveBtn").addEventListener("click", async () => {
   try {
   const res = await authedFetch("/pickup/approve", {
     method: "POST",
+    headers: currentGateId ? { "X-Pickup-Gate-Id": currentGateId } : {},
     body: JSON.stringify({ qrToken: currentQrToken }),
     signal: approvalController.signal,
   });

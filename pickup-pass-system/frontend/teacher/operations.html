@@ -1,0 +1,29 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Teacher Operations — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head><body class="min-h-screen pp-portal-body">
+<div id="teacherNav" data-active="operations"></div><script type="module" src="../shared/teacher-nav.js"></script>
+<main class="pp-page"><div class="pp-page-head"><div><h1>Pickup Operations</h1><p>Your current pickup-gate access, academic structure, and school feature availability. Gate access follows PickupPass' 0 / 1 / multiple-gate behavior automatically in the scanner.</p></div><button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh</button></div>
+<div class="pp-grid"><div class="pp-kpi"><div class="pp-kpi__label">Accessible gates</div><div id="gateCount" class="pp-kpi__value">—</div></div><div class="pp-kpi"><div class="pp-kpi__label">Current academic year</div><div id="yearName" class="pp-kpi__value text-lg">—</div></div><div class="pp-kpi"><div class="pp-kpi__label">Active sections</div><div id="sectionCount" class="pp-kpi__value">—</div></div></div>
+<section class="pp-section"><div class="pp-section__head"><h2>Pickup gate access</h2></div><div id="gateBody" class="pp-section__body pp-grid"><p class="pp-mini">Loading…</p></div></section>
+<section class="pp-section"><div class="pp-section__head"><h2>Academic structure</h2></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Grade</th><th>Section</th><th>Academic year</th><th>Status</th></tr></thead><tbody id="sectionsRows"><tr><td colspan="4" class="pp-empty">Loading…</td></tr></tbody></table></div></section>
+<section class="pp-section"><div class="pp-section__head"><h2>School features</h2></div><div id="featureBody" class="pp-section__body pp-grid"><p class="pp-mini">Loading…</p></div></section></main>
+<script type="module">
+import { apiJson, requireRole, bindRefresh, escapeHtml, statusPill, titleCase } from '../shared/portal.js';
+async function load(){
+  const [gateResult, structureResult, entResult]=await Promise.allSettled([apiJson('/pickup/gates'),apiJson('/academic-structure'),apiJson('/tenant/entitlements')]);
+  if(gateResult.status==='fulfilled'){
+    const gates=gateResult.value.gates||[]; document.getElementById('gateCount').textContent=gates.length;
+    document.getElementById('gateBody').innerHTML=gates.length?gates.map(g=>`<div class="pp-kpi"><div class="pp-kpi__label">${escapeHtml(g.campusName||'Campus')}</div><div class="font-bold text-ink-strong">${escapeHtml(g.name||'Gate')}</div><div class="pp-mini">Available to this account</div></div>`).join(''):'<div class="pp-alert pp-alert--info">No active gates are configured. The scanner works normally without gate selection.</div>';
+  }
+  if(structureResult.status==='fulfilled'){
+    const d=structureResult.value, sections=d.gradeSections||[], current=d.currentAcademicYear;
+    document.getElementById('yearName').textContent=current?.name||'Not set';
+    document.getElementById('sectionCount').textContent=sections.filter(s=>s.active!==false).length;
+    document.getElementById('sectionsRows').innerHTML=sections.length?sections.map(s=>`<tr><td>${escapeHtml(s.gradeLevel)}</td><td>${escapeHtml(s.sectionName)}</td><td>${escapeHtml(s.academicYearName||'')}</td><td>${statusPill(s.active===false?'archived':'active')}</td></tr>`).join(''):'<tr><td colspan="4" class="pp-empty">No sections configured.</td></tr>';
+  }
+  if(entResult.status==='fulfilled'){
+    const e=entResult.value; const features=e.features||e.featureFlags||{};
+    const entries=Object.entries(features);
+    document.getElementById('featureBody').innerHTML=`<div class="pp-kpi"><div class="pp-kpi__label">Plan</div><div class="font-bold">${escapeHtml(e.plan||e.planName||'Legacy')}</div></div><div class="pp-kpi"><div class="pp-kpi__label">Subscription</div><div>${statusPill(e.subscriptionStatus||e.status||'active')}</div></div>`+(entries.length?entries.map(([k,v])=>`<div class="pp-kpi"><div class="pp-kpi__label">${escapeHtml(titleCase(k))}</div><div>${statusPill(v?'enabled':'disabled')}</div></div>`).join(''):'');
+  }
+}
+bindRefresh('refreshBtn',load); requireRole(['teacher','school_admin'],load);
+</script></body></html>

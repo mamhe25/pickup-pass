@@ -21,12 +21,14 @@
 import { auth, db, getSchoolBranding } from "./firebase-init.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { mountThemeToggle, enhancePortal } from './shell.js';
 
 // Primary destinations, in the order a teacher's day tends to flow.
 const NAV_ITEMS = [
   { key: "scanner",       label: "Scanner",       href: "./scanner.html",       icon: iconScan },
   { key: "students",      label: "Students",      href: "./students.html",      icon: iconUsers },
   { key: "history",       label: "History",       href: "./exit-logs.html",     icon: iconClock },
+  { key: "operations",    label: "Operations",    href: "./operations.html",    icon: iconSettings },
   { key: "announce",      label: "Announce",      href: "./broadcast.html",     icon: iconMegaphone },
   { key: "notifications", label: "Notifications", href: "./notifications.html", icon: iconBell },
 ];
@@ -53,7 +55,7 @@ function render(mount) {
         </a>
         <div class="flex items-center gap-3">
           <span id="currentUserEmail" class="text-xs text-ink-subtle hidden sm:inline"></span>
-          <button id="signOutBtn" class="pp-btn pp-btn--ghost" type="button">Sign out</button>
+          <button data-pp-theme-toggle class="pp-icon-btn" type="button"></button><button id="signOutBtn" class="pp-btn pp-btn--ghost" type="button">Sign out</button>
         </div>
       </div>
       <div id="navSchoolSlot" class="pp-appbar__schoolband hidden">
@@ -63,6 +65,9 @@ function render(mount) {
       <nav class="pp-navrow" aria-label="Teacher sections">${links}</nav>
     </header>
   `;
+
+  mountThemeToggle(mount.querySelector("[data-pp-theme-toggle]"));
+  enhancePortal();
 
   const signOutBtn = mount.querySelector("#signOutBtn");
   signOutBtn.addEventListener("click", async () => {
@@ -113,6 +118,7 @@ function svg(paths) {
 function iconScan() { return svg('<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/>'); }
 function iconUsers() { return svg('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'); }
 function iconClock() { return svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'); }
+function iconSettings() { return svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1Z"/>'); }
 function iconMegaphone() { return svg('<path d="M3 11v2a1 1 0 0 0 1 1h2l4 4V6L6 10H4a1 1 0 0 0-1 1Z"/><path d="M14 8a4 4 0 0 1 0 8"/>'); }
 function iconBell() { return svg('<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>'); }
 function iconShield() {

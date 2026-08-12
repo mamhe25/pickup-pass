@@ -1,50 +1,20 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Sign In — PickupPass</title>
-<!-- Load order matters: tokens, then Tailwind CDN, then the config that maps to them. -->
-<link rel="stylesheet" href="./shared/theme.css" />
-<link rel="stylesheet" href="./shared/components.css" />
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="./shared/tailwind-config.js"></script>
-</head>
-<body class="min-h-screen flex items-center justify-center p-4">
-
-  <div class="pp-card pp-card--elevated w-full max-w-sm overflow-hidden">
-    <!-- Brand gradient header — the signature moment, used once, on the first screen. -->
-    <div class="pp-brand-surface px-8 pt-8 pb-6 text-center">
-      <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-md bg-white/15">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z" fill="white" fill-opacity="0.18"/>
-          <path d="M9.5 12.2l1.8 1.8 3.5-3.7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <h1 class="text-xl font-bold">PickupPass</h1>
-      <p class="text-sm text-white/80 mt-0.5">Safe Dismissal. Peace of Mind.</p>
-    </div>
-
-    <div class="p-8">
-      <p class="text-sm text-ink-muted mb-6 text-center">Sign in to continue</p>
-
-      <form id="loginForm" class="space-y-3">
-        <input id="email" type="email" required placeholder="Email" class="pp-field" />
-        <input id="password" type="password" required placeholder="Password" class="pp-field" />
-
-        <p id="errorMsg" class="text-sm text-danger hidden"></p>
-
-        <button type="submit" class="pp-btn pp-btn--primary w-full">
-          Sign In
-        </button>
-      </form>
-
-      <button id="forgotBtn" class="pp-btn pp-btn--ghost mt-4 w-full">
-        Forgot password?
-      </button>
-    </div>
-  </div>
-
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign In — PickupPass</title><meta name="theme-color" content="#4F46E5">
+<link rel="stylesheet" href="./shared/theme.css"><link rel="stylesheet" href="./shared/components.css"><link rel="stylesheet" href="./shared/portal.css">
+<script src="https://cdn.tailwindcss.com"></script><script src="./shared/tailwind-config.js"></script></head>
+<body class="min-h-screen pp-portal-body flex items-center justify-center p-4">
+<div class="pp-auth-shell">
+  <section class="pp-auth-story">
+    <div class="relative z-10 max-w-lg"><div class="flex items-center gap-3 mb-10"><span class="pp-brandmark__badge w-11 h-11 inline-flex items-center justify-center rounded-xl"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z" fill="white" fill-opacity=".2"/><path d="m9.5 12.2 1.8 1.8 3.5-3.7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><div class="text-xl font-extrabold">PickupPass</div><div class="text-xs text-white/70">Safe Dismissal. Peace of Mind.</div></div></div>
+    <div class="text-xs uppercase tracking-[.18em] font-bold text-white/60 mb-3">Secure school dismissal</div><h1 class="text-4xl font-extrabold leading-tight tracking-tight">One trusted portal for every pickup role.</h1><p class="mt-4 text-white/75 leading-relaxed">Parents manage authorized pickup. Staff verify and release students. School administrators oversee safety, operations, reporting and billing — all from the same protected platform.</p>
+    <div class="grid grid-cols-2 gap-3 mt-8"><div class="rounded-2xl bg-white/10 border border-white/15 p-4"><div class="text-2xl font-extrabold">QR</div><div class="text-xs text-white/70 mt-1">Single-use secure pickup passes</div></div><div class="rounded-2xl bg-white/10 border border-white/15 p-4"><div class="text-2xl font-extrabold">4 roles</div><div class="text-xs text-white/70 mt-1">Parent, staff, school and platform admin</div></div></div></div>
+  </section>
+  <section class="pp-auth-form"><div class="mb-7"><div class="text-xs uppercase tracking-[.14em] text-brand-600 font-bold">Welcome back</div><h2 class="text-2xl font-extrabold text-ink-strong tracking-tight mt-2">Sign in to PickupPass</h2><p class="text-sm text-ink-muted mt-2">Use the account provided by your school.</p></div>
+    <form id="loginForm" class="space-y-4"><label>Email address<input id="email" type="email" autocomplete="email" required class="pp-field" placeholder="name@example.com"></label><label>Password<input id="password" type="password" autocomplete="current-password" required class="pp-field" placeholder="Enter your password"></label><p id="errorMsg" class="pp-alert pp-alert--danger hidden"></p><button type="submit" class="pp-btn pp-btn--primary w-full">Sign in securely</button></form>
+    <button id="forgotBtn" class="pp-btn pp-btn--ghost mt-4 w-full">Forgot password?</button><div class="mt-7 pt-5 border-t border-hairline text-center text-xs text-ink-subtle">Protected by Firebase Authentication and role-based access controls.</div>
+  </section>
+</div>
 <script type="module">
 import { auth, setSubmitButtonBusy, showToast } from "./shared/firebase-init.js";
 import {
@@ -106,10 +76,10 @@ async function routeByRole(user) {
       window.location.href = "./teacher/scanner.html";
       break;
     case "school_admin":
-      window.location.href = "./school-admin/branding.html";
+      window.location.href = "./school-admin/dashboard.html";
       break;
     case "master_admin":
-      showToast("Master admin console is not included in this build.", "info");
+      window.location.href = "./master-admin/index.html";
       break;
     default:
       document.getElementById("errorMsg").textContent =

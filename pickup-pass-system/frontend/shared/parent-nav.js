@@ -21,11 +21,14 @@
 import { auth, db, getSchoolBranding } from "./firebase-init.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { mountThemeToggle, enhancePortal } from './shell.js';
 
 const NAV_ITEMS = [
-  { key: "students",      label: "My Students",   href: "./students.html",      icon: iconUsers },
-  { key: "notifications", label: "Notifications", href: "./notifications.html", icon: iconBell, badge: true },
-  { key: "profile",       label: "My Profile",    href: "./profile.html",       icon: iconUser },
+  { key: "students",      label: "My Students",   href: "./students.html",          icon: iconUsers },
+  { key: "guardians",     label: "Guardians",     href: "./manage-guardians.html",  icon: iconShield },
+  { key: "devices",       label: "Devices",       href: "./devices.html",           icon: iconDevice },
+  { key: "notifications", label: "Notifications", href: "./notifications.html",     icon: iconBell, badge: true },
+  { key: "profile",       label: "My Profile",    href: "./profile.html",           icon: iconUser },
 ];
 
 function render(mount) {
@@ -49,7 +52,7 @@ function render(mount) {
         </a>
         <div class="flex items-center gap-3">
           <span id="currentUserEmail" class="text-xs text-ink-subtle hidden sm:inline"></span>
-          <button id="signOutBtn" class="pp-btn pp-btn--ghost" type="button">Sign out</button>
+          <button data-pp-theme-toggle class="pp-icon-btn" type="button"></button><button id="signOutBtn" class="pp-btn pp-btn--ghost" type="button">Sign out</button>
         </div>
       </div>
       <div id="navSchoolSlot" class="pp-appbar__schoolband hidden">
@@ -59,6 +62,9 @@ function render(mount) {
       <nav class="pp-navrow" aria-label="Parent sections">${links}</nav>
     </header>
   `;
+
+  mountThemeToggle(mount.querySelector("[data-pp-theme-toggle]"));
+  enhancePortal();
 
   mount.querySelector("#signOutBtn").addEventListener("click", async () => {
     await signOut(auth);
@@ -126,6 +132,7 @@ function svg(paths) {
 }
 function iconUsers() { return svg('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'); }
 function iconBell() { return svg('<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>'); }
+function iconDevice() { return svg('<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 18h6"/>'); }
 function iconUser() { return svg('<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>'); }
 function iconShield() {
   return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">

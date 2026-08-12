@@ -13,7 +13,10 @@
     "rewrites": [
       {
         "source": "/api/**",
-        "destination": "https://pickup-pass-backend-445244473897.asia-southeast1.run.app/api"
+        "run": {
+          "serviceId": "pickup-pass-backend",
+          "region": "asia-southeast1"
+        }
       }
     ]
   }

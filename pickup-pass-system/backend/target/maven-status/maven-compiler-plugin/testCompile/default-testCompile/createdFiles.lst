@@ -1,0 +1,15 @@
+com\pickuppass\service\FirestoreDisasterRecoveryServiceTest.class
+com\pickuppass\service\PickupMetricsServiceTest.class
+com\pickuppass\service\IdempotencyServiceTest.class
+com\pickuppass\observability\RollingHttpMetricsTest.class
+com\pickuppass\security\JsonSecurityHandlersTest.class
+com\pickuppass\service\SubscriptionLifecycleServiceTest.class
+com\pickuppass\config\ProductionSafetyValidatorTest.class
+com\pickuppass\security\SecurityHeadersFilterTest.class
+com\pickuppass\service\SaasOperationsHealthServiceTest.class
+com\pickuppass\controller\SessionControllerTest.class
+com\pickuppass\service\HmacWebhookVerifierTest.class
+com\pickuppass\controller\PickupControllerTest.class
+com\pickuppass\service\SubscriptionFeatureServiceTest.class
+com\pickuppass\service\GuardianAuthorizationServiceTest.class
+com\pickuppass\controller\PickupPolicyControllerTest.class

@@ -6,15 +6,16 @@
 <title>Notifications — PickupPass</title>
 <link rel="stylesheet" href="../shared/theme.css" />
 <link rel="stylesheet" href="../shared/components.css" />
+<link rel="stylesheet" href="../shared/portal.css" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../shared/tailwind-config.js"></script>
 </head>
-<body class="min-h-screen">
+<body class="min-h-screen pp-portal-body">
 
   <div id="teacherNav" data-active="notifications"></div>
   <script type="module" src="../shared/teacher-nav.js"></script>
 
-  <main class="max-w-lg mx-auto p-4">
+  <main class="pp-page pp-page--narrow">
     <div class="flex items-center justify-between mb-4">
       <h1 class="text-xl font-bold text-ink-strong">Notifications</h1>
       <button id="markAllReadBtn" class="pp-btn pp-btn--ghost hidden">Mark all read</button>
