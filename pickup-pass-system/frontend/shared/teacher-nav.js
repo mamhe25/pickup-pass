@@ -25,12 +25,12 @@ import { mountThemeToggle, enhancePortal } from './shell.js';
 
 // Primary destinations, in the order a teacher's day tends to flow.
 const NAV_ITEMS = [
-  { key: "scanner",       label: "Scanner",       href: "./scanner.html",       icon: iconScan },
-  { key: "students",      label: "Students",      href: "./students.html",      icon: iconUsers },
-  { key: "history",       label: "History",       href: "./exit-logs.html",     icon: iconClock },
-  { key: "operations",    label: "Operations",    href: "./operations.html",    icon: iconSettings },
-  { key: "announce",      label: "Announce",      href: "./broadcast.html",     icon: iconMegaphone },
-  { key: "notifications", label: "Notifications", href: "./notifications.html", icon: iconBell },
+  { key: "scanner",       label: "Scanner",       href: "/teacher/scanner.html",       icon: iconScan },
+  { key: "students",      label: "Students",      href: "/teacher/students.html",      icon: iconUsers },
+  { key: "history",       label: "History",       href: "/teacher/exit-logs.html",     icon: iconClock },
+  { key: "operations",    label: "Operations",    href: "/teacher/operations.html",    icon: iconSettings },
+  { key: "announce",      label: "Announce",      href: "/teacher/broadcast.html",     icon: iconMegaphone },
+  { key: "notifications", label: "Notifications", href: "/teacher/notifications.html", icon: iconBell },
 ];
 
 function render(mount) {

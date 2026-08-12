@@ -18,17 +18,17 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase
 import { mountThemeToggle, enhancePortal } from './shell.js';
 
 const NAV_ITEMS = [
-  { key: "home",      label: "Dashboard",  href: "./dashboard.html",          icon: iconHome },
-  { key: "students",  label: "Students",   href: "./students-lifecycle.html", icon: iconUsers },
-  { key: "academics", label: "Academics",  href: "./academics.html",          icon: iconGrid },
-  { key: "staff",     label: "Staff",      href: "./staff.html",              icon: iconUserPlus },
-  { key: "pickup",    label: "Pickup",     href: "./pickup-settings.html",    icon: iconShield },
-  { key: "reports",   label: "Reports",    href: "./reports.html",            icon: iconReport },
-  { key: "announce",  label: "Announce",   href: "./broadcast.html",          icon: iconMegaphone },
-  { key: "billing",   label: "Billing",    href: "./billing.html",            icon: iconBilling },
-  { key: "audit",     label: "Audit",      href: "./audit.html",              icon: iconClock },
-  { key: "launch",    label: "Launch",     href: "./launch-readiness.html",   icon: iconRocket },
-  { key: "branding",  label: "Branding",   href: "./branding.html",           icon: iconPalette },
+  { key: "home",      label: "Dashboard",  href: "/school-admin/dashboard.html",          icon: iconHome },
+  { key: "students",  label: "Students",   href: "/school-admin/students-lifecycle.html", icon: iconUsers },
+  { key: "academics", label: "Academics",  href: "/school-admin/academics.html",          icon: iconGrid },
+  { key: "staff",     label: "Staff",      href: "/school-admin/staff.html",              icon: iconUserPlus },
+  { key: "pickup",    label: "Pickup",     href: "/school-admin/pickup-settings.html",    icon: iconShield },
+  { key: "reports",   label: "Reports",    href: "/school-admin/reports.html",            icon: iconReport },
+  { key: "announce",  label: "Announce",   href: "/school-admin/broadcast.html",          icon: iconMegaphone },
+  { key: "billing",   label: "Billing",    href: "/school-admin/billing.html",            icon: iconBilling },
+  { key: "audit",     label: "Audit",      href: "/school-admin/audit.html",              icon: iconClock },
+  { key: "launch",    label: "Launch",     href: "/school-admin/launch-readiness.html",   icon: iconRocket },
+  { key: "branding",  label: "Branding",   href: "/school-admin/branding.html",           icon: iconPalette },
 ];
 
 function render(mount) {
@@ -42,7 +42,7 @@ function render(mount) {
   mount.innerHTML = `
     <header class="pp-appbar">
       <div class="pp-appbar__inner">
-        <a class="pp-brandmark" href="./dashboard.html" aria-label="PickupPass Admin home">
+        <a class="pp-brandmark" href="/school-admin//dashboard.html" aria-label="PickupPass Admin home">
           <span class="pp-brandmark__badge">${iconShield()}</span>
           <span class="flex flex-col">
             <span class="pp-brandmark__name">PickupPass</span>
@@ -67,14 +67,14 @@ function render(mount) {
 
   mount.querySelector("#signOutBtn").addEventListener("click", async () => {
     await signOut(auth);
-    window.location.href = "../login.html";
+    window.location.href = "/login.html";
   });
 
   // Central auth guard + email + school identity. Pages keep their own
   // onAuthStateChanged for data loading; this one only fills the shared chrome.
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
-      window.location.href = "../login.html";
+      window.location.href = "/login.html";
       return;
     }
     const emailEl = mount.querySelector("#currentUserEmail");

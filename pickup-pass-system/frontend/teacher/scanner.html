@@ -21,8 +21,45 @@
 </head>
 <body class="min-h-screen pp-portal-body">
 
-  <div id="teacherNav" data-active="scanner"></div>
-  <script type="module" src="../shared/teacher-nav.js"></script>
+<div id="scannerRoleNav"></div>
+
+<script type="module">
+import { auth } from "../shared/firebase-init.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = "../login.html";
+    return;
+  }
+
+  const tokenResult = await user.getIdTokenResult();
+  const role = tokenResult.claims.role;
+  const host = document.getElementById("scannerRoleNav");
+
+  if (role === "school_admin") {
+    const nav = document.createElement("div");
+    nav.id = "adminNav";
+    nav.dataset.active = "pickup";
+    host.replaceChildren(nav);
+
+    await import("../shared/school-admin-nav.js");
+    return;
+  }
+
+  if (role === "teacher" || role === "staff") {
+    const nav = document.createElement("div");
+    nav.id = "teacherNav";
+    nav.dataset.active = "scanner";
+    host.replaceChildren(nav);
+
+    await import("../shared/teacher-nav.js");
+    return;
+  }
+
+  window.location.href = "../login.html";
+});
+</script>
 
   <!-- Overlays — IDs preserved exactly -->
   <div id="scannerAlert" role="alert"
