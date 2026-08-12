@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -36,6 +37,8 @@ fun QrScannerView(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val currentPaused = rememberUpdatedState(paused)
+    val currentOnQrDetected = rememberUpdatedState(onQrDetected)
     val scanner = remember {
         BarcodeScanning.getClient(
             BarcodeScannerOptions.Builder()
@@ -63,7 +66,7 @@ fun QrScannerView(
                     .build()
 
                 analysis.setAnalyzer(ContextCompat.getMainExecutor(ctx)) { imageProxy ->
-                    if (paused) {
+                    if (currentPaused.value) {
                         imageProxy.close()
                         return@setAnalyzer
                     }
@@ -72,7 +75,9 @@ fun QrScannerView(
                         val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
                         scanner.process(image)
                             .addOnSuccessListener { barcodes ->
-                                barcodes.firstOrNull()?.rawValue?.let(onQrDetected)
+                                barcodes.firstOrNull()?.rawValue?.let{value ->
+                                    currentOnQrDetected.value(value)
+                                }
                             }
                             .addOnCompleteListener { imageProxy.close() }
                     } else {

@@ -202,7 +202,10 @@ function showCameraProblem(title, message) {
 function startScanner() {
   html5QrCode.start(
     { facingMode: "environment" },
-    { fps: 10, qrbox: 240 },
+    {
+      fps: 15,
+      qrbox: 280
+    },
     onScanSuccess,
     // 4th param: called on every frame where no code was found — not an
     // error, just per-frame "nothing here yet." Logged (not shown to the

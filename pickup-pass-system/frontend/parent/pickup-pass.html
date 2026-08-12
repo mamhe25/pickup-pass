@@ -32,7 +32,7 @@
       </div>
 
       <div class="p-6">
-        <div id="qrContainer" class="flex justify-center my-2 min-h-[220px] items-center">
+        <div id="qrContainer" class="flex justify-center my-2 min-h-[344px] items-center">
           <span class="text-ink-subtle text-sm">Generating pass…</span>
         </div>
 
@@ -99,7 +99,22 @@ async function renderPass() {
     const { qrToken, expiresAt } = await generatePickupToken();
 
     container.innerHTML = "";
-    new QRCode(container, { text: qrToken, width: 220, height: 220 });
+    const qrBox = document.createElement("div");
+    qrBox.style.background = "#ffffff";
+    qrBox.style.padding = "12px";
+    qrBox.style.borderRadius = "12px";
+    qrBox.style.display = "inline-block";
+
+    container.appendChild(qrBox);
+
+    new QRCode(qrBox, {
+      text: qrToken,
+      width: 320,
+      height: 320,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M
+    });
 
     startCountdown(new Date(expiresAt));
   } catch (err) {
