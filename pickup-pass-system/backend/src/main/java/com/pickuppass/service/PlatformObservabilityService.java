@@ -8,6 +8,7 @@ import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QuerySnapshot;
 import com.google.cloud.firestore.SetOptions;
 import com.pickuppass.observability.RollingHttpMetrics;
+import com.pickuppass.observability.ObservabilityAlertPolicy;
 import com.pickuppass.security.FirebaseUserDetails;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -103,10 +104,10 @@ public class PlatformObservabilityService {
         RollingHttpMetrics.Snapshot http = httpMetrics.snapshot(windowMinutes);
         MemorySnapshot memory = memorySnapshot();
 
-        boolean enoughTraffic = http.requests() >= minimumRequests;
         transitionIncident(
                 "http_5xx_rate_high",
-                enoughTraffic && http.serverErrorRatePercent() >= serverErrorRateThreshold,
+                ObservabilityAlertPolicy.rateExceeded(http.requests(), minimumRequests,
+                        http.serverErrorRatePercent(), serverErrorRateThreshold),
                 "high",
                 "Backend server-error rate is elevated",
                 "HTTP 5xx responses exceeded the configured startup alert threshold.",
@@ -118,7 +119,8 @@ public class PlatformObservabilityService {
 
         transitionIncident(
                 "http_slow_rate_high",
-                enoughTraffic && http.slowRequestRatePercent() >= slowRateThreshold,
+                ObservabilityAlertPolicy.rateExceeded(http.requests(), minimumRequests,
+                        http.slowRequestRatePercent(), slowRateThreshold),
                 "medium",
                 "Backend requests are frequently slow",
                 "Slow requests exceeded the configured threshold in the rolling runtime window.",
@@ -130,7 +132,7 @@ public class PlatformObservabilityService {
 
         transitionIncident(
                 "runtime_memory_high",
-                memory.maxBytes() > 0 && memory.usedPercent() >= memoryWarningPercent,
+                ObservabilityAlertPolicy.memoryExceeded(memory.maxBytes(), memory.usedPercent(), memoryWarningPercent),
                 "medium",
                 "Backend memory usage is high",
                 "JVM memory usage is approaching the configured startup safety threshold.",
@@ -141,7 +143,8 @@ public class PlatformObservabilityService {
         // still work during a degraded condition, this transition will also persist it.
         transitionIncident(
                 "firestore_connectivity_degraded",
-                consecutiveFirestoreFailures.get() >= firestoreFailureThreshold,
+                ObservabilityAlertPolicy.consecutiveFailuresExceeded(
+                        consecutiveFirestoreFailures.get(), firestoreFailureThreshold),
                 "critical",
                 "Firestore connectivity is degraded",
                 "The backend has failed repeated Firestore reachability checks.",
@@ -162,7 +165,8 @@ public class PlatformObservabilityService {
             incidentStorageAvailable = false;
         }
 
-        boolean firestoreDegraded = consecutiveFirestoreFailures.get() >= firestoreFailureThreshold;
+        boolean firestoreDegraded = ObservabilityAlertPolicy.consecutiveFailuresExceeded(
+                consecutiveFirestoreFailures.get(), firestoreFailureThreshold);
         if (firestoreDegraded && incidents.stream().noneMatch(i -> "firestore_connectivity_degraded".equals(i.get("type")))) {
             Map<String, Object> runtime = new LinkedHashMap<>();
             runtime.put("id", "runtime-firestore-connectivity");
