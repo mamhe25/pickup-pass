@@ -25,6 +25,9 @@ out/
 
 # Firebase local/deploy state
 **/.firebase/
+**/firebase-debug.log
+**/firestore-debug.log
+**/ui-debug.log
 
 # JVM crash diagnostics
 **/hs_err_pid*.log

@@ -39,6 +39,27 @@ jobs:
       - name: Run backend tests
         run: mvn --batch-mode --no-transfer-progress verify
 
+  firestore-rules:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pickup-pass-system
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: pickup-pass-system/package-lock.json
+      - name: Install Firebase test dependencies
+        run: npm ci
+      - name: Test Firestore tenant isolation rules
+        run: npm run test:firestore-rules
+
   android:
     runs-on: ubuntu-latest
     defaults:
