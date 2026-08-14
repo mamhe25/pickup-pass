@@ -9,6 +9,7 @@ import com.google.cloud.firestore.QuerySnapshot;
 import com.google.cloud.firestore.SetOptions;
 import com.pickuppass.observability.RollingHttpMetrics;
 import com.pickuppass.observability.ObservabilityAlertPolicy;
+import com.pickuppass.observability.ObservabilityIncidentPolicy;
 import com.pickuppass.security.FirebaseUserDetails;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -266,9 +267,11 @@ public class PlatformObservabilityService {
             DocumentReference ref = firestore.collection("platformIncidents").document(id);
             DocumentSnapshot current = ref.get().get();
             String status = current.exists() ? Objects.toString(current.getString("status"), "resolved") : "resolved";
+            ObservabilityIncidentPolicy.Action action =
+                    ObservabilityIncidentPolicy.decide(current.exists(), status, active);
+            if (action == ObservabilityIncidentPolicy.Action.NONE) return;
 
-            if (active) {
-                if ("open".equals(status) || "acknowledged".equals(status)) return; // no recurring writes
+            if (action == ObservabilityIncidentPolicy.Action.OPEN) {
                 long occurrences = current.exists() && current.getLong("occurrences") != null ? current.getLong("occurrences") + 1 : 1;
                 Map<String, Object> data = new HashMap<>();
                 data.put("type", type);
@@ -284,7 +287,7 @@ public class PlatformObservabilityService {
                 data.put("resolvedAt", FieldValue.delete());
                 if (!current.exists()) data.put("firstSeenAt", FieldValue.serverTimestamp());
                 ref.set(data, SetOptions.merge()).get();
-            } else if (current.exists() && ("open".equals(status) || "acknowledged".equals(status))) {
+            } else if (action == ObservabilityIncidentPolicy.Action.RESOLVE) {
                 ref.update(Map.of(
                         "status", "resolved",
                         "autoResolved", true,
