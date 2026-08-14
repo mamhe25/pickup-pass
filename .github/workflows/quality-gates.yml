@@ -70,8 +70,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Test critical web journeys
-        run: node --test test/web-critical-journeys.test.mjs
+      - name: Test critical web journeys and recovery runbook contract
+        run: node --test test/web-critical-journeys.test.mjs test/recovery-runbook.test.mjs
 
   android:
     runs-on: ubuntu-latest
