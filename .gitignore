@@ -10,6 +10,9 @@
 **/build/
 **/local.properties
 **/*.apk
+**/*.aab
+**/release/
+**/google-services.json
 
 # Node
 **/node_modules/
@@ -18,6 +21,14 @@
 # Java
 *.class
 out/
+**/target/
+
+# Firebase local/deploy state
+**/.firebase/
+
+# JVM crash diagnostics
+**/hs_err_pid*.log
+**/replay_pid*.log
 
 # OS
 .DS_Store
@@ -31,3 +42,6 @@ Thumbs.db
 **/.env
 **/.env.*
 !**/.env.example
+
+# Generated package metadata
+PACKAGE_SHA256SUMS.txt

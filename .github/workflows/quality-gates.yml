@@ -1,0 +1,58 @@
+name: Quality gates
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  repository-hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject generated or sensitive artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden="$(git ls-files | grep -E '(^|/)(target|build|release|\.firebase)/|\.(apk|aab|keystore|jks|p12)$|(^|/)(hs_err_pid|replay_pid).*\.log$' || true)"
+          if [[ -n "$forbidden" ]]; then
+            echo "Generated or sensitive artifacts must not be tracked:"
+            echo "$forbidden"
+            exit 1
+          fi
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pickup-pass-system/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - name: Run backend tests
+        run: mvn --batch-mode --no-transfer-progress verify
+
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pickup-pass-android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - name: Verify Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+      - name: Run Android unit tests and compile debug app
+        run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
