@@ -138,6 +138,7 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 let currentQrToken = null;
+let currentApprovalKey = null;
 let html5QrCode = null;
 let isHandlingScan = false;
 let isApprovingRelease = false;
@@ -262,6 +263,7 @@ async function onScanSuccess(decodedText) {
   try {
     html5QrCode.pause(true);
     currentQrToken = decodedText;
+    currentApprovalKey = crypto.randomUUID();
     setRequestBusy(true, "Verifying pass…");
     const requestController = new AbortController();
     const requestTimeout = setTimeout(() => requestController.abort(), 15000);
@@ -341,7 +343,10 @@ document.getElementById("approveBtn").addEventListener("click", async () => {
   try {
   const res = await authedFetch("/pickup/approve", {
     method: "POST",
-    headers: currentGateId ? { "X-Pickup-Gate-Id": currentGateId } : {},
+    headers: {
+      "Idempotency-Key": currentApprovalKey,
+      ...(currentGateId ? { "X-Pickup-Gate-Id": currentGateId } : {}),
+    },
     body: JSON.stringify({ qrToken: currentQrToken }),
     signal: approvalController.signal,
   });
@@ -386,6 +391,7 @@ function resetToScanner() {
   document.getElementById("scanErrorModal").classList.add("hidden");
   setRequestBusy(false);
   currentQrToken = null;
+  currentApprovalKey = null;
   isHandlingScan = false;
   if (html5QrCode) html5QrCode.resume();
 }
