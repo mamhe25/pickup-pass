@@ -1,340 +1,661 @@
 # Multi-School Digital Pickup Pass System
 
-Prevents unauthorized student pickups via signed, single-use QR passes and
-face-to-face photo verification at dismissal.
+PickupPass prevents unauthorized student pickups using signed, single-use QR passes and face-to-face photo verification at dismissal.
 
-For the complete Firestore schema (every collection, every field, who
-writes what), see [`SCHEMA.md`](./SCHEMA.md).
+For the complete Firestore schema (every collection, every field, and who writes what), see [`SCHEMA.md`](./SCHEMA.md).
 
-For deploying this to the free tier of Google Cloud Run + Firebase Hosting
-(and building a signed Android release APK), see
-[`DEPLOYMENT.md`](./DEPLOYMENT.md).
+For production deployment to Google Cloud Run + Firebase Hosting, and for building a signed Android release, see [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+
+For the complete Windows/PowerShell local-development procedure, including backend `.env`, Firebase Application Default Credentials (ADC), Gmail SMTP, web testing, health checks, and Android setup, see [`LOCAL_DEVELOPMENT.md`](./LOCAL_DEVELOPMENT.md).
+
+> **Security:** Never commit Firebase Admin service-account JSON files, Gmail App Passwords, `.env`, API keys, keystores, signing passwords, or other credentials. Prefer Google Application Default Credentials instead of long-lived service-account JSON keys.
 
 ## Structure
 
-```
+```text
 backend/     Java Spring Boot API (Firebase Admin SDK)
-frontend/    Static HTML/Tailwind/JS pages (parent + teacher UIs)
-firebase/    firestore.rules, storage.rules, firebase.json, indexes
+frontend/    Static HTML/Tailwind/JavaScript web portal
+firebase/    Firestore rules, Firebase Hosting config, indexes
 ```
 
-## 1. Firebase Project Setup (Spark / free plan)
+The native Android application is in the repository-level `pickup-pass-android/` directory.
 
-1. Create a project at console.firebase.google.com.
-2. Enable **Authentication** → Email/Password provider.
-3. Enable **Firestore Database** (production mode).
-4. **Do not enable Cloud Storage.** As of Feb 3, 2026, Cloud Storage for
-   Firebase requires the pay-as-you-go Blaze plan (a linked billing
-   account) even for entirely free-tier usage — enabling it will prompt
-   you to upgrade. This app doesn't need it: avatars and school logos are
-   stored as base64 data URIs directly in Firestore documents instead (see
-   `SchoolLogoService` on the backend and `ProfileRepository` on Android),
-   which has no such requirement. If you want real file storage later
-   (e.g. for larger files), you can upgrade to Blaze at that point — see
-   `firebase/storage.rules` for rules already written for that scenario,
-   just not deployed by default.
-5. Project Settings → Service Accounts → **Generate new private key**.
-   Save the JSON somewhere the backend can read it, e.g. `/secrets/firebase-service-account.json`.
-6. From the `firebase/` folder, deploy rules and indexes:
-   ```bash
-   npm install -g firebase-tools
-   firebase login
-   firebase use --add   # select your project
-   firebase deploy --only firestore:rules,firestore:indexes
-   ```
+---
 
-## 2. Backend (Java / Spring Boot)
+# 1. Firebase Project Setup
+
+PickupPass currently uses the Firebase project `pickuppass`.
+
+For a new environment:
+
+1. Create a Firebase project at the Firebase Console.
+2. Enable **Authentication → Email/Password**.
+3. Enable **Firestore Database** in production mode.
+4. **Do not enable Cloud Storage unless you intentionally move to the Blaze plan.**
+   PickupPass currently stores compressed avatars and school logos as base64 data URIs directly in Firestore documents.
+5. Configure backend authentication using **Application Default Credentials (ADC)** instead of putting a Firebase Admin private-key JSON file in this repository.
+
+For local Windows development:
+
+```powershell
+gcloud.cmd auth application-default login
+gcloud.cmd config set project pickuppass
+gcloud.cmd config get-value project
+```
+
+The final command should print:
+
+```text
+pickuppass
+```
+
+If PowerShell blocks `gcloud.ps1`, use `gcloud.cmd` as shown above. You do not need to weaken your PowerShell execution policy.
+
+On Google Cloud production workloads such as Cloud Run, use the service account attached to the workload. The backend already supports ADC when `FIREBASE_CREDENTIALS_PATH` is empty.
+
+Only if ADC cannot be used should a credential file be used. In that case, keep it **outside the Git repository**, for example:
+
+```text
+C:\Users\<you>\.pickuppass-secrets\firebase-admin.json
+```
+
+and reference the external path through `FIREBASE_CREDENTIALS_PATH`.
+
+Never store it under `backend/secrets/` or anywhere else inside this repository.
+
+## Deploy Firestore rules and indexes
+
+Only deploy rules/indexes after changing them:
+
+```powershell
+cd D:\Projects\PickupPass\pickup-pass-system
+firebase login
+firebase use --add
+firebase deploy --only firestore:rules,firestore:indexes
+```
+
+Select the existing `pickuppass` Firebase project.
+
+---
+
+# 2. Backend — Java / Spring Boot
 
 Requires Java 17+ and Maven.
 
-```bash
-cd backend
-export FIREBASE_CREDENTIALS_PATH=/secrets/firebase-service-account.json
-export QR_SIGNING_SECRET=$(openssl rand -base64 48)
-export BOOTSTRAP_SECRET=$(openssl rand -base64 32)
-export MAIL_USERNAME=apikey
-export MAIL_PASSWORD=your_sendgrid_or_smtp_password
+The backend defaults to the `dev` Spring profile and runs on:
+
+```text
+http://localhost:8080
+```
+
+## First local setup
+
+From:
+
+```powershell
+cd D:\Projects\PickupPass\pickup-pass-system\backend
+```
+
+Create your local environment file from the safe template:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Edit `.env` and enter your real local values.
+
+Example:
+
+```properties
+SPRING_PROFILES_ACTIVE=dev
+
+# Firebase: leave blank when using ADC
+FIREBASE_CREDENTIALS_PATH=
+
+# Gmail SMTP
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=your-google-app-password
+
+# Frontend / CORS
+FRONTEND_BASE_URL=http://localhost:5500
+CORS_ALLOWED_ORIGINS=http://localhost:5500,http://127.0.0.1:5500
+SCHOOL_TIME_ZONE=Asia/Manila
+RATE_LIMIT_ENABLED=true
+
+# Security secrets — generate unique values locally
+QR_SIGNING_SECRET=replace-with-a-long-random-secret
+SECURITY_FINGERPRINT_SECRET=replace-with-a-different-random-secret
+
+# Existing PickupPass environments should keep bootstrap disabled
+BOOTSTRAP_ENABLED=false
+BOOTSTRAP_SECRET=
+
+DISMISSAL_WINDOW_MINUTES=120
+QR_TOKEN_TTL_MINUTES=15
+MAX_GUARDIANS_PER_STUDENT=4
+
+FIRESTORE_DR_ENABLED=false
+FIRESTORE_DR_ALLOW_RESTORE_DRILLS=false
+```
+
+Generate a strong local random secret with:
+
+```powershell
+py -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Run that twice and use different values for:
+
+```text
+QR_SIGNING_SECRET
+SECURITY_FINGERPRINT_SECRET
+```
+
+Do not reuse production secrets.
+
+## Gmail SMTP
+
+For personal Gmail SMTP:
+
+```properties
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=your-google-app-password
+```
+
+Use a Google **App Password**, not your normal Google account password.
+
+## Verify `.env` is protected
+
+```powershell
+git check-ignore -v .env
+git status --short
+```
+
+`.env` must not appear as an untracked or staged file.
+
+The repository intentionally commits `.env.example` but ignores the real `.env`.
+
+## Run backend tests
+
+```powershell
+mvn test
+```
+
+## Start the backend
+
+```powershell
 mvn spring-boot:run
 ```
 
-The API starts on `http://localhost:8080`. Before doing anything else,
-jump to **"First-time setup: creating your master_admin"** below —
-nothing in this system is usable yet until that's done, since there's no
-sign-up screen anywhere.
+A successful startup should report the `dev` profile and Tomcat on port `8080`.
+
+## Health checks
+
+In another PowerShell window:
+
+```powershell
+curl.exe http://localhost:8080/actuator/health/liveness
+curl.exe http://localhost:8080/actuator/health/readiness
+curl.exe http://localhost:8080/actuator/health
+```
+
+Expected:
+
+- `liveness` → `UP`
+- `readiness` → `UP`
+- `firestore` → `UP`
+- `mail` → `UP` when SMTP is configured
+- overall health → `UP`
+
+If overall health is `DOWN` while liveness/readiness are `UP`, inspect the component details. SMTP authentication is a common local-development cause.
+
+The `dev` profile intentionally enables health details for diagnosis. Production should not expose internal health details publicly.
+
+---
+
+# 3. Backend API
 
 | Method | Path | Role | Purpose |
 |---|---|---|---|
-| POST | `/api/bootstrap/master-admin` | *none — shared secret instead* | create the very first master_admin (see below) |
-| POST | `/api/master-admin/schools` | master_admin | create a new school (tenant) |
-| POST | `/api/master-admin/schools/{schoolId}/status` | master_admin | activate/suspend a school |
-| POST | `/api/master-admin/schools/{schoolId}/staff` | master_admin | create a teacher or school_admin account for any school |
-| POST | `/api/school-admin/staff` | school_admin | invite a teacher for their own school only |
-| POST | `/api/teacher/students` | teacher, school_admin | create a student roster record for their own school |
-| POST | `/api/teacher/register-parent` | teacher, school_admin | create/link a student's **primary** guardian |
-| POST | `/api/parent/add-guardian` | parent | add a **backup** authorized pickup guardian to a student |
-| POST | `/api/parent/remove-guardian` | parent | revoke a backup guardian (immediately kills any live QR pass they hold) |
-| POST | `/api/parent/generate-token` | parent | issue a signed QR pickup token |
-| POST | `/api/pickup/verify` | teacher, school_admin | validate a scanned QR (read-only) |
-| POST | `/api/pickup/approve` | teacher, school_admin | validate + mark used + write exit log + push-notify guardians |
-| POST | `/api/device/register-token` | any signed-in user | register this device's FCM token for push notifications |
-| POST | `/api/device/unregister-token` | any signed-in user | remove this device's FCM token (e.g. on sign-out) |
-| POST | `/api/master-admin/schools/{schoolId}/logo` | master_admin | upload/replace any school's logo (multipart `file`) |
-| POST | `/api/school-admin/logo` | school_admin | upload/replace their own school's logo (multipart `file`) |
+| POST | `/api/bootstrap/master-admin` | none — bootstrap secret | Create the first master admin |
+| POST | `/api/master-admin/schools` | master_admin | Create a school |
+| POST | `/api/master-admin/schools/{schoolId}/status` | master_admin | Activate/suspend a school |
+| POST | `/api/master-admin/schools/{schoolId}/staff` | master_admin | Create teacher or school_admin |
+| POST | `/api/school-admin/staff` | school_admin | Invite teacher for own school |
+| POST | `/api/teacher/students` | teacher, school_admin | Create student |
+| POST | `/api/teacher/register-parent` | teacher, school_admin | Create/link primary guardian |
+| POST | `/api/parent/add-guardian` | parent | Add backup guardian |
+| POST | `/api/parent/remove-guardian` | parent | Remove backup guardian |
+| POST | `/api/parent/generate-token` | parent | Generate pickup QR token |
+| POST | `/api/pickup/verify` | teacher, school_admin | Verify scanned QR |
+| POST | `/api/pickup/approve` | teacher, school_admin | Approve release, log exit, notify guardians |
+| POST | `/api/device/register-token` | signed-in user | Register FCM token |
+| POST | `/api/device/unregister-token` | signed-in user | Unregister FCM token |
+| POST | `/api/master-admin/schools/{schoolId}/logo` | master_admin | Set school logo |
+| POST | `/api/school-admin/logo` | school_admin | Set own school logo |
 
-Every endpoint except `/api/bootstrap/master-admin` expects
-`Authorization: Bearer <Firebase ID token>`. Role and `schoolId` are read
-from **Firebase custom claims** set server-side — never trust a
-client-supplied role/schoolId. Full field-by-field schema for every
-collection these endpoints touch is in [`SCHEMA.md`](./SCHEMA.md).
+Every endpoint except `/api/bootstrap/master-admin` expects:
 
-### There is no self-registration, on purpose
-
-Every account in this system is created *by* someone already in a role
-above it — never by the person themselves signing up:
-
+```text
+Authorization: Bearer <Firebase ID token>
 ```
-bootstrap (one-time) → master_admin
-master_admin         → school_admin, teacher   (any school)
-school_admin         → teacher                 (their own school only)
-teacher/school_admin  → parent                 (primary guardian)
+
+Role and `schoolId` come from Firebase custom claims set server-side. Never trust a client-supplied role or tenant identifier.
+
+See [`SCHEMA.md`](./SCHEMA.md) for the data model.
+
+---
+
+# 4. Account Provisioning Model
+
+There is deliberately **no public self-registration**.
+
+Accounts are provisioned down the authorization chain:
+
+```text
+bootstrap             → master_admin
+master_admin          → school_admin, teacher
+school_admin          → teacher
+teacher/school_admin  → parent (primary guardian)
 parent                → backup guardian
 ```
 
-No sign-up screen exists anywhere (web or Android) — deliberately, since
-this system exists specifically to control who's allowed to claim a child.
-**There are no default/hardcoded admin credentials anywhere in the code.**
-The very first account has to be created explicitly, once, using the
-bootstrap endpoint below.
+There are no default or hardcoded admin credentials.
 
-### First-time setup: creating your master_admin
+## First-time setup: creating the first `master_admin`
 
-1. Set an environment variable before starting the backend:
-   ```bash
-   export BOOTSTRAP_SECRET=$(openssl rand -base64 32)
-   ```
-   (On Windows PowerShell: `$env:BOOTSTRAP_SECRET = [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))`)
+Only do this for a **brand-new Firebase environment** where no master admin exists.
 
-2. With the backend running, call the bootstrap endpoint once:
-   ```bash
-   curl -X POST http://localhost:8080/api/bootstrap/master-admin \
-     -H "X-Bootstrap-Secret: $BOOTSTRAP_SECRET" \
-     -H "Content-Type: application/json" \
-     -d '{"email":"you@example.com","displayName":"Your Name"}'
-   ```
-   This creates a Firebase Auth user, sets its `role: master_admin` custom
-   claim, and sends a password-reset email to that address so you can set
-   your own password (via the same "Forgot password?" flow the login page
-   already has — a fresh account has no password set yet, so this step is
-   required, not optional).
+For an existing PickupPass environment, keep:
 
-3. The endpoint **refuses to run again** once any master_admin exists, even
-   with the correct secret — so after this one call, rotate/unset
-   `BOOTSTRAP_SECRET` in your deployment. It has no further use.
-
-4. Sign in as your new master_admin (web: `login.html`; there's no native
-   Android screen for master_admin), then create your first school and its
-   school_admin:
-   ```bash
-   TOKEN=$(# get a fresh Firebase ID token for your master_admin account, e.g. via the Firebase Auth REST API or by signing in on the web build and reading it from devtools)
-
-   curl -X POST http://localhost:8080/api/master-admin/schools \
-     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-     -d '{"schoolName":"Riverside Elementary"}'
-   # → { "schoolId": "abc123", "schoolName": "Riverside Elementary" }
-   bash
-   curl -X POST "https://pickup-pass-backend-445244473897.us-central1.run.app/api/master-admin/schools" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"schoolName":"Riverside Elementary"}'
-  
-   curl -X POST http://localhost:8080/api/master-admin/schools/abc123/staff \
-     -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-     -d '{"email":"admin@riverside.edu","displayName":"Riverside Admin","role":"school_admin"}'
-   ```
-   bash
-   curl -X POST "https://pickup-pass-backend-445244473897.us-central1.run.app/api/master-admin/schools/[shoolId]/staff" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email":"jiesymhe@gmail.com",
-    "displayName":"BES Admin",
-    "role":"school_admin"
-  }'
-
-5. From there, everything is self-serve through the UI: the school_admin
-   signs in (web → `school-admin/branding.html`, or the Android app's
-   branding screen), uploads a logo, and invites teachers from
-   `school-admin/staff.html`. Teachers register parents. Parents add backup
-   guardians. No more curl needed after this point.
-
-### Account creation reliability
-
-Every endpoint that creates an account (teacher/school_admin, parent,
-backup guardian) follows the same order: **create the Firebase Auth user
-and Firestore profile first, then try to send the invite email.** Email
-sending can never turn an otherwise-successful account creation into an
-error response — `EmailService` catches send failures internally and
-returns `false` rather than throwing. Every affected response includes an
-`emailSent: boolean` field so the client can tell the admin "account
-created, but ask them to use 'Forgot password?' instead" rather than
-silently claiming an email went out that never did.
-
-Two related fixes worth knowing about if you're extending this code:
-- **Existing-account checks now only treat `AuthErrorCode.USER_NOT_FOUND`
-  as "doesn't exist yet."** A previous version caught any
-  `FirebaseAuthException` from the lookup and assumed "not found," which
-  meant a transient failure (network blip, quota) could fall through to
-  `createUser()` and crash with an unhandled `EMAIL_ALREADY_EXISTS` a
-  moment later.
-- **Firestore writes in account-creation paths are awaited** (`.get()` on
-  the `ApiFuture`), not fire-and-forget — a write failure now surfaces as
-  a proper error response instead of the request appearing to succeed
-  while the data never actually landed. This also applies to the
-  safety-critical bits of the pickup flow (`markUsedAndLog`, token
-  invalidation on guardian removal) where an unconfirmed write would be a
-  real security-relevant bug, not just a UX annoyance.
-
-`GlobalExceptionHandler` also now actually logs every 500 (with a full
-stack trace) rather than silently swallowing it — check the server logs
-if a client ever reports "Unexpected error" again.
-
-### Multi-guardian model
-
-A student is no longer tied to a single parent. Each `students/{studentId}`
-document has:
-
-```
-guardianUids: [uid1, uid2, ...]           // for fast "which students are mine" queries
-guardians: {
-  uid1: { relationship, isPrimary: true,  addedBy, addedAt },
-  uid2: { relationship, isPrimary: false, addedBy, addedAt }
-}
+```properties
+BOOTSTRAP_ENABLED=false
+BOOTSTRAP_SECRET=
 ```
 
-- Teachers create the **primary** guardian (`/api/teacher/register-parent`).
-- Any existing guardian can add up to `MAX_GUARDIANS_PER_STUDENT` (default 4)
-  backup guardians — a spouse, grandparent, nanny, etc. — via
-  `/api/parent/add-guardian`. The backup guardian gets their own login and
-  can generate their own independent QR passes.
-- The primary guardian can't be removed through the parent-facing endpoint
-  (only school staff can reassign that, to avoid an unaccountable record);
-  backup guardians can be removed at any time, which immediately invalidates
-  any unused QR pass they're currently holding.
+### Step 1 — temporarily enable bootstrap
 
-### Push notifications
+In the backend `.env`:
 
-`users/{uid}` also carries an `fcmTokens: [token1, token2, ...]` array (one
-entry per signed-in device). When a pickup is approved, `PushNotificationService`
-sends a "your child was just picked up" push to **every** guardian on the
-student's record — not just whoever generated the scanned QR — so a parent
-who wasn't the one picking up still finds out immediately. Notification
-failures are logged and swallowed; they never block or roll back the
-approval itself, since that's the safety-critical part of the request.
-Stale/unregistered tokens are pruned automatically based on FCM's error
-response.
-
-### School branding (logos)
-
-Each `schools/{schoolId}` document also carries:
-
-```
-logoUrl: string | null        // a base64 data URI, e.g. "data:image/png;base64,..."
-logoUpdatedAt: timestamp
+```properties
+BOOTSTRAP_ENABLED=true
+BOOTSTRAP_SECRET=replace-with-a-one-time-random-secret
 ```
 
-**Neither parent avatars nor school logos use Firebase/Cloud Storage.** As of
-Feb 3, 2026, Cloud Storage for Firebase requires the pay-as-you-go Blaze
-plan even for entirely free-tier usage. Instead, both are resized/
-compressed down to a small size and stored as base64 **data URIs directly
-inside the relevant Firestore document** — `photoUrl` on `users/{uid}`,
-`logoUrl` on `schools/{schoolId}`. Firestore documents can hold up to 1MiB
-with no billing-plan requirement at all, and both compressors are sized to
-stay comfortably under that even after base64's ~33% size inflation.
+Generate the secret locally:
 
-A school's logo goes **through the backend** via `SchoolLogoService`:
-
-- Accepts PNG, JPEG, or WebP, up to 2MB raw.
-- Resizes server-side (max 512×512, preserving aspect ratio, never
-  upscaling) using the JDK's built-in `ImageIO`/`Graphics2D` — no extra
-  dependency needed. PNGs stay PNG (to preserve a transparent background,
-  which most school logos use) *as long as the result stays under ~700KB*;
-  if a detailed PNG is still too big even at 512px, it automatically falls
-  back to a flattened, quality-stepped JPEG instead (the same iterative
-  "try 90% quality, then 80%, then 70%..." approach the avatar compressor
-  uses), so it always ends up under Firestore's document-size ceiling.
-- The result is base64-encoded and written straight onto
-  `schools/{schoolId}.logoUrl` — no bucket, no separate file object, no
-  Storage rules involved at all for this path.
-- A **school admin** can upload their own school's logo (`/api/school-admin/logo`,
-  no `schoolId` needed — it's read from their own claim); a **master admin**
-  can set any school's logo directly (`/api/master-admin/schools/{schoolId}/logo`),
-  useful for bulk onboarding new schools before they have their own admin
-  logged in yet.
-- `frontend/school-admin/branding.html` is the web page a school admin sees
-  after logging in — pick an image, it uploads and previews immediately.
-  The parent (`students.html`) and teacher (`scanner.html`) pages both fetch
-  `schools/{schoolId}` on load and show the logo + name in their header, so
-  it's always visible which school someone is currently signed into.
-- Data URIs render natively in a plain `<img src="...">` on the web — no
-  code change needed there. The Android app needed a small addition since
-  Coil's `AsyncImage` doesn't decode `data:` URIs out of the box: see
-  `SmartImage` in the Android README for how that's handled.
-
-A parent's avatar follows the same pattern client-side: `profile.html`
-already compressed the photo down to ~50KB before this change (to fit the
-old 100KB Storage-rule cap) — now that compressed blob is just converted to
-a data URI via `FileReader.readAsDataURL()` and written directly to
-`users/{uid}.photoUrl`, skipping the upload step entirely.
-
-## 3. Frontend
-
-Plain static files — no build step. Fill in your Firebase web config in
-`frontend/shared/firebase-init.js`, then serve the folder with any static
-server, e.g.:
-
-```bash
-cd frontend
-npx serve .
+```powershell
+py -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-Pages:
-- `login.html` — shared sign-in, routes by role custom claim (parent →
-  students list, teacher → scanner, **school_admin → branding page**)
-- `parent/students.html` — lists every student the signed-in parent is a guardian for
-- `parent/profile.html` — photo upload + compression
-- `parent/pickup-pass.html` — QR pass generation for one selected student
-- `parent/manage-guardians.html` — view/add/remove backup pickup guardians
-- `teacher/scanner.html` — camera scan + face-match approval UI
-- `teacher/students.html` — shared roster page (teacher **and** school_admin):
-  add students, see guardian counts, jump to registering a parent
-- `teacher/register-parent.html` — register a parent as a student's guardian
-  (the UI for the `/api/teacher/register-parent` endpoint — this existed on
-  the backend for a while before it had a page to call it from)
-- `school-admin/branding.html` — upload/replace the school's logo
-- `school-admin/staff.html` — invite a teacher for the school
+Restart the backend.
 
-## 4. Free-tier notes
+### Step 2 — call the bootstrap endpoint once
 
-- Firestore reads are minimized: token verification does 2–3 doc reads max.
-- Avatars and logos are compressed down to well under Firestore's 1MiB
-  per-document limit before being embedded as base64 (avatars target ~50KB
-  raw / ~67KB encoded; logos are capped at ~700KB raw / ~930KB encoded).
-  No Cloud Storage bucket is used at all, so there's no Blaze-plan billing
-  requirement for images — see the "School branding" section above.
-- No Cloud Functions are used (Spark plan has no outbound networking for
-  functions) — all business logic runs in the Java backend instead, which
-  you host wherever you like (Cloud Run, Render, a VPS, etc.).
+PowerShell example:
 
-## 5. Security summary
+```powershell
+$bootstrapSecret = "YOUR_BOOTSTRAP_SECRET"
 
-- Multi-tenant isolation enforced at two layers: Firestore rules (`schoolId`
-  match) and backend checks (custom claims), so a compromised client can't
-  bypass isolation via either channel alone.
-- QR tokens are HMAC-signed JWTs, single-use (tracked by nonce in
-  `pickupTokens`), and expire twice over: a short JWT `exp` (~15 min) for
-  freshness on screen, and a 2-hour dismissal-window deadline checked
-  server-side against `issuedAt`.
-- Parent account creation by teachers uses the Admin SDK exclusively, so it
-  never disturbs the teacher's own browser auth session.
-- `exitLogs` are append-only (no update/delete allowed) for a clean audit
-  trail.
+$body = @{
+    email = "you@example.com"
+    firstName = "Your"
+    lastName = "Name"
+    middleInitial = ""
+    suffix = ""
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+    -Method Post `
+    -Uri "http://localhost:8080/api/bootstrap/master-admin" `
+    -Headers @{ "X-Bootstrap-Secret" = $bootstrapSecret } `
+    -ContentType "application/json" `
+    -Body $body
+```
+
+The backend:
+
+1. verifies bootstrap is explicitly enabled;
+2. validates the bootstrap secret;
+3. refuses to proceed if any `master_admin` already exists;
+4. creates the Firebase Auth user and Firestore profile;
+5. sets the `master_admin` custom claim;
+6. attempts to send a password-reset/invite email.
+
+If email delivery fails, the account still exists. Use the web app's **Forgot password?** flow for that email address.
+
+### Step 3 — disable bootstrap immediately
+
+After successful creation:
+
+```properties
+BOOTSTRAP_ENABLED=false
+BOOTSTRAP_SECRET=
+```
+
+Restart/redeploy the backend.
+
+Do not leave bootstrap enabled.
+
+---
+
+# 5. Account Creation Reliability
+
+Account-creation operations create the Firebase Auth user and Firestore profile before attempting invite-email delivery.
+
+Email failures therefore do not roll back an otherwise successful account. Responses expose `emailSent` so the UI can accurately report:
+
+- account created and email sent; or
+- account created, but the invite email failed — use **Forgot password?**
+
+Existing-account checks only treat Firebase `USER_NOT_FOUND` as a missing user. Other Firebase failures are surfaced instead of incorrectly falling through to duplicate account creation.
+
+Firestore writes in provisioning and safety-critical pickup paths are awaited rather than fire-and-forget.
+
+Unexpected backend failures are logged by the global exception handler with server-side detail while clients receive controlled error responses.
+
+---
+
+# 6. Multi-Guardian Model
+
+Each student can have multiple authorized guardians.
+
+Conceptually:
+
+```text
+guardianUids: [uid1, uid2, ...]
+
+guardians:
+  uid1:
+    relationship: ...
+    isPrimary: true
+    addedBy: ...
+    addedAt: ...
+
+  uid2:
+    relationship: ...
+    isPrimary: false
+    addedBy: ...
+    addedAt: ...
+```
+
+Rules:
+
+- Teacher/school admin creates the primary guardian.
+- Existing guardians can add backup guardians up to `MAX_GUARDIANS_PER_STUDENT` (default `4`).
+- A backup guardian receives an independent account and can generate their own QR pass.
+- The primary guardian cannot be removed through the parent-facing endpoint.
+- Removing a backup guardian immediately invalidates their unused QR passes.
+
+---
+
+# 7. Push Notifications
+
+`users/{uid}` stores an `fcmTokens` array for signed-in devices.
+
+When a pickup is approved:
+
+1. the backend finds every guardian associated with the student;
+2. FCM notifications are sent to their registered devices;
+3. stale/unregistered tokens are pruned;
+4. notification failure does not roll back the safety-critical pickup approval.
+
+On sign-out, Android unregisters the current device token before clearing the Firebase session.
+
+---
+
+# 8. School Branding and Profile Images
+
+PickupPass currently does not require Firebase Cloud Storage for avatars or school logos.
+
+Images are compressed and stored as base64 data URIs in Firestore.
+
+## School logos
+
+The backend `SchoolLogoService`:
+
+- accepts PNG, JPEG, or WebP;
+- accepts up to 2 MB raw upload;
+- resizes to a maximum 512×512 while preserving aspect ratio;
+- avoids upscaling;
+- keeps PNG when feasible;
+- can fall back to compressed JPEG when needed;
+- writes the result to `schools/{schoolId}.logoUrl`.
+
+School admins can update their own school logo.
+
+Master admins can update any school's logo.
+
+## Parent avatars
+
+Parent profile photos are resized/compressed before being written to `users/{uid}.photoUrl`.
+
+The Android application uses its shared `SmartImage` helper to render both normal URLs and `data:` URIs.
+
+---
+
+# 9. Frontend Web Portal
+
+The web portal uses plain static HTML/Tailwind/JavaScript and has no build step.
+
+The existing Firebase client configuration is in:
+
+```text
+frontend/shared/firebase-init.js
+```
+
+When served from `localhost` or `127.0.0.1`, the frontend automatically uses:
+
+```text
+http://localhost:8080/api
+```
+
+For deployed Firebase Hosting, it uses same-origin:
+
+```text
+/api
+```
+
+so normal local testing does not require manually switching the backend URL.
+
+## Run locally
+
+Open another PowerShell:
+
+```powershell
+cd D:\Projects\PickupPass\pickup-pass-system\frontend
+py -m http.server 5500
+```
+
+Open:
+
+```text
+http://localhost:5500/login.html
+```
+
+## Main web pages
+
+- `login.html` — shared sign-in and role routing
+- `parent/students.html` — linked students
+- `parent/profile.html` — parent profile/photo
+- `parent/pickup-pass.html` — generate pickup QR
+- `parent/manage-guardians.html` — manage backup guardians
+- `teacher/scanner.html` — scan/verify/release
+- `teacher/students.html` — student roster
+- `teacher/register-parent.html` — create/link primary guardian
+- `school-admin/branding.html` — school branding
+- `school-admin/staff.html` — invite teachers
+
+Master-admin screens are web-only.
+
+---
+
+# 10. Android App
+
+The native Android application lives at:
+
+```text
+D:\Projects\PickupPass\pickup-pass-android
+```
+
+It uses Kotlin, Jetpack Compose, Material 3, Hilt, Firebase Auth/Firestore/FCM, Retrofit, CameraX, ML Kit, and ZXing.
+
+See the repository-level Android [`README.md`](../pickup-pass-android/README.md) for full details.
+
+## Firebase Android client
+
+Register the Android app in Firebase with package:
+
+```text
+com.pickuppass.android
+```
+
+Download:
+
+```text
+google-services.json
+```
+
+and place it at:
+
+```text
+pickup-pass-android/app/google-services.json
+```
+
+The repository ignores this file.
+
+## Local backend URL
+
+For an Android emulator:
+
+```text
+http://10.0.2.2:8080/api/
+```
+
+For a physical Android device on the same Wi-Fi:
+
+1. run `ipconfig`;
+2. find the PC's IPv4 address;
+3. point debug `API_BASE_URL` to `http://<PC-IP>:8080/api/`;
+4. make sure Windows Firewall permits the connection on the private network.
+
+The current `pickup-pass-android/app/build.gradle.kts` may contain a specific LAN IP for debug testing. Update it when the development PC's IP changes.
+
+Never use a local HTTP endpoint in the production release build.
+
+---
+
+# 11. Recommended Local Test Order
+
+After the environment is configured:
+
+1. Run `mvn test`.
+2. Start Spring Boot.
+3. Verify `/actuator/health/liveness` is `UP`.
+4. Verify `/actuator/health/readiness` is `UP`.
+5. Verify Firestore is `UP`.
+6. Verify mail is `UP`.
+7. Start the static web portal.
+8. Sign in using existing test accounts.
+9. Test role routing.
+10. Run the web pilot checklist.
+11. Run the Android debug build.
+12. Test one complete safety-critical flow:
+
+```text
+Parent selects student
+        ↓
+Generate signed QR pickup pass
+        ↓
+Staff scans QR
+        ↓
+Backend verifies pass
+        ↓
+Staff visually verifies guardian
+        ↓
+Approve Release
+        ↓
+Pass becomes used
+        ↓
+Exit log written
+        ↓
+Guardians receive notification
+```
+
+Use [`WEB_PORTAL_PILOT_TEST_CHECKLIST.md`](../WEB_PORTAL_PILOT_TEST_CHECKLIST.md) for the broader pilot verification.
+
+---
+
+# 12. Free-Tier Notes
+
+- Firestore reads are intentionally minimized.
+- Avatars and logos are compressed to remain well below Firestore's document-size limit.
+- No Cloud Storage bucket is required for the current image design.
+- No Cloud Functions are required for core business logic; the Spring Boot backend performs server-side operations.
+- The backend can run on Google Cloud Run or another suitable host.
+
+---
+
+# 13. Security Summary
+
+PickupPass uses defense in depth:
+
+- Firebase Authentication for identity.
+- Firebase custom claims for server-authoritative role and school scope.
+- Multi-tenant school isolation enforced by both Firestore rules and backend authorization.
+- QR pickup passes are HMAC-signed.
+- Pickup tokens are short-lived and single-use.
+- Guardian removal invalidates active unused passes.
+- Safety-critical writes are awaited.
+- Exit logs are append-only.
+- Client role/school assertions are not trusted.
+- Firebase Admin credentials are not intended to live in source control.
+- `.env`, service-account secrets, keystores, and similar credentials are ignored by Git.
+- Bootstrap is disabled by default and must be explicitly enabled for first-time provisioning.
+
+Before every push:
+
+```powershell
+git status
+git diff --cached
+```
+
+If any credential is ever accidentally committed:
+
+1. revoke/rotate it immediately;
+2. remove it from current source;
+3. purge it from Git history;
+4. verify old clones cannot reintroduce it.
+
+---
+
+# 14. Production Configuration
+
+Production should not depend on a developer `.env` file.
+
+Use your deployment platform's secret/environment-variable management for:
+
+- `QR_SIGNING_SECRET`
+- `SECURITY_FINGERPRINT_SECRET`
+- SMTP credentials
+- webhook HMAC secrets
+- signing credentials
+- other production-only secrets
+
+For Firebase Admin on Google Cloud, prefer the workload's attached service account through ADC.
+
+Keep:
+
+```properties
+BOOTSTRAP_ENABLED=false
+```
+
+after initial provisioning.
+
+Do not expose detailed Actuator health internals publicly in production.
+
+For production deployment details, see [`DEPLOYMENT.md`](./DEPLOYMENT.md).
