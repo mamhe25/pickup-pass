@@ -223,7 +223,7 @@ label:has(> .pp-field) > .pp-field { margin-top:5px; font-weight:450; }
 .pp-status--neutral{background:var(--surface-variant);color:var(--text-muted)}
 .pp-danger-zone { border-color:color-mix(in srgb,var(--danger) 26%,var(--border)); }
 .pp-progress { height:8px; overflow:hidden; border-radius:999px; background:var(--surface-variant); }
-.pp-progress>span { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--primary),var(--indigo-500)); transition:width .35s ease; }
+.pp-progress>span { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--primary),var(--indigo-500),#84CC16); transition:width .35s ease; }
 .pp-tabs { display:flex; gap:6px; overflow:auto; padding:3px 0; scrollbar-width:none; }
 .pp-tabs::-webkit-scrollbar{display:none}.pp-tab{border:1px solid var(--border);border-radius:999px;padding:7px 12px;background:var(--surface);font-size:.76rem;font-weight:700;white-space:nowrap}.pp-tab[aria-current="page"]{background:var(--text-strong);color:var(--surface);border-color:var(--text-strong)}
 
@@ -251,8 +251,8 @@ label:has(> .pp-field) > .pp-field { margin-top:5px; font-weight:450; }
 
 /* ---- Login -------------------------------------------------------------- */
 .pp-auth-shell { width:min(100%,1040px); display:grid; grid-template-columns:1fr 430px; overflow:hidden; border:1px solid var(--border); border-radius:26px; background:var(--surface); box-shadow:0 26px 70px rgba(15,23,42,.13); }
-.pp-auth-story { min-height:560px; padding:48px; color:#fff; background:linear-gradient(145deg,#312e81,#4f46e5 56%,#6366f1); position:relative; overflow:hidden; }
-.pp-auth-story::after{content:"";position:absolute;width:320px;height:320px;border-radius:999px;right:-120px;bottom:-120px;background:rgba(255,255,255,.11)}
+.pp-auth-story { min-height:560px; padding:48px; color:#fff; background:radial-gradient(360px 300px at 100% 100%,rgba(132,204,22,.28),transparent 72%),linear-gradient(145deg,#064E3B,#065F46 52%,#047857); position:relative; overflow:hidden; }
+.pp-auth-story::after{content:"";position:absolute;width:320px;height:320px;border-radius:999px;right:-120px;bottom:-120px;background:rgba(255,255,255,.07);box-shadow:0 0 90px rgba(16,185,129,.22)}
 .pp-auth-form { padding:46px 38px; display:flex; flex-direction:column; justify-content:center; }
 
 /* ---- Reveal animation: progressive enhancement only -------------------- */

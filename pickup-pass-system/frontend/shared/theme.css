@@ -25,17 +25,17 @@
   color-scheme: light;
 
   /* ---- 1. Primitives — mirror Android Color.kt exactly ------------------ */
-  --indigo-50:  #EEF2FF;
-  --indigo-100: #E0E7FF;
-  --indigo-500: #6366F1;
-  --indigo-600: #4F46E5;  /* brand primary */
-  --indigo-700: #4338CA;
-  --indigo-900: #312E81;
+  --indigo-50:  #ECFDF5;
+  --indigo-100: #D1FAE5;
+  --indigo-500: #10B981;
+  --indigo-600: #047857;  /* brand primary */
+  --indigo-700: #065F46;
+  --indigo-900: #064E3B;
 
-  --green-500: #22C55E;
-  --green-600: #16A34A;   /* success / "safely dismissed" */
-  --green-700: #15803D;
-  --green-900: #14532D;
+  --green-500: #2DD4BF;
+  --green-600: #0F766E;   /* success / "safely dismissed" */
+  --green-700: #115E59;
+  --green-900: #134E4A;
 
   --red-500: #EF4444;
   --red-600: #DC2626;     /* error / danger only */
@@ -86,7 +86,7 @@
   /* Success (green) — "safely dismissed", confirmations */
   --success:            var(--green-600);
   --success-hover:      var(--green-700);
-  --success-container:  #ECFDF5;
+  --success-container:  #F0FDFA;
   --on-success-container: var(--green-900);
 
   /* Danger (red) — errors and destructive actions ONLY */
@@ -102,11 +102,11 @@
   --on-warning-container: var(--amber-900);
 
   /* Focus ring — one consistent, accessible ring everywhere */
-  --focus-ring: color-mix(in srgb, var(--indigo-600) 45%, transparent);
+  --focus-ring: color-mix(in srgb, var(--indigo-500) 48%, transparent);
 
   /* Brand gradient — the signature. Used with restraint: splash, hero,
      loading, empty-state accents. Never behind body text. */
-  --brand-gradient: linear-gradient(135deg, var(--indigo-600) 0%, var(--indigo-500) 55%, #7C7CF5 100%);
+  --brand-gradient: linear-gradient(135deg, var(--indigo-900) 0%, var(--indigo-700) 52%, #10B981 100%);
 
   /* ---- 3a. Radius — mirror Android Shapes.kt --------------------------- */
   --radius-xs: 8px;    /* chips, badges, small pills */
@@ -169,9 +169,9 @@
   --on-primary-container: var(--indigo-100);
 
   --success:            var(--green-500);
-  --success-hover:      #4ADE80;
+  --success-hover:      #5EEAD4;
   --success-container:  var(--green-900);
-  --on-success-container: #BBF7D0;
+  --on-success-container: #CCFBF1;
 
   --danger:             var(--red-500);
   --danger-hover:       #F87171;
@@ -213,9 +213,9 @@
     --on-primary-container: var(--indigo-100);
 
     --success:            var(--green-500);
-    --success-hover:      #4ADE80;
+    --success-hover:      #5EEAD4;
     --success-container:  var(--green-900);
-    --on-success-container: #BBF7D0;
+    --on-success-container: #CCFBF1;
 
     --danger:             var(--red-500);
     --danger-hover:       #F87171;

@@ -7,17 +7,17 @@ import androidx.compose.ui.graphics.Color
 // amber reserved exclusively for non-blocking caution states (e.g. "account
 // created but the invite email failed to send") so it never gets confused
 // with a hard error.
-val Indigo50 = Color(0xFFEEF2FF)
-val Indigo100 = Color(0xFFE0E7FF)
-val Indigo500 = Color(0xFF6366F1)
-val Indigo600 = Color(0xFF4F46E5)
-val Indigo700 = Color(0xFF4338CA)
-val Indigo900 = Color(0xFF312E81)
+val Indigo50 = Color(0xFFECFDF5)
+val Indigo100 = Color(0xFFD1FAE5)
+val Indigo500 = Color(0xFF10B981)
+val Indigo600 = Color(0xFF047857)
+val Indigo700 = Color(0xFF065F46)
+val Indigo900 = Color(0xFF064E3B)
 
-val Green500 = Color(0xFF22C55E)
-val Green600 = Color(0xFF16A34A)
-val Green700 = Color(0xFF15803D)
-val Green900 = Color(0xFF14532D)
+val Green500 = Color(0xFF2DD4BF)
+val Green600 = Color(0xFF0F766E)
+val Green700 = Color(0xFF115E59)
+val Green900 = Color(0xFF134E4A)
 
 val Red500 = Color(0xFFEF4444)
 val Red600 = Color(0xFFDC2626)
