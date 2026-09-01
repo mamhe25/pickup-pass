@@ -38,6 +38,9 @@ public class FirebaseConfig {
     @Value("${firebase.credentials.path:}")
     private String credentialsPath;
 
+    @Value("${firebase.project-id}")
+    private String projectId;
+
     @Bean
     public FirebaseApp firebaseApp() throws IOException {
         if (!FirebaseApp.getApps().isEmpty()) {
@@ -58,6 +61,7 @@ public class FirebaseConfig {
 
         FirebaseOptions options = FirebaseOptions.builder()
                 .setCredentials(credentials)
+                .setProjectId(projectId)
                 .build();
         return FirebaseApp.initializeApp(options);
     }

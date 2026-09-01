@@ -46,6 +46,7 @@ management:
       enabled: true
 
 firebase:
+  project-id: ${FIREBASE_PROJECT_ID:${GOOGLE_CLOUD_PROJECT:pickuppass}}
   credentials:
     path: ${FIREBASE_CREDENTIALS_PATH:}
 
