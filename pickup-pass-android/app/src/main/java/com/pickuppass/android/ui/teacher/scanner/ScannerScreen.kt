@@ -10,6 +10,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Campaign
@@ -522,7 +524,14 @@ private fun BoxScope.VerifiedIdentityScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(Spacing.lg),
+                    .verticalScroll(rememberScrollState())
+                    .navigationBarsPadding()
+                    .padding(
+                        start = Spacing.lg,
+                        end = Spacing.lg,
+                        top = Spacing.lg,
+                        bottom = Spacing.xl
+                    ),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Surface(
@@ -644,7 +653,7 @@ private fun BoxScope.VerifiedIdentityScreen(
                     )
                 }
 
-                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.height(Spacing.lg))
 
                 Button(
                     onClick = onApprove,
