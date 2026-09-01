@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -7,6 +9,29 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
     id("kotlin-kapt")
 }
+
+
+
+val localPropertiesFile = rootProject.file("local.properties")
+val localProperties = Properties()
+
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { input ->
+        localProperties.load(input)
+    }
+}
+
+val debugApiBaseUrl =
+    localProperties.getProperty("pickuppass.debugApiBaseUrl")
+        ?: providers.gradleProperty("PICKUPPASS_DEBUG_API_BASE_URL").orNull
+        ?: providers.environmentVariable("PICKUPPASS_DEBUG_API_BASE_URL").orNull
+        ?: "http://10.0.2.2:8080/api/"
+
+val releaseKeystorePath =
+    localProperties.getProperty("pickuppass.releaseKeystorePath")
+        ?: providers.gradleProperty("PICKUPPASS_RELEASE_KEYSTORE").orNull
+        ?: providers.environmentVariable("PICKUPPASS_RELEASE_KEYSTORE").orNull
+        ?: "../pickup-pass-release.keystore"
 
 android {
     namespace = "com.pickuppass.android"
@@ -27,7 +52,7 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("../pickup-pass-release.keystore")
+            storeFile = file(releaseKeystorePath)
             storePassword = System.getenv("KEYSTORE_PASSWORD")
             keyAlias = "pickup-pass"
             keyPassword = System.getenv("KEY_PASSWORD")
@@ -36,7 +61,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "API_BASE_URL", "\"http://192.168.1.30:8080/api/\"")
+            buildConfigField("String", "API_BASE_URL", "\"$debugApiBaseUrl\"")
             isMinifyEnabled = false
         }
         release {

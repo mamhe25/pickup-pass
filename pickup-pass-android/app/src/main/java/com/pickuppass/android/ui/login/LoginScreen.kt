@@ -5,24 +5,35 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -41,6 +52,8 @@ fun LoginScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val loginResult by viewModel.loginResult.collectAsStateWithLifecycle()
     val passwordFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    var showPassword by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(loginResult) {
         when (loginResult) {
@@ -52,108 +65,220 @@ fun LoginScreen(
         }
     }
 
-    // A brief, one-shot fade-in on first composition — cheap (runs once,
-    // not continuous) and gives the screen a touch of life without
-    // costing anything on repeated recompositions from typing/state changes.
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
     val contentAlpha by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(durationMillis = 350),
+        animationSpec = tween(durationMillis = 320),
         label = "loginContentFadeIn"
     )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(Spacing.lg),
-        contentAlignment = Alignment.Center
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.background
+                    )
+                )
+            )
+            .imePadding()
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
+                .align(Alignment.Center)
                 .fillMaxWidth()
-                .graphicsLayer { alpha = contentAlpha }
+                .widthIn(max = 500.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Spacing.lg, vertical = Spacing.xl)
+                .graphicsLayer { alpha = contentAlpha },
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Hero mark: icon inside a tonal container rather than a bare
-            // floating icon — a small, deliberate touch that reads as
-            // "designed" instead of "default," and reuses the exact
-            // primary/primaryContainer roles completed in Phase 1 rather
-            // than a one-off color.
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(72.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Filled.Shield,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(36.dp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    modifier = Modifier.size(46.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Filled.Shield,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(25.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(Spacing.sm))
+
+                Column {
+                    Text(
+                        "PickupPass",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        "Secure school dismissal",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-            Spacer(Modifier.height(Spacing.md))
-            Text("Pickup Pass", style = MaterialTheme.typography.headlineSmall)
-            Text(
-                "Sign in to continue",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = Spacing.xl)
-            )
 
-            OutlinedTextField(
-                value = uiState.email,
-                onValueChange = viewModel::onEmailChange,
-                label = { Text("Email") },
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Filled.Email, contentDescription = null) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { passwordFocusRequester.requestFocus() }),
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(Spacing.sm))
+            Spacer(Modifier.height(Spacing.xl))
 
-            OutlinedTextField(
-                value = uiState.password,
-                onValueChange = viewModel::onPasswordChange,
-                label = { Text("Password") },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { viewModel.signIn() }),
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(passwordFocusRequester)
-            )
-            Spacer(Modifier.height(Spacing.md))
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.extraLarge,
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 7.dp)
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Spacing.lg)
+                    ) {
+                        Text(
+                            "Welcome back",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Spacer(Modifier.height(Spacing.xs))
+                        Text(
+                            "Sign in with the account provided by your school.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.78f)
+                        )
+                    }
+                }
 
-            AnimatedVisibility(visible = uiState.error != null, enter = fadeIn() + expandVertically()) {
-                uiState.error?.let {
-                    ErrorBanner(it, modifier = Modifier.padding(bottom = Spacing.md))
+                Column(modifier = Modifier.padding(Spacing.lg)) {
+                    OutlinedTextField(
+                        value = uiState.email,
+                        onValueChange = viewModel::onEmailChange,
+                        enabled = !uiState.isLoading,
+                        label = { Text("Email address") },
+                        placeholder = { Text("name@example.com") },
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Filled.Email, contentDescription = null) },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { passwordFocusRequester.requestFocus() }
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(Modifier.height(Spacing.sm))
+
+                    OutlinedTextField(
+                        value = uiState.password,
+                        onValueChange = viewModel::onPasswordChange,
+                        enabled = !uiState.isLoading,
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation =
+                            if (showPassword) VisualTransformation.None
+                            else PasswordVisualTransformation(),
+                        leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = { showPassword = !showPassword }) {
+                                Icon(
+                                    imageVector =
+                                        if (showPassword) Icons.Filled.VisibilityOff
+                                        else Icons.Filled.Visibility,
+                                    contentDescription =
+                                        if (showPassword) "Hide password"
+                                        else "Show password"
+                                )
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                keyboardController?.hide()
+                                viewModel.signIn()
+                            }
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(passwordFocusRequester)
+                    )
+
+                    Spacer(Modifier.height(Spacing.md))
+
+                    AnimatedVisibility(
+                        visible = uiState.error != null,
+                        enter = fadeIn() + expandVertically()
+                    ) {
+                        uiState.error?.let {
+                            ErrorBanner(
+                                it,
+                                modifier = Modifier.padding(bottom = Spacing.md)
+                            )
+                        }
+                    }
+
+                    PrimaryButton(
+                        text = "Sign in securely",
+                        onClick = {
+                            keyboardController?.hide()
+                            viewModel.signIn()
+                        },
+                        enabled = uiState.email.isNotBlank() && uiState.password.isNotBlank(),
+                        loading = uiState.isLoading
+                    )
+
+                    if (uiState.resetEmailSent) {
+                        Spacer(Modifier.height(Spacing.sm))
+                        Text(
+                            "Password reset email sent. Check your inbox.",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    TextButton(
+                        onClick = viewModel::sendPasswordReset,
+                        enabled = !uiState.isLoading,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) {
+                        Text("Forgot password?")
+                    }
                 }
             }
-            if (uiState.resetEmailSent) {
-                Text(
-                    "Password reset email sent — check your inbox.",
-                    color = MaterialTheme.colorScheme.secondary,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(bottom = Spacing.sm)
+
+            Spacer(Modifier.height(Spacing.lg))
+
+            Row(
+                modifier = Modifier.padding(horizontal = Spacing.md),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Filled.Shield,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(17.dp)
                 )
-            }
-
-            PrimaryButton(
-                text = "Sign In",
-                onClick = viewModel::signIn,
-                loading = uiState.isLoading
-            )
-
-            TextButton(onClick = viewModel::sendPasswordReset, modifier = Modifier.padding(top = Spacing.sm)) {
-                Text("Forgot password?")
+                Spacer(Modifier.width(Spacing.xs))
+                Text(
+                    "PickupPass verifies your account before opening protected school features.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
