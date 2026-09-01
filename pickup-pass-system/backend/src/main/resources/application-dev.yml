@@ -1,0 +1,15 @@
+# Local-development-only configuration.
+# `application.yml` activates the `dev` profile by default.
+#
+# Load backend/.env as a Java-properties-style file so local secrets do not
+# need to be re-entered in every PowerShell session.
+spring:
+  config:
+    import: optional:file:.env[.properties]
+
+# Detailed health output is useful locally for diagnosing Firebase/SMTP.
+# Production keeps details hidden via the normal/prod configuration.
+management:
+  endpoint:
+    health:
+      show-details: always
