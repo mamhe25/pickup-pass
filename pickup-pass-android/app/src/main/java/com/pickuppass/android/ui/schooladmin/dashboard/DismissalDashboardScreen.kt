@@ -1,14 +1,16 @@
 package com.pickuppass.android.ui.schooladmin.dashboard
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PeopleAlt
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,13 +45,13 @@ fun DismissalDashboardScreen(
                 title = { Text("Live Dismissal") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
                     IconButton(onClick = viewModel::refresh, enabled = !state.isRefreshing) {
                         if (state.isRefreshing) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                         } else {
                             Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
                         }
@@ -66,18 +68,19 @@ fun DismissalDashboardScreen(
         LazyColumn(
             modifier = Modifier.padding(padding).fillMaxSize(),
             contentPadding = PaddingValues(Spacing.md),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
-            state.error?.let { message ->
-                item { ErrorBanner(message) }
-            }
+            state.error?.let { message -> item { ErrorBanner(message) } }
 
             if (dashboard == null) {
                 item {
-                    Text(
-                        "No dashboard data is available yet.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    OutlinedCard(Modifier.fillMaxWidth()) {
+                        Text(
+                            "No live dismissal data is available yet.",
+                            modifier = Modifier.padding(Spacing.lg),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 return@LazyColumn
             }
@@ -91,77 +94,93 @@ fun DismissalDashboardScreen(
             }
 
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
-                ) {
-                    SummaryCard(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Filled.PeopleAlt,
-                        label = "Students",
-                        value = dashboard.totalStudents.toString()
-                    )
-                    SummaryCard(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Filled.CheckCircle,
-                        label = "Released",
-                        value = dashboard.releasedCount.toString()
-                    )
-                    SummaryCard(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Filled.Schedule,
-                        label = "Remaining",
-                        value = dashboard.remainingCount.toString()
-                    )
+                DismissalHero(
+                    released = dashboard.releasedCount,
+                    total = dashboard.totalStudents,
+                    rate = dashboard.releaseRatePercent,
+                    qr = dashboard.qrReleaseCount,
+                    manual = dashboard.manualOverrideCount
+                )
+            }
+
+            if (dashboard.manualOverrideCount > 0) {
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.28f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(Spacing.md),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(
+                                Icons.Filled.WarningAmber,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                            Spacer(Modifier.width(Spacing.sm))
+                            Column {
+                                Text(
+                                    "Manual releases recorded",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                                Text(
+                                    "${dashboard.manualOverrideCount} manual release(s) were recorded today. Review them if unexpected.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
             item {
-                LinearProgressIndicator(
-                    progress = (dashboard.releaseRatePercent / 100.0).toFloat().coerceIn(0f, 1f),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Text(
-                    "${dashboard.releaseRatePercent}% released today",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = Spacing.xs)
-                )
-            }
-
-            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
-                    AssistChip(
-                        onClick = {},
-                        enabled = false,
-                        label = { Text("QR ${dashboard.qrReleaseCount}") },
-                        modifier = Modifier.weight(1f)
+                    SummaryCard(
+                        Modifier.weight(1f),
+                        Icons.Filled.PeopleAlt,
+                        "Students",
+                        dashboard.totalStudents.toString()
                     )
-                    AssistChip(
-                        onClick = {},
-                        enabled = false,
-                        label = { Text("Manual ${dashboard.manualOverrideCount}") },
-                        modifier = Modifier.weight(1f)
+                    SummaryCard(
+                        Modifier.weight(1f),
+                        Icons.Filled.CheckCircle,
+                        "Released",
+                        dashboard.releasedCount.toString()
+                    )
+                    SummaryCard(
+                        Modifier.weight(1f),
+                        Icons.Filled.Schedule,
+                        "Remaining",
+                        dashboard.remainingCount.toString()
                     )
                 }
             }
 
             if (dashboard.gateActivity.isNotEmpty()) {
                 item {
-                    Text(
-                        "Pickup Gate Activity",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = Spacing.sm)
-                    )
-                    Text(
-                        "Live release counts by configured gate. A single-gate school requires no staff gate assignment.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column {
+                        Text(
+                            "Gate activity",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Live release counts by configured gate.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 items(dashboard.gateActivity, key = { it.pickupGateId }) { gate ->
                     GateActivityCard(gate)
@@ -176,13 +195,13 @@ fun DismissalDashboardScreen(
                     FilterChip(
                         selected = !state.showRemaining,
                         onClick = viewModel::showReleased,
-                        label = { Text("Recent Releases") },
+                        label = { Text("Recent releases") },
                         modifier = Modifier.weight(1f)
                     )
                     FilterChip(
                         selected = state.showRemaining,
                         onClick = viewModel::showRemaining,
-                        label = { Text("Still On Campus") },
+                        label = { Text("Still on campus") },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -198,7 +217,7 @@ fun DismissalDashboardScreen(
                     if (dashboard.remainingTruncated) {
                         item {
                             Text(
-                                "Showing the first 250 students. Use the student roster for the full list.",
+                                "Showing the first 250 students. Use the roster for the full list.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -217,12 +236,75 @@ fun DismissalDashboardScreen(
 
             item {
                 Text(
-                    "This screen is status-only. It does not create a queue or require parents to check in before presenting a valid QR.",
+                    "This is an operational status screen. It does not create a parent queue or require check-in.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = Spacing.md, bottom = Spacing.md)
+                    modifier = Modifier.padding(vertical = Spacing.md)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun DismissalHero(
+    released: Int,
+    total: Int,
+    rate: Double,
+    qr: Int,
+    manual: Int
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shadowElevation = 7.dp
+    ) {
+        Column(modifier = Modifier.padding(Spacing.lg)) {
+            Text(
+                "RELEASED TODAY",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.72f)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        released.toString(),
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        " of $total",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.68f),
+                        modifier = Modifier.padding(bottom = 5.dp)
+                    )
+                }
+                Text(
+                    "${rate.toInt()}%",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            Spacer(Modifier.height(Spacing.sm))
+            LinearProgressIndicator(
+                progress = { (rate / 100.0).toFloat().coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.tertiary,
+                trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f)
+            )
+            Spacer(Modifier.height(Spacing.sm))
+            Text(
+                "QR $qr · Manual $manual",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.72f)
+            )
         }
     }
 }
@@ -248,17 +330,17 @@ private fun SummaryCard(
 
 @Composable
 private fun GateActivityCard(gate: GateActivityItem) {
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    OutlinedCard(Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.sm),
+            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(Modifier.weight(1f)) {
                 Text(
                     gate.pickupGateName.ifBlank { "Pickup Gate" },
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.SemiBold
                 )
                 if (gate.campusName.isNotBlank()) {
                     Text(
@@ -284,9 +366,9 @@ private fun GateActivityCard(gate: GateActivityItem) {
 
 @Composable
 private fun RemainingStudentCard(student: DashboardStudent) {
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(Spacing.sm)) {
-            Text(student.studentName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Spacing.md)) {
+            Text(student.studentName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
                 "Grade ${student.grade.ifBlank { "-" }} · Section ${student.section.ifBlank { "-" }}",
                 style = MaterialTheme.typography.bodySmall,
@@ -298,10 +380,13 @@ private fun RemainingStudentCard(student: DashboardStudent) {
 
 @Composable
 private fun ReleaseCard(release: DashboardRelease, timeZone: String) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(Spacing.sm)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(release.studentName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Spacing.md)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(release.studentName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(
                     formatTimestamp(release.timestamp, timeZone),
                     style = MaterialTheme.typography.bodySmall,
@@ -333,8 +418,13 @@ private fun ReleaseCard(release: DashboardRelease, timeZone: String) {
 
 @Composable
 private fun EmptyMessage(message: String) {
-    Box(modifier = Modifier.fillMaxWidth().padding(Spacing.xl), contentAlignment = Alignment.Center) {
-        Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(Spacing.xl),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 

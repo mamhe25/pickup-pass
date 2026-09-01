@@ -42,7 +42,7 @@ function render(mount) {
   mount.innerHTML = `
     <header class="pp-appbar">
       <div class="pp-appbar__inner">
-        <a class="pp-brandmark" href="/school-admin//dashboard.html" aria-label="PickupPass Admin home">
+        <a class="pp-brandmark" href="/school-admin/dashboard.html" aria-label="PickupPass Admin home">
           <span class="pp-brandmark__badge">${iconShield()}</span>
           <span class="flex flex-col">
             <span class="pp-brandmark__name">PickupPass</span>

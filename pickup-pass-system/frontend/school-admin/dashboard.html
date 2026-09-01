@@ -1,27 +1,181 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>School Dashboard — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head><body class="min-h-screen pp-portal-body">
-<div id="adminNav" data-active="home"></div><script type="module" src="../shared/school-admin-nav.js"></script>
-<main class="pp-page"><div class="pp-page-head"><div><h1>School Operations Dashboard</h1><p>Live dismissal activity, subscription access, pickup policy, launch readiness, and school-data export status in one place.</p></div><button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh</button></div>
-<div class="pp-grid"><div class="pp-kpi"><div class="pp-kpi__label">Released today</div><div id="released" class="pp-kpi__value">—</div><div id="releaseMix" class="pp-mini"></div></div><div class="pp-kpi"><div class="pp-kpi__label">Remaining</div><div id="remaining" class="pp-kpi__value">—</div><div id="releaseRate" class="pp-mini"></div></div><div class="pp-kpi"><div class="pp-kpi__label">Plan</div><div id="plan" class="pp-kpi__value text-lg">—</div><div id="subStatus" class="pp-mini"></div></div><div class="pp-kpi"><div class="pp-kpi__label">Launch readiness</div><div id="launch" class="pp-kpi__value text-lg">—</div><div id="launchCounts" class="pp-mini"></div></div></div>
-<section class="pp-section"><div class="pp-section__head"><h2>Gate activity today</h2></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Campus</th><th>Gate</th><th>Released</th><th>QR</th><th>Manual</th></tr></thead><tbody id="gateRows"><tr><td colspan="5" class="pp-empty">Loading…</td></tr></tbody></table></div></section>
-<section class="pp-section"><div class="pp-section__head"><h2>Pickup policy</h2><span id="policyStatus"></span></div><div class="pp-section__body"><form id="policyForm" class="pp-form-grid"><label>Mode<select id="policyMode" class="pp-field"><option value="unrestricted">Unrestricted</option><option value="time_window">Time window</option></select></label><label>Earliest<input id="earliest" type="time" class="pp-field"></label><label>Latest<input id="latest" type="time" class="pp-field"></label><label class="flex items-center gap-2 mt-6"><input id="manualOverride" type="checkbox"> Allow manual override</label><div class="flex items-end"><button class="pp-btn pp-btn--primary w-full" type="submit">Save policy</button></div></form><p class="pp-mini mt-2">No arrival check-in or mandatory pickup queue is introduced. Unrestricted remains a supported policy.</p></div></section>
-<section class="pp-section"><div class="pp-section__head"><h2>Launch readiness</h2><a href="./launch-readiness.html" class="pp-btn pp-btn--ghost">Open checklist</a></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Check</th><th>Status</th><th>Detail</th></tr></thead><tbody id="readinessRows"><tr><td colspan="3" class="pp-empty">Loading…</td></tr></tbody></table></div></section>
-<section class="pp-section"><div class="pp-section__head"><h2>Feature access</h2></div><div id="featureGrid" class="pp-section__body pp-grid"></div></section>
-<section class="pp-section"><div class="pp-section__head"><h2>School data export</h2></div><div class="pp-section__body"><p id="exportMessage" class="pp-mini">Checking…</p><button id="exportBtn" class="pp-btn pp-btn--secondary mt-3 hidden">Download school data ZIP</button></div></section>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>School Operations — PickupPass</title>
+<meta name="theme-color" content="#047857">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<link rel="stylesheet" href="./dashboard.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="adminNav" data-active="home"></div>
+<script type="module" src="../shared/school-admin-nav.js"></script>
+
+<main class="pp-page pp-school-dashboard">
+  <div class="pp-page-head">
+    <div>
+      <p class="pp-eyebrow">School operations</p>
+      <h1>Today’s dismissal</h1>
+      <p>Live release status first. Configuration and administration stay one step away.</p>
+    </div>
+    <button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh</button>
+  </div>
+
+  <section class="pp-school-hero">
+    <div>
+      <p class="pp-school-hero__label">Released today</p>
+      <div class="pp-school-hero__value"><span id="released">—</span><span class="pp-school-hero__of"> of <span id="totalStudents">—</span></span></div>
+      <p id="releaseMix" class="pp-school-hero__detail"></p>
+    </div>
+    <div class="pp-school-hero__right">
+      <strong id="releaseRate">—</strong>
+      <span>complete</span>
+    </div>
+    <div class="pp-school-progress"><span id="releaseProgress"></span></div>
+  </section>
+
+  <section id="attentionPanel" class="pp-attention hidden" aria-live="polite">
+    <div>
+      <p class="pp-eyebrow">Attention needed</p>
+      <h2>Review before dismissal closes</h2>
+    </div>
+    <ul id="attentionList"></ul>
+  </section>
+
+  <div class="pp-school-kpis">
+    <article class="pp-school-kpi">
+      <span>Remaining</span>
+      <strong id="remaining">—</strong>
+      <small>students still on campus</small>
+    </article>
+    <article class="pp-school-kpi">
+      <span>Plan</span>
+      <strong id="plan">—</strong>
+      <small id="subStatus"></small>
+    </article>
+    <article class="pp-school-kpi">
+      <span>Launch status</span>
+      <strong id="launch">—</strong>
+      <small id="launchCounts"></small>
+    </article>
+  </div>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Gate activity</h2>
+        <p class="pp-mini">Where releases are happening right now.</p>
+      </div>
+      <a href="./pickup-settings.html" class="pp-btn pp-btn--ghost">Manage pickup</a>
+    </div>
+    <div class="pp-table-wrap">
+      <table class="pp-table">
+        <thead><tr><th>Campus</th><th>Gate</th><th>Released</th><th>QR</th><th>Manual</th></tr></thead>
+        <tbody id="gateRows"><tr><td colspan="5" class="pp-empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Administration</h2>
+        <p class="pp-mini">Configuration is separated from live dismissal so operational decisions stay clear.</p>
+      </div>
+    </div>
+    <div class="pp-admin-shortcuts">
+      <a href="./pickup-settings.html" class="pp-admin-shortcut"><strong>Pickup settings</strong><span>Policy, gates, staff assignments</span></a>
+      <a href="./launch-readiness.html" class="pp-admin-shortcut"><strong>Launch readiness</strong><span>Review blockers and warnings</span></a>
+      <a href="./reports.html" class="pp-admin-shortcut"><strong>Reports</strong><span>Dismissal records and trends</span></a>
+      <a href="./billing.html" class="pp-admin-shortcut"><strong>Billing</strong><span>Plan and subscription status</span></a>
+      <a href="./staff.html" class="pp-admin-shortcut"><strong>Staff</strong><span>Teachers and school access</span></a>
+      <a href="./branding.html" class="pp-admin-shortcut"><strong>Branding</strong><span>School identity and appearance</span></a>
+    </div>
+  </section>
 </main>
+
 <script type="module">
-import { showToast } from '../shared/firebase-init.js';
-import { apiJson, requireRole, bindRefresh, escapeHtml, statusPill, titleCase, downloadAuthed } from '../shared/portal.js';
-let exportEnabled=false;
-async function load(){
-  const [dash,ent,policy,ready,exp]=await Promise.allSettled([apiJson('/school-admin/dismissal-dashboard'),apiJson('/tenant/entitlements'),apiJson('/school-admin/pickup-policy'),apiJson('/school-admin/launch-readiness'),apiJson('/school-admin/data-export/status')]);
-  if(dash.status==='fulfilled'){const d=dash.value;released.textContent=d.releasedCount??0;remaining.textContent=d.remainingCount??0;releaseMix.textContent=`QR ${d.qrReleaseCount??0} · Manual ${d.manualOverrideCount??0}`;releaseRate.textContent=`${d.releaseRatePercent??0}% released`;const rows=d.gateActivity||[];gateRows.innerHTML=rows.length?rows.map(g=>`<tr><td>${escapeHtml(g.campusName||'—')}</td><td>${escapeHtml(g.gateName||g.pickupGateName||'—')}</td><td>${g.releaseCount??g.total??0}</td><td>${g.qrReleaseCount??g.qrCount??0}</td><td>${g.manualOverrideCount??g.manualCount??0}</td></tr>`).join(''):'<tr><td colspan="5" class="pp-empty">No active gates or releases yet.</td></tr>';}
-  if(ent.status==='fulfilled'){const e=ent.value;plan.textContent=titleCase(e.plan||'legacy');subStatus.innerHTML=statusPill(e.subscriptionStatus||'active');const f=e.features||{};featureGrid.innerHTML=Object.entries(f).map(([k,v])=>`<div class="pp-kpi"><div class="pp-kpi__label">${escapeHtml(titleCase(k))}</div><div>${statusPill(v?'enabled':'disabled')}</div></div>`).join('');}
-  if(policy.status==='fulfilled'){const p=policy.value;policyMode.value=p.mode||'unrestricted';earliest.value=p.earliestPickupTime||'';latest.value=p.latestPickupTime||'';manualOverride.checked=p.allowManualOverride!==false;policyStatus.innerHTML=statusPill(p.mode||'unrestricted');toggleTimes();}
-  if(ready.status==='fulfilled'){const r=ready.value;launch.innerHTML=statusPill(r.effectiveStatus||r.reviewStatus||'draft');launchCounts.textContent=`${r.blockerCount||0} blocker(s) · ${r.warningCount||0} warning(s)`;const checks=r.checks||[];readinessRows.innerHTML=checks.length?checks.slice(0,8).map(c=>`<tr><td><strong>${escapeHtml(c.label||c.key)}</strong></td><td>${statusPill(c.status)}</td><td>${escapeHtml(c.detail||'')}</td></tr>`).join(''):'<tr><td colspan="3" class="pp-empty">No readiness checks found.</td></tr>';}
-  if(exp.status==='fulfilled'){exportEnabled=!!exp.value.enabled;exportMessage.textContent=exp.value.message||'';exportBtn.classList.toggle('hidden',!exportEnabled);}
+import { apiJson, requireRole, bindRefresh, escapeHtml, statusPill, titleCase } from '../shared/portal.js';
+
+async function load() {
+  const [dashResult, entitlementResult, readinessResult] = await Promise.allSettled([
+    apiJson('/school-admin/dismissal-dashboard'),
+    apiJson('/tenant/entitlements'),
+    apiJson('/school-admin/launch-readiness')
+  ]);
+
+  const attention = [];
+
+  if (dashResult.status === 'fulfilled') {
+    const d = dashResult.value;
+    const releasedCount = d.releasedCount ?? 0;
+    const remainingCount = d.remainingCount ?? 0;
+    const total = d.totalStudents ?? (releasedCount + remainingCount);
+    const rate = Number(d.releaseRatePercent ?? 0);
+
+    released.textContent = releasedCount;
+    remaining.textContent = remainingCount;
+    totalStudents.textContent = total;
+    releaseRate.textContent = `${rate}%`;
+    releaseMix.textContent = `QR ${d.qrReleaseCount ?? 0} · Manual ${d.manualOverrideCount ?? 0}`;
+    releaseProgress.style.width = `${Math.max(0, Math.min(rate, 100))}%`;
+
+    if ((d.manualOverrideCount ?? 0) > 0) {
+      attention.push(`${d.manualOverrideCount} manual release${d.manualOverrideCount === 1 ? '' : 's'} recorded today — review if unexpected.`);
+    }
+
+    const rows = Array.isArray(d.gateActivity) ? d.gateActivity : [];
+    gateRows.innerHTML = rows.length
+      ? rows.map(g => `<tr>
+          <td>${escapeHtml(g.campusName || '—')}</td>
+          <td>${escapeHtml(g.gateName || g.pickupGateName || '—')}</td>
+          <td>${g.releaseCount ?? g.total ?? 0}</td>
+          <td>${g.qrReleaseCount ?? g.qrCount ?? 0}</td>
+          <td>${g.manualOverrideCount ?? g.manualCount ?? 0}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="5" class="pp-empty">No gate activity yet today.</td></tr>';
+  } else {
+    attention.push('Live dismissal status could not be loaded.');
+  }
+
+  if (entitlementResult.status === 'fulfilled') {
+    const e = entitlementResult.value;
+    plan.textContent = titleCase(e.plan || 'legacy');
+    subStatus.innerHTML = statusPill(e.subscriptionStatus || 'active');
+  } else {
+    plan.textContent = 'Unavailable';
+  }
+
+  if (readinessResult.status === 'fulfilled') {
+    const r = readinessResult.value;
+    launch.innerHTML = statusPill(r.effectiveStatus || r.reviewStatus || 'draft');
+    launchCounts.textContent = `${r.blockerCount || 0} blocker(s) · ${r.warningCount || 0} warning(s)`;
+
+    if ((r.blockerCount || 0) > 0) {
+      attention.push(`${r.blockerCount} launch blocker${r.blockerCount === 1 ? '' : 's'} still require action.`);
+    }
+    if ((r.warningCount || 0) > 0) {
+      attention.push(`${r.warningCount} launch warning${r.warningCount === 1 ? '' : 's'} should be reviewed.`);
+    }
+  } else {
+    launch.textContent = 'Unavailable';
+  }
+
+  renderAttention(attention);
 }
-function toggleTimes(){const disabled=policyMode.value!=='time_window';earliest.disabled=disabled;latest.disabled=disabled;} policyMode.addEventListener('change',toggleTimes);
-policyForm.addEventListener('submit',async e=>{e.preventDefault();try{const body={mode:policyMode.value,earliestPickupTime:earliest.value,latestPickupTime:latest.value,allowManualOverride:manualOverride.checked};await apiJson('/school-admin/pickup-policy',{method:'PUT',body:JSON.stringify(body)});showToast('Pickup policy updated.');await load();}catch(err){showToast(err.message,'error');}});
-exportBtn.addEventListener('click',async()=>{if(!exportEnabled)return;try{await downloadAuthed('/school-admin/data-export/download','pickuppass-school-export.zip');showToast('School data export downloaded.');}catch(e){showToast(e.message,'error');}});
-bindRefresh('refreshBtn',load);requireRole('school_admin',load);
-</script></body></html>
+
+function renderAttention(items) {
+  attentionPanel.classList.toggle('hidden', items.length === 0);
+  attentionList.innerHTML = items.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+}
+
+bindRefresh('refreshBtn', load);
+requireRole('school_admin', load);
+</script>
+</body>
+</html>
