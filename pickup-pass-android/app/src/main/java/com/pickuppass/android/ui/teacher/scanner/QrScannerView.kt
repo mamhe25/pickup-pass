@@ -4,6 +4,8 @@ import android.util.Size
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,7 +14,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -22,12 +23,9 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 
 /**
- * Live camera preview that runs ML Kit's on-device barcode scanner on every
- * analyzed frame. onQrDetected fires for every detected code — the caller
- * is responsible for pausing further handling while processing a scan
- * (see ScannerScreen's isProcessing guard upstream), and can flip `paused`
- * to true to stop feeding frames to the analyzer entirely once a code is
- * being verified.
+ * Live camera preview backed by CameraX + ML Kit. Once ScannerViewModel starts
+ * verification, paused becomes true so new frames are not decoded until the
+ * current decision has finished.
  */
 @Composable
 fun QrScannerView(
@@ -35,10 +33,10 @@ fun QrScannerView(
     paused: Boolean,
     onQrDetected: (String) -> Unit
 ) {
-    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentPaused = rememberUpdatedState(paused)
     val currentOnQrDetected = rememberUpdatedState(onQrDetected)
+
     val scanner = remember {
         BarcodeScanning.getClient(
             BarcodeScannerOptions.Builder()
@@ -49,43 +47,66 @@ fun QrScannerView(
 
     AndroidView(
         modifier = modifier.fillMaxSize(),
-        factory = { ctx ->
-            val previewView = PreviewView(ctx)
-            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+        factory = { context ->
+            val previewView = PreviewView(context).apply {
+                scaleType = PreviewView.ScaleType.FILL_CENTER
+            }
+
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
 
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
 
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(previewView.surfaceProvider)
-                }
+                val preview = Preview.Builder()
+                    .build()
+                    .also { it.setSurfaceProvider(previewView.surfaceProvider) }
+
+                val resolutionSelector = ResolutionSelector.Builder()
+                    .setResolutionStrategy(
+                        ResolutionStrategy(
+                            Size(1280, 720),
+                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                        )
+                    )
+                    .build()
 
                 val analysis = ImageAnalysis.Builder()
-                    .setTargetResolution(Size(1280, 720))
+                    .setResolutionSelector(resolutionSelector)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
 
-                analysis.setAnalyzer(ContextCompat.getMainExecutor(ctx)) { imageProxy ->
+                analysis.setAnalyzer(
+                    ContextCompat.getMainExecutor(context)
+                ) { imageProxy ->
                     if (currentPaused.value) {
                         imageProxy.close()
                         return@setAnalyzer
                     }
+
                     val mediaImage = imageProxy.image
-                    if (mediaImage != null) {
-                        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-                        scanner.process(image)
-                            .addOnSuccessListener { barcodes ->
-                                barcodes.firstOrNull()?.rawValue?.let{value ->
-                                    currentOnQrDetected.value(value)
-                                }
-                            }
-                            .addOnCompleteListener { imageProxy.close() }
-                    } else {
+                    if (mediaImage == null) {
                         imageProxy.close()
+                        return@setAnalyzer
                     }
+
+                    val image = InputImage.fromMediaImage(
+                        mediaImage,
+                        imageProxy.imageInfo.rotationDegrees
+                    )
+
+                    scanner.process(image)
+                        .addOnSuccessListener { barcodes ->
+                            barcodes.firstOrNull()
+                                ?.rawValue
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let { currentOnQrDetected.value(it) }
+                        }
+                        .addOnCompleteListener {
+                            imageProxy.close()
+                        }
                 }
 
-                try {
+                runCatching {
                     cameraProvider.unbindAll()
                     cameraProvider.bindToLifecycle(
                         lifecycleOwner,
@@ -93,17 +114,16 @@ fun QrScannerView(
                         preview,
                         analysis
                     )
-                } catch (e: Exception) {
-                    // Camera bind failure surfaces as no preview; caller UI already
-                    // shows a permission/camera-error state independently.
                 }
-            }, ContextCompat.getMainExecutor(ctx))
+            }, ContextCompat.getMainExecutor(context))
 
             previewView
         }
     )
 
     DisposableEffect(Unit) {
-        onDispose { scanner.close() }
+        onDispose {
+            scanner.close()
+        }
     }
 }

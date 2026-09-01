@@ -12,20 +12,22 @@ import com.pickuppass.android.data.repository.NotificationRepository
 import com.pickuppass.android.data.repository.PickupRepository
 import com.pickuppass.android.data.repository.StudentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 sealed class ScannerUiState {
     data object Scanning : ScannerUiState()
     data object Verifying : ScannerUiState()
+
     data class Verified(
         val student: Student,
-        val guardian: UserProfile?,
+        val guardian: UserProfile,
         val qrToken: String,
         val isApproving: Boolean = false
     ) : ScannerUiState()
+
     data class Error(val message: String) : ScannerUiState()
     data class Approved(val gateLabel: String = "") : ScannerUiState()
 }
@@ -75,23 +77,29 @@ class ScannerViewModel @Inject constructor(
         viewModelScope.launch {
             _gateLoading.value = true
             _gateError.value = null
+
             when (val result = pickupRepository.getActivePickupGates()) {
                 is ApiResult.Success -> {
                     val gates = result.data
                     _pickupGates.value = gates
+
                     val current = _selectedPickupGate.value
                     _selectedPickupGate.value = when {
-                        current != null && gates.any { it.id == current.id } -> gates.first { it.id == current.id }
+                        current != null && gates.any { it.id == current.id } ->
+                            gates.first { it.id == current.id }
                         gates.size == 1 -> gates.first()
                         else -> null
                     }
                 }
+
                 is ApiResult.Failure -> {
                     _pickupGates.value = emptyList()
                     _selectedPickupGate.value = null
-                    _gateError.value = scanFailureMessage(result.message, "Pickup gate loading")
+                    _gateError.value =
+                        scanFailureMessage(result.message, "Pickup gate loading")
                 }
             }
+
             _gateLoading.value = false
         }
     }
@@ -105,10 +113,13 @@ class ScannerViewModel @Inject constructor(
     fun onQrCodeScanned(qrToken: String) {
         if (isProcessing) return
         if (_gateLoading.value || _gateError.value != null) return
+
         if (_pickupGates.value.isNotEmpty() && _selectedPickupGate.value == null) {
-            _uiState.value = ScannerUiState.Error("Select the pickup gate being used before scanning a pass")
+            _uiState.value =
+                ScannerUiState.Error("Select the pickup gate being used before scanning a pass")
             return
         }
+
         isProcessing = true
 
         viewModelScope.launch {
@@ -118,23 +129,43 @@ class ScannerViewModel @Inject constructor(
                 is ApiResult.Success -> {
                     val studentId = result.data.studentId
                     val parentUid = result.data.parentUid
+
                     if (studentId == null || parentUid == null) {
-                        _uiState.value = ScannerUiState.Error("Malformed response from server")
-                        isProcessing = false
+                        _uiState.value =
+                            ScannerUiState.Error("Malformed verification response from server")
                         return@launch
                     }
 
                     val student = studentRepository.getStudent(studentId).getOrNull()
                     val guardian = studentRepository.getUserProfile(parentUid).getOrNull()
 
-                    if (student == null) {
-                        _uiState.value = ScannerUiState.Error("Student record not found")
-                    } else {
-                        _uiState.value = ScannerUiState.Verified(student, guardian, qrToken)
+                    when {
+                        student == null -> {
+                            _uiState.value =
+                                ScannerUiState.Error("Student record could not be loaded. Do not release the student.")
+                        }
+
+                        guardian == null -> {
+                            _uiState.value =
+                                ScannerUiState.Error(
+                                    "Authorized guardian profile could not be loaded. " +
+                                        "Do not release the student."
+                                )
+                        }
+
+                        else -> {
+                            _uiState.value = ScannerUiState.Verified(
+                                student = student,
+                                guardian = guardian,
+                                qrToken = qrToken
+                            )
+                        }
                     }
                 }
+
                 is ApiResult.Failure -> {
-                    _uiState.value = ScannerUiState.Error(scanFailureMessage(result.message, "Verification"))
+                    _uiState.value =
+                        ScannerUiState.Error(scanFailureMessage(result.message, "Verification"))
                 }
             }
         }
@@ -143,17 +174,35 @@ class ScannerViewModel @Inject constructor(
     fun approveRelease() {
         val current = _uiState.value
         if (current !is ScannerUiState.Verified || current.isApproving) return
+
+        if (current.guardian.photoUrl.isNullOrBlank()) {
+            _uiState.value = ScannerUiState.Error(
+                "Guardian identity photo is unavailable. Do not approve a QR release. " +
+                    "Use the school's manual identity-verification process instead."
+            )
+            return
+        }
+
         val gate = _selectedPickupGate.value
         if (_pickupGates.value.isNotEmpty() && gate == null) {
-            _uiState.value = ScannerUiState.Error("Select the pickup gate before approving release")
+            _uiState.value =
+                ScannerUiState.Error("Select the pickup gate before approving release")
             return
         }
 
         _uiState.value = current.copy(isApproving = true)
+
         viewModelScope.launch {
             when (val result = pickupRepository.approve(current.qrToken, gate?.id)) {
-                is ApiResult.Success -> _uiState.value = ScannerUiState.Approved(gate?.displayName.orEmpty())
-                is ApiResult.Failure -> _uiState.value = ScannerUiState.Error(scanFailureMessage(result.message, "Approval"))
+                is ApiResult.Success -> {
+                    _uiState.value =
+                        ScannerUiState.Approved(gate?.displayName.orEmpty())
+                }
+
+                is ApiResult.Failure -> {
+                    _uiState.value =
+                        ScannerUiState.Error(scanFailureMessage(result.message, "Approval"))
+                }
             }
         }
     }
@@ -173,7 +222,7 @@ class ScannerViewModel @Inject constructor(
 
     private fun scanFailureMessage(message: String, operation: String): String =
         if (message.contains("timeout", ignoreCase = true)) {
-            "$operation timed out. Check that the deployed backend is reachable."
+            "$operation timed out. Check that the backend is reachable, then try again."
         } else {
             message
         }
