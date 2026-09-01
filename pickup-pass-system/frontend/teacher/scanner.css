@@ -443,3 +443,43 @@
 @media (prefers-reduced-motion: reduce) {
   .pp-request-overlay__spinner { animation-duration: 1.8s; }
 }
+
+/* Guardian photo resilience — never show a mysterious blank identity circle. */
+.pp-guardian-photo {
+  position: relative;
+}
+
+.pp-guardian-photo__fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #d1fae5;
+  font-size: 1.25rem;
+  font-weight: 850;
+  letter-spacing: .02em;
+}
+
+.pp-guardian-photo img {
+  position: relative;
+  z-index: 1;
+}
+
+.pp-photo-status {
+  margin: 7px 0 0;
+  font-size: .66rem;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.pp-photo-status--loading {
+  color: #94a3b8;
+}
+
+.pp-photo-status--ready {
+  color: #6ee7b7;
+}
+
+.pp-photo-status--missing {
+  color: #fcd34d;
+}

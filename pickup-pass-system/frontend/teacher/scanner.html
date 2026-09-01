@@ -136,10 +136,12 @@ onAuthStateChanged(auth, async (user) => {
         <article class="pp-identity-card pp-identity-card--guardian">
           <p class="pp-identity-label">Authorized guardian</p>
           <div id="guardianPhotoWrap" class="pp-guardian-photo">
-            <img id="parentPhoto" alt="Authorized guardian profile photo" />
+            <span id="guardianPhotoFallback" class="pp-guardian-photo__fallback" aria-hidden="true">PP</span>
+            <img id="parentPhoto" class="hidden" alt="Authorized guardian profile photo" />
           </div>
           <h3 id="parentName"></h3>
           <p id="guardianRelationship" class="pp-identity-meta"></p>
+          <p id="guardianPhotoStatus" class="pp-photo-status">Loading identity photo…</p>
         </article>
       </div>
 
@@ -388,7 +390,7 @@ async function onScanSuccess(decodedText) {
     }
 
     setRequestBusy(false);
-    renderVerifyScreen(studentSnap.data(), parentSnap.data());
+    await renderVerifyScreen(studentSnap.data(), parentSnap.data());
   } catch (err) {
     setRequestBusy(false);
     if (err.name === "AbortError") {
@@ -399,7 +401,7 @@ async function onScanSuccess(decodedText) {
   }
 }
 
-function renderVerifyScreen(student, parent) {
+async function renderVerifyScreen(student, parent) {
   document.getElementById("scanScreen").classList.add("hidden");
   document.getElementById("verifyScreen").classList.remove("hidden");
   setStep(2);
@@ -440,25 +442,74 @@ function renderVerifyScreen(student, parent) {
   const warning = document.getElementById("identityWarning");
   const approve = document.getElementById("approveBtn");
 
-  identityPhotoAvailable = Boolean(parent.photoUrl);
+  const photoFallback = document.getElementById("guardianPhotoFallback");
+  const photoStatus = document.getElementById("guardianPhotoStatus");
+
+  photoFallback.textContent = initialsFor(parent.displayName || "Authorized guardian");
+  photoFallback.classList.remove("hidden");
+  photo.classList.add("hidden");
+  photoStatus.textContent = "Loading identity photo…";
+  photoStatus.className = "pp-photo-status pp-photo-status--loading";
+  warning.classList.add("hidden");
+  approve.disabled = true;
+  identityPhotoAvailable = false;
+
+  identityPhotoAvailable = await loadGuardianPhoto(parent.photoUrl, photo, photoFallback);
   photoWrap.classList.toggle("pp-guardian-photo--missing", !identityPhotoAvailable);
 
   if (identityPhotoAvailable) {
-    photo.src = parent.photoUrl;
-    photo.classList.remove("hidden");
+    photoStatus.textContent = "Photo ready for comparison";
+    photoStatus.className = "pp-photo-status pp-photo-status--ready";
     warning.classList.add("hidden");
     approve.disabled = false;
   } else {
-    photo.removeAttribute("src");
-    photo.classList.add("hidden");
+    photoStatus.textContent = "Identity photo unavailable";
+    photoStatus.className = "pp-photo-status pp-photo-status--missing";
     warning.textContent =
-      "Guardian identity photo is unavailable. Do not approve a QR release. Use the school's manual identity-verification process instead.";
+      "Guardian identity photo is unavailable or could not be rendered. Do not approve a QR release. Use the school's manual identity-verification process instead.";
     warning.classList.remove("hidden");
     approve.disabled = true;
   }
 
   document.getElementById("releaseLocation").textContent =
     currentGateLabel ? `Release location: ${currentGateLabel}` : "";
+}
+
+function loadGuardianPhoto(photoUrl, image, fallback) {
+  return new Promise((resolve) => {
+    if (!photoUrl) {
+      image.removeAttribute("src");
+      image.classList.add("hidden");
+      fallback.classList.remove("hidden");
+      resolve(false);
+      return;
+    }
+
+    let settled = false;
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      image.onload = null;
+      image.onerror = null;
+
+      if (ok) {
+        image.classList.remove("hidden");
+        fallback.classList.add("hidden");
+      } else {
+        image.classList.add("hidden");
+        fallback.classList.remove("hidden");
+      }
+      resolve(ok);
+    };
+
+    image.onload = () => finish(image.naturalWidth > 0 && image.naturalHeight > 0);
+    image.onerror = () => finish(false);
+    image.src = photoUrl;
+
+    if (image.complete) {
+      queueMicrotask(() => finish(image.naturalWidth > 0 && image.naturalHeight > 0));
+    }
+  });
 }
 
 function showError(reason) {

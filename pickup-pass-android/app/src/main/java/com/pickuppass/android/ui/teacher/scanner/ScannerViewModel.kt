@@ -1,5 +1,7 @@
 package com.pickuppass.android.ui.teacher.scanner
 
+import android.graphics.BitmapFactory
+import android.util.Base64
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pickuppass.android.data.model.PickupGateItem
@@ -25,6 +27,7 @@ sealed class ScannerUiState {
         val student: Student,
         val guardian: UserProfile,
         val qrToken: String,
+        val guardianPhotoReady: Boolean,
         val isApproving: Boolean = false
     ) : ScannerUiState()
 
@@ -157,7 +160,8 @@ class ScannerViewModel @Inject constructor(
                             _uiState.value = ScannerUiState.Verified(
                                 student = student,
                                 guardian = guardian,
-                                qrToken = qrToken
+                                qrToken = qrToken,
+                                guardianPhotoReady = isGuardianPhotoUsable(guardian.photoUrl)
                             )
                         }
                     }
@@ -175,10 +179,11 @@ class ScannerViewModel @Inject constructor(
         val current = _uiState.value
         if (current !is ScannerUiState.Verified || current.isApproving) return
 
-        if (current.guardian.photoUrl.isNullOrBlank()) {
+        if (!current.guardianPhotoReady) {
             _uiState.value = ScannerUiState.Error(
-                "Guardian identity photo is unavailable. Do not approve a QR release. " +
-                    "Use the school's manual identity-verification process instead."
+                "Guardian identity photo is unavailable or could not be decoded. " +
+                    "Do not approve a QR release. Use the school's manual " +
+                    "identity-verification process instead."
             )
             return
         }
@@ -218,6 +223,36 @@ class ScannerViewModel @Inject constructor(
             authRepository.signOut()
             _signedOut.value = true
         }
+    }
+
+    /**
+     * Parent profile photos are intentionally stored as data:image/...;base64
+     * URIs in Firestore. Coil 2.x does not natively render that shape, so the
+     * scanner validates data URIs up front and the UI renders them through
+     * SmartImage. Non-data URLs are still accepted for forward compatibility.
+     */
+    private fun isGuardianPhotoUsable(photoUrl: String?): Boolean {
+        if (photoUrl.isNullOrBlank()) return false
+
+        if (!photoUrl.startsWith("data:", ignoreCase = true)) {
+            return photoUrl.startsWith("https://", ignoreCase = true) ||
+                photoUrl.startsWith("http://", ignoreCase = true)
+        }
+
+        val commaIndex = photoUrl.indexOf(',')
+        if (commaIndex <= 0) return false
+
+        val metadata = photoUrl.substring(0, commaIndex)
+        if (!metadata.contains(";base64", ignoreCase = true)) return false
+
+        return runCatching {
+            val bytes = Base64.decode(
+                photoUrl.substring(commaIndex + 1),
+                Base64.DEFAULT
+            )
+            bytes.isNotEmpty() &&
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size) != null
+        }.getOrDefault(false)
     }
 
     private fun scanFailureMessage(message: String, operation: String): String =

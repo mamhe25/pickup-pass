@@ -33,7 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
+import com.pickuppass.android.ui.common.SmartImage
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -506,7 +506,7 @@ private fun BoxScope.VerifiedIdentityScreen(
 ) {
     val relationship =
         state.student.guardians[state.guardian.uid]?.relationship.orEmpty()
-    val photoAvailable = !state.guardian.photoUrl.isNullOrBlank()
+    val photoAvailable = state.guardianPhotoReady
 
     Surface(
         modifier = Modifier
@@ -772,22 +772,28 @@ private fun IdentityGuardianCard(
                     if (photoAvailable) ScannerGreen else ScannerAmber
                 )
             ) {
-                if (photoAvailable) {
-                    AsyncImage(
-                        model = state.guardian.photoUrl,
-                        contentDescription = "${state.guardian.displayName} guardian profile photo",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape)
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Premium fallback stays visible underneath the image. If a
+                    // remote URL fails later, or a malformed data URI cannot be
+                    // decoded, staff never see an unexplained blank circle.
+                    Text(
+                        initialsFor(state.guardian.displayName),
+                        color = if (photoAvailable) Color(0xFF7FA99A) else Color.White,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
                     )
-                } else {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            initialsFor(state.guardian.displayName),
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
+
+                    if (photoAvailable) {
+                        SmartImage(
+                            model = state.guardian.photoUrl,
+                            contentDescription = "${state.guardian.displayName} guardian profile photo",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
                         )
                     }
                 }
@@ -822,22 +828,25 @@ private fun StudentAvatar(photoUrl: String?, name: String) {
         color = Color(0xFF15222D),
         border = BorderStroke(2.dp, ScannerGreen.copy(alpha = 0.28f))
     ) {
-        if (!photoUrl.isNullOrBlank()) {
-            AsyncImage(
-                model = photoUrl,
-                contentDescription = "$name student profile photo",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape)
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                initialsFor(name),
+                color = Color(0xFFD1FAE5),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
             )
-        } else {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    initialsFor(name),
-                    color = Color(0xFFD1FAE5),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+
+            if (!photoUrl.isNullOrBlank()) {
+                SmartImage(
+                    model = photoUrl,
+                    contentDescription = "$name student profile photo",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
                 )
             }
         }
