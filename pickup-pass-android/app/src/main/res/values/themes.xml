@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.PickupPass" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style
+        name="Theme.PickupPass"
+        parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/gray_50</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+
+    <style
+        name="Theme.PickupPass.Starting"
+        parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/evergreen_700</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_mark</item>
+        <item name="postSplashScreenTheme">@style/Theme.PickupPass</item>
+    </style>
+
 </resources>

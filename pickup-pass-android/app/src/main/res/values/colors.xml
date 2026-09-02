@@ -1,9 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="indigo_600">#047857</color>
-    <color name="indigo_700">#065F46</color>
-    <color name="green_600">#0F766E</color>
+    <color name="evergreen_600">#047857</color>
+    <color name="evergreen_700">#065F46</color>
+    <color name="evergreen_900">#064E3B</color>
+    <color name="emerald_500">#10B981</color>
+    <color name="teal_700">#0F766E</color>
+    <color name="lime_500">#84CC16</color>
     <color name="red_600">#DC2626</color>
     <color name="gray_900">#111827</color>
     <color name="gray_50">#F9FAFB</color>
+
+    <!-- Compatibility aliases for existing XML references. -->
+    <color name="indigo_600">#047857</color>
+    <color name="indigo_700">#065F46</color>
+    <color name="green_600">#0F766E</color>
 </resources>
