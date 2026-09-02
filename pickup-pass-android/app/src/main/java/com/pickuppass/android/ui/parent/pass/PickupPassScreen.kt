@@ -284,7 +284,7 @@ private fun SchoolIdentity(
             modifier = Modifier.weight(1f)
         ) {
             Text(
-                text = "PICKUPPASS",
+                text = "PickupPass",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.62f)
             )
@@ -403,17 +403,18 @@ private fun QrSection(
         ),
         shadowElevation = 2.dp
     ) {
-        BoxWithConstraints(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(14.dp),
             contentAlignment = Alignment.Center
         ) {
-            val qrSize =
-                if (maxWidth < 320.dp) maxWidth else 320.dp
 
             Box(
-                modifier = Modifier.size(qrSize),
+                modifier = Modifier
+                    .widthIn(max = 320.dp)
+                    .fillMaxWidth()
+                    .aspectRatio(1f),
                 contentAlignment = Alignment.Center
             ) {
                 val phase = when {
