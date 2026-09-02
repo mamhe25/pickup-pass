@@ -3,664 +3,1067 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>PickupPass — Safe Dismissal. Peace of Mind.</title>
-<meta name="description" content="PickupPass is a secure digital school dismissal platform. Verify authorized pickups with QR codes, notify parents in real time, and coordinate teachers — safely." />
 
-<!-- Same brand foundation as the app, so the site is unmistakably the same product. -->
+<title>PickupPass — Secure School Dismissal</title>
+<meta
+  name="description"
+  content="PickupPass helps schools verify authorized pickups with secure QR passes, guardian identity checks, real-time notifications, and auditable release records." />
+
+<meta name="theme-color" content="#047857" />
+
 <link rel="stylesheet" href="./shared/theme.css" />
 <link rel="stylesheet" href="./shared/components.css" />
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="./shared/tailwind-config.js"></script>
+<link rel="stylesheet" href="./landing.css" />
 
-<!-- Inter (brand body) + Inter Tight (display headings) — same family, more character for marketing. -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<link
+  href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&display=swap"
+  rel="stylesheet" />
 
-<!-- Inline shield favicon — the brand mark, no external asset needed. -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z' fill='%234F46E5'/%3E%3Cpath d='M9.5 12.2l1.8 1.8 3.5-3.7' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-
-<style>
-  :root { color-scheme: light; --mkt-max: 72rem; }
-
-  .display { font-family: "Inter Tight", var(--font-sans); letter-spacing: -0.02em; line-height: 1.05; }
-  .mkt-wrap { max-width: var(--mkt-max); margin: 0 auto; padding-left: var(--space-md); padding-right: var(--space-md); }
-
-  /* Eyebrow / section labels — structural, not decorative. */
-  .eyebrow {
-    display: inline-flex; align-items: center; gap: var(--space-sm);
-    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--primary);
-  }
-  .eyebrow::before { content: ""; width: 22px; height: 2px; background: var(--primary); border-radius: 2px; }
-
-  /* ---- Sticky glass nav ---- */
-  .mkt-nav {
-    position: sticky; top: 0; z-index: 50;
-    background: color-mix(in srgb, var(--surface) 82%, transparent);
-    backdrop-filter: saturate(160%) blur(12px);
-    border-bottom: 1px solid var(--border);
-  }
-  .mkt-nav__inner { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); height: 64px; }
-  .mkt-nav__links { display: flex; align-items: center; gap: var(--space-lg); }
-  .mkt-nav__links a { font-size: 0.9rem; font-weight: 600; color: var(--text-muted); text-decoration: none; transition: color var(--duration-fast) var(--ease-standard); }
-  .mkt-nav__links a:hover { color: var(--text-strong); }
-  .mkt-nav__cta { display: flex; align-items: center; gap: var(--space-sm); }
-  @media (max-width: 860px) { .mkt-nav__links { display: none; } }
-
-  /* ---- Hero ---- */
-  .hero {
-    position: relative; overflow: hidden;
-    background:
-      radial-gradient(1100px 520px at 78% -8%, color-mix(in srgb, var(--indigo-500) 22%, transparent), transparent 60%),
-      radial-gradient(760px 420px at 6% 6%, color-mix(in srgb, var(--green-500) 12%, transparent), transparent 55%),
-      var(--bg);
-  }
-  .hero-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: var(--space-xl); align-items: center; padding: var(--space-xxl) 0; }
-  @media (max-width: 940px) { .hero-grid { grid-template-columns: 1fr; gap: var(--space-xl); padding: var(--space-xl) 0; } }
-
-  .hero h1 { font-size: clamp(2.6rem, 6vw, 4.25rem); font-weight: 800; color: var(--text-strong); margin: var(--space-md) 0; }
-  .hero h1 .accent { color: var(--primary); }
-  .hero p.lede { font-size: 1.15rem; line-height: 1.6; color: var(--text-muted); max-width: 34rem; }
-
-  .stat-row { display: flex; gap: var(--space-xl); flex-wrap: wrap; margin-top: var(--space-lg); }
-  .stat b { font-family: "Inter Tight", var(--font-sans); font-size: 1.6rem; font-weight: 800; color: var(--text-strong); display: block; line-height: 1; }
-  .stat span { font-size: 0.8rem; color: var(--text-subtle); }
-
-  /* ---- Hero visual: the pickup-pass card (the signature) ---- */
-  .pass-stage { position: relative; display: flex; justify-content: center; }
-  .pass-card {
-    width: 300px; background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); overflow: hidden;
-  }
-  .pass-card__head { background: var(--brand-gradient); color: #fff; padding: var(--space-lg); text-align: center; }
-  .pass-card__badge { display: inline-flex; align-items: center; gap: 6px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.85); }
-  .pass-card__body { padding: var(--space-lg); text-align: center; }
-  .qr {
-    width: 168px; height: 168px; margin: 0 auto var(--space-md); border-radius: var(--radius-sm);
-    background:
-      /* stylized QR — position squares + a fine module grid, pure CSS */
-      linear-gradient(var(--gray-900) 0 0) 8px 8px / 34px 34px no-repeat,
-      linear-gradient(var(--gray-900) 0 0) calc(100% - 8px) 8px / 34px 34px no-repeat,
-      linear-gradient(var(--gray-900) 0 0) 8px calc(100% - 8px) / 34px 34px no-repeat,
-      repeating-linear-gradient(0deg, var(--gray-900) 0 6px, transparent 6px 12px),
-      repeating-linear-gradient(90deg, var(--gray-900) 0 6px, transparent 6px 12px),
-      #fff;
-    background-blend-mode: normal, normal, normal, screen, screen, normal;
-    border: 6px solid #fff; box-shadow: inset 0 0 0 1px var(--border);
-  }
-  .pass-card__timer { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
-
-  /* Floating status chips around the card */
-  .float-chip {
-    position: absolute; display: inline-flex; align-items: center; gap: 8px;
-    background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-md);
-    border-radius: var(--radius-full); padding: 8px 14px; font-size: 0.8rem; font-weight: 600; color: var(--text-strong);
-    animation: floaty 5s var(--ease-standard) infinite;
-  }
-  .float-chip .dot { width: 8px; height: 8px; border-radius: 50%; }
-  .float-chip--a { top: 8%; left: -6%; animation-delay: 0s; }
-  .float-chip--b { bottom: 14%; right: -8%; animation-delay: 1.2s; }
-  .float-chip--c { bottom: -4%; left: 8%; animation-delay: 2.1s; }
-  @keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-
-  /* ---- Section rhythm ---- */
-  .section { padding: var(--space-xxl) 0; }
-  .section h2 { font-size: clamp(1.9rem, 3.6vw, 2.8rem); font-weight: 800; color: var(--text-strong); }
-  .section .sub { font-size: 1.05rem; color: var(--text-muted); max-width: 42rem; margin-top: var(--space-sm); }
-  .section--tint { background: var(--surface-variant); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-
-  /* Trust bar */
-  .trustbar { display: flex; align-items: center; justify-content: center; gap: var(--space-xl); flex-wrap: wrap; padding: var(--space-lg) 0; opacity: 0.85; }
-  .trustbar .school { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text-muted); }
-
-  /* Feature grid */
-  .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); margin-top: var(--space-xl); }
-  @media (max-width: 900px) { .feature-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 560px) { .feature-grid { grid-template-columns: 1fr; } }
-  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-lg); transition: box-shadow var(--duration-base) var(--ease-standard), transform var(--duration-base) var(--ease-standard); }
-  .feature:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-  .feature .ic { width: 42px; height: 42px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; background: var(--primary-container); color: var(--on-primary-container); margin-bottom: var(--space-sm); }
-  .feature h3 { font-size: 1rem; font-weight: 700; color: var(--text-strong); }
-  .feature p { font-size: 0.9rem; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
-
-  /* How it works — numbered flow that encodes the real sequence */
-  .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-md); margin-top: var(--space-xl); position: relative; }
-  @media (max-width: 900px) { .flow { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 520px) { .flow { grid-template-columns: 1fr; } }
-  .step { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-lg); }
-  .step__n { font-family: "Inter Tight", var(--font-sans); font-size: 0.85rem; font-weight: 800; color: var(--primary); letter-spacing: 0.1em; }
-  .step h3 { font-size: 1.05rem; font-weight: 700; color: var(--text-strong); margin: 6px 0 4px; }
-  .step p { font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; }
-  .step__ic { width: 44px; height: 44px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; margin-bottom: var(--space-sm); }
-
-  /* Solutions */
-  .sol-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-md); margin-top: var(--space-xl); }
-  @media (max-width: 760px) { .sol-grid { grid-template-columns: 1fr; } }
-  .sol { display: flex; gap: var(--space-md); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-lg); }
-  .sol__ic { flex: none; width: 46px; height: 46px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; background: var(--surface-variant); color: var(--primary); }
-  .sol h3 { font-size: 1.05rem; font-weight: 700; color: var(--text-strong); }
-  .sol ul { margin: var(--space-sm) 0 0; padding: 0; list-style: none; }
-  .sol li { position: relative; padding-left: 22px; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 6px; line-height: 1.45; }
-  .sol li::before { content: ""; position: absolute; left: 0; top: 7px; width: 12px; height: 7px; border-left: 2px solid var(--success); border-bottom: 2px solid var(--success); transform: rotate(-45deg); }
-
-  /* Security band (dark) */
-  .security { background: linear-gradient(160deg, var(--indigo-900), #1e1b4b 60%, #0f172a); color: #e5e7ff; }
-  .security h2 { color: #fff; }
-  .security .sub { color: #c7d2fe; }
-  .sec-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); margin-top: var(--space-xl); }
-  @media (max-width: 820px) { .sec-grid { grid-template-columns: 1fr; } }
-  .sec-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-md); padding: var(--space-lg); }
-  .sec-item h3 { color: #fff; font-size: 1rem; font-weight: 700; }
-  .sec-item p { color: #c7d2fe; font-size: 0.9rem; margin-top: 4px; line-height: 1.5; }
-  .sec-item .ic { color: #a5b4fc; margin-bottom: var(--space-sm); display: inline-flex; }
-
-  /* Showcase */
-  .showcase-grid { display: grid; grid-template-columns: 300px 1fr; gap: var(--space-xl); align-items: center; margin-top: var(--space-xl); }
-  @media (max-width: 820px) { .showcase-grid { grid-template-columns: 1fr; } }
-  .phone { width: 260px; margin: 0 auto; border-radius: 32px; border: 10px solid var(--gray-900); background: var(--gray-900); box-shadow: var(--shadow-lg); overflow: hidden; }
-  .phone__screen { background: var(--bg); }
-  .browser { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-md); background: var(--surface); }
-  .browser__bar { display: flex; align-items: center; gap: 6px; padding: 10px 14px; background: var(--surface-variant); border-bottom: 1px solid var(--border); }
-  .browser__bar i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-
-  /* Testimonials */
-  .quote-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); margin-top: var(--space-xl); }
-  @media (max-width: 820px) { .quote-grid { grid-template-columns: 1fr; } }
-  .quote { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-lg); }
-  .quote p { font-size: 0.98rem; color: var(--text); line-height: 1.6; }
-  .quote .who { display: flex; align-items: center; gap: 10px; margin-top: var(--space-md); }
-  .quote .av { width: 38px; height: 38px; border-radius: 50%; background: var(--primary-container); color: var(--on-primary-container); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
-  .quote .who b { font-size: 0.85rem; color: var(--text-strong); display: block; }
-  .quote .who span { font-size: 0.78rem; color: var(--text-subtle); }
-
-  /* FAQ */
-  .faq { max-width: 46rem; margin: var(--space-xl) auto 0; }
-  .faq details { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); margin-bottom: var(--space-sm); }
-  .faq summary { cursor: pointer; list-style: none; padding: var(--space-md) var(--space-lg); font-weight: 600; color: var(--text-strong); display: flex; justify-content: space-between; align-items: center; }
-  .faq summary::-webkit-details-marker { display: none; }
-  .faq summary::after { content: "+"; font-size: 1.3rem; color: var(--primary); font-weight: 400; }
-  .faq details[open] summary::after { content: "\2212"; }
-  .faq p { padding: 0 var(--space-lg) var(--space-lg); color: var(--text-muted); font-size: 0.92rem; line-height: 1.6; margin: 0; }
-
-  /* CTA / contact */
-  .cta-band { background: var(--brand-gradient); color: #fff; border-radius: var(--radius-xl); padding: var(--space-xxl) var(--space-xl); text-align: center; }
-  .cta-band h2 { color: #fff; }
-  .cta-band p { color: rgba(255,255,255,0.9); max-width: 34rem; margin: var(--space-sm) auto var(--space-lg); }
-  .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-xl); margin-top: var(--space-xl); }
-  @media (max-width: 760px) { .contact-grid { grid-template-columns: 1fr; } }
-
-  /* Footer */
-  .mkt-footer { background: var(--gray-900); color: var(--gray-300); }
-  .foot-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: var(--space-lg); padding: var(--space-xxl) 0 var(--space-lg); }
-  @media (max-width: 760px) { .foot-grid { grid-template-columns: 1fr 1fr; } }
-  .mkt-footer h4 { color: #fff; font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: var(--space-sm); }
-  .mkt-footer a { color: var(--gray-400); text-decoration: none; font-size: 0.9rem; display: block; margin-bottom: 8px; }
-  .mkt-footer a:hover { color: #fff; }
-  .foot-bottom { border-top: 1px solid var(--gray-700); padding: var(--space-md) 0; display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-sm); font-size: 0.82rem; color: var(--gray-500); }
-
-  /* Scroll reveal */
-  .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.6s var(--ease-standard), transform 0.6s var(--ease-standard); }
-  .reveal.in { opacity: 1; transform: none; }
-  @media (prefers-reduced-motion: reduce) {
-    .reveal { opacity: 1; transform: none; transition: none; }
-    .float-chip { animation: none; }
-  }
-</style>
+<link
+  rel="icon"
+  href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z' fill='%23047857'/%3E%3Cpath d='M9.5 12.2l1.8 1.8 3.5-3.7' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 </head>
+
 <body>
+<a class="landing-skip-link" href="#mainContent">Skip to content</a>
 
-  <!-- ===================== NAV ===================== -->
-  <header class="mkt-nav">
-    <div class="mkt-wrap mkt-nav__inner">
-      <a class="pp-brandmark" href="#top" aria-label="PickupPass home">
-        <span class="pp-brandmark__badge">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z" fill="white" fill-opacity="0.2"/>
-            <path d="M9.5 12.2l1.8 1.8 3.5-3.7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </span>
-        <span class="pp-brandmark__name">PickupPass</span>
-      </a>
+<header class="landing-nav" id="top">
+  <div class="landing-shell landing-nav__inner">
+    <a class="landing-brand" href="#top" aria-label="PickupPass home">
+      <span class="landing-brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path
+            d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z"
+            fill="currentColor" />
+          <path
+            d="m9.4 12.1 1.8 1.9 3.8-4"
+            stroke="white"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round" />
+        </svg>
+      </span>
 
-      <nav class="mkt-nav__links" aria-label="Primary">
-        <a href="#features">Features</a>
-        <a href="#how">How it works</a>
-        <a href="#solutions">Solutions</a>
-        <a href="#security">Security</a>
-        <a href="#faq">FAQ</a>
-      </nav>
+      <span class="landing-brand__name">PickupPass</span>
+    </a>
 
-      <div class="mkt-nav__cta">
-        <a href="./login.html" class="pp-btn pp-btn--ghost">Sign in</a>
-        <a href="#contact" class="pp-btn pp-btn--primary">Request a demo</a>
-      </div>
-    </div>
-  </header>
+    <nav class="landing-nav__links" aria-label="Primary navigation">
+      <a href="#platform">Platform</a>
+      <a href="#workflow">How it works</a>
+      <a href="#roles">For schools</a>
+      <a href="#security">Security</a>
+      <a href="#faq">FAQ</a>
+    </nav>
 
-  <!-- ===================== HERO ===================== -->
-  <section class="hero" id="top">
-    <div class="mkt-wrap hero-grid">
-      <div class="reveal">
-        <span class="eyebrow">Digital school dismissal</span>
-        <h1 class="display">Safe dismissal.<br /><span class="accent">Peace of mind.</span></h1>
-        <p class="lede">
-          PickupPass replaces paper dismissal lists with secure QR verification, real-time
-          parent notifications, and a calm, coordinated pickup — so every child leaves with
-          the right person, every time.
-        </p>
-        <div class="stat-row" style="margin-bottom: var(--space-lg);"></div>
-        <div style="display:flex; gap: var(--space-sm); flex-wrap: wrap;">
-          <a href="#contact" class="pp-btn pp-btn--primary">Request a demo</a>
-          <a href="#how" class="pp-btn pp-btn--secondary">See how it works</a>
-        </div>
-        <div class="stat-row">
-          <div class="stat"><b>QR-secured</b><span>every pickup verified</span></div>
-          <div class="stat"><b>Real-time</b><span>parents notified instantly</span></div>
-          <div class="stat"><b>Audit-ready</b><span>every release logged</span></div>
-        </div>
-      </div>
+    <div class="landing-nav__actions">
+      <a href="./login.html" class="landing-link-button">Sign in</a>
+      <a href="#demo" class="pp-btn pp-btn--primary">Request a demo</a>
 
-      <!-- Signature visual: the pickup pass -->
-      <div class="pass-stage reveal">
-        <div class="pass-card">
-          <div class="pass-card__head">
-            <span class="pass-card__badge">
-              <span style="width:8px;height:8px;border-radius:50%;background:#fff;display:inline-block;"></span>
-              Secure Pickup Pass
-            </span>
-            <div style="font-weight:800;font-size:1.05rem;margin-top:6px;" class="display">Show this at the gate</div>
-            <div style="font-size:0.85rem;opacity:0.85;">Ava R. · Grade 3 · Section Sunrise</div>
-          </div>
-          <div class="pass-card__body">
-            <div class="qr" role="img" aria-label="Pickup QR code"></div>
-            <div class="pass-card__timer">Expires in 4m 32s · refreshes for security</div>
-          </div>
-        </div>
+      <button
+        id="mobileMenuButton"
+        class="landing-menu-button"
+        type="button"
+        aria-expanded="false"
+        aria-controls="mobileMenu"
+        aria-label="Open navigation">
+        <svg class="menu-open-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16"
+            stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" />
+        </svg>
 
-        <div class="float-chip float-chip--a"><span class="dot" style="background:var(--success);"></span>Parent notified</div>
-        <div class="float-chip float-chip--b"><span class="dot" style="background:var(--primary);"></span>QR verified</div>
-        <div class="float-chip float-chip--c"><span class="dot" style="background:var(--success);"></span>Safely dismissed</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== TRUST BAR ===================== -->
-  <div class="mkt-wrap">
-    <div class="trustbar reveal">
-      <span style="font-size:0.8rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-subtle);">Trusted by schools that take safety seriously</span>
-      <span class="school">🏫 Moriah Academy</span>
-      <span class="school">🎓 Riverside Elementary</span>
-      <span class="school">📚 St. Clare School</span>
-      <span class="school">🏫 Northgate Prep</span>
+        <svg class="menu-close-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="m6 6 12 12M18 6 6 18"
+            stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" />
+        </svg>
+      </button>
     </div>
   </div>
 
-  <!-- ===================== WHY ===================== -->
-  <section class="section">
-    <div class="mkt-wrap">
-      <div class="reveal" style="max-width:46rem;">
-        <span class="eyebrow">Why PickupPass</span>
-        <h2 class="display" style="margin-top:var(--space-sm);">Manual dismissal is a safety gap hiding in plain sight.</h2>
-        <p class="sub">
-          Paper sign-out sheets, shouted names, and handwritten notes make it easy for the
-          wrong adult to walk away with a child — and impossible to prove who authorized what.
-          PickupPass turns dismissal into a verified, logged, real-time workflow that parents,
-          teachers, and administrators can all trust.
+  <nav
+    id="mobileMenu"
+    class="landing-mobile-menu"
+    aria-label="Mobile navigation"
+    hidden>
+    <div class="landing-shell landing-mobile-menu__inner">
+      <a href="#platform">Platform</a>
+      <a href="#workflow">How it works</a>
+      <a href="#roles">For schools</a>
+      <a href="#security">Security</a>
+      <a href="#faq">FAQ</a>
+
+      <div class="landing-mobile-menu__actions">
+        <a href="./login.html" class="pp-btn pp-btn--secondary">Sign in</a>
+        <a href="#demo" class="pp-btn pp-btn--primary">Request a demo</a>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<main id="mainContent">
+  <section class="landing-hero">
+    <div class="landing-shell landing-hero__grid">
+      <div class="landing-hero__content">
+        <div class="landing-eyebrow">
+          <span class="landing-eyebrow__dot"></span>
+          Secure school dismissal
+        </div>
+
+        <h1 class="landing-display">
+          Every pickup verified.
+          <span>Every release accounted for.</span>
+        </h1>
+
+        <p class="landing-hero__lede">
+          PickupPass gives parents, staff, and school administrators one secure
+          dismissal workflow — from time-limited pickup passes and guardian
+          verification to release logs and real-time updates.
         </p>
-      </div>
-    </div>
-  </section>
 
-  <!-- ===================== FEATURES ===================== -->
-  <section class="section section--tint" id="features">
-    <div class="mkt-wrap">
-      <div class="reveal">
-        <span class="eyebrow">Features</span>
-        <h2 class="display" style="margin-top:var(--space-sm);">Everything a safe dismissal needs</h2>
-        <p class="sub">One connected system across the parent app, the staff scanner, and the admin web portal.</p>
-      </div>
+        <div class="landing-hero__actions">
+          <a href="#demo" class="pp-btn pp-btn--primary landing-primary-cta">
+            Request a demo
+          </a>
 
-      <div class="feature-grid">
-        <div class="feature reveal"><div class="ic">🔐</div><h3>QR Pickup Pass</h3><p>Every parent gets a secure, expiring QR pass that proves they're authorized — no printed cards to lose or copy.</p></div>
-        <div class="feature reveal"><div class="ic">🧑‍🤝‍🧑</div><h3>Student Verification</h3><p>Staff see the student and the guardian's photo side by side before approving any release.</p></div>
-        <div class="feature reveal"><div class="ic">⚡</div><h3>On-Demand Pickup</h3><p>Authorized guardians present a valid QR whenever pickup is permitted; staff verify and approve the release without a mandatory arrival queue.</p></div>
-        <div class="feature reveal"><div class="ic">🔔</div><h3>Live Notifications</h3><p>Push notifications the moment a child is verified and released — no more wondering.</p></div>
-        <div class="feature reveal"><div class="ic">📱</div><h3>Teacher Dashboard</h3><p>Scanner, roster, and history in one focused mobile experience built for busy hallways.</p></div>
-        <div class="feature reveal"><div class="ic">🖥️</div><h3>School Dashboard</h3><p>Administrators manage students, staff, sections, and branding from a clean web portal.</p></div>
-        <div class="feature reveal"><div class="ic">📣</div><h3>Broadcast Messaging</h3><p>Send an announcement to guardians and staff instantly — as a push and in their inbox.</p></div>
-        <div class="feature reveal"><div class="ic">🗂️</div><h3>Dismissal History</h3><p>Every release is logged with who picked up, who approved, and when — searchable and filterable.</p></div>
-        <div class="feature reveal"><div class="ic">📊</div><h3>Reports &amp; Analytics</h3><p>See dismissal patterns and congestion at a glance to plan calmer pickup windows.</p></div>
-        <div class="feature reveal"><div class="ic">🏫</div><h3>Multi-school Support</h3><p>Run several schools under one platform, each with its own branding and roster.</p></div>
-        <div class="feature reveal"><div class="ic">🛡️</div><h3>Role-based Security</h3><p>Parents, teachers, and admins each see exactly what they should — nothing more.</p></div>
-        <div class="feature reveal"><div class="ic">👪</div><h3>Backup Guardians</h3><p>Add trusted grandparents or caregivers as authorized pickups, revocable in one tap.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== HOW IT WORKS ===================== -->
-  <section class="section" id="how">
-    <div class="mkt-wrap">
-      <div class="reveal">
-        <span class="eyebrow">How it works</span>
-        <h2 class="display" style="margin-top:var(--space-sm);">Four steps, start to safe finish</h2>
-        <p class="sub">The same workflow every day, so parents and staff learn it once and trust it forever.</p>
-      </div>
-
-      <div class="flow">
-        <div class="step reveal">
-          <div class="step__ic" style="background:var(--primary-container);color:var(--on-primary-container);">📲</div>
-          <div class="step__n">STEP 01</div>
-          <h3>Request pickup</h3>
-          <p>A parent opens the app and generates a secure pickup pass for their child.</p>
-        </div>
-        <div class="step reveal">
-          <div class="step__ic" style="background:var(--primary-container);color:var(--on-primary-container);">👩‍🏫</div>
-          <div class="step__n">STEP 02</div>
-          <h3>Staff scans the QR</h3>
-          <p>The guardian presents the secure pass at pickup. Staff scan it and immediately see the authorized student and guardian details.</p>
-        </div>
-        <div class="step reveal">
-          <div class="step__ic" style="background:var(--primary-container);color:var(--on-primary-container);">📷</div>
-          <div class="step__n">STEP 03</div>
-          <h3>QR verification</h3>
-          <p>Staff scan the pass and confirm the guardian's photo before approving.</p>
-        </div>
-        <div class="step reveal">
-          <div class="step__ic" style="background:var(--success-container);color:var(--on-success-container);">✅</div>
-          <div class="step__n">STEP 04</div>
-          <h3>Safely dismissed</h3>
-          <p>The release is logged, the parent is notified, and the child heads home safe.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== SOLUTIONS ===================== -->
-  <section class="section section--tint" id="solutions">
-    <div class="mkt-wrap">
-      <div class="reveal">
-        <span class="eyebrow">Solutions</span>
-        <h2 class="display" style="margin-top:var(--space-sm);">Built for everyone at the gate</h2>
-        <p class="sub">One product, four points of view — each designed around what that person actually needs.</p>
-      </div>
-
-      <div class="sol-grid">
-        <div class="sol reveal">
-          <div class="sol__ic">👪</div>
-          <div>
-            <h3>Parents</h3>
-            <ul>
-              <li>Generate a secure pickup pass in seconds</li>
-              <li>Get notified the instant your child is released</li>
-              <li>Add trusted backup guardians you control</li>
-            </ul>
-          </div>
-        </div>
-        <div class="sol reveal">
-          <div class="sol__ic">👩‍🏫</div>
-          <div>
-            <h3>Teachers</h3>
-            <ul>
-              <li>Scan and verify pickups without the paperwork</li>
-              <li>See student and guardian photos before releasing</li>
-              <li>Announce to your section's families in one tap</li>
-            </ul>
-          </div>
-        </div>
-        <div class="sol reveal">
-          <div class="sol__ic">🧑‍💼</div>
-          <div>
-            <h3>School Administrators</h3>
-            <ul>
-              <li>Manage students, staff, and section assignments</li>
-              <li>Review a complete, searchable dismissal history</li>
-              <li>Brand the experience with your school's identity</li>
-            </ul>
-          </div>
-        </div>
-        <div class="sol reveal">
-          <div class="sol__ic">🏫</div>
-          <div>
-            <h3>School Owners</h3>
-            <ul>
-              <li>Run multiple schools from one secure platform</li>
-              <li>Demonstrate a real, auditable safety process</li>
-              <li>Reduce dismissal congestion and parent anxiety</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== SECURITY ===================== -->
-  <section class="section security" id="security">
-    <div class="mkt-wrap">
-      <div class="reveal" style="max-width:46rem;">
-        <span class="eyebrow" style="color:#a5b4fc;">Trust &amp; security</span>
-        <h2 class="display" style="margin-top:var(--space-sm);">Safety isn't a feature. It's the foundation.</h2>
-        <p class="sub">Every part of PickupPass is designed so the wrong person can never walk away with a child.</p>
-      </div>
-
-      <div class="sec-grid">
-        <div class="sec-item reveal"><div class="ic">🔐</div><h3>QR-secured pickup</h3><p>Passes are short-lived and refresh automatically, so a screenshot can't be reused.</p></div>
-        <div class="sec-item reveal"><div class="ic">🛡️</div><h3>Role-based permissions</h3><p>Parents, teachers, and admins are strictly scoped to their own data and actions.</p></div>
-        <div class="sec-item reveal"><div class="ic">👁️</div><h3>Real-time verification</h3><p>Staff confirm a live guardian photo against the student before any release.</p></div>
-        <div class="sec-item reveal"><div class="ic">🧾</div><h3>Complete audit logs</h3><p>Who was picked up, by whom, approved by which staff member, and exactly when.</p></div>
-        <div class="sec-item reveal"><div class="ic">🔑</div><h3>Secure authentication</h3><p>Modern, managed sign-in keeps accounts protected without adding friction.</p></div>
-        <div class="sec-item reveal"><div class="ic">📨</div><h3>Reliable notifications</h3><p>Parents are kept informed at each step, so nobody is left guessing.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== SHOWCASE ===================== -->
-  <section class="section" id="showcase">
-    <div class="mkt-wrap">
-      <div class="reveal">
-        <span class="eyebrow">The product</span>
-        <h2 class="display" style="margin-top:var(--space-sm);">One experience, every screen</h2>
-        <p class="sub">The parent app, the teacher scanner, and the admin portal all speak the same visual language.</p>
-      </div>
-
-      <div class="showcase-grid">
-        <!-- Phone: parent pickup pass -->
-        <div class="phone reveal">
-          <div class="phone__screen">
-            <div style="background:var(--brand-gradient);color:#fff;padding:var(--space-lg) var(--space-md);text-align:center;">
-              <div style="font-size:0.72rem;letter-spacing:0.06em;text-transform:uppercase;opacity:0.85;">Pickup Pass</div>
-              <div class="display" style="font-weight:800;font-size:1.05rem;margin-top:4px;">Ava R.</div>
-              <div style="font-size:0.78rem;opacity:0.85;">Grade 3 · Sunrise</div>
-            </div>
-            <div style="padding:var(--space-lg) var(--space-md);text-align:center;">
-              <div class="qr" style="width:130px;height:130px;"></div>
-              <div style="font-size:0.78rem;color:var(--text-muted);margin-top:var(--space-sm);">Expires in 4:32</div>
-              <div style="margin-top:var(--space-md);display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
-                <span class="pp-badge pp-badge--success">Verified</span>
-                <span class="pp-badge">Notified</span>
-              </div>
-            </div>
-          </div>
+          <a href="#workflow" class="pp-btn pp-btn--secondary">
+            See the workflow
+          </a>
         </div>
 
-        <!-- Browser: admin dashboard -->
-        <div class="browser reveal">
-          <div class="browser__bar">
-            <i style="background:#ef4444;"></i><i style="background:#f59e0b;"></i><i style="background:#22c55e;"></i>
-            <span style="font-size:0.75rem;color:var(--text-subtle);margin-left:8px;">app.pickuppass.com/dashboard</span>
-          </div>
-          <div style="padding:var(--space-lg);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-md);">
-              <div class="display" style="font-weight:800;font-size:1.1rem;color:var(--text-strong);">Dismissal overview</div>
-              <span class="pp-badge pp-badge--success">Live</span>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-sm);margin-bottom:var(--space-md);">
-              <div style="background:var(--surface-variant);border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--space-md);">
-                <div class="display" style="font-size:1.5rem;font-weight:800;color:var(--text-strong);">128</div>
-                <div style="font-size:0.75rem;color:var(--text-subtle);">Dismissed today</div>
-              </div>
-              <div style="background:var(--surface-variant);border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--space-md);">
-                <div class="display" style="font-size:1.5rem;font-weight:800;color:var(--primary);">7</div>
-                <div style="font-size:0.75rem;color:var(--text-subtle);">Released today</div>
-              </div>
-              <div style="background:var(--surface-variant);border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--space-md);">
-                <div class="display" style="font-size:1.5rem;font-weight:800;color:var(--success);">100%</div>
-                <div style="font-size:0.75rem;color:var(--text-subtle);">Verified</div>
-              </div>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:8px;">
-              <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px var(--space-md);">
-                <span style="font-size:0.85rem;color:var(--text);">Liam T. · picked up by Mom</span><span class="pp-badge pp-badge--success">Released</span>
-              </div>
-              <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px var(--space-md);">
-                <span style="font-size:0.85rem;color:var(--text);">Sofia M. · guardian verifying</span><span class="pp-badge">Pending</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== TESTIMONIALS ===================== -->
-  <section class="section section--tint" id="testimonials">
-    <div class="mkt-wrap">
-      <div class="reveal">
-        <span class="eyebrow">Loved at the gate</span>
-        <h2 class="display" style="margin-top:var(--space-sm);">Calmer pickups, everywhere it's used</h2>
-      </div>
-      <div class="quote-grid">
-        <div class="quote reveal">
-          <p>"Dismissal used to be twenty minutes of chaos. Now I know the second my daughter is on her way out, and I never worry about who's collecting her."</p>
-          <div class="who"><span class="av">RD</span><div><b>Rowena D.</b><span>Parent, Grade 3</span></div></div>
-        </div>
-        <div class="quote reveal">
-          <p>"Scanning a pass and seeing the guardian's photo takes seconds. It removed all the guesswork — and the awkward 'and you are…?' conversations."</p>
-          <div class="who"><span class="av">MJ</span><div><b>Mr. Jacob L.</b><span>Teacher</span></div></div>
-        </div>
-        <div class="quote reveal">
-          <p>"The audit log alone sold our board. Every release is accounted for, and parents feel the difference immediately."</p>
-          <div class="who"><span class="av">CS</span><div><b>Carmen S.</b><span>School Administrator</span></div></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== FAQ ===================== -->
-  <section class="section" id="faq">
-    <div class="mkt-wrap">
-      <div class="reveal" style="text-align:center;">
-        <span class="eyebrow" style="justify-content:center;">Questions</span>
-        <h2 class="display" style="margin-top:var(--space-sm);">Frequently asked</h2>
-      </div>
-      <div class="faq">
-        <details class="reveal" open><summary>How does the QR pickup pass stay secure?</summary><p>Each pass is tied to a specific guardian and child, and it refreshes on a short timer. A screenshot taken earlier won't verify, so passes can't be forwarded or reused.</p></details>
-        <details class="reveal"><summary>What devices do we need?</summary><p>Parents and teachers use the PickupPass Android app; administrators use the web portal in any modern browser. No special hardware — a phone camera handles scanning.</p></details>
-        <details class="reveal"><summary>Can other family members pick up a child?</summary><p>Yes. Parents can add trusted backup guardians, each with their own verified pass, and revoke access at any time in one tap.</p></details>
-        <details class="reveal"><summary>Does it work for more than one school?</summary><p>PickupPass supports multiple schools on one platform, each with its own students, staff, and branding, managed independently.</p></details>
-        <details class="reveal"><summary>How do we get started?</summary><p>Request a demo below. We'll walk your team through setup — importing students, inviting teachers, and branding your school — usually within a day.</p></details>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== CONTACT / CTA ===================== -->
-  <section class="section" id="contact">
-    <div class="mkt-wrap">
-      <div class="cta-band reveal">
-        <h2 class="display">Ready for calmer, safer dismissal?</h2>
-        <p>See PickupPass with your own roster. We'll show you exactly how it works for parents, teachers, and your front office.</p>
-        <div class="contact-grid" style="text-align:left;">
-          <div>
-            <div style="color:#fff;font-weight:700;margin-bottom:var(--space-sm);">What you'll get in a demo</div>
-            <ul style="list-style:none;padding:0;margin:0;">
-              <li style="color:rgba(255,255,255,0.92);margin-bottom:10px;">✓ A live walkthrough of the full pickup flow</li>
-              <li style="color:rgba(255,255,255,0.92);margin-bottom:10px;">✓ Guidance on rolling it out to your families</li>
-              <li style="color:rgba(255,255,255,0.92);margin-bottom:10px;">✓ Answers on security, data, and pricing</li>
-            </ul>
-          </div>
-          <form onsubmit="event.preventDefault(); this.querySelector('.form-done').style.display='block'; this.querySelector('button').disabled=true;">
-            <div style="display:flex;flex-direction:column;gap:var(--space-sm);">
-              <input class="pp-field" type="text" placeholder="Your name" required aria-label="Your name" />
-              <input class="pp-field" type="email" placeholder="Work email" required aria-label="Work email" />
-              <input class="pp-field" type="text" placeholder="School name" required aria-label="School name" />
-              <button type="submit" class="pp-btn pp-btn--secondary" style="width:100%;">Request a demo</button>
-              <p class="form-done" style="display:none;color:#fff;font-size:0.85rem;margin:4px 0 0;">Thanks — we'll be in touch shortly. (Demo form is illustrative.)</p>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== FOOTER ===================== -->
-  <footer class="mkt-footer">
-    <div class="mkt-wrap">
-      <div class="foot-grid">
-        <div>
-          <a class="pp-brandmark" href="#top" aria-label="PickupPass home" style="margin-bottom:var(--space-sm);">
-            <span class="pp-brandmark__badge">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z" fill="white" fill-opacity="0.2"/>
-                <path d="M9.5 12.2l1.8 1.8 3.5-3.7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <div class="landing-proof-row" aria-label="PickupPass capabilities">
+          <div class="landing-proof">
+            <span class="landing-proof__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M12 3 5 6v5c0 4.4 2.9 8 7 9 4.1-1 7-4.6 7-9V6l-7-3Z"
+                  stroke="currentColor" stroke-width="2" />
+                <path d="m9.3 12 1.7 1.8 3.8-4"
+                  stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </span>
-            <span class="pp-brandmark__name" style="color:#fff;">PickupPass</span>
-          </a>
-          <p style="font-size:0.88rem;color:var(--gray-400);max-width:20rem;">Secure digital school dismissal — so every child leaves with the right person, every time.</p>
-        </div>
-        <div>
-          <h4>Product</h4>
-          <a href="#features">Features</a>
-          <a href="#how">How it works</a>
-          <a href="#solutions">Solutions</a>
-          <a href="#security">Security</a>
-        </div>
-        <div>
-          <h4>Company</h4>
-          <a href="#testimonials">Testimonials</a>
-          <a href="#faq">FAQ</a>
-          <a href="#contact">Request a demo</a>
-        </div>
-        <div>
-          <h4>Access</h4>
-          <a href="./login.html">Sign in</a>
-          <a href="#contact">Get started</a>
+
+            <span>
+              <strong>Short-lived passes</strong>
+              QR access is time-limited
+            </span>
+          </div>
+
+          <div class="landing-proof">
+            <span class="landing-proof__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="8" r="4"
+                  stroke="currentColor" stroke-width="2" />
+                <path d="M5 21c.8-4.4 3.1-6.6 7-6.6s6.2 2.2 7 6.6"
+                  stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" />
+              </svg>
+            </span>
+
+            <span>
+              <strong>Guardian verification</strong>
+              Staff confirm identity before release
+            </span>
+          </div>
+
+          <div class="landing-proof">
+            <span class="landing-proof__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M6 4h12v16H6z"
+                  stroke="currentColor" stroke-width="2" />
+                <path d="M9 8h6M9 12h6M9 16h4"
+                  stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" />
+              </svg>
+            </span>
+
+            <span>
+              <strong>Auditable handoffs</strong>
+              Approved releases are recorded
+            </span>
+          </div>
         </div>
       </div>
-      <div class="foot-bottom">
-        <span>© <span id="yr"></span> PickupPass. All rights reserved.</span>
-        <span>Safe dismissal. Peace of mind.</span>
+
+      <div class="landing-product-stage" aria-label="PickupPass product preview">
+        <div class="landing-orbit landing-orbit--one" aria-hidden="true"></div>
+        <div class="landing-orbit landing-orbit--two" aria-hidden="true"></div>
+
+        <article class="landing-pass-card">
+          <div class="landing-pass-card__top">
+            <div>
+              <span class="landing-pass-card__label">SECURE PICKUP PASS</span>
+              <strong>PickupPass</strong>
+            </div>
+
+            <span class="landing-live-pill">
+              <span></span>
+              Ready
+            </span>
+          </div>
+
+          <div class="landing-student">
+            <span class="landing-student__avatar">AR</span>
+
+            <div>
+              <span class="landing-student__label">STUDENT</span>
+              <strong>Ava Reyes</strong>
+              <small>Grade 3 · Section Sunrise</small>
+            </div>
+          </div>
+
+          <div class="landing-qr" role="img" aria-label="Example secure QR pass">
+            <span class="landing-qr__finder landing-qr__finder--a"></span>
+            <span class="landing-qr__finder landing-qr__finder--b"></span>
+            <span class="landing-qr__finder landing-qr__finder--c"></span>
+          </div>
+
+          <div class="landing-pass-card__footer">
+            <span>
+              <small>PASS STATUS</small>
+              <strong>Ready to scan</strong>
+            </span>
+
+            <span class="landing-countdown">04:32</span>
+          </div>
+        </article>
+
+        <article class="landing-verify-card">
+          <div class="landing-verify-card__head">
+            <span class="landing-verify-card__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M4 7h4l2-3h4l2 3h4v12H4V7Z"
+                  stroke="currentColor" stroke-width="2"
+                  stroke-linejoin="round" />
+                <circle cx="12" cy="13" r="3"
+                  stroke="currentColor" stroke-width="2" />
+              </svg>
+            </span>
+
+            <span>
+              <small>STAFF VERIFICATION</small>
+              <strong>Identity confirmed</strong>
+            </span>
+          </div>
+
+          <div class="landing-verify-card__person">
+            <span class="landing-guardian-avatar">MR</span>
+
+            <span>
+              <strong>Mia Reyes</strong>
+              <small>Authorized guardian</small>
+            </span>
+
+            <span class="landing-check" aria-label="Verified">✓</span>
+          </div>
+
+          <div class="landing-verify-card__release">
+            <span>Student release</span>
+            <strong>Ready for approval</strong>
+          </div>
+        </article>
+
+        <span class="landing-example-label">Example interface</span>
       </div>
     </div>
-  </footer>
+  </section>
 
-  <script>
-    // Footer year
-    document.getElementById("yr").textContent = new Date().getFullYear();
+  <section class="landing-capability-strip" aria-label="Platform coverage">
+    <div class="landing-shell landing-capability-strip__inner">
+      <span>Parent pickup pass</span>
+      <span>Staff scanner</span>
+      <span>Guardian controls</span>
+      <span>Notifications</span>
+      <span>Dismissal history</span>
+      <span>School administration</span>
+    </div>
+  </section>
 
-    // Scroll reveal — respects reduced motion (CSS already no-ops the transition).
-    (function () {
-      var els = document.querySelectorAll(".reveal");
-      if (!("IntersectionObserver" in window)) { els.forEach(function (e) { e.classList.add("in"); }); return; }
-      var io = new IntersectionObserver(function (entries) {
-        entries.forEach(function (en) {
-          if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
-        });
-      }, { threshold: 0.12 });
-      els.forEach(function (e) { io.observe(e); });
-    })();
+  <section class="landing-section" id="platform">
+    <div class="landing-shell">
+      <div class="landing-section-heading">
+        <div>
+          <div class="landing-eyebrow">One connected platform</div>
 
-    // Smooth-scroll for in-page anchors
-    document.querySelectorAll('a[href^="#"]').forEach(function (a) {
-      a.addEventListener("click", function (e) {
-        var id = a.getAttribute("href");
-        if (id.length > 1) {
-          var t = document.querySelector(id);
-          if (t) { e.preventDefault(); t.scrollIntoView({ behavior: "smooth", block: "start" }); }
-        }
-      });
+          <h2 class="landing-display">
+            Built around the handoff, not the paperwork.
+          </h2>
+        </div>
+
+        <p>
+          PickupPass keeps the critical dismissal steps connected so staff can
+          focus on the person in front of them while administrators retain a
+          clear operational record.
+        </p>
+      </div>
+
+      <div class="landing-feature-grid">
+        <article class="landing-feature-card landing-feature-card--featured">
+          <span class="landing-feature-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect x="4" y="4" width="6" height="6" rx="1"
+                stroke="currentColor" stroke-width="2" />
+              <rect x="14" y="4" width="6" height="6" rx="1"
+                stroke="currentColor" stroke-width="2" />
+              <rect x="4" y="14" width="6" height="6" rx="1"
+                stroke="currentColor" stroke-width="2" />
+              <path d="M15 15h1v1h-1zM19 15h1v5h-5v-1M15 19h1"
+                stroke="currentColor" stroke-width="2" />
+            </svg>
+          </span>
+
+          <div>
+            <span class="landing-feature-card__kicker">PARENT</span>
+            <h3>Secure pickup passes</h3>
+            <p>
+              Parents generate fresh, time-limited QR credentials tied to the
+              student and authorized pickup workflow.
+            </p>
+          </div>
+
+          <div class="landing-feature-card__meta">
+            <span>Time-limited</span>
+            <span>Regeneratable</span>
+          </div>
+        </article>
+
+        <article class="landing-feature-card">
+          <span class="landing-feature-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M4 7h4l2-3h4l2 3h4v12H4V7Z"
+                stroke="currentColor" stroke-width="2"
+                stroke-linejoin="round" />
+              <circle cx="12" cy="13" r="3"
+                stroke="currentColor" stroke-width="2" />
+            </svg>
+          </span>
+
+          <span class="landing-feature-card__kicker">STAFF</span>
+          <h3>Guardian-first verification</h3>
+          <p>
+            Staff compare the person present with the authorized guardian
+            identity before they approve a student handoff.
+          </p>
+        </article>
+
+        <article class="landing-feature-card">
+          <span class="landing-feature-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"
+                stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" />
+              <path d="M10 21h4"
+                stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" />
+            </svg>
+          </span>
+
+          <span class="landing-feature-card__kicker">FAMILIES</span>
+          <h3>Real-time updates</h3>
+          <p>
+            Notifications keep families informed when important pickup and
+            school events are recorded.
+          </p>
+        </article>
+
+        <article class="landing-feature-card">
+          <span class="landing-feature-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M6 4h12v16H6z"
+                stroke="currentColor" stroke-width="2" />
+              <path d="M9 8h6M9 12h6M9 16h4"
+                stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" />
+            </svg>
+          </span>
+
+          <span class="landing-feature-card__kicker">OPERATIONS</span>
+          <h3>Searchable dismissal history</h3>
+          <p>
+            Schools can review who was released, the guardian involved,
+            approving staff, and recorded time.
+          </p>
+        </article>
+
+        <article class="landing-feature-card">
+          <span class="landing-feature-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M8 10a4 4 0 1 1 8 0"
+                stroke="currentColor" stroke-width="2" />
+              <path d="M5 21c.6-4.2 3-6.3 7-6.3s6.4 2.1 7 6.3"
+                stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" />
+              <path d="m17.5 5.5 1 1 2-2"
+                stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" />
+            </svg>
+          </span>
+
+          <span class="landing-feature-card__kicker">PARENTS</span>
+          <h3>Guardian controls</h3>
+          <p>
+            Families manage primary, backup, and temporary authorized pickup
+            relationships around each student.
+          </p>
+        </article>
+
+        <article class="landing-feature-card">
+          <span class="landing-feature-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M4 20V8l8-4 8 4v12H4Z"
+                stroke="currentColor" stroke-width="2"
+                stroke-linejoin="round" />
+              <path d="M8 20v-6h8v6M8 10h.01M12 10h.01M16 10h.01"
+                stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" />
+            </svg>
+          </span>
+
+          <span class="landing-feature-card__kicker">SCHOOL</span>
+          <h3>Role-scoped administration</h3>
+          <p>
+            School staff and administrators get focused tools for the people,
+            sections, settings, and operations they are authorized to manage.
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="landing-section landing-section--soft" id="workflow">
+    <div class="landing-shell">
+      <div class="landing-section-heading landing-section-heading--center">
+        <div>
+          <div class="landing-eyebrow">The pickup workflow</div>
+          <h2 class="landing-display">Four clear steps from arrival to release.</h2>
+        </div>
+
+        <p>
+          A simple operational sequence helps staff move quickly without
+          removing the identity check that matters most.
+        </p>
+      </div>
+
+      <div class="landing-workflow">
+        <article class="landing-workflow-step">
+          <div class="landing-workflow-step__number">01</div>
+
+          <span class="landing-workflow-step__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect x="4" y="4" width="6" height="6"
+                stroke="currentColor" stroke-width="2" />
+              <rect x="14" y="4" width="6" height="6"
+                stroke="currentColor" stroke-width="2" />
+              <rect x="4" y="14" width="6" height="6"
+                stroke="currentColor" stroke-width="2" />
+              <path d="M15 15h5v5h-5"
+                stroke="currentColor" stroke-width="2" />
+            </svg>
+          </span>
+
+          <h3>Present the pass</h3>
+          <p>
+            The authorized guardian opens the latest valid pickup pass for the
+            student.
+          </p>
+        </article>
+
+        <article class="landing-workflow-step">
+          <div class="landing-workflow-step__number">02</div>
+
+          <span class="landing-workflow-step__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M4 7h4l2-3h4l2 3h4v12H4V7Z"
+                stroke="currentColor" stroke-width="2"
+                stroke-linejoin="round" />
+              <circle cx="12" cy="13" r="3"
+                stroke="currentColor" stroke-width="2" />
+            </svg>
+          </span>
+
+          <h3>Scan at the gate</h3>
+          <p>
+            Staff scan the credential and PickupPass checks the active pickup
+            request context.
+          </p>
+        </article>
+
+        <article class="landing-workflow-step">
+          <div class="landing-workflow-step__number">03</div>
+
+          <span class="landing-workflow-step__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="8" r="4"
+                stroke="currentColor" stroke-width="2" />
+              <path d="M5 21c.8-4.4 3.1-6.6 7-6.6s6.2 2.2 7 6.6"
+                stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" />
+              <path d="m16 15 1.5 1.5L21 13"
+                stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+
+          <h3>Verify the guardian</h3>
+          <p>
+            The staff member visually confirms the person present against the
+            authorized guardian identity.
+          </p>
+        </article>
+
+        <article class="landing-workflow-step">
+          <div class="landing-workflow-step__number">04</div>
+
+          <span class="landing-workflow-step__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9"
+                stroke="currentColor" stroke-width="2" />
+              <path d="m8 12 2.5 2.5L16 9"
+                stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+
+          <h3>Approve and record</h3>
+          <p>
+            The student is released only after approval, and the completed
+            handoff becomes part of the dismissal history.
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="landing-section" id="roles">
+    <div class="landing-shell landing-roles-grid">
+      <div class="landing-roles-copy">
+        <div class="landing-eyebrow">Designed for the whole school</div>
+
+        <h2 class="landing-display">
+          The right information for the person doing the work.
+        </h2>
+
+        <p>
+          Parents need confidence and control. Staff need speed and clarity.
+          Administrators need governance and evidence. PickupPass keeps each
+          role focused without turning dismissal into another complicated
+          system.
+        </p>
+
+        <a href="#demo" class="pp-btn pp-btn--primary">
+          Explore PickupPass
+        </a>
+      </div>
+
+      <div class="landing-role-list">
+        <article class="landing-role-card">
+          <span class="landing-role-card__number">01</span>
+
+          <div>
+            <h3>Parents &amp; guardians</h3>
+            <p>
+              Student-linked pickup passes, authorized guardian management,
+              notifications, profile identity, and session security.
+            </p>
+          </div>
+        </article>
+
+        <article class="landing-role-card">
+          <span class="landing-role-card__number">02</span>
+
+          <div>
+            <h3>Teachers &amp; staff</h3>
+            <p>
+              A focused scanner, assigned student roster, dismissal history,
+              notifications, and school communication tools.
+            </p>
+          </div>
+        </article>
+
+        <article class="landing-role-card">
+          <span class="landing-role-card__number">03</span>
+
+          <div>
+            <h3>School administrators</h3>
+            <p>
+              Staff and student administration, school settings, pickup
+              operations, and visibility across the school.
+            </p>
+          </div>
+        </article>
+
+        <article class="landing-role-card">
+          <span class="landing-role-card__number">04</span>
+
+          <div>
+            <h3>Platform administration</h3>
+            <p>
+              Central oversight for schools, provisioning, plans, and
+              platform-level operations.
+            </p>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="landing-security" id="security">
+    <div class="landing-shell">
+      <div class="landing-security__top">
+        <div>
+          <div class="landing-eyebrow landing-eyebrow--on-dark">
+            Security by workflow
+          </div>
+
+          <h2 class="landing-display">
+            Safety controls should be visible at the moment they matter.
+          </h2>
+        </div>
+
+        <p>
+          PickupPass combines identity verification, server-authorized actions,
+          role scoping, and release records so the security model remains part
+          of the actual dismissal experience.
+        </p>
+      </div>
+
+      <div class="landing-security-grid">
+        <article class="landing-security-card">
+          <span class="landing-security-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 3 5 6v5c0 4.4 2.9 8 7 9 4.1-1 7-4.6 7-9V6l-7-3Z"
+                stroke="currentColor" stroke-width="2" />
+            </svg>
+          </span>
+
+          <h3>Short-lived credentials</h3>
+          <p>
+            Pickup passes are designed to expire rather than function as
+            permanent reusable cards.
+          </p>
+        </article>
+
+        <article class="landing-security-card">
+          <span class="landing-security-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="8" r="4"
+                stroke="currentColor" stroke-width="2" />
+              <path d="M5 21c.8-4.4 3.1-6.6 7-6.6s6.2 2.2 7 6.6"
+                stroke="currentColor" stroke-width="2" />
+            </svg>
+          </span>
+
+          <h3>Human identity check</h3>
+          <p>
+            A valid QR does not replace staff verification of the authorized
+            guardian before release.
+          </p>
+        </article>
+
+        <article class="landing-security-card">
+          <span class="landing-security-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M7 12h10M12 7v10"
+                stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" />
+              <circle cx="12" cy="12" r="9"
+                stroke="currentColor" stroke-width="2" />
+            </svg>
+          </span>
+
+          <h3>Role-scoped access</h3>
+          <p>
+            Parent, staff, school-admin, and platform operations are separated
+            around the data and actions each role needs.
+          </p>
+        </article>
+
+        <article class="landing-security-card">
+          <span class="landing-security-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M6 4h12v16H6z"
+                stroke="currentColor" stroke-width="2" />
+              <path d="M9 8h6M9 12h6M9 16h4"
+                stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" />
+            </svg>
+          </span>
+
+          <h3>Release evidence</h3>
+          <p>
+            Completed handoffs retain the student, guardian, approving staff,
+            and timestamp context needed for review.
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="landing-section landing-section--soft" id="faq">
+    <div class="landing-shell landing-faq-layout">
+      <div class="landing-faq-intro">
+        <div class="landing-eyebrow">Questions</div>
+
+        <h2 class="landing-display">What schools usually ask first.</h2>
+
+        <p>
+          The essentials about devices, guardians, school operations, and
+          getting started.
+        </p>
+      </div>
+
+      <div class="landing-faq">
+        <details open>
+          <summary>
+            How does the pickup pass stay secure?
+            <span aria-hidden="true"></span>
+          </summary>
+
+          <p>
+            Pickup passes are time-limited and generated for the student pickup
+            workflow. Staff still verify the authorized guardian before
+            approving release.
+          </p>
+        </details>
+
+        <details>
+          <summary>
+            What devices does a school need?
+            <span aria-hidden="true"></span>
+          </summary>
+
+          <p>
+            Parents and staff can use the PickupPass Android experience, while
+            administrative workflows are available through the web portal.
+            Staff scanning uses the device camera rather than dedicated scanner
+            hardware.
+          </p>
+        </details>
+
+        <details>
+          <summary>
+            Can another family member pick up a student?
+            <span aria-hidden="true"></span>
+          </summary>
+
+          <p>
+            PickupPass supports authorized guardian relationships so families
+            can manage who is permitted to participate in the pickup process.
+          </p>
+        </details>
+
+        <details>
+          <summary>
+            Can PickupPass support multiple schools?
+            <span aria-hidden="true"></span>
+          </summary>
+
+          <p>
+            The platform includes school-scoped administration and
+            platform-level management designed around multiple school tenants.
+          </p>
+        </details>
+
+        <details>
+          <summary>
+            What does implementation look like?
+            <span aria-hidden="true"></span>
+          </summary>
+
+          <p>
+            A rollout centers on school setup, staff access, student and
+            guardian data, pickup configuration, and testing the complete
+            dismissal flow before launch.
+          </p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="landing-demo" id="demo">
+    <div class="landing-shell">
+      <div class="landing-demo-card">
+        <div class="landing-demo-copy">
+          <div class="landing-eyebrow landing-eyebrow--on-dark">
+            See the complete workflow
+          </div>
+
+          <h2 class="landing-display">
+            Bring your dismissal process into one secure flow.
+          </h2>
+
+          <p>
+            Walk through the parent pickup pass, staff verification, guardian
+            controls, notifications, and school administration in one demo.
+          </p>
+
+          <ul class="landing-demo-list">
+            <li>
+              <span>✓</span>
+              Parent-to-gate pickup walkthrough
+            </li>
+
+            <li>
+              <span>✓</span>
+              Staff scanner and guardian verification
+            </li>
+
+            <li>
+              <span>✓</span>
+              Dismissal history and administration
+            </li>
+          </ul>
+        </div>
+
+        <form id="demoForm" class="landing-demo-form">
+          <div class="landing-demo-form__head">
+            <strong>Request a PickupPass demo</strong>
+            <span>Tell us who the walkthrough is for.</span>
+          </div>
+
+          <label>
+            Your name
+            <input
+              class="pp-field"
+              name="name"
+              type="text"
+              autocomplete="name"
+              required />
+          </label>
+
+          <label>
+            Work email
+            <input
+              class="pp-field"
+              name="email"
+              type="email"
+              autocomplete="email"
+              required />
+          </label>
+
+          <label>
+            School or organization
+            <input
+              class="pp-field"
+              name="school"
+              type="text"
+              autocomplete="organization"
+              required />
+          </label>
+
+          <button
+            id="demoSubmitButton"
+            type="submit"
+            class="pp-btn pp-btn--primary">
+            Request a demo
+          </button>
+
+          <p
+            id="demoFormStatus"
+            class="landing-demo-form__status"
+            role="status"
+            aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="landing-footer">
+  <div class="landing-shell">
+    <div class="landing-footer__grid">
+      <div class="landing-footer__brand">
+        <a class="landing-brand landing-brand--footer" href="#top">
+          <span class="landing-brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z"
+                fill="currentColor" />
+              <path
+                d="m9.4 12.1 1.8 1.9 3.8-4"
+                stroke="white"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </span>
+
+          <span class="landing-brand__name">PickupPass</span>
+        </a>
+
+        <p>
+          Secure digital school dismissal for parents, staff, and school
+          administrators.
+        </p>
+      </div>
+
+      <div class="landing-footer__column">
+        <h3>Platform</h3>
+        <a href="#platform">Features</a>
+        <a href="#workflow">How it works</a>
+        <a href="#roles">For schools</a>
+        <a href="#security">Security</a>
+      </div>
+
+      <div class="landing-footer__column">
+        <h3>Explore</h3>
+        <a href="#faq">FAQ</a>
+        <a href="#demo">Request a demo</a>
+        <a href="./login.html">Sign in</a>
+      </div>
+    </div>
+
+    <div class="landing-footer__bottom">
+      <span>© <span id="currentYear"></span> PickupPass. All rights reserved.</span>
+      <span>Safe dismissal. Peace of mind.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var mobileMenuButton =
+    document.getElementById("mobileMenuButton");
+
+  var mobileMenu =
+    document.getElementById("mobileMenu");
+
+  var currentYear =
+    document.getElementById("currentYear");
+
+  var demoForm =
+    document.getElementById("demoForm");
+
+  var demoSubmitButton =
+    document.getElementById("demoSubmitButton");
+
+  var demoFormStatus =
+    document.getElementById("demoFormStatus");
+
+  currentYear.textContent =
+    new Date().getFullYear();
+
+  function closeMobileMenu() {
+    mobileMenu.hidden = true;
+
+    mobileMenuButton.setAttribute(
+      "aria-expanded",
+      "false"
+    );
+
+    mobileMenuButton.setAttribute(
+      "aria-label",
+      "Open navigation"
+    );
+
+    document.body.classList.remove(
+      "landing-menu-open"
+    );
+  }
+
+  mobileMenuButton.addEventListener(
+    "click",
+    function () {
+      var opening =
+        mobileMenu.hidden;
+
+      mobileMenu.hidden =
+        !opening;
+
+      mobileMenuButton.setAttribute(
+        "aria-expanded",
+        String(opening)
+      );
+
+      mobileMenuButton.setAttribute(
+        "aria-label",
+        opening
+          ? "Close navigation"
+          : "Open navigation"
+      );
+
+      document.body.classList.toggle(
+        "landing-menu-open",
+        opening
+      );
+    }
+  );
+
+  mobileMenu
+    .querySelectorAll("a")
+    .forEach(function (link) {
+      link.addEventListener(
+        "click",
+        closeMobileMenu
+      );
     });
-  </script>
 
+  document
+    .querySelectorAll('a[href^="#"]')
+    .forEach(function (link) {
+      link.addEventListener(
+        "click",
+        function (event) {
+          var selector =
+            link.getAttribute("href");
+
+          if (
+            !selector ||
+            selector === "#"
+          ) {
+            return;
+          }
+
+          var target =
+            document.querySelector(
+              selector
+            );
+
+          if (!target) {
+            return;
+          }
+
+          event.preventDefault();
+
+          target.scrollIntoView({
+            behavior:
+              window.matchMedia(
+                "(prefers-reduced-motion: reduce)"
+              ).matches
+                ? "auto"
+                : "smooth",
+            block: "start"
+          });
+        }
+      );
+    });
+
+  demoForm.addEventListener(
+    "submit",
+    function (event) {
+      event.preventDefault();
+
+      if (!demoForm.reportValidity()) {
+        return;
+      }
+
+      demoSubmitButton.disabled = true;
+      demoSubmitButton.textContent =
+        "Request received";
+
+      demoFormStatus.textContent =
+        "Thanks. This landing-page package preserves the existing front-end-only demo request behavior; connect the form to your production lead endpoint before public launch.";
+
+      demoFormStatus.classList.add(
+        "landing-demo-form__status--visible"
+      );
+    }
+  );
+})();
+</script>
 </body>
 </html>
