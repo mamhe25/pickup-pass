@@ -52,13 +52,15 @@ fun TeacherStudentsScreen(
         mutableStateOf(false)
     }
 
-    var expandedGradeKey by remember {
-        mutableStateOf<String?>(null)
-    }
+    val expandedGrades =
+        remember {
+            mutableStateMapOf<String, Boolean>()
+        }
 
-    var expandedSectionKey by remember {
-        mutableStateOf<String?>(null)
-    }
+    val expandedSections =
+        remember {
+            mutableStateMapOf<String, Boolean>()
+        }
 
     val addSheetState =
         rememberModalBottomSheetState(
@@ -271,11 +273,9 @@ fun TeacherStudentsScreen(
                                             if (forceExpanded) {
                                                 true
                                             } else {
-                                                expandedGradeKey
-                                                    ?.let {
-                                                        it == gradeKey
-                                                    }
-                                                    ?: (gradeIndex == 0)
+                                                expandedGrades[
+                                                    gradeKey
+                                                ] == true
                                             }
 
                                         item(
@@ -298,31 +298,16 @@ fun TeacherStudentsScreen(
                                                     gradeExpanded,
                                                 searchActive =
                                                     forceExpanded,
-                                                expandedSectionKey =
-                                                    expandedSectionKey,
+                                                expandedSections =
+                                                    expandedSections,
                                                 onGradeToggle = {
                                                     if (
                                                         !forceExpanded
                                                     ) {
-                                                        if (
-                                                            gradeExpanded
-                                                        ) {
-                                                            expandedGradeKey =
-                                                                "__collapsed__"
-                                                            expandedSectionKey =
-                                                                null
-                                                        } else {
-                                                            expandedGradeKey =
-                                                                gradeKey
-
-                                                            expandedSectionKey =
-                                                                gradeGroup
-                                                                    .sections
-                                                                    .firstOrNull()
-                                                                    ?.let {
-                                                                        "${gradeGroup.grade}|${it.section}"
-                                                                    }
-                                                        }
+                                                        expandedGrades[
+                                                            gradeKey
+                                                        ] =
+                                                            !gradeExpanded
                                                     }
                                                 },
                                                 onSectionToggle = {
@@ -331,14 +316,10 @@ fun TeacherStudentsScreen(
                                                     if (
                                                         !forceExpanded
                                                     ) {
-                                                        expandedSectionKey =
-                                                            if (
-                                                                isExpanded
-                                                            ) {
-                                                                null
-                                                            } else {
-                                                                sectionKey
-                                                            }
+                                                        expandedSections[
+                                                            sectionKey
+                                                        ] =
+                                                            !isExpanded
                                                     }
                                                 },
                                                 onRegisterParent =
@@ -545,7 +526,7 @@ private fun GradeAccordion(
     sections: List<SectionDisplay>,
     expanded: Boolean,
     searchActive: Boolean,
-    expandedSectionKey: String?,
+    expandedSections: Map<String, Boolean>,
     onGradeToggle: () -> Unit,
     onSectionToggle: (
         sectionKey: String,
@@ -704,8 +685,7 @@ private fun GradeAccordion(
                 verticalArrangement =
                     Arrangement.spacedBy(6.dp)
             ) {
-                sections.forEachIndexed {
-                        sectionIndex,
+                sections.forEach {
                         sectionGroup ->
 
                     val sectionKey =
@@ -715,11 +695,9 @@ private fun GradeAccordion(
                         if (searchActive) {
                             true
                         } else {
-                            expandedSectionKey
-                                ?.let {
-                                    it == sectionKey
-                                }
-                                ?: (sectionIndex == 0)
+                            expandedSections[
+                                sectionKey
+                            ] == true
                         }
 
                     SectionAccordion(
