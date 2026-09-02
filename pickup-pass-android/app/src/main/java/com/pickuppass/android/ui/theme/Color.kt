@@ -2,11 +2,11 @@ package com.pickuppass.android.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Brand palette — indigo primary (trust/security), green for the release-approval
-// action, red reserved exclusively for warnings/errors so it never gets diluted,
-// amber reserved exclusively for non-blocking caution states (e.g. "account
-// created but the invite email failed to send") so it never gets confused
-// with a hard error.
+// PickupPass premium brand palette.
+//
+// Evergreen is the product/brand primary. Teal is intentionally separate for
+// "verified / safely released" success semantics, so a green brand action does
+// not make every success state visually indistinguishable.
 val Indigo50 = Color(0xFFECFDF5)
 val Indigo100 = Color(0xFFD1FAE5)
 val Indigo500 = Color(0xFF10B981)
@@ -28,8 +28,7 @@ val Amber500 = Color(0xFFF59E0B)
 val Amber700 = Color(0xFFB45309)
 val Amber900 = Color(0xFF78350F)
 
-// Full gray scale (previously had gaps at 300/600 that individual screens
-// were filling with one-off hardcoded hex values instead of a named token).
+// Complete neutral ramp used by Material surfaces and one-off operational UI.
 val Gray50 = Color(0xFFF9FAFB)
 val Gray100 = Color(0xFFF3F4F6)
 val Gray200 = Color(0xFFE5E7EB)

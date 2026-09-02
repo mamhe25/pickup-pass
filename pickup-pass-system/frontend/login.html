@@ -1,35 +1,138 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sign In — PickupPass</title><meta name="theme-color" content="#047857">
-<link rel="stylesheet" href="./shared/theme.css"><link rel="stylesheet" href="./shared/components.css"><link rel="stylesheet" href="./shared/portal.css">
-<script src="https://cdn.tailwindcss.com"></script><script src="./shared/tailwind-config.js"></script></head>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign In — PickupPass</title>
+<meta name="theme-color" content="#047857">
+<link rel="stylesheet" href="./shared/theme.css">
+<link rel="stylesheet" href="./shared/components.css">
+<link rel="stylesheet" href="./shared/portal.css">
+<link rel="stylesheet" href="./shared/premium-completion.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="./shared/tailwind-config.js"></script>
+</head>
 <body class="min-h-screen pp-portal-body flex items-center justify-center p-4">
 <div class="pp-auth-shell">
   <section class="pp-auth-story">
-    <div class="relative z-10 max-w-lg"><div class="flex items-center gap-3 mb-10"><span class="pp-brandmark__badge w-11 h-11 inline-flex items-center justify-center rounded-xl"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z" fill="white" fill-opacity=".2"/><path d="m9.5 12.2 1.8 1.8 3.5-3.7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><div class="text-xl font-extrabold">PickupPass</div><div class="text-xs text-white/70">Safe Dismissal. Peace of Mind.</div></div></div>
-    <div class="text-xs uppercase tracking-[.18em] font-bold text-white/60 mb-3">Secure school dismissal</div><h1 class="text-4xl font-extrabold leading-tight tracking-tight">One trusted portal for every pickup role.</h1><p class="mt-4 text-white/75 leading-relaxed">Parents manage authorized pickup. Staff verify and release students. School administrators oversee safety, operations, reporting and billing — all from the same protected platform.</p>
-    <div class="grid grid-cols-2 gap-3 mt-8"><div class="rounded-2xl bg-white/10 border border-white/15 p-4"><div class="text-2xl font-extrabold">QR</div><div class="text-xs text-white/70 mt-1">Single-use secure pickup passes</div></div><div class="rounded-2xl bg-white/10 border border-white/15 p-4"><div class="text-2xl font-extrabold">4 roles</div><div class="text-xs text-white/70 mt-1">Parent, staff, school and platform admin</div></div></div></div>
+    <div class="relative z-10 max-w-lg">
+      <div class="flex items-center gap-3 mb-10">
+        <span class="pp-brandmark__badge w-11 h-11 inline-flex items-center justify-center rounded-xl">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z" fill="white" fill-opacity=".2"/>
+            <path d="m9.5 12.2 1.8 1.8 3.5-3.7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <div>
+          <div class="text-xl font-extrabold">PickupPass</div>
+          <div class="text-xs text-white/70">Safe Dismissal. Peace of Mind.</div>
+        </div>
+      </div>
+
+      <div class="text-xs uppercase tracking-[.18em] font-bold text-white/60 mb-3">
+        Secure school dismissal
+      </div>
+
+      <h1 class="text-4xl font-extrabold leading-tight tracking-tight">
+        One trusted portal for every pickup role.
+      </h1>
+
+      <p class="mt-4 text-white/75 leading-relaxed">
+        Parents manage authorized pickup. Staff verify and release students.
+        School administrators oversee safety, operations, reporting and billing
+        — all from the same protected platform.
+      </p>
+
+      <div class="grid grid-cols-2 gap-3 mt-8">
+        <div class="rounded-2xl bg-white/10 border border-white/15 p-4">
+          <div class="text-2xl font-extrabold">QR</div>
+          <div class="text-xs text-white/70 mt-1">
+            Single-use secure pickup passes
+          </div>
+        </div>
+        <div class="rounded-2xl bg-white/10 border border-white/15 p-4">
+          <div class="text-2xl font-extrabold">4 roles</div>
+          <div class="text-xs text-white/70 mt-1">
+            Parent, staff, school and platform admin
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
-  <section class="pp-auth-form"><div class="mb-7"><div class="text-xs uppercase tracking-[.14em] text-brand-600 font-bold">Welcome back</div><h2 class="text-2xl font-extrabold text-ink-strong tracking-tight mt-2">Sign in to PickupPass</h2><p class="text-sm text-ink-muted mt-2">Use the account provided by your school.</p></div>
-    <form id="loginForm" class="space-y-4"><label>Email address<input id="email" type="email" autocomplete="email" required class="pp-field" placeholder="name@example.com"></label><label>Password<input id="password" type="password" autocomplete="current-password" required class="pp-field" placeholder="Enter your password"></label><p id="errorMsg" class="pp-alert pp-alert--danger hidden"></p><button type="submit" class="pp-btn pp-btn--primary w-full">Sign in securely</button></form>
-    <button id="forgotBtn" class="pp-btn pp-btn--ghost mt-4 w-full">Forgot password?</button><div class="mt-7 pt-5 border-t border-hairline text-center text-xs text-ink-subtle">Protected by Firebase Authentication and role-based access controls.</div>
+
+  <section class="pp-auth-form">
+    <div class="mb-7">
+      <div class="text-xs uppercase tracking-[.14em] text-brand-600 font-bold">
+        Welcome back
+      </div>
+      <h2 class="text-2xl font-extrabold text-ink-strong tracking-tight mt-2">
+        Sign in to PickupPass
+      </h2>
+      <p class="text-sm text-ink-muted mt-2">
+        Use the account provided by your school.
+      </p>
+    </div>
+
+    <form id="loginForm" class="space-y-4">
+      <label>
+        Email address
+        <input
+          id="email"
+          type="email"
+          autocomplete="email"
+          required
+          class="pp-field"
+          placeholder="name@example.com">
+      </label>
+
+      <label>
+        Password
+        <input
+          id="password"
+          type="password"
+          autocomplete="current-password"
+          required
+          class="pp-field"
+          placeholder="Enter your password">
+      </label>
+
+      <p id="errorMsg" class="pp-alert pp-alert--danger hidden"></p>
+
+      <button type="submit" class="pp-btn pp-btn--primary w-full">
+        Sign in securely
+      </button>
+    </form>
+
+    <button id="forgotBtn" class="pp-btn pp-btn--ghost mt-4 w-full">
+      Forgot password?
+    </button>
+
+    <div class="mt-7 pt-5 border-t border-hairline text-center text-xs text-ink-subtle">
+      Protected by Firebase Authentication and role-based access controls.
+    </div>
   </section>
 </div>
+
 <script type="module">
-import { auth, setSubmitButtonBusy, showToast } from "./shared/firebase-init.js";
+import {
+  auth,
+  setSubmitButtonBusy,
+  showToast
+} from "./shared/firebase-init.js";
+
 import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-// If already signed in, skip straight to the right home screen.
 onAuthStateChanged(auth, async (user) => {
   if (user) await routeByRole(user);
 });
 
 document.getElementById("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+
   const errorMsg = document.getElementById("errorMsg");
   errorMsg.classList.add("hidden");
 
@@ -48,39 +151,56 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
 document.getElementById("forgotBtn").addEventListener("click", async () => {
   const forgotButton = document.getElementById("forgotBtn");
   if (forgotButton.disabled) return;
+
   const email = document.getElementById("email").value.trim();
+
   if (!email) {
-    showToast("Enter your email first, then select “Forgot password?” again.", "info");
+    showToast(
+      "Enter your email first, then select “Forgot password?” again.",
+      "info"
+    );
     return;
   }
+
   setSubmitButtonBusy(forgotButton, true, "Sending…");
+
   try {
     await sendPasswordResetEmail(auth, email);
-    showToast("Password reset email sent. Check your inbox.", "success");
+    showToast(
+      "Password reset email sent. Check your inbox.",
+      "success"
+    );
   } catch (err) {
-    showToast("Could not send reset email: " + friendlyError(err.code), "error");
+    showToast(
+      "Could not send reset email: " + friendlyError(err.code),
+      "error"
+    );
   } finally {
     setSubmitButtonBusy(forgotButton, false);
   }
 });
 
 async function routeByRole(user) {
-  const tokenResult = await user.getIdTokenResult(true); // force refresh so new claims apply
+  const tokenResult = await user.getIdTokenResult(true);
   const role = tokenResult.claims.role;
 
   switch (role) {
     case "parent":
       window.location.href = "./parent/students.html";
       break;
+
     case "teacher":
       window.location.href = "./teacher/scanner.html";
       break;
+
     case "school_admin":
       window.location.href = "./school-admin/dashboard.html";
       break;
+
     case "master_admin":
-      window.location.href = "./master-admin/index.html";
+      window.location.href = "./master-admin/overview.html";
       break;
+
     default:
       document.getElementById("errorMsg").textContent =
         "Your account isn't fully set up yet. Contact your school.";
@@ -94,8 +214,10 @@ function friendlyError(code) {
     case "auth/wrong-password":
     case "auth/user-not-found":
       return "Incorrect email or password.";
+
     case "auth/too-many-requests":
       return "Too many attempts — try again in a bit.";
+
     default:
       return "Sign-in failed. Please try again.";
   }

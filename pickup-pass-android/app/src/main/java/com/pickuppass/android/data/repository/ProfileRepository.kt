@@ -10,19 +10,20 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Deliberately does NOT use Firebase/Cloud Storage. As of Feb 3, 2026,
- * Cloud Storage for Firebase requires the pay-as-you-go Blaze plan (a
- * linked billing account) even for entirely free-tier usage. To stay on
- * the free Spark plan, the compressed avatar is base64-encoded and stored
- * directly as a data URI in the user's Firestore profile document instead
- * of being uploaded to a Storage bucket. ImageCompressor already targets
- * ~50KB, so the base64-inflated result (~67KB) stays comfortably under
- * Firestore's 1MiB per-document limit.
+ * Deliberately does NOT use Firebase/Cloud Storage. The compressed avatar is
+ * base64 encoded and stored directly as a data URI in the user's Firestore
+ * profile document.
+ *
+ * `schoolId` remains in this stable repository contract because existing
+ * callers supply it and it provides useful tenancy context for a future
+ * storage/audit implementation. The current Firestore write is user-document
+ * scoped, so it is intentionally unused here.
  */
 @Singleton
 class ProfileRepository @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
+    @Suppress("UNUSED_PARAMETER")
     suspend fun uploadAvatar(
         context: Context,
         uid: String,
@@ -30,11 +31,11 @@ class ProfileRepository @Inject constructor(
         imageUri: Uri
     ): Result<String> = runCatching {
         val compressedBytes = ImageCompressor.compress(context, imageUri)
-
         val base64 = Base64.encodeToString(compressedBytes, Base64.NO_WRAP)
         val dataUri = "data:image/jpeg;base64,$base64"
 
-        firestore.collection("users").document(uid)
+        firestore.collection("users")
+            .document(uid)
             .update("photoUrl", dataUri)
             .await()
 

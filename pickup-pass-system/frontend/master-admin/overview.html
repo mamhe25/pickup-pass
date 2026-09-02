@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Platform Control Center — PickupPass</title>
+<meta name="theme-color" content="#047857">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<link rel="stylesheet" href="./control-center.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="masterNav" data-active="overview"></div>
+<script type="module" src="../shared/master-admin-nav.js"></script>
+
+<main class="pp-page pp-master-control">
+  <section class="pp-master-hero">
+    <div>
+      <p class="pp-master-hero__eyebrow">Platform owner</p>
+      <h1>PickupPass Control Center</h1>
+      <p>
+        Start with platform health. Open tenant, billing, security or recovery
+        actions only when something needs attention.
+      </p>
+    </div>
+
+    <div class="pp-master-school-count">
+      <strong id="activeSchools">—</strong>
+      <span>
+        active schools ·
+        <span id="totalSchools">—</span> total
+      </span>
+    </div>
+  </section>
+
+  <section class="pp-master-metrics" aria-label="Platform health">
+    <article class="pp-master-metric">
+      <span>Needs attention</span>
+      <strong id="attentionSchools">—</strong>
+    </article>
+
+    <article class="pp-master-metric">
+      <span>Security alerts</span>
+      <strong id="securityAlerts">—</strong>
+    </article>
+
+    <article class="pp-master-metric">
+      <span>Billing risk</span>
+      <strong id="billingRisk">—</strong>
+    </article>
+
+    <article class="pp-master-metric">
+      <span>5xx rate</span>
+      <strong id="errorRate">—</strong>
+    </article>
+  </section>
+
+  <section
+    id="healthyPanel"
+    class="pp-master-healthy hidden"
+    aria-live="polite">
+    No current platform alerts require immediate review.
+  </section>
+
+  <section
+    id="attentionPanel"
+    class="pp-master-attention hidden"
+    aria-live="polite">
+    <div class="pp-master-attention__head">
+      <h2>Attention queue</h2>
+    </div>
+    <ul id="attentionList"></ul>
+  </section>
+
+  <section class="pp-master-grid" aria-label="Platform control areas">
+    <a class="pp-master-area" href="./index.html">
+      <div>
+        <span class="pp-master-area__icon" aria-hidden="true">S</span>
+        <h2>Schools</h2>
+        <p>
+          Create and manage tenants, plans, feature overrides, launch approval
+          and tenant export controls.
+        </p>
+      </div>
+      <div id="schoolDetail" class="pp-master-area__detail">
+        Open school management
+      </div>
+    </a>
+
+    <a class="pp-master-area" href="./billing.html">
+      <div>
+        <span class="pp-master-area__icon" aria-hidden="true">₱</span>
+        <h2>Billing</h2>
+        <p>
+          Invoices, billing profiles, manual GCash claims, receipts and overdue
+          reconciliation.
+        </p>
+      </div>
+      <div id="billingDetail" class="pp-master-area__detail">
+        Open billing operations
+      </div>
+    </a>
+
+    <a class="pp-master-area" href="./operations.html">
+      <div>
+        <span class="pp-master-area__icon" aria-hidden="true">O</span>
+        <h2>Operations</h2>
+        <p>
+          Tenant health, quota pressure, runtime incidents and platform
+          observability.
+        </p>
+      </div>
+      <div id="operationsDetail" class="pp-master-area__detail">
+        Open operations
+      </div>
+    </a>
+
+    <a class="pp-master-area" href="./operations.html">
+      <div>
+        <span class="pp-master-area__icon" aria-hidden="true">✓</span>
+        <h2>Security & recovery</h2>
+        <p>
+          Security alerts, session revocation, incident handling and Firestore
+          protection controls.
+        </p>
+      </div>
+      <div id="securityDetail" class="pp-master-area__detail">
+        Open security center
+      </div>
+    </a>
+  </section>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Tenant health snapshot</h2>
+        <p class="pp-mini">
+          Highest-risk tenants are surfaced first. Detailed actions stay on the
+          dedicated Operations page.
+        </p>
+      </div>
+      <button id="refreshBtn" class="pp-btn pp-btn--ghost">
+        Refresh
+      </button>
+    </div>
+
+    <div class="pp-table-wrap">
+      <table class="pp-table">
+        <thead>
+          <tr>
+            <th>School</th>
+            <th>Plan</th>
+            <th>Health</th>
+            <th>Alerts</th>
+            <th>Quota</th>
+          </tr>
+        </thead>
+        <tbody id="tenantRows">
+          <tr>
+            <td colspan="5" class="pp-empty">Loading…</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import {
+  apiJson,
+  requireRole,
+  bindRefresh,
+  escapeHtml,
+  statusPill,
+  titleCase
+} from '../shared/portal.js';
+
+const ui = {
+  activeSchools: document.getElementById('activeSchools'),
+  totalSchools: document.getElementById('totalSchools'),
+  attentionSchools: document.getElementById('attentionSchools'),
+  securityAlerts: document.getElementById('securityAlerts'),
+  billingRisk: document.getElementById('billingRisk'),
+  errorRate: document.getElementById('errorRate'),
+  schoolDetail: document.getElementById('schoolDetail'),
+  billingDetail: document.getElementById('billingDetail'),
+  operationsDetail: document.getElementById('operationsDetail'),
+  securityDetail: document.getElementById('securityDetail'),
+  attentionPanel: document.getElementById('attentionPanel'),
+  healthyPanel: document.getElementById('healthyPanel'),
+  attentionList: document.getElementById('attentionList'),
+  tenantRows: document.getElementById('tenantRows')
+};
+
+let schools = null;
+let operations = null;
+let security = null;
+let observability = null;
+
+async function load() {
+  const results = await Promise.allSettled([
+    apiJson('/master-admin/schools'),
+    apiJson('/master-admin/operations/overview'),
+    apiJson('/master-admin/security/overview?limit=100'),
+    apiJson('/master-admin/observability/overview')
+  ]);
+
+  schools =
+    results[0].status === 'fulfilled'
+      ? results[0].value
+      : null;
+
+  operations =
+    results[1].status === 'fulfilled'
+      ? results[1].value
+      : null;
+
+  security =
+    results[2].status === 'fulfilled'
+      ? results[2].value
+      : null;
+
+  observability =
+    results[3].status === 'fulfilled'
+      ? results[3].value
+      : null;
+
+  render();
+}
+
+function render() {
+  const schoolTotal =
+    schools?.totalSchools ??
+    schools?.schools?.length ??
+    0;
+
+  const schoolActive =
+    schools?.activeSchools ??
+    schools?.schools?.filter(
+      school => school.status === 'active'
+    ).length ??
+    0;
+
+  const ops = operations?.metrics || {};
+  const sec = security?.metrics || {};
+  const http = observability?.http || {};
+
+  ui.activeSchools.textContent = schoolActive;
+  ui.totalSchools.textContent = schoolTotal;
+  ui.attentionSchools.textContent =
+    ops.attentionNeededSchools ?? '—';
+  ui.securityAlerts.textContent =
+    sec.activeAlerts ?? '—';
+  ui.billingRisk.textContent =
+    ops.billingRiskSchools ?? '—';
+
+  const serverErrorRate =
+    Number(
+      http.serverErrorRatePercent ??
+      http.errorRate5xxPercent ??
+      0
+    );
+
+  ui.errorRate.textContent =
+    Number.isFinite(serverErrorRate)
+      ? `${serverErrorRate.toFixed(1)}%`
+      : '—';
+
+  ui.schoolDetail.textContent =
+    `${schoolActive} active · ` +
+    `${schools?.suspendedSchools ?? 0} suspended`;
+
+  ui.billingDetail.textContent =
+    `${ops.pendingGcashReviews ?? 0} pending GCash · ` +
+    `${ops.overdueInvoices ?? 0} overdue`;
+
+  ui.operationsDetail.textContent =
+    `${ops.attentionNeededSchools ?? 0} attention · ` +
+    `${ops.overQuotaSchools ?? 0} over quota`;
+
+  ui.securityDetail.textContent =
+    `${sec.activeAlerts ?? 0} active alerts · ` +
+    `${observability?.incidents?.length ?? 0} incidents`;
+
+  renderAttention(
+    ops,
+    sec,
+    observability
+  );
+
+  renderTenantRows(
+    operations?.tenants || []
+  );
+}
+
+function renderAttention(
+  ops,
+  sec,
+  observabilityData
+) {
+  const items = [];
+
+  if ((ops.billingRiskSchools || 0) > 0) {
+    items.push(
+      `${ops.billingRiskSchools} school(s) have billing risk.`
+    );
+  }
+
+  if ((ops.overQuotaSchools || 0) > 0) {
+    items.push(
+      `${ops.overQuotaSchools} school(s) are over quota.`
+    );
+  }
+
+  if ((ops.pendingGcashReviews || 0) > 0) {
+    items.push(
+      `${ops.pendingGcashReviews} manual GCash claim(s) await review.`
+    );
+  }
+
+  if ((sec.high || 0) > 0 || (sec.critical || 0) > 0) {
+    items.push(
+      `${(sec.critical || 0) + (sec.high || 0)} high/critical security alert(s) require review.`
+    );
+  }
+
+  const incidents =
+    observabilityData?.incidents || [];
+
+  if (incidents.length > 0) {
+    items.push(
+      `${incidents.length} active platform incident(s) are being tracked.`
+    );
+  }
+
+  ui.attentionPanel.classList.toggle(
+    'hidden',
+    items.length === 0
+  );
+
+  ui.healthyPanel.classList.toggle(
+    'hidden',
+    items.length !== 0
+  );
+
+  ui.attentionList.innerHTML =
+    items
+      .map(item => `<li>${escapeHtml(item)}</li>`)
+      .join('');
+}
+
+function renderTenantRows(tenants) {
+  const rank = {
+    critical: 5,
+    risk: 4,
+    attention: 3,
+    warning: 2,
+    healthy: 1
+  };
+
+  const sorted =
+    [...tenants]
+      .sort((a, b) => {
+        const aRank =
+          rank[
+            String(a.healthState || '')
+              .toLowerCase()
+          ] || 0;
+
+        const bRank =
+          rank[
+            String(b.healthState || '')
+              .toLowerCase()
+          ] || 0;
+
+        return bRank - aRank;
+      })
+      .slice(0, 10);
+
+  ui.tenantRows.innerHTML =
+    sorted.length
+      ? sorted.map(tenant => `
+          <tr>
+            <td>
+              <strong>${escapeHtml(tenant.schoolName)}</strong>
+              <div class="pp-mini">
+                ${escapeHtml(tenant.schoolId)}
+              </div>
+            </td>
+            <td>
+              ${escapeHtml(titleCase(tenant.plan || 'legacy'))}
+              <div class="pp-mini">
+                ${escapeHtml(titleCase(tenant.subscriptionStatus || 'active'))}
+              </div>
+            </td>
+            <td>
+              ${statusPill(tenant.healthState || 'unknown')}
+            </td>
+            <td>
+              ${tenant.activeAlertCount ?? 0}
+              <div class="pp-mini">
+                Critical ${tenant.criticalAlertCount ?? 0}
+                · Warning ${tenant.warningAlertCount ?? 0}
+              </div>
+            </td>
+            <td>
+              ${Number(tenant.maxQuotaPercent || 0).toFixed(0)}%
+            </td>
+          </tr>
+        `).join('')
+      : `
+        <tr>
+          <td colspan="5" class="pp-empty">
+            No tenant health rows yet.
+          </td>
+        </tr>
+      `;
+}
+
+bindRefresh('refreshBtn', load);
+requireRole('master_admin', load);
+</script>
+</body>
+</html>

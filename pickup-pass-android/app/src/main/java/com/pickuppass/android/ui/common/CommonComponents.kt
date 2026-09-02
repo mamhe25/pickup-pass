@@ -1,21 +1,18 @@
 package com.pickuppass.android.ui.common
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import com.pickuppass.android.ui.theme.Amber500
-import com.pickuppass.android.ui.theme.Amber900
-import com.pickuppass.android.ui.theme.Spacing
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -23,9 +20,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -46,6 +43,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.pickuppass.android.ui.theme.Amber500
+import com.pickuppass.android.ui.theme.Amber900
+import com.pickuppass.android.ui.theme.Spacing
 
 @Composable
 fun PrimaryButton(
@@ -83,14 +83,24 @@ fun PrimaryButton(
 }
 
 @Composable
-fun ErrorBanner(message: String, modifier: Modifier = Modifier) {
+fun ErrorBanner(
+    message: String,
+    modifier: Modifier = Modifier
+) {
     Surface(
         color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
         shape = MaterialTheme.shapes.small,
         modifier = modifier.fillMaxWidth()
     ) {
-        Row(modifier = Modifier.padding(Spacing.sm), verticalAlignment = Alignment.Top) {
-            Icon(Icons.Filled.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+        Row(
+            modifier = Modifier.padding(Spacing.sm),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                Icons.Filled.Error,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            )
             Text(
                 text = message,
                 color = MaterialTheme.colorScheme.error,
@@ -102,23 +112,27 @@ fun ErrorBanner(message: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * Amber, not red or green — for "the thing you asked for mostly happened,
- * but pay attention to this" states, like an account being created
- * successfully while its invite email failed to send. Visually distinct
- * from both a clean success (SuccessBanner) and a real failure
- * (ErrorBanner), since collapsing this into either would either bury a
- * real problem in green or make a successful account creation look like
- * it failed outright.
+ * Amber, rather than danger/success, for partial-success and caution states.
  */
 @Composable
-fun WarningBanner(message: String, modifier: Modifier = Modifier) {
+fun WarningBanner(
+    message: String,
+    modifier: Modifier = Modifier
+) {
     Surface(
         color = Amber500.copy(alpha = 0.12f),
         shape = MaterialTheme.shapes.small,
         modifier = modifier.fillMaxWidth()
     ) {
-        Row(modifier = Modifier.padding(Spacing.sm), verticalAlignment = Alignment.Top) {
-            Icon(Icons.Filled.Warning, contentDescription = null, tint = Amber900)
+        Row(
+            modifier = Modifier.padding(Spacing.sm),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                Icons.Filled.Warning,
+                contentDescription = null,
+                tint = Amber900
+            )
             Text(
                 text = message,
                 color = Amber900,
@@ -130,14 +144,24 @@ fun WarningBanner(message: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun SuccessBanner(message: String, modifier: Modifier = Modifier) {
+fun SuccessBanner(
+    message: String,
+    modifier: Modifier = Modifier
+) {
     Surface(
         color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
         shape = MaterialTheme.shapes.small,
         modifier = modifier.fillMaxWidth()
     ) {
-        Row(modifier = Modifier.padding(Spacing.sm), verticalAlignment = Alignment.Top) {
-            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+        Row(
+            modifier = Modifier.padding(Spacing.sm),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                Icons.Filled.CheckCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.secondary
+            )
             Text(
                 text = message,
                 color = MaterialTheme.colorScheme.secondary,
@@ -149,11 +173,9 @@ fun SuccessBanner(message: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * Renders either a "data:image/...;base64,..." URI (decoded on-device — this
- * is how avatars/logos are stored now, directly in Firestore, to avoid
- * Cloud Storage's Blaze-plan billing requirement) or a regular http(s) URL
- * via Coil, so the rest of the app doesn't need to care which shape a given
- * photoUrl/logoUrl happens to be.
+ * Renders either a Firestore data:image/...;base64 URI or a regular HTTP(S)
+ * URL. This is the single image abstraction for profile photos and school
+ * branding so callers do not need to know the storage representation.
  */
 @Composable
 fun SmartImage(
@@ -176,7 +198,10 @@ fun SmartImage(
         }
     } else {
         AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current).data(model).crossfade(true).build(),
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(model)
+                .crossfade(true)
+                .build(),
             contentDescription = contentDescription,
             contentScale = contentScale,
             modifier = modifier
@@ -190,7 +215,7 @@ private fun decodeDataUri(dataUri: String): Bitmap? {
         if (base64Part.isEmpty()) return null
         val bytes = Base64.decode(base64Part, Base64.DEFAULT)
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         null
     }
 }
@@ -215,8 +240,14 @@ fun GuardianAvatar(
                 modifier = Modifier.fillMaxSize()
             )
         } else {
-            Surface(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxSize()) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
                     Icon(
                         imageVector = Icons.Filled.Person,
                         contentDescription = null,
@@ -228,18 +259,25 @@ fun GuardianAvatar(
     }
 }
 
+/**
+ * Shared full-screen loading state. This deliberately fills the available
+ * content area; fillMaxWidth() left the spinner visually stuck at the top of
+ * several Scaffold bodies.
+ */
 @Composable
 fun FullScreenLoading() {
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(Spacing.xl),
+        contentAlignment = Alignment.Center
+    ) {
         CircularProgressIndicator()
     }
 }
 
 /**
- * Screen title with an optional "logo + school name" subtitle underneath —
- * used on both the parent and teacher/guard home screens so it's always
- * obvious which school's account is currently signed in, which matters once
- * a single device might be used across more than one school over time.
+ * Screen title with optional school identity.
  */
 @Composable
 fun BrandedTitle(
@@ -249,7 +287,12 @@ fun BrandedTitle(
     subtitleColor: Color = Color.Unspecified
 ) {
     Column {
-        Text(title, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = titleColor)
+        Text(
+            title,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            color = titleColor
+        )
+
         if (school != null && !school.schoolName.isNullOrBlank()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (!school.logoUrl.isNullOrBlank()) {
@@ -262,22 +305,19 @@ fun BrandedTitle(
                             .size(16.dp)
                     )
                 }
+
                 Text(
                     school.schoolName,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (subtitleColor != Color.Unspecified) subtitleColor else MaterialTheme.colorScheme.onSurfaceVariant
+                    color =
+                        if (subtitleColor != Color.Unspecified) subtitleColor
+                        else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
     }
 }
 
-/**
- * Generic string-options dropdown filter — originally built for the
- * Dismissal History screen's grade/section/staff filters, promoted here so
- * the grouped/searchable student list can use the exact same component
- * rather than a second copy of the same ~20 lines.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilterDropdown(
@@ -289,33 +329,52 @@ fun FilterDropdown(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = modifier) {
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = modifier
+    ) {
         OutlinedTextField(
             value = selected ?: "All",
             onValueChange = {},
             readOnly = true,
             label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+            },
             shape = MaterialTheme.shapes.small,
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor()
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(text = { Text("All") }, onClick = { onSelect(null); expanded = false })
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("All") },
+                onClick = {
+                    onSelect(null)
+                    expanded = false
+                }
+            )
+
             options.forEach { option ->
-                DropdownMenuItem(text = { Text(option) }, onClick = { onSelect(option); expanded = false })
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onSelect(option)
+                        expanded = false
+                    }
+                )
             }
         }
     }
 }
 
 /**
- * A calm, reassuring confirmation moment — the "positive success message" and
- * "calm confirmation screen" the product vision asks for after important
- * actions (a release approved, a pass regenerated, a guardian added). The check
- * mark springs in gently rather than snapping, so it reads as a settled, safe
- * outcome rather than a jarring alert. Built on stable animation APIs only.
+ * Calm confirmation moment after important successful actions.
  */
 @Composable
 fun SuccessConfirmation(
@@ -323,9 +382,9 @@ fun SuccessConfirmation(
     message: String? = null,
     modifier: Modifier = Modifier
 ) {
-    // Drives a one-shot spring on first composition: 0 → 1 scales the check in.
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
+
     val scale by animateFloatAsState(
         targetValue = if (shown) 1f else 0f,
         animationSpec = spring(
@@ -347,7 +406,10 @@ fun SuccessConfirmation(
             color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
             modifier = Modifier
                 .size(88.dp)
-                .graphicsLayer { scaleX = scale; scaleY = scale }
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
@@ -358,13 +420,16 @@ fun SuccessConfirmation(
                 )
             }
         }
+
         Spacer(Modifier.height(Spacing.md))
+
         Text(
             title,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
             textAlign = TextAlign.Center
         )
+
         if (!message.isNullOrBlank()) {
             Spacer(Modifier.height(Spacing.xs))
             Text(

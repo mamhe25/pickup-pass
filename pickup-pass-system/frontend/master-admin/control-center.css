@@ -1,0 +1,255 @@
+/* PickupPass Web Master Admin — premium control center */
+
+.pp-master-control {
+  max-width: 1240px;
+}
+
+.pp-master-hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 22px;
+  padding: 26px;
+  border-radius: 24px;
+  color: #fff;
+  background:
+    radial-gradient(
+      430px 270px at 100% 0%,
+      rgba(132, 204, 22, .22),
+      transparent 70%
+    ),
+    linear-gradient(
+      145deg,
+      #064E3B,
+      #065F46 58%,
+      #047857
+    );
+  box-shadow: 0 24px 64px rgba(15, 23, 42, .13);
+}
+
+.pp-master-hero__eyebrow {
+  margin: 0;
+  color: rgba(255,255,255,.67);
+  font-size: .68rem;
+  font-weight: 820;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.pp-master-hero h1 {
+  margin: 7px 0 0;
+  font-size: clamp(1.8rem, 4vw, 2.65rem);
+  line-height: 1.06;
+  letter-spacing: -.04em;
+  font-weight: 860;
+}
+
+.pp-master-hero p {
+  max-width: 700px;
+  margin: 9px 0 0;
+  color: rgba(255,255,255,.74);
+  font-size: .88rem;
+  line-height: 1.55;
+}
+
+.pp-master-school-count {
+  min-width: 160px;
+  align-self: center;
+  text-align: right;
+}
+
+.pp-master-school-count strong {
+  display: block;
+  font-size: 2.5rem;
+  line-height: 1;
+  font-weight: 860;
+}
+
+.pp-master-school-count span {
+  display: block;
+  margin-top: 5px;
+  color: rgba(255,255,255,.68);
+  font-size: .72rem;
+}
+
+.pp-master-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.pp-master-metric {
+  padding: 17px;
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.pp-master-metric span {
+  display: block;
+  color: var(--text-subtle);
+  font-size: .66rem;
+  font-weight: 780;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.pp-master-metric strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-strong);
+  font-size: 1.45rem;
+  line-height: 1.1;
+  font-weight: 840;
+}
+
+.pp-master-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.pp-master-area {
+  display: flex;
+  min-height: 150px;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 19px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      145deg,
+      var(--surface),
+      color-mix(
+        in srgb,
+        var(--surface) 94%,
+        var(--primary-container) 6%
+      )
+    );
+  color: inherit;
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform .16s ease,
+    border-color .16s ease,
+    box-shadow .16s ease;
+}
+
+.pp-master-area:hover {
+  transform: translateY(-2px);
+  border-color:
+    color-mix(in srgb, var(--primary) 28%, var(--border));
+  box-shadow: var(--shadow-md);
+}
+
+.pp-master-area__icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  font-size: 1rem;
+  font-weight: 840;
+}
+
+.pp-master-area h2 {
+  margin: 14px 0 0;
+  color: var(--text-strong);
+  font-size: 1rem;
+  font-weight: 810;
+}
+
+.pp-master-area p {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: .76rem;
+  line-height: 1.45;
+}
+
+.pp-master-area__detail {
+  margin-top: 16px;
+  color: var(--primary);
+  font-size: .72rem;
+  font-weight: 750;
+}
+
+.pp-master-attention {
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid
+    color-mix(in srgb, var(--warning) 28%, var(--border));
+  border-radius: 18px;
+  background: var(--warning-container);
+}
+
+.pp-master-attention__head {
+  padding: 14px 17px;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--warning) 24%, transparent);
+}
+
+.pp-master-attention__head h2 {
+  margin: 0;
+  color: var(--on-warning-container);
+  font-size: .95rem;
+  font-weight: 810;
+}
+
+.pp-master-attention ul {
+  margin: 0;
+  padding: 14px 34px 16px;
+  color: var(--on-warning-container);
+  font-size: .77rem;
+  line-height: 1.5;
+}
+
+.pp-master-healthy {
+  margin-top: 16px;
+  padding: 16px 17px;
+  border: 1px solid
+    color-mix(in srgb, var(--success) 24%, var(--border));
+  border-radius: 16px;
+  background: var(--success-container);
+  color: var(--on-success-container);
+  font-size: .78rem;
+  font-weight: 680;
+}
+
+@media (max-width: 800px) {
+  .pp-master-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .pp-master-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .pp-master-hero {
+    grid-template-columns: 1fr;
+    padding: 21px;
+  }
+
+  .pp-master-school-count {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .pp-master-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-master-area:hover {
+    transform: none;
+  }
+}

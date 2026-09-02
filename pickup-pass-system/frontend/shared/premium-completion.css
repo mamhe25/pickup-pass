@@ -1,0 +1,33 @@
+/*
+ * PickupPass premium completion overrides.
+ *
+ * Kept separate from portal.css so this completion can be dropped into the
+ * existing working repository without replacing the large shared portal
+ * stylesheet. This file can later be folded into portal.css during the final
+ * production asset/CSP pass.
+ */
+
+.pp-auth-story {
+  background:
+    radial-gradient(
+      520px 360px at 90% 8%,
+      rgba(132, 204, 22, .20),
+      transparent 70%
+    ),
+    linear-gradient(
+      145deg,
+      #064E3B,
+      #065F46 56%,
+      #047857
+    ) !important;
+}
+
+.pp-auth-story::after {
+  background:
+    radial-gradient(
+      circle,
+      rgba(16, 185, 129, .28),
+      rgba(255, 255, 255, .08) 58%,
+      transparent 72%
+    ) !important;
+}

@@ -25,7 +25,11 @@ sealed class UserRole {
     }
 }
 
-data class SessionInfo(val uid: String, val schoolId: String?, val role: UserRole)
+data class SessionInfo(
+    val uid: String,
+    val schoolId: String?,
+    val role: UserRole
+)
 
 @Singleton
 class AuthRepository @Inject constructor(
@@ -37,19 +41,24 @@ class AuthRepository @Inject constructor(
         const val TOKEN_REFRESH_TIMEOUT_MS = 15_000L
     }
 
-    val isSignedIn: Boolean get() = firebaseAuth.currentUser != null
+    val isSignedIn: Boolean
+        get() = firebaseAuth.currentUser != null
 
     suspend fun signIn(email: String, password: String): Result<Unit> = runCatching {
-        checkNotNull(withTimeoutOrNull(AUTH_OPERATION_TIMEOUT_MS) {
-            firebaseAuth.signInWithEmailAndPassword(email, password).await()
-        }) { "Sign-in timed out" }
+        checkNotNull(
+            withTimeoutOrNull(AUTH_OPERATION_TIMEOUT_MS) {
+                firebaseAuth.signInWithEmailAndPassword(email, password).await()
+            }
+        ) { "Sign-in timed out" }
         Unit
     }
 
     suspend fun sendPasswordReset(email: String): Result<Unit> = runCatching {
-        checkNotNull(withTimeoutOrNull(AUTH_OPERATION_TIMEOUT_MS) {
-            firebaseAuth.sendPasswordResetEmail(email).await()
-        }) { "Password-reset request timed out" }
+        checkNotNull(
+            withTimeoutOrNull(AUTH_OPERATION_TIMEOUT_MS) {
+                firebaseAuth.sendPasswordResetEmail(email).await()
+            }
+        ) { "Password-reset request timed out" }
         Unit
     }
 
@@ -59,34 +68,38 @@ class AuthRepository @Inject constructor(
     }
 
     /**
-     * Forces a refreshed ID token (forceRefresh = true) so custom claims
-     * set by the backend moments earlier (e.g. right after account
-     * creation) are picked up immediately rather than waiting up to an
-     * hour for the cached token to expire naturally.
+     * Forces a refreshed ID token when requested so backend custom-claim
+     * changes can become visible immediately.
      *
-     * Returns null on ANY failure, including network errors — this used to
-     * let getIdToken()'s exception propagate unguarded, which crashed the
-     * app on launch with no connectivity (this runs from SplashViewModel's
-     * init block, so it fires on every single app open before the user
-     * does anything, producing an open-close-crash loop offline). Callers
-     * treat a null session as "not signed in," which isn't quite accurate
-     * for a network failure specifically — see SplashViewModel, which
-     * distinguishes "genuinely no session" from "isSignedIn locally but
-     * couldn't verify due to no connectivity" so a connectivity blip
-     * doesn't look like being signed out.
+     * Any connectivity/token-refresh failure returns null rather than crashing
+     * startup. SplashViewModel can distinguish that from a truly signed-out
+     * local Firebase session via isSignedIn.
      */
     suspend fun currentSession(forceRefresh: Boolean = false): SessionInfo? {
         val user = firebaseAuth.currentUser ?: return null
+
         return try {
             val result = withTimeoutOrNull(TOKEN_REFRESH_TIMEOUT_MS) {
                 user.getIdToken(forceRefresh).await()
             } ?: return null
-            val claims = result?.claims ?: emptyMap()
-            val role = UserRole.from(claims["role"] as? String)
+
+            // GetTokenResult is non-null after the timeout/null guard above.
+            val claims = result.claims
+            val roleClaim = claims["role"] as? String
             val schoolId = claims["schoolId"] as? String
-            telemetry.setSignedInUser(user.uid, claims["role"] as? String, schoolId)
-            SessionInfo(uid = user.uid, schoolId = schoolId, role = role)
-        } catch (e: Exception) {
+
+            telemetry.setSignedInUser(
+                user.uid,
+                roleClaim,
+                schoolId
+            )
+
+            SessionInfo(
+                uid = user.uid,
+                schoolId = schoolId,
+                role = UserRole.from(roleClaim)
+            )
+        } catch (_: Exception) {
             null
         }
     }
