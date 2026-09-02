@@ -3,95 +3,321 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Parent Profile — PickupPass</title>
+<meta name="theme-color" content="#047857" />
+<title>My Profile — PickupPass</title>
+
 <link rel="stylesheet" href="../shared/theme.css" />
 <link rel="stylesheet" href="../shared/components.css" />
 <link rel="stylesheet" href="../shared/portal.css" />
+<link rel="stylesheet" href="./profile.css" />
+
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../shared/tailwind-config.js"></script>
 </head>
+
 <body class="min-h-screen pp-portal-body">
+<div id="parentNav" data-active="profile"></div>
+<script type="module" src="../shared/parent-nav.js"></script>
 
-  <div id="parentNav" data-active="profile"></div>
-  <script type="module" src="../shared/parent-nav.js"></script>
+<main class="pp-page pp-profile-page">
+  <section class="pp-profile-hero">
+    <p class="pp-profile-hero__eyebrow">Pickup identity</p>
 
-  <main class="pp-page pp-page--compact">
-    <div class="pp-card pp-card--pad text-center">
-      <h1 class="text-xl font-bold text-ink-strong mb-1">Your Pickup Profile</h1>
-      <p class="text-sm text-ink-muted mb-4">This photo is shown to school staff to confirm your identity at pickup.</p>
+    <h1 id="heroName">Your family profile</h1>
+
+    <p>
+      Keep your identity photo current so school staff can confidently verify
+      who is present at pickup.
+    </p>
+
+    <div class="pp-profile-hero__identity" aria-label="Signed-in account">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
+      </svg>
+      <span id="heroEmail">Loading account…</span>
+    </div>
+  </section>
+
+  <div class="pp-profile-grid">
+    <section class="pp-profile-card">
+      <h2>Verification photo</h2>
+      <p class="pp-profile-card__intro">
+        Use a clear, recent photo of your face. Avoid sunglasses, masks, or
+        group photos. This image is shown to authorized school staff during
+        pickup verification.
+      </p>
 
       <input type="file" id="photoInput" accept="image/*" class="hidden" />
-      <label for="photoInput" class="cursor-pointer w-32 h-32 mx-auto rounded-full bg-surface-variant
-             flex items-center justify-center border-2 border-dashed border-hairline-strong overflow-hidden">
-        <img id="preview" class="w-full h-full rounded-full object-cover hidden" />
-        <span id="placeholder" class="text-ink-subtle text-sm px-4">Tap to add photo</span>
-      </label>
 
-      <p id="uploadStatus" class="text-xs text-ink-muted mt-3 min-h-[1rem]"></p>
+      <div class="pp-profile-photo-wrap">
+        <label
+          for="photoInput"
+          id="photoPicker"
+          class="pp-profile-photo"
+          tabindex="0"
+          role="button"
+          aria-label="Choose guardian profile photo">
+          <img id="preview" class="hidden" alt="Guardian profile photo" />
 
-      <!-- Deliberately prominent on this page (more so than the subtle nav email):
-           on a shared/kiosk device this is what makes it obvious if you're still
-           signed in as the previous person before you change a photo. -->
-      <p id="profileSignedInAs" class="pp-badge pp-badge--neutral mt-4 mx-auto"></p>
+          <span id="placeholder" class="pp-profile-photo__placeholder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
+            </svg>
+            <span>Add a clear photo</span>
+          </span>
 
-      <a href="./students.html" class="pp-btn pp-btn--primary w-full mt-4">
-        Continue to My Students
-      </a>
-    </div>
-  </main>
+          <span id="photoBusy" class="pp-profile-photo__busy hidden" aria-hidden="true"></span>
+        </label>
+      </div>
+
+      <div class="pp-profile-photo-actions">
+        <button id="choosePhotoBtn" type="button" class="pp-btn pp-btn--primary">
+          Add photo
+        </button>
+      </div>
+
+      <p id="uploadStatus" class="pp-profile-status" aria-live="polite"></p>
+    </section>
+
+    <section class="pp-profile-card">
+      <h2>Account details</h2>
+      <p class="pp-profile-card__intro">
+        Confirm you are using the correct parent account before changing a
+        pickup identity photo on a shared device.
+      </p>
+
+      <div class="pp-profile-details">
+        <div class="pp-profile-detail">
+          <p class="pp-profile-detail__label">Name</p>
+          <p id="profileName" class="pp-profile-detail__value">Loading…</p>
+        </div>
+
+        <div class="pp-profile-detail">
+          <p class="pp-profile-detail__label">Email</p>
+          <p id="profileEmail" class="pp-profile-detail__value">Loading…</p>
+        </div>
+      </div>
+
+      <div class="pp-profile-security">
+        <div class="pp-profile-security__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3 4 6v5c0 5 3.4 9 8 10 4.6-1 8-5 8-10V6l-8-3Z" />
+            <path d="m9 12 2 2 4-4" />
+          </svg>
+        </div>
+
+        <div class="pp-profile-security__copy">
+          <strong>Account security</strong>
+          <p>
+            Review signed-in devices and revoke a lost or shared device without
+            changing your password.
+          </p>
+        </div>
+
+        <a href="./devices.html" class="pp-btn pp-btn--ghost">
+          Devices
+        </a>
+      </div>
+
+      <div class="pp-profile-shared-device">
+        <strong>Using a shared device?</strong>
+        <p>
+          Use the Sign out control in the PickupPass navigation when you're
+          finished so another person cannot access your family pickup data.
+        </p>
+      </div>
+
+      <div class="pp-profile-next">
+        <a href="./students.html" class="pp-btn pp-btn--primary">
+          My Students
+        </a>
+      </div>
+    </section>
+  </div>
+
+  <aside class="pp-profile-safety">
+    Your profile photo supports identity verification only. Student release
+    still requires a valid PickupPass and staff confirmation.
+  </aside>
+</main>
 
 <script type="module">
 import { auth, db } from "../shared/firebase-init.js";
-import { doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-// Sign-out and the nav-level email are owned by the shared parent nav.
-// This page keeps its own auth listener to load the existing photo, and
-// deliberately shows a more prominent "Signed in as" badge (see HTML comment).
+import {
+  doc,
+  updateDoc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const ui = {
+  heroName: document.getElementById("heroName"),
+  heroEmail: document.getElementById("heroEmail"),
+  profileName: document.getElementById("profileName"),
+  profileEmail: document.getElementById("profileEmail"),
+  photoInput: document.getElementById("photoInput"),
+  photoPicker: document.getElementById("photoPicker"),
+  choosePhotoBtn: document.getElementById("choosePhotoBtn"),
+  preview: document.getElementById("preview"),
+  placeholder: document.getElementById("placeholder"),
+  photoBusy: document.getElementById("photoBusy"),
+  uploadStatus: document.getElementById("uploadStatus")
+};
+
+let currentUser = null;
+
 onAuthStateChanged(auth, async (user) => {
-  if (!user) return; // nav performs the redirect
+  if (!user) return;
 
-  document.getElementById("profileSignedInAs").textContent = `Signed in as ${user.email}`;
+  currentUser = user;
 
-  const userSnap = await getDoc(doc(db, "users", user.uid));
-  if (userSnap.exists() && userSnap.data().photoUrl) {
-    const preview = document.getElementById("preview");
-    preview.src = userSnap.data().photoUrl;
-    preview.classList.remove("hidden");
-    document.getElementById("placeholder").classList.add("hidden");
-  }
-});
-
-document.getElementById("photoInput").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const status = document.getElementById("uploadStatus");
-  status.textContent = "Compressing...";
+  ui.heroEmail.textContent = user.email || "Signed-in parent";
+  ui.profileEmail.textContent = user.email || "Not available";
 
   try {
-    const compressedBlob = await compressImage(file, 400, 400, 50 * 1024);
+    const userSnap = await getDoc(
+      doc(db, "users", user.uid)
+    );
 
-    const preview = document.getElementById("preview");
-    preview.src = URL.createObjectURL(compressedBlob);
-    preview.classList.remove("hidden");
-    document.getElementById("placeholder").classList.add("hidden");
+    const profile = userSnap.exists()
+      ? userSnap.data()
+      : {};
 
-    status.textContent = "Saving...";
-    const uid = auth.currentUser.uid;
+    const displayName =
+      String(profile.displayName || "").trim();
 
-    // FileReader.readAsDataURL already produces a full "data:image/jpeg;
-    // base64,..." string — exactly the shape both the web and Android
-    // clients render directly via <img src>/SmartImage, no separate
-    // base64-encoding step needed.
-    const dataUri = await blobToDataUri(compressedBlob);
+    ui.heroName.textContent =
+      displayName || "Your family profile";
 
-    await updateDoc(doc(db, "users", uid), { photoUrl: dataUri });
-    status.textContent = `Saved (${(compressedBlob.size / 1024).toFixed(1)}KB)`;
-  } catch (err) {
-    status.textContent = "Save failed: " + err.message;
+    ui.profileName.textContent =
+      displayName || "Not provided";
+
+    if (profile.photoUrl) {
+      renderPhoto(profile.photoUrl);
+    }
+  } catch (error) {
+    ui.profileName.textContent = "Unavailable";
+    setStatus(
+      "Profile details couldn't be refreshed.",
+      "error"
+    );
   }
 });
+
+ui.choosePhotoBtn.addEventListener("click", () => {
+  if (!ui.photoInput.disabled) {
+    ui.photoInput.click();
+  }
+});
+
+ui.photoPicker.addEventListener("keydown", (event) => {
+  if (
+    (event.key === "Enter" || event.key === " ") &&
+    !ui.photoInput.disabled
+  ) {
+    event.preventDefault();
+    ui.photoInput.click();
+  }
+});
+
+ui.photoInput.addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (!file || !currentUser) return;
+
+  if (!file.type.startsWith("image/")) {
+    setStatus("Choose an image file.", "error");
+    ui.photoInput.value = "";
+    return;
+  }
+
+  setBusy(true);
+  setStatus("Preparing photo…");
+
+  try {
+    const compressedBlob = await compressImage(
+      file,
+      400,
+      400,
+      50 * 1024
+    );
+
+    const previewUrl = URL.createObjectURL(compressedBlob);
+    renderPhoto(previewUrl);
+
+    setStatus("Saving photo…");
+
+    const dataUri = await blobToDataUri(compressedBlob);
+
+    await updateDoc(
+      doc(db, "users", currentUser.uid),
+      { photoUrl: dataUri }
+    );
+
+    renderPhoto(dataUri);
+    URL.revokeObjectURL(previewUrl);
+
+    setStatus(
+      `Photo updated (${(compressedBlob.size / 1024).toFixed(1)} KB)`,
+      "success"
+    );
+  } catch (error) {
+    setStatus(
+      `Photo update failed: ${error?.message || "unknown error"}`,
+      "error"
+    );
+  } finally {
+    setBusy(false);
+    ui.photoInput.value = "";
+  }
+});
+
+function renderPhoto(source) {
+  ui.preview.src = source;
+  ui.preview.classList.remove("hidden");
+  ui.placeholder.classList.add("hidden");
+  ui.choosePhotoBtn.textContent = "Change photo";
+}
+
+function setBusy(busy) {
+  ui.photoInput.disabled = busy;
+  ui.choosePhotoBtn.disabled = busy;
+  ui.photoBusy.classList.toggle("hidden", !busy);
+
+  if (busy) {
+    ui.choosePhotoBtn.textContent = "Saving photo…";
+  } else {
+    ui.choosePhotoBtn.textContent =
+      ui.preview.classList.contains("hidden")
+        ? "Add photo"
+        : "Change photo";
+  }
+}
+
+function setStatus(message, type = "neutral") {
+  ui.uploadStatus.textContent = message;
+  ui.uploadStatus.className = "pp-profile-status";
+
+  if (type === "success") {
+    ui.uploadStatus.classList.add(
+      "pp-profile-status--success"
+    );
+  }
+
+  if (type === "error") {
+    ui.uploadStatus.classList.add(
+      "pp-profile-status--error"
+    );
+  }
+}
 
 function blobToDataUri(blob) {
   return new Promise((resolve, reject) => {
@@ -102,46 +328,85 @@ function blobToDataUri(blob) {
   });
 }
 
-/**
- * Center-crops to a square, resizes to targetW x targetH, then iteratively
- * lowers JPEG quality until under maxBytes — keeps the resulting Firestore
- * document comfortably under the 1MiB per-document limit (base64 inflates
- * size by ~33%, so a 50KB target stays around ~67KB encoded).
- */
-function compressImage(file, targetW, targetH, maxBytes) {
+function compressImage(
+  file,
+  targetW,
+  targetH,
+  maxBytes
+) {
   return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+
       const canvas = document.createElement("canvas");
       canvas.width = targetW;
       canvas.height = targetH;
+
       const ctx = canvas.getContext("2d");
 
-      const side = Math.min(img.width, img.height);
-      const sx = (img.width - side) / 2;
-      const sy = (img.height - side) / 2;
-      ctx.drawImage(img, sx, sy, side, side, 0, 0, targetW, targetH);
+      if (!ctx) {
+        reject(new Error("Image processing is unavailable in this browser."));
+        return;
+      }
+
+      const side = Math.min(
+        image.width,
+        image.height
+      );
+
+      const sx = (image.width - side) / 2;
+      const sy = (image.height - side) / 2;
+
+      ctx.drawImage(
+        image,
+        sx,
+        sy,
+        side,
+        side,
+        0,
+        0,
+        targetW,
+        targetH
+      );
 
       let quality = 0.9;
+
       const tryCompress = () => {
         canvas.toBlob(
           (blob) => {
-            if (!blob) return reject(new Error("Compression failed"));
-            if (blob.size <= maxBytes || quality <= 0.3) {
-              resolve(blob);
-            } else {
-              quality -= 0.1;
-              tryCompress();
+            if (!blob) {
+              reject(new Error("Photo compression failed."));
+              return;
             }
+
+            if (
+              blob.size <= maxBytes ||
+              quality <= 0.3
+            ) {
+              resolve(blob);
+              return;
+            }
+
+            quality -= 0.1;
+            tryCompress();
           },
           "image/jpeg",
           quality
         );
       };
+
       tryCompress();
     };
-    img.onerror = reject;
-    img.src = URL.createObjectURL(file);
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("This image could not be opened."));
+    };
+
+    image.src = objectUrl;
   });
 }
 </script>
