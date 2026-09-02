@@ -1,0 +1,361 @@
+/* PickupPass Parent — Screen 04: Notifications */
+
+.pp-notifications-page {
+  max-width: 820px;
+}
+
+.pp-notifications-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(20px, 4vw, 28px);
+  border-radius: var(--radius-xl);
+  color: #fff;
+  background:
+    radial-gradient(
+      360px 220px at 100% 0%,
+      rgba(132, 204, 22, .24),
+      transparent 72%
+    ),
+    linear-gradient(
+      145deg,
+      var(--indigo-900),
+      var(--indigo-700) 58%,
+      var(--primary)
+    );
+  box-shadow: var(--shadow-lg);
+}
+
+.pp-notifications-hero__eyebrow {
+  margin: 0;
+  color: rgba(255, 255, 255, .67);
+  font-size: .65rem;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.pp-notifications-hero h1 {
+  margin: 7px 0 0;
+  max-width: 640px;
+  color: #fff;
+  font-size: clamp(1.55rem, 5vw, 2.2rem);
+  line-height: 1.08;
+  letter-spacing: -.035em;
+  font-weight: 850;
+}
+
+.pp-notifications-hero p {
+  margin: 9px 0 0;
+  max-width: 650px;
+  color: rgba(255, 255, 255, .76);
+  font-size: .83rem;
+  line-height: 1.55;
+}
+
+.pp-notifications-hero__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.pp-notifications-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .10);
+  color: #fff;
+  font-size: .70rem;
+  font-weight: 760;
+}
+
+.pp-notifications-summary__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .48);
+}
+
+.pp-notifications-summary__dot--active {
+  background: #fff;
+}
+
+.pp-notifications-hero .pp-btn {
+  width: auto;
+  min-height: 42px;
+  flex: 0 0 auto;
+  border-color: rgba(255, 255, 255, .20);
+  color: #fff;
+}
+
+.pp-notifications-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 12px;
+}
+
+.pp-notification-filter {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: .72rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.pp-notification-filter[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.pp-notification-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pp-notification-card {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 13px;
+  align-items: flex-start;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  color: inherit;
+  text-align: left;
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+button.pp-notification-card {
+  appearance: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.pp-notification-card:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--primary) 24%, var(--border));
+  box-shadow: var(--shadow-md);
+}
+
+button.pp-notification-card:focus-visible,
+.pp-notification-filter:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 32%, transparent);
+  outline-offset: 2px;
+}
+
+.pp-notification-card--unread {
+  border-color: color-mix(in srgb, var(--primary) 27%, var(--border));
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary-container) 38%, var(--surface)),
+      var(--surface)
+    );
+}
+
+.pp-notification-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-variant);
+  color: var(--text-muted);
+}
+
+.pp-notification-card--unread .pp-notification-icon {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.pp-notification-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.pp-notification-card__main {
+  min-width: 0;
+}
+
+.pp-notification-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.pp-notification-card__title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: .88rem;
+  line-height: 1.3;
+  font-weight: 720;
+}
+
+.pp-notification-card--unread .pp-notification-card__title {
+  font-weight: 820;
+}
+
+.pp-notification-card__type {
+  color: var(--primary);
+  font-size: .63rem;
+  line-height: 1;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.pp-notification-card__body {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: .77rem;
+  line-height: 1.5;
+}
+
+.pp-notification-card__sender {
+  margin: 6px 0 0;
+  color: var(--primary);
+  font-size: .69rem;
+  font-weight: 680;
+}
+
+.pp-notification-card__time {
+  margin: 9px 0 0;
+  color: var(--text-subtle);
+  font-size: .66rem;
+}
+
+.pp-notification-card__hint {
+  margin: 5px 0 0;
+  color: var(--primary);
+  font-size: .63rem;
+}
+
+.pp-notification-unread-dot {
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.pp-notification-empty,
+.pp-notification-error,
+.pp-notification-loading {
+  min-height: 230px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.pp-notification-empty__icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.pp-notification-empty__icon svg {
+  width: 29px;
+  height: 29px;
+}
+
+.pp-notification-empty strong,
+.pp-notification-error strong {
+  color: var(--text-strong);
+  font-size: .97rem;
+}
+
+.pp-notification-empty p,
+.pp-notification-error p {
+  margin: 0;
+  max-width: 420px;
+  color: var(--text-muted);
+  font-size: .75rem;
+  line-height: 1.5;
+}
+
+.pp-notification-loading {
+  color: var(--text-muted);
+  font-size: .76rem;
+  font-weight: 650;
+}
+
+.pp-notification-loading::before {
+  content: "";
+  width: 26px;
+  height: 26px;
+  border: 3px solid var(--primary-container);
+  border-top-color: var(--primary);
+  border-radius: 999px;
+  animation: pp-notification-spin .8s linear infinite;
+}
+
+@keyframes pp-notification-spin {
+  to { transform: rotate(360deg); }
+}
+
+.pp-notification-safety {
+  margin-top: 16px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-variant);
+  color: var(--text-muted);
+  font-size: .70rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .pp-notifications-hero__footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pp-notification-card {
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .pp-notification-icon {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.pp-notification-card:hover {
+    transform: none;
+  }
+
+  .pp-notification-loading::before {
+    animation: none;
+  }
+}
