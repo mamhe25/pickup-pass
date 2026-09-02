@@ -3,327 +3,644 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pickup Pass — PickupPass</title>
 <meta name="theme-color" content="#047857" />
+<title>Pickup Pass — PickupPass</title>
+
 <link rel="stylesheet" href="../shared/theme.css" />
 <link rel="stylesheet" href="../shared/components.css" />
 <link rel="stylesheet" href="../shared/portal.css" />
 <link rel="stylesheet" href="./pickup-pass.css" />
+
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../shared/tailwind-config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
+
 <body class="min-h-screen pp-portal-body">
-  <div id="parentNav" data-active="students"></div>
-  <script type="module" src="../shared/parent-nav.js"></script>
+<div id="parentNav" data-active="students"></div>
+<script type="module" src="../shared/parent-nav.js"></script>
 
-  <main class="pp-page pp-page--compact pp-pass-page">
-    <a href="./students.html" class="pp-backlink mb-3">← My Students</a>
+<main class="pp-page pp-pass-page">
+  <a href="./students.html" class="pp-backlink mb-3">
+    ← My Students
+  </a>
 
-    <article class="pp-pass-card" aria-labelledby="passTitle">
-      <header class="pp-pass-card__hero">
-        <div class="pp-pass-school">
-          <div class="pp-pass-school__logo" aria-hidden="true">
-            <img id="schoolLogo" class="hidden" alt="" />
-            <svg id="schoolLogoFallback" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z" fill="currentColor" fill-opacity=".18"/>
-              <path d="M9.5 12.2l1.8 1.8 3.5-3.7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="min-w-0 text-left">
-            <p class="pp-pass-kicker">Secure Pickup Pass</p>
-            <p id="schoolName" class="pp-pass-school__name">PickupPass School</p>
-          </div>
+  <article class="pp-pass-card" aria-labelledby="passTitle">
+    <header class="pp-pass-card__hero">
+      <div class="pp-pass-school">
+        <div id="schoolLogo" class="pp-pass-school__logo" aria-hidden="true">
+          PP
         </div>
 
-        <div class="pp-pass-hero-copy">
-          <h1 id="passTitle">Present this pass at pickup</h1>
-          <p>School staff will scan the QR and verify the authorized guardian before release.</p>
+        <div>
+          <p class="pp-pass-kicker">PickupPass</p>
+          <p id="schoolName" class="pp-pass-school__name">
+            Your school
+          </p>
         </div>
-      </header>
+      </div>
 
-      <div class="pp-pass-card__body">
-        <section class="pp-pass-student" aria-label="Student">
-          <div class="pp-pass-student__avatar">
-            <img id="studentPhoto" class="hidden" alt="" />
-            <span id="studentInitials" aria-hidden="true">PP</span>
-          </div>
-          <div class="min-w-0 text-left">
-            <p class="pp-pass-label">Student</p>
-            <h2 id="studentLabel" class="pp-pass-student__name">Loading student…</h2>
-            <p id="studentMeta" class="pp-pass-student__meta hidden"></p>
-          </div>
-        </section>
+      <div class="pp-pass-hero-copy">
+        <p class="pp-pass-kicker">Secure pickup pass</p>
+        <h1 id="passTitle">Show this pass to authorized school staff.</h1>
+        <p>
+          Staff will verify the guardian and student before approving release.
+        </p>
+      </div>
+    </header>
 
-        <section class="pp-pass-qr-section" aria-label="Pickup QR code">
-          <div id="qrFrame" class="pp-pass-qr-frame">
-            <div id="qrContainer" class="pp-pass-qr" role="img" aria-label="Secure pickup QR code">
-              <div class="pp-pass-loading">
-                <span class="pp-pass-spinner" aria-hidden="true"></span>
-                <span>Generating secure pass…</span>
-              </div>
+    <div class="pp-pass-card__body">
+      <section class="pp-pass-student" aria-label="Student">
+        <div id="studentAvatar" class="pp-pass-student__avatar">
+          S
+        </div>
+
+        <div>
+          <p class="pp-pass-label">Student</p>
+          <p id="studentName" class="pp-pass-student__name">
+            Loading student…
+          </p>
+          <p id="studentMeta" class="pp-pass-student__meta">
+            Grade — · Section —
+          </p>
+        </div>
+      </section>
+
+      <section class="pp-pass-qr-section" aria-label="Pickup QR code">
+        <div id="qrFrame" class="pp-pass-qr-frame">
+          <div id="qrContainer" class="pp-pass-qr">
+            <div class="pp-pass-loading">
+              <span class="pp-pass-spinner" aria-hidden="true"></span>
+              <span>Generating secure pass…</span>
             </div>
-            <div id="expiredOverlay" class="pp-pass-expired-overlay hidden" aria-hidden="true">
-              <span>Expired</span>
+          </div>
+
+          <div id="expiredOverlay" class="pp-pass-expired-overlay hidden">
+            <span>Expired</span>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="statusCard"
+        class="pp-pass-status pp-pass-status--neutral"
+        aria-live="polite">
+        <div class="pp-pass-status__copy">
+          <p id="statusTitle" class="pp-pass-status__title">
+            Generating a secure pass
+          </p>
+
+          <p id="statusDetail" class="pp-pass-status__detail">
+            Please wait while PickupPass requests a fresh, time-limited token.
+          </p>
+        </div>
+
+        <strong id="countdown" class="pp-pass-status__time">
+          --:--
+        </strong>
+      </section>
+
+      <section class="pp-pass-policy">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true">
+          <path d="M12 3 4 6v5c0 5 3.4 9 8 10 4.6-1 8-5 8-10V6l-8-3Z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+
+        <div>
+          <strong>School pickup policy</strong>
+          <p id="policyText">
+            Any currently valid QR can be presented for pickup.
+          </p>
+        </div>
+      </section>
+
+      <section class="pp-pass-next">
+        <div class="pp-pass-next__head">
+          <p class="pp-pass-label">At pickup</p>
+          <h2>What happens next</h2>
+        </div>
+
+        <ol class="pp-pass-steps">
+          <li>
+            <span>1</span>
+            <div>
+              <strong>Staff scans this pass</strong>
+              <p>
+                The QR is checked against the current server-issued token.
+              </p>
             </div>
-          </div>
-        </section>
+          </li>
 
-        <section id="passStatus" class="pp-pass-status pp-pass-status--neutral" aria-live="polite">
-          <div>
-            <p id="statusTitle" class="pp-pass-status__title">Preparing secure pass</p>
-            <p id="statusDetail" class="pp-pass-status__detail">This usually takes only a moment.</p>
-          </div>
-          <strong id="countdown" class="pp-pass-status__time"></strong>
-        </section>
+          <li>
+            <span>2</span>
+            <div>
+              <strong>Guardian identity is verified</strong>
+              <p>
+                Staff compares the person present with the authorized guardian
+                profile.
+              </p>
+            </div>
+          </li>
 
-        <p id="errorMsg" class="pp-alert pp-alert--danger mt-3 hidden" role="alert"></p>
+          <li>
+            <span>3</span>
+            <div>
+              <strong>Student release is approved</strong>
+              <p>
+                The student is released only after staff confirms the handoff.
+              </p>
+            </div>
+          </li>
+        </ol>
+      </section>
 
-        <button id="refreshBtn" class="pp-btn pp-btn--primary w-full mt-4" type="button">
-          Refresh secure pass
+      <p id="errorMsg" class="pp-alert pp-alert--danger mt-4 hidden"></p>
+
+      <div class="pp-pass-actions">
+        <button
+          id="refreshBtn"
+          type="button"
+          class="pp-btn pp-btn--primary">
+          Regenerate pass
         </button>
-
-        <section class="pp-pass-policy" aria-label="Pickup security">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 3 5 6v5c0 4 2.8 7.5 7 8.7 4.2-1.2 7-4.7 7-8.7V6l-7-3Z" stroke="currentColor" stroke-width="1.8"/>
-            <path d="M9.5 11.8 11.2 13.5 14.8 9.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <p>A valid live pass can be presented during your school's allowed pickup period.</p>
-        </section>
       </div>
-    </article>
 
-    <section class="pp-pass-next" aria-labelledby="nextTitle">
-      <div class="pp-pass-next__head">
-        <p class="pp-pass-label">At the gate</p>
-        <h2 id="nextTitle">What happens next</h2>
-      </div>
-      <ol class="pp-pass-steps">
-        <li><span>1</span><div><strong>Staff scans this QR</strong><p>The pass is validated by PickupPass before any release action.</p></div></li>
-        <li><span>2</span><div><strong>Guardian identity is checked</strong><p>Staff confirms the person present matches an authorized guardian.</p></div></li>
-        <li><span>3</span><div><strong>Student release is approved</strong><p>The pickup is recorded only after staff completes verification.</p></div></li>
-      </ol>
-    </section>
-
-    <p class="pp-pass-security-note">
-      For your security, use only the latest pass shown in PickupPass. Do not share screenshots of the QR.
-    </p>
-  </main>
+      <p class="pp-pass-security-note">
+        For security, use only the latest valid pass. School staff still verify
+        the authorized guardian before releasing the student.
+      </p>
+    </div>
+  </article>
+</main>
 
 <script type="module">
-import { auth, authedFetch, db, getSchoolBranding, setSubmitButtonBusy } from "../shared/firebase-init.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  auth,
+  authedFetch,
+  db
+} from "../shared/firebase-init.js";
+
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+import {
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const params = new URLSearchParams(window.location.search);
-const studentId = params.get("studentId") || sessionStorage.getItem("pickupPassStudentId");
 
-if (!studentId) window.location.href = "./students.html";
+const studentId =
+  params.get("studentId") ||
+  sessionStorage.getItem("pickupPassStudentId");
+
+if (!studentId) {
+  window.location.href = "./students.html";
+}
 
 const ui = {
-  studentLabel: document.getElementById("studentLabel"),
-  studentMeta: document.getElementById("studentMeta"),
-  studentPhoto: document.getElementById("studentPhoto"),
-  studentInitials: document.getElementById("studentInitials"),
-  schoolName: document.getElementById("schoolName"),
   schoolLogo: document.getElementById("schoolLogo"),
-  schoolLogoFallback: document.getElementById("schoolLogoFallback"),
-  qrContainer: document.getElementById("qrContainer"),
+  schoolName: document.getElementById("schoolName"),
+  studentAvatar: document.getElementById("studentAvatar"),
+  studentName: document.getElementById("studentName"),
+  studentMeta: document.getElementById("studentMeta"),
   qrFrame: document.getElementById("qrFrame"),
+  qrContainer: document.getElementById("qrContainer"),
   expiredOverlay: document.getElementById("expiredOverlay"),
-  passStatus: document.getElementById("passStatus"),
+  statusCard: document.getElementById("statusCard"),
   statusTitle: document.getElementById("statusTitle"),
   statusDetail: document.getElementById("statusDetail"),
   countdown: document.getElementById("countdown"),
-  errorMsg: document.getElementById("errorMsg"),
-  refreshBtn: document.getElementById("refreshBtn"),
+  policyText: document.getElementById("policyText"),
+  error: document.getElementById("errorMsg"),
+  refresh: document.getElementById("refreshBtn")
 };
 
 let countdownTimer = null;
-let renderVersion = 0;
+let generationVersion = 0;
+let student = null;
+let school = null;
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) return;
 
   try {
-    await loadStudentIdentity();
-  } catch (err) {
-    console.warn("Could not load pickup-pass identity details", err);
+    await loadIdentity();
+    await renderPass();
+  } catch (error) {
+    showError(
+      error instanceof Error
+        ? error.message
+        : "Could not load this pickup pass."
+    );
   }
-
-  await renderPass();
 });
 
-async function loadStudentIdentity() {
-  const studentSnap = await getDoc(doc(db, "students", studentId));
-  if (!studentSnap.exists()) return;
+ui.refresh.addEventListener("click", renderPass);
 
-  const student = studentSnap.data();
-  const name = student.fullName || "Student";
-  ui.studentLabel.textContent = name;
-  ui.studentInitials.textContent = initialsFor(name);
+async function loadIdentity() {
+  const studentSnap =
+    await getDoc(
+      doc(db, "students", studentId)
+    );
 
-  const meta = [
-    formatGrade(student.grade),
-    student.section ? `Section ${student.section}` : ""
-  ].filter(Boolean).join(" • ");
-
-  if (meta) {
-    ui.studentMeta.textContent = meta;
-    ui.studentMeta.classList.remove("hidden");
+  if (!studentSnap.exists()) {
+    throw new Error("This student could not be found.");
   }
 
-  if (student.photoUrl) {
-    ui.studentPhoto.src = student.photoUrl;
-    ui.studentPhoto.alt = `${name} profile photo`;
-    ui.studentPhoto.onload = () => {
-      ui.studentPhoto.classList.remove("hidden");
-      ui.studentInitials.classList.add("hidden");
-    };
-    ui.studentPhoto.onerror = () => {
-      ui.studentPhoto.classList.add("hidden");
-      ui.studentInitials.classList.remove("hidden");
-    };
-  }
+  student = {
+    id: studentSnap.id,
+    ...studentSnap.data()
+  };
+
+  renderStudent();
 
   if (student.schoolId) {
-    const school = await getSchoolBranding(student.schoolId, { getDoc, doc });
-    if (school?.schoolName) ui.schoolName.textContent = school.schoolName;
-    if (school?.logoUrl) {
-      ui.schoolLogo.src = school.logoUrl;
-      ui.schoolLogo.onload = () => {
-        ui.schoolLogo.classList.remove("hidden");
-        ui.schoolLogoFallback.classList.add("hidden");
+    const schoolSnap =
+      await getDoc(
+        doc(db, "schools", student.schoolId)
+      );
+
+    if (schoolSnap.exists()) {
+      school = {
+        id: schoolSnap.id,
+        ...schoolSnap.data()
       };
-      ui.schoolLogo.onerror = () => {
-        ui.schoolLogo.classList.add("hidden");
-        ui.schoolLogoFallback.classList.remove("hidden");
-      };
+
+      renderSchool();
     }
+  }
+}
+
+function renderStudent() {
+  const name =
+    String(student?.fullName || "Student").trim();
+
+  ui.studentName.textContent = name;
+
+  ui.studentMeta.textContent =
+    `Grade ${student?.grade || "—"} · ` +
+    `Section ${student?.section || "—"}`;
+
+  renderImageOrInitials(
+    ui.studentAvatar,
+    student?.photoUrl,
+    name,
+    getInitials(name)
+  );
+}
+
+function renderSchool() {
+  const name =
+    String(school?.schoolName || "Your school").trim();
+
+  ui.schoolName.textContent = name;
+
+  renderImageOrInitials(
+    ui.schoolLogo,
+    school?.logoUrl,
+    `${name} logo`,
+    getInitials(name) || "PP"
+  );
+
+  const policy = school?.pickupPolicy;
+
+  if (
+    policy?.mode === "time_window" &&
+    policy?.earliestPickupTime &&
+    policy?.latestPickupTime
+  ) {
+    ui.policyText.textContent =
+      `School pickup window: ` +
+      `${policy.earliestPickupTime}–${policy.latestPickupTime}.`;
+  } else {
+    ui.policyText.textContent =
+      "Any currently valid QR can be presented for pickup.";
   }
 }
 
 async function generatePickupToken() {
-  const res = await authedFetch("/parent/generate-token", {
-    method: "POST",
-    body: JSON.stringify({ studentId }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Could not generate pass");
+  const response =
+    await authedFetch(
+      "/parent/generate-token",
+      {
+        method: "POST",
+        body: JSON.stringify({ studentId })
+      }
+    );
+
+  if (!response.ok) {
+    const error =
+      await response.json().catch(() => ({}));
+
+    throw new Error(
+      error.error ||
+      "Could not generate a pickup pass."
+    );
   }
-  return res.json();
+
+  return response.json();
 }
 
 async function renderPass() {
-  const version = ++renderVersion;
-  clearInterval(countdownTimer);
+  const version = ++generationVersion;
 
-  ui.errorMsg.classList.add("hidden");
+  clearInterval(countdownTimer);
+  countdownTimer = null;
+
+  setGeneratingState();
+
+  try {
+    const {
+      qrToken,
+      expiresAt
+    } = await generatePickupToken();
+
+    if (version !== generationVersion) {
+      return;
+    }
+
+    const expiry = new Date(expiresAt);
+
+    if (Number.isNaN(expiry.getTime())) {
+      throw new Error(
+        "The pass expiry could not be verified. Generate a new pass."
+      );
+    }
+
+    renderQr(qrToken);
+    startCountdown(expiry, version);
+  } catch (error) {
+    if (version !== generationVersion) {
+      return;
+    }
+
+    showError(
+      error instanceof Error
+        ? error.message
+        : "Could not generate a pickup pass."
+    );
+  }
+}
+
+function renderQr(qrToken) {
+  ui.qrContainer.innerHTML = "";
+
+  const qrBox = document.createElement("div");
+  qrBox.className = "pp-pass-qr__box";
+  qrBox.setAttribute(
+    "aria-label",
+    "Secure pickup QR code"
+  );
+
+  ui.qrContainer.appendChild(qrBox);
+
+  new QRCode(qrBox, {
+    text: qrToken,
+    width: 320,
+    height: 320,
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  ui.qrFrame.classList.remove(
+    "pp-pass-qr-frame--expired"
+  );
+
   ui.expiredOverlay.classList.add("hidden");
-  ui.qrFrame.classList.remove("pp-pass-qr-frame--expired");
+  ui.error.classList.add("hidden");
+  ui.refresh.disabled = false;
+  ui.refresh.textContent = "Regenerate pass";
+
+  setStatus(
+    "ready",
+    "Ready to scan",
+    "Keep this screen open and present the QR when staff asks for it."
+  );
+}
+
+function startCountdown(
+  expiresAt,
+  version
+) {
+  updateCountdown(expiresAt, version);
+
+  countdownTimer =
+    setInterval(
+      () => updateCountdown(expiresAt, version),
+      1000
+    );
+}
+
+function updateCountdown(
+  expiresAt,
+  version
+) {
+  if (version !== generationVersion) {
+    clearInterval(countdownTimer);
+    return;
+  }
+
+  const msLeft =
+    expiresAt.getTime() - Date.now();
+
+  const secondsLeft =
+    Math.max(
+      0,
+      Math.ceil(msLeft / 1000)
+    );
+
+  ui.countdown.textContent =
+    formatCountdown(secondsLeft);
+
+  if (secondsLeft <= 0) {
+    clearInterval(countdownTimer);
+
+    ui.qrFrame.classList.add(
+      "pp-pass-qr-frame--expired"
+    );
+
+    ui.expiredOverlay.classList.remove("hidden");
+
+    ui.refresh.textContent =
+      "Generate new pass";
+
+    setStatus(
+      "danger",
+      "This pass has expired",
+      "Generate a new pass before presenting it to school staff."
+    );
+
+    return;
+  }
+
+  if (secondsLeft <= 60) {
+    setStatus(
+      "warning",
+      "Pass expires soon",
+      "You can still present this pass, but generate a fresh one if you are not yet at the gate."
+    );
+  } else {
+    setStatus(
+      "ready",
+      "Ready to scan",
+      "Keep this screen open and present the QR when staff asks for it."
+    );
+  }
+}
+
+function setGeneratingState() {
+  ui.error.classList.add("hidden");
+
+  ui.qrFrame.classList.remove(
+    "pp-pass-qr-frame--expired"
+  );
+
+  ui.expiredOverlay.classList.add("hidden");
+
   ui.qrContainer.innerHTML = `
     <div class="pp-pass-loading">
       <span class="pp-pass-spinner" aria-hidden="true"></span>
       <span>Generating secure pass…</span>
-    </div>`;
-  setStatus("neutral", "Preparing secure pass", "This usually takes only a moment.", "");
-  setSubmitButtonBusy(ui.refreshBtn, true, "Generating pass…");
+    </div>
+  `;
 
-  try {
-    const { qrToken, expiresAt } = await generatePickupToken();
-    if (version !== renderVersion) return;
+  ui.countdown.textContent = "--:--";
 
-    const expiry = new Date(expiresAt);
-    if (Number.isNaN(expiry.getTime())) {
-      throw new Error("The pass expiry could not be verified. Please generate a new pass.");
-    }
+  ui.refresh.disabled = true;
+  ui.refresh.textContent = "Generating…";
 
-    ui.qrContainer.innerHTML = "";
-    const qrBox = document.createElement("div");
-    qrBox.className = "pp-pass-qr__box";
-    qrBox.setAttribute("aria-hidden", "true");
-    ui.qrContainer.appendChild(qrBox);
-
-    new QRCode(qrBox, {
-      text: qrToken,
-      width: 320,
-      height: 320,
-      colorDark: "#000000",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.M
-    });
-
-    setSubmitButtonBusy(ui.refreshBtn, false);
-    ui.refreshBtn.textContent = "Refresh secure pass";
-    startCountdown(expiry);
-  } catch (err) {
-    if (version !== renderVersion) return;
-
-    ui.qrContainer.innerHTML = `
-      <div class="pp-pass-error-state">
-        <span aria-hidden="true">!</span>
-        <strong>Pass unavailable</strong>
-        <p>Generate a fresh pass to try again.</p>
-      </div>`;
-    ui.errorMsg.textContent = err.message || "Could not generate pass";
-    ui.errorMsg.classList.remove("hidden");
-    setStatus("danger", "Pass unavailable", "A valid QR has not been generated.", "");
-    setSubmitButtonBusy(ui.refreshBtn, false);
-    ui.refreshBtn.textContent = "Try again";
-  }
+  setStatus(
+    "neutral",
+    "Generating a secure pass",
+    "Please wait while PickupPass requests a fresh, time-limited token."
+  );
 }
 
-function startCountdown(expiresAt) {
+function showError(message) {
   clearInterval(countdownTimer);
 
-  const tick = () => {
-    const msLeft = expiresAt.getTime() - Date.now();
+  ui.qrContainer.innerHTML = `
+    <div class="pp-pass-error-state">
+      <span aria-hidden="true">!</span>
+      <strong>Pass unavailable</strong>
+      <p>Generate a new pass when your connection is ready.</p>
+    </div>
+  `;
 
-    if (msLeft <= 0) {
-      clearInterval(countdownTimer);
-      ui.expiredOverlay.classList.remove("hidden");
-      ui.qrFrame.classList.add("pp-pass-qr-frame--expired");
-      ui.refreshBtn.textContent = "Generate new pass";
-      setStatus("danger", "Pass expired", "Generate a new pass before approaching school staff.", "00:00");
-      return;
-    }
+  ui.countdown.textContent = "--:--";
 
-    const totalSeconds = Math.ceil(msLeft / 1000);
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    const time = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  ui.refresh.disabled = false;
+  ui.refresh.textContent = "Try again";
 
-    if (totalSeconds <= 60) {
-      setStatus("warning", "Expires soon", "Keep this screen open or refresh the pass before presenting it.", time);
-    } else {
-      setStatus("ready", "Ready for staff verification", "Present this live QR when you reach the pickup point.", time);
-    }
-  };
+  ui.error.textContent = message;
+  ui.error.classList.remove("hidden");
 
-  tick();
-  countdownTimer = window.setInterval(tick, 1000);
+  setStatus(
+    "danger",
+    "Pass unavailable",
+    "PickupPass could not prepare a valid pass."
+  );
 }
 
-function setStatus(kind, title, detail, time) {
-  ui.passStatus.className = `pp-pass-status pp-pass-status--${kind}`;
+function setStatus(
+  type,
+  title,
+  detail
+) {
+  ui.statusCard.className =
+    `pp-pass-status pp-pass-status--${type}`;
+
   ui.statusTitle.textContent = title;
   ui.statusDetail.textContent = detail;
-  ui.countdown.textContent = time;
 }
 
-function initialsFor(name) {
-  return String(name || "PP").trim().split(/\s+/).filter(Boolean).slice(0, 2)
-    .map(part => part[0]?.toUpperCase() || "").join("") || "PP";
+function renderImageOrInitials(
+  container,
+  source,
+  alt,
+  fallback
+) {
+  container.replaceChildren();
+
+  const safe = safeImageSource(source);
+
+  if (!safe) {
+    container.textContent = fallback;
+    return;
+  }
+
+  const image = document.createElement("img");
+  image.src = safe;
+  image.alt = alt;
+  image.referrerPolicy = "no-referrer";
+
+  image.addEventListener(
+    "error",
+    () => {
+      container.replaceChildren();
+      container.textContent = fallback;
+    },
+    { once: true }
+  );
+
+  container.appendChild(image);
 }
 
-function formatGrade(value) {
-  const grade = String(value || "").trim();
-  if (!grade) return "";
-  return /^grade\b/i.test(grade) ? grade : `Grade ${grade}`;
+function safeImageSource(value) {
+  const source =
+    String(value || "").trim();
+
+  if (
+    source.startsWith("data:image/") ||
+    source.startsWith("https://") ||
+    source.startsWith("http://")
+  ) {
+    return source;
+  }
+
+  return "";
 }
 
-ui.refreshBtn.addEventListener("click", renderPass);
+function getInitials(value) {
+  return String(value || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) =>
+      part.charAt(0).toUpperCase()
+    )
+    .join("");
+}
+
+function formatCountdown(totalSeconds) {
+  const safe =
+    Math.max(0, Number(totalSeconds) || 0);
+
+  const minutes =
+    Math.floor(safe / 60);
+
+  const seconds =
+    safe % 60;
+
+  return (
+    String(minutes).padStart(2, "0") +
+    ":" +
+    String(seconds).padStart(2, "0")
+  );
+}
 </script>
 </body>
 </html>

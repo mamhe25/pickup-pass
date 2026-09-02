@@ -1,147 +1,536 @@
-/* Premium parent pickup credential. QR stays black-on-white for scan reliability. */
-.pp-pass-page { max-width:700px; }
+/* PickupPass Parent — Screen 02: Secure Pickup Pass
+   Production-grade credential layout. QR remains black-on-white for reliable scanning. */
+
+.pp-pass-page {
+  max-width: 760px;
+}
+
 .pp-pass-card {
-  overflow:hidden;
-  border:1px solid color-mix(in srgb,var(--border) 82%,transparent);
-  border-radius:26px;
-  background:var(--surface);
-  box-shadow:0 24px 64px rgba(15,23,42,.10),0 2px 8px rgba(15,23,42,.04);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  border-radius: 26px;
+  background: var(--surface);
+  box-shadow:
+    0 24px 64px rgba(15, 23, 42, .10),
+    0 2px 8px rgba(15, 23, 42, .04);
 }
+
 .pp-pass-card__hero {
-  position:relative; overflow:hidden; padding:24px; color:#fff;
+  position: relative;
+  overflow: hidden;
+  padding: clamp(20px, 4vw, 28px);
+  color: #fff;
   background:
-    radial-gradient(360px 260px at 100% 0%,rgba(132,204,22,.28),transparent 72%),
-    linear-gradient(145deg,var(--indigo-900),var(--indigo-700) 58%,var(--primary));
+    radial-gradient(
+      380px 260px at 100% 0%,
+      rgba(132, 204, 22, .26),
+      transparent 72%
+    ),
+    linear-gradient(
+      145deg,
+      var(--indigo-900),
+      var(--indigo-700) 58%,
+      var(--primary)
+    );
 }
+
 .pp-pass-card__hero::after {
-  content:""; position:absolute; width:230px; height:230px; right:-105px; bottom:-135px;
-  border:1px solid rgba(255,255,255,.12); border-radius:999px;
-  background:rgba(255,255,255,.04); pointer-events:none;
+  content: "";
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  right: -120px;
+  bottom: -150px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .04);
+  pointer-events: none;
 }
-.pp-pass-school,.pp-pass-hero-copy { position:relative; z-index:1; }
-.pp-pass-school { display:flex; align-items:center; gap:11px; }
+
+.pp-pass-school,
+.pp-pass-hero-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.pp-pass-school {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
 .pp-pass-school__logo {
-  width:42px; height:42px; flex:0 0 42px; display:grid; place-items:center; overflow:hidden;
-  border:1px solid rgba(255,255,255,.26); border-radius:13px;
-  background:rgba(255,255,255,.13); color:#fff;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 820;
 }
-.pp-pass-school__logo img { width:100%;height:100%;object-fit:contain;padding:5px;background:rgba(255,255,255,.96);box-sizing:border-box; }
-.pp-pass-kicker { margin:0;color:rgba(255,255,255,.70);font-size:.67rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase; }
-.pp-pass-school__name { margin:2px 0 0;overflow:hidden;color:#fff;font-size:.88rem;font-weight:720;line-height:1.25;text-overflow:ellipsis;white-space:nowrap; }
-.pp-pass-hero-copy { margin-top:28px;max-width:520px;text-align:left; }
-.pp-pass-hero-copy h1 { margin:0;color:#fff;font-size:clamp(1.55rem,5vw,2rem);line-height:1.08;letter-spacing:-.035em;font-weight:840; }
-.pp-pass-hero-copy p { margin:9px 0 0;max-width:500px;color:rgba(255,255,255,.78);font-size:.88rem;line-height:1.55; }
-.pp-pass-card__body { padding:22px; }
+
+.pp-pass-school__logo img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  padding: 5px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, .97);
+}
+
+.pp-pass-kicker {
+  margin: 0;
+  color: rgba(255, 255, 255, .66);
+  font-size: .65rem;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.pp-pass-school__name {
+  margin: 2px 0 0;
+  max-width: min(62vw, 500px);
+  overflow: hidden;
+  color: #fff;
+  font-size: .86rem;
+  line-height: 1.25;
+  font-weight: 740;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-pass-hero-copy {
+  margin-top: 28px;
+  max-width: 560px;
+}
+
+.pp-pass-hero-copy h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.55rem, 5vw, 2.15rem);
+  line-height: 1.08;
+  letter-spacing: -.035em;
+  font-weight: 850;
+}
+
+.pp-pass-hero-copy p {
+  margin: 9px 0 0;
+  max-width: 520px;
+  color: rgba(255, 255, 255, .78);
+  font-size: .87rem;
+  line-height: 1.55;
+}
+
+.pp-pass-card__body {
+  padding: clamp(17px, 3vw, 24px);
+}
+
 .pp-pass-student {
-  display:flex;align-items:center;gap:13px;padding:13px;
-  border:1px solid color-mix(in srgb,var(--border) 82%,transparent);
-  border-radius:17px;
-  background:linear-gradient(135deg,color-mix(in srgb,var(--primary-container) 44%,var(--surface)),var(--surface));
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px;
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  border-radius: 17px;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary-container) 44%, var(--surface)),
+      var(--surface)
+    );
 }
+
 .pp-pass-student__avatar {
-  width:54px;height:54px;flex:0 0 54px;display:grid;place-items:center;overflow:hidden;
-  border:2px solid color-mix(in srgb,var(--primary) 22%,var(--surface));border-radius:999px;
-  background:var(--primary-container);color:var(--on-primary-container);font-size:.9rem;font-weight:820;
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid color-mix(in srgb, var(--primary) 22%, var(--surface));
+  border-radius: 999px;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  font-size: .91rem;
+  font-weight: 830;
 }
-.pp-pass-student__avatar img { width:100%;height:100%;object-fit:cover; }
-.pp-pass-label { margin:0;color:var(--text-subtle);font-size:.64rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase; }
-.pp-pass-student__name { margin:2px 0 0;color:var(--text-strong);font-size:1.03rem;line-height:1.25;letter-spacing:-.018em;font-weight:790; }
-.pp-pass-student__meta { margin:3px 0 0;color:var(--text-muted);font-size:.77rem; }
-.pp-pass-qr-section { display:flex;justify-content:center;margin-top:20px; }
+
+.pp-pass-student__avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.pp-pass-label {
+  margin: 0;
+  color: var(--text-subtle);
+  font-size: .63rem;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.pp-pass-student__name {
+  margin: 2px 0 0;
+  color: var(--text-strong);
+  font-size: 1.02rem;
+  line-height: 1.25;
+  letter-spacing: -.018em;
+  font-weight: 800;
+}
+
+.pp-pass-student__meta {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: .76rem;
+}
+
+.pp-pass-qr-section {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
 .pp-pass-qr-frame {
-  position:relative;width:min(100%,370px);padding:14px;
-  border:1px solid #e2e8f0;border-radius:24px;background:#fff;
-  box-shadow:0 14px 38px rgba(15,23,42,.08),inset 0 0 0 1px rgba(15,23,42,.025);
+  position: relative;
+  width: min(100%, 374px);
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow:
+    0 14px 38px rgba(15, 23, 42, .08),
+    inset 0 0 0 1px rgba(15, 23, 42, .025);
 }
+
 .pp-pass-qr {
-  min-height:320px;
-  display:grid;
-  place-items:center;
-  background:#fff;
-  border-radius:16px;
-  color:#475569;
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: #fff;
+  color: #475569;
 }
 
 /*
- * qrcodejs deliberately creates both a CANVAS and IMG, then uses inline
- * display styles to show one and hide the other. Never override `display`
- * here; doing so reveals both QR renderers and makes the pass look vertically
- * stretched/doubled.
+ * qrcodejs creates both a canvas and an img, and toggles which one is visible
+ * using inline display styles. Do not override display here or both copies
+ * become visible.
  */
 .pp-pass-qr__box {
-  display:grid;
-  place-items:center;
-  width:min(100%,320px);
-  max-width:320px;
-  aspect-ratio:1;
-  margin-inline:auto;
+  display: grid;
+  place-items: center;
+  width: min(100%, 320px);
+  max-width: 320px;
+  aspect-ratio: 1;
+  margin-inline: auto;
 }
 
 .pp-pass-qr__box > canvas,
 .pp-pass-qr__box > img {
-  width:100%!important;
-  max-width:320px!important;
-  height:auto!important;
-  max-height:320px!important;
-  aspect-ratio:1;
-  object-fit:contain;
+  width: 100% !important;
+  max-width: 320px !important;
+  height: auto !important;
+  max-height: 320px !important;
+  aspect-ratio: 1;
+  object-fit: contain;
 }
 
-.pp-pass-qr-frame--expired .pp-pass-qr { opacity:.24;filter:grayscale(1); }
-.pp-pass-expired-overlay { position:absolute;inset:0;display:grid;place-items:center;border-radius:inherit;pointer-events:none; }
+.pp-pass-qr-frame--expired .pp-pass-qr {
+  opacity: .24;
+  filter: grayscale(1);
+}
+
+.pp-pass-expired-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
 .pp-pass-expired-overlay span {
-  padding:8px 15px;border:2px solid var(--danger);border-radius:999px;
-  background:rgba(255,255,255,.94);color:var(--danger);
-  font-size:.82rem;font-weight:850;letter-spacing:.08em;text-transform:uppercase;transform:rotate(-6deg);
+  padding: 8px 15px;
+  border: 2px solid var(--danger);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .95);
+  color: var(--danger);
+  font-size: .82rem;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  transform: rotate(-5deg);
 }
-.pp-pass-loading { min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;color:#64748b;font-size:.82rem;font-weight:650; }
-.pp-pass-spinner { width:30px;height:30px;border:3px solid #d1fae5;border-top-color:#047857;border-radius:999px;animation:pp-pass-spin .8s linear infinite; }
-@keyframes pp-pass-spin { to { transform:rotate(360deg); } }
-.pp-pass-error-state { min-height:260px;display:grid;place-items:center;align-content:center;gap:6px;color:#475569;text-align:center; }
-.pp-pass-error-state>span { width:38px;height:38px;display:grid;place-items:center;margin-bottom:3px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-weight:850; }
-.pp-pass-error-state strong { color:#0f172a; }
-.pp-pass-error-state p { margin:0;font-size:.78rem; }
+
+.pp-pass-loading,
+.pp-pass-error-state {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 9px;
+  text-align: center;
+}
+
+.pp-pass-loading {
+  color: #64748b;
+  font-size: .80rem;
+  font-weight: 650;
+}
+
+.pp-pass-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #d1fae5;
+  border-top-color: #047857;
+  border-radius: 999px;
+  animation: pp-pass-spin .8s linear infinite;
+}
+
+@keyframes pp-pass-spin {
+  to { transform: rotate(360deg); }
+}
+
+.pp-pass-error-state {
+  color: #475569;
+}
+
+.pp-pass-error-state > span {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 3px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-weight: 850;
+}
+
+.pp-pass-error-state strong {
+  color: #0f172a;
+}
+
+.pp-pass-error-state p {
+  margin: 0;
+  max-width: 260px;
+  font-size: .77rem;
+  line-height: 1.45;
+}
+
 .pp-pass-status {
-  margin-top:17px;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;gap:14px;
-  border:1px solid transparent;border-radius:15px;
+  margin-top: 17px;
+  padding: 13px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid transparent;
+  border-radius: 15px;
 }
-.pp-pass-status--neutral { border-color:var(--border);background:var(--surface-variant);color:var(--text-muted); }
-.pp-pass-status--ready { border-color:color-mix(in srgb,var(--primary) 22%,var(--border));background:var(--primary-container);color:var(--on-primary-container); }
-.pp-pass-status--warning { border-color:color-mix(in srgb,var(--warning) 28%,var(--border));background:var(--warning-container);color:var(--on-warning-container); }
-.pp-pass-status--danger { border-color:color-mix(in srgb,var(--danger) 25%,var(--border));background:var(--danger-container);color:var(--on-danger-container); }
-.pp-pass-status__title { margin:0;font-size:.82rem;line-height:1.25;font-weight:800; }
-.pp-pass-status__detail { margin:3px 0 0;max-width:420px;color:currentColor;opacity:.76;font-size:.72rem;line-height:1.4; }
-.pp-pass-status__time { flex:0 0 auto;font-variant-numeric:tabular-nums;font-size:1.08rem;letter-spacing:-.025em; }
-.pp-pass-policy {
-  margin-top:15px;padding:12px 13px;display:flex;align-items:flex-start;gap:9px;
-  border:1px solid color-mix(in srgb,var(--border) 86%,transparent);border-radius:14px;
-  background:var(--surface-variant);color:var(--text-muted);
+
+.pp-pass-status--neutral {
+  border-color: var(--border);
+  background: var(--surface-variant);
+  color: var(--text-muted);
 }
-.pp-pass-policy svg { flex:0 0 18px;margin-top:1px;color:var(--primary); }
-.pp-pass-policy p { margin:0;font-size:.75rem;line-height:1.5; }
+
+.pp-pass-status--ready {
+  border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.pp-pass-status--warning {
+  border-color: color-mix(in srgb, var(--warning) 28%, var(--border));
+  background: var(--warning-container);
+  color: var(--on-warning-container);
+}
+
+.pp-pass-status--danger {
+  border-color: color-mix(in srgb, var(--danger) 25%, var(--border));
+  background: var(--danger-container);
+  color: var(--on-danger-container);
+}
+
+.pp-pass-status__copy {
+  min-width: 0;
+}
+
+.pp-pass-status__title {
+  margin: 0;
+  font-size: .81rem;
+  line-height: 1.25;
+  font-weight: 810;
+}
+
+.pp-pass-status__detail {
+  margin: 3px 0 0;
+  max-width: 440px;
+  color: currentColor;
+  opacity: .76;
+  font-size: .71rem;
+  line-height: 1.45;
+}
+
+.pp-pass-status__time {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.08rem;
+  line-height: 1;
+  letter-spacing: -.025em;
+  font-weight: 820;
+}
+
+.pp-pass-policy,
 .pp-pass-next {
-  margin-top:17px;padding:19px;border:1px solid color-mix(in srgb,var(--border) 86%,transparent);
-  border-radius:20px;background:var(--surface);box-shadow:0 7px 24px rgba(15,23,42,.04);
+  margin-top: 15px;
+  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+  border-radius: 18px;
+  background: var(--surface);
 }
-.pp-pass-next__head h2 { margin:3px 0 0;color:var(--text-strong);font-size:1rem;letter-spacing:-.015em;font-weight:790; }
-.pp-pass-steps { display:grid;gap:13px;margin:16px 0 0;padding:0;list-style:none; }
-.pp-pass-steps li { display:grid;grid-template-columns:30px 1fr;gap:10px;align-items:flex-start; }
-.pp-pass-steps li>span {
-  width:30px;height:30px;display:grid;place-items:center;border-radius:999px;
-  background:var(--primary-container);color:var(--on-primary-container);font-size:.72rem;font-weight:850;
+
+.pp-pass-policy {
+  padding: 13px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text-muted);
 }
-.pp-pass-steps strong { display:block;color:var(--text-strong);font-size:.8rem;line-height:1.35; }
-.pp-pass-steps p { margin:2px 0 0;color:var(--text-muted);font-size:.73rem;line-height:1.45; }
-.pp-pass-security-note { margin:14px auto 0;max-width:560px;color:var(--text-subtle);font-size:.7rem;line-height:1.5;text-align:center; }
-@media (max-width:520px) {
-  .pp-pass-card { border-radius:22px; }
-  .pp-pass-card__hero { padding:20px; }
-  .pp-pass-card__body { padding:17px; }
-  .pp-pass-qr-frame { padding:10px;border-radius:20px; }
-  .pp-pass-qr { min-height:0;aspect-ratio:1; }
-  .pp-pass-status { align-items:flex-start; }
-  .pp-pass-status__time { font-size:.95rem; }
+
+.pp-pass-policy svg {
+  flex: 0 0 18px;
+  margin-top: 1px;
+  color: var(--primary);
 }
-@media (prefers-reduced-motion:reduce) {
-  .pp-pass-spinner { animation-duration:1.8s; }
+
+.pp-pass-policy strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text-strong);
+  font-size: .77rem;
+}
+
+.pp-pass-policy p {
+  margin: 0;
+  font-size: .73rem;
+  line-height: 1.5;
+}
+
+.pp-pass-next {
+  padding: 18px;
+  box-shadow: 0 7px 24px rgba(15, 23, 42, .04);
+}
+
+.pp-pass-next__head h2 {
+  margin: 3px 0 0;
+  color: var(--text-strong);
+  font-size: 1rem;
+  letter-spacing: -.015em;
+  font-weight: 800;
+}
+
+.pp-pass-steps {
+  display: grid;
+  gap: 13px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pp-pass-steps li {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.pp-pass-steps li > span {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  font-size: .72rem;
+  font-weight: 850;
+}
+
+.pp-pass-steps strong {
+  display: block;
+  color: var(--text-strong);
+  font-size: .79rem;
+  line-height: 1.35;
+}
+
+.pp-pass-steps p {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: .72rem;
+  line-height: 1.45;
+}
+
+.pp-pass-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.pp-pass-actions .pp-btn {
+  width: auto;
+  min-height: 44px;
+  flex: 0 0 auto;
+}
+
+.pp-pass-security-note {
+  margin: 14px auto 0;
+  max-width: 580px;
+  color: var(--text-subtle);
+  font-size: .69rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  .pp-pass-card {
+    border-radius: 22px;
+  }
+
+  .pp-pass-card__body {
+    padding: 16px;
+  }
+
+  .pp-pass-qr-frame {
+    padding: 10px;
+    border-radius: 20px;
+  }
+
+  .pp-pass-qr {
+    min-height: 0;
+    aspect-ratio: 1;
+  }
+
+  .pp-pass-status {
+    align-items: flex-start;
+  }
+
+  .pp-pass-status__time {
+    font-size: .94rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-pass-spinner {
+    animation-duration: 1.8s;
+  }
 }
