@@ -1,0 +1,60 @@
+/* PickupPass Teacher/Staff — Register Guardian */
+
+.pp-register-parent-page { max-width: 720px; }
+.pp-register-parent-head { margin: 12px 0 13px; }
+.pp-register-parent-eyebrow { margin:0; color:var(--primary); font-size:.62rem; font-weight:820; letter-spacing:.08em; text-transform:uppercase; }
+.pp-register-parent-head h1 { margin:3px 0 0; color:var(--text-strong); font-size:1.22rem; font-weight:850; letter-spacing:-.02em; }
+.pp-register-parent-head > p:last-child { margin:4px 0 0; color:var(--text-muted); font-size:.72rem; line-height:1.45; }
+
+.pp-register-parent-student { display:grid; grid-template-columns:44px minmax(0,1fr); gap:10px; align-items:center; padding:13px; border:1px solid var(--border); border-radius:17px; background:var(--surface); box-shadow:var(--shadow-sm); }
+.pp-register-parent-student__icon { width:42px; height:42px; display:grid; place-items:center; border-radius:999px; background:var(--primary-container); color:var(--on-primary-container); }
+.pp-register-parent-student__icon svg { width:20px; height:20px; }
+.pp-register-parent-student > div { min-width:0; display:grid; }
+.pp-register-parent-student span:not(.pp-register-parent-student__icon) { color:var(--primary); font-size:.56rem; font-weight:820; letter-spacing:.07em; }
+.pp-register-parent-student strong { overflow:hidden; margin-top:1px; color:var(--text-strong); font-size:.76rem; font-weight:830; text-overflow:ellipsis; white-space:nowrap; }
+.pp-register-parent-student small { margin-top:2px; color:var(--text-muted); font-size:.61rem; }
+
+.pp-register-parent-outcome { display:grid; grid-template-columns:28px minmax(0,1fr); gap:9px; align-items:start; margin-top:9px; padding:12px; border-radius:14px; background:var(--surface-variant); }
+.pp-register-parent-outcome > span { width:26px; height:26px; display:grid; place-items:center; color:var(--primary); }
+.pp-register-parent-outcome svg { width:19px; height:19px; }
+.pp-register-parent-outcome strong { color:var(--text-strong); font-size:.69rem; }
+.pp-register-parent-outcome p { margin:3px 0 0; color:var(--text-muted); font-size:.62rem; line-height:1.45; }
+
+.pp-register-parent-form-card { margin-top:9px; padding:16px; border:1px solid var(--border); border-radius:18px; background:var(--surface); }
+.pp-register-parent-form-card__head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:14px; }
+.pp-register-parent-form-card__head h2 { margin:0; color:var(--text-strong); font-size:.88rem; font-weight:830; }
+.pp-register-parent-form-card__head p { margin:3px 0 0; color:var(--text-muted); font-size:.64rem; }
+.pp-register-parent-required { flex:0 0 auto; color:var(--text-subtle); font-size:.57rem; font-weight:700; }
+#registerForm { display:grid; gap:11px; }
+.pp-register-parent-name-grid, .pp-register-parent-secondary-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+.pp-register-parent-help { display:block; margin-top:4px; color:var(--text-subtle); font-size:.59rem; }
+.pp-register-parent-actions { display:flex; justify-content:flex-end; padding-top:2px; }
+.pp-register-parent-actions .pp-btn { width:auto; min-width:188px; min-height:46px; }
+
+.pp-register-parent-dialog { width:min(92vw,520px); max-width:520px; padding:0; border:0; border-radius:22px; background:transparent; }
+.pp-register-parent-dialog::backdrop { background:rgba(15,23,42,.52); backdrop-filter:blur(3px); }
+.pp-register-parent-dialog__card { display:grid; gap:13px; padding:20px; border:1px solid var(--border); border-radius:22px; background:var(--surface); box-shadow:var(--shadow-lg); }
+.pp-register-parent-dialog__icon { width:46px; height:46px; display:grid; place-items:center; border-radius:999px; background:var(--primary-container); color:var(--on-primary-container); }
+.pp-register-parent-dialog__icon svg { width:22px; height:22px; }
+.pp-register-parent-dialog h2 { margin:0; color:var(--text-strong); font-size:1rem; font-weight:850; }
+.pp-register-parent-dialog__intro { margin:4px 0 0; color:var(--text-muted); font-size:.69rem; line-height:1.45; }
+.pp-register-parent-review { display:grid; gap:0; margin:0; padding:7px 12px; border-radius:14px; background:var(--surface-variant); }
+.pp-register-parent-review > div { display:grid; grid-template-columns:92px minmax(0,1fr); gap:9px; padding:7px 0; }
+.pp-register-parent-review > div + div { border-top:1px solid var(--border); }
+.pp-register-parent-review dt { color:var(--text-subtle); font-size:.61rem; font-weight:750; }
+.pp-register-parent-review dd { min-width:0; margin:0; overflow-wrap:anywhere; color:var(--text-strong); font-size:.67rem; font-weight:720; }
+.pp-register-parent-dialog__notice { padding:9px 11px; border-radius:11px; background:var(--primary-container); color:var(--on-primary-container); font-size:.62rem; line-height:1.4; }
+.pp-register-parent-dialog__actions { display:flex; justify-content:flex-end; gap:7px; }
+.pp-register-parent-dialog__actions .pp-btn { width:auto; min-height:44px; }
+
+@media (max-width:520px) {
+  .pp-register-parent-name-grid, .pp-register-parent-secondary-grid { grid-template-columns:1fr; }
+  .pp-register-parent-form-card__head { display:grid; }
+  .pp-register-parent-actions .pp-btn { width:100%; }
+  .pp-register-parent-dialog__actions { display:grid; grid-template-columns:1fr; }
+  .pp-register-parent-dialog__actions .pp-btn { width:100%; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .pp-register-parent-dialog::backdrop { backdrop-filter:none; }
+}

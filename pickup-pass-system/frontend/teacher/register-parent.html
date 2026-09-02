@@ -3,55 +3,141 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Register Parent — PickupPass</title>
+<meta name="theme-color" content="#047857" />
+<title>Register Guardian — PickupPass</title>
 <link rel="stylesheet" href="../shared/theme.css" />
 <link rel="stylesheet" href="../shared/components.css" />
 <link rel="stylesheet" href="../shared/portal.css" />
+<link rel="stylesheet" href="./register-parent.css" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../shared/tailwind-config.js"></script>
 </head>
 <body class="min-h-screen pp-portal-body">
+<div id="teacherNav" data-active="students"></div>
+<script type="module" src="../shared/teacher-nav.js"></script>
 
-  <div id="teacherNav" data-active="students"></div>
-  <script type="module" src="../shared/teacher-nav.js"></script>
+<main class="pp-page pp-register-parent-page">
+  <a href="./students.html" class="pp-backlink">← Back to Students</a>
 
-  <main class="pp-page pp-page--narrow">
-    <a href="./students.html" class="pp-backlink mb-3">← Back to Students</a>
+  <header class="pp-register-parent-head">
+    <p class="pp-register-parent-eyebrow">Student access</p>
+    <h1>Register guardian</h1>
+    <p>Link an existing PickupPass account or create a new guardian account for this student.</p>
+  </header>
 
-    <h1 class="text-xl font-bold text-ink-strong mb-1">Register Parent</h1>
-    <p id="studentLabel" class="text-sm text-ink-muted mb-4"></p>
+  <section id="studentContext" class="pp-register-parent-student" aria-live="polite">
+    <span class="pp-register-parent-student__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 20V8l8-4 8 4v12H4Z"/><path d="M8 20v-6h8v6"/>
+      </svg>
+    </span>
+    <div>
+      <span>REGISTERING FOR</span>
+      <strong id="studentLabel">Loading student…</strong>
+      <small id="studentMeta">Confirming student record</small>
+    </div>
+  </section>
 
-    <div class="pp-card pp-card--pad">
-      <p class="pp-alert pp-alert--info mb-4">
-        They'll get an email to set their password and upload a photo. Once
-        set up, they can generate pickup passes for this student.
-      </p>
+  <section class="pp-register-parent-outcome">
+    <span aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3 5 6v5c0 4.4 2.9 8 7 9 4.1-1 7-4.6 7-9V6l-7-3Z"/><path d="m9 12 2 2 4-4"/>
+      </svg>
+    </span>
+    <div>
+      <strong>What happens next</strong>
+      <p>If this email already belongs to a PickupPass account, that account is linked to the student. Otherwise, PickupPass creates an account and sends setup instructions.</p>
+      <p>The guardian must finish account setup and upload their identity photo before using the secure pickup workflow.</p>
+    </div>
+  </section>
 
-      <form id="registerForm" class="space-y-3">
-        <input id="lastName" type="text" required placeholder="Last name" class="pp-field" />
-        <input id="firstName" type="text" required placeholder="First name" class="pp-field" />
-        <div class="flex gap-2">
-          <input id="middleInitial" type="text" maxlength="4" placeholder="M.I." class="pp-field w-1/3" />
-          <input id="suffix" type="text" placeholder="Suffix (Jr., III...)" class="pp-field w-2/3" />
-        </div>
-        <input id="parentEmail" type="email" required placeholder="Email address" class="pp-field" />
-        <select id="relationship" class="pp-field">
+  <section class="pp-register-parent-form-card">
+    <div class="pp-register-parent-form-card__head">
+      <div>
+        <h2>Guardian details</h2>
+        <p>Use the name and email this person should use in PickupPass.</p>
+      </div>
+      <span class="pp-register-parent-required">* Required</span>
+    </div>
+
+    <form id="registerForm" novalidate>
+      <div class="pp-register-parent-name-grid">
+        <label>
+          <span class="pp-label">Last name *</span>
+          <input id="lastName" type="text" required autocomplete="family-name" class="pp-field" />
+        </label>
+        <label>
+          <span class="pp-label">First name *</span>
+          <input id="firstName" type="text" required autocomplete="given-name" class="pp-field" />
+        </label>
+      </div>
+
+      <div class="pp-register-parent-secondary-grid">
+        <label>
+          <span class="pp-label">Middle initial</span>
+          <input id="middleInitial" type="text" maxlength="4" autocomplete="additional-name" placeholder="Optional" class="pp-field" />
+        </label>
+        <label>
+          <span class="pp-label">Suffix</span>
+          <input id="suffix" type="text" maxlength="16" placeholder="Jr., III" class="pp-field" />
+        </label>
+      </div>
+
+      <label>
+        <span class="pp-label">Email address *</span>
+        <input id="parentEmail" type="email" required autocomplete="email" inputmode="email" class="pp-field" aria-describedby="emailHelp" />
+        <small id="emailHelp" class="pp-register-parent-help">Used for sign-in and account setup.</small>
+      </label>
+
+      <label>
+        <span class="pp-label">Relationship *</span>
+        <select id="relationship" required class="pp-field">
           <option value="parent/guardian">Parent / Guardian</option>
           <option value="grandparent">Grandparent</option>
           <option value="relative">Other Relative</option>
           <option value="caregiver">Caregiver / Nanny</option>
           <option value="authorized pickup">Other Authorized Pickup</option>
         </select>
+      </label>
 
-        <p id="errorMsg" class="pp-alert pp-alert--danger hidden" style="display: none"></p>
-        <p id="successMsg" class="pp-alert pp-alert--success hidden" style="display: none"></p>
+      <p id="errorMsg" class="pp-alert pp-alert--danger hidden" role="alert"></p>
+      <p id="successMsg" class="pp-alert pp-alert--success hidden" role="status"></p>
 
-        <button type="submit" class="pp-btn pp-btn--primary w-full">
-          Register Parent
-        </button>
-      </form>
+      <div class="pp-register-parent-actions">
+        <button id="reviewBtn" type="button" class="pp-btn pp-btn--primary" disabled>Review registration</button>
+      </div>
+    </form>
+  </section>
+</main>
+
+<dialog id="confirmationDialog" class="pp-register-parent-dialog">
+  <form method="dialog" class="pp-register-parent-dialog__card">
+    <div class="pp-register-parent-dialog__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M16 11h6"/>
+      </svg>
     </div>
-  </main>
+    <div>
+      <h2>Register this guardian?</h2>
+      <p class="pp-register-parent-dialog__intro">Confirm the identity and email before PickupPass links or creates the account.</p>
+    </div>
+
+    <dl class="pp-register-parent-review">
+      <div><dt>Student</dt><dd id="reviewStudent"></dd></div>
+      <div><dt>Guardian</dt><dd id="reviewGuardian"></dd></div>
+      <div><dt>Relationship</dt><dd id="reviewRelationship"></dd></div>
+      <div><dt>Email</dt><dd id="reviewEmail"></dd></div>
+    </dl>
+
+    <div class="pp-register-parent-dialog__notice">This may immediately link an existing PickupPass account to the student.</div>
+    <p id="dialogError" class="pp-alert pp-alert--danger hidden" role="alert"></p>
+
+    <div class="pp-register-parent-dialog__actions">
+      <button id="keepEditingBtn" type="button" class="pp-btn pp-btn--secondary">Keep editing</button>
+      <button id="registerBtn" type="button" class="pp-btn pp-btn--primary">Register guardian</button>
+    </div>
+  </form>
+</dialog>
 
 <script type="module">
 import { auth, db, authedFetch, setSubmitButtonBusy, showToast } from "../shared/firebase-init.js";
@@ -60,66 +146,181 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/f
 
 const params = new URLSearchParams(window.location.search);
 const studentId = params.get("studentId") || sessionStorage.getItem("pendingParentStudentId");
+if (!studentId) window.location.href = "./students.html";
 
-if (!studentId) {
-  window.location.href = "./students.html";
+const form = document.getElementById("registerForm");
+const lastNameInput = document.getElementById("lastName");
+const firstNameInput = document.getElementById("firstName");
+const middleInitialInput = document.getElementById("middleInitial");
+const suffixInput = document.getElementById("suffix");
+const emailInput = document.getElementById("parentEmail");
+const relationshipInput = document.getElementById("relationship");
+const reviewBtn = document.getElementById("reviewBtn");
+const registerBtn = document.getElementById("registerBtn");
+const keepEditingBtn = document.getElementById("keepEditingBtn");
+const dialog = document.getElementById("confirmationDialog");
+const errorMsg = document.getElementById("errorMsg");
+const successMsg = document.getElementById("successMsg");
+const dialogError = document.getElementById("dialogError");
+const studentLabel = document.getElementById("studentLabel");
+const studentMeta = document.getElementById("studentMeta");
+let studentReady = false;
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+  try {
+    const studentSnap = await getDoc(doc(db, "students", studentId));
+    if (!studentSnap.exists()) {
+      studentLabel.textContent = "Student unavailable";
+      studentMeta.textContent = "Return to Students and select the student again.";
+      showFormError("This student could not be found.");
+      return;
+    }
+    const student = studentSnap.data();
+    studentLabel.textContent = student.fullName || "Selected student";
+    const metaParts = [];
+    if (student.grade) metaParts.push(`Grade ${student.grade}`);
+    if (student.section) metaParts.push(`Section ${student.section}`);
+    studentMeta.textContent = metaParts.join(" · ") || "Student record loaded";
+    studentReady = true;
+    updateReviewState();
+  } catch (error) {
+    studentLabel.textContent = "Could not load student";
+    studentMeta.textContent = "Check your connection and return to Students if the problem continues.";
+    showFormError(error?.message || "Could not load the selected student.");
+  }
+});
+
+function readDraft() {
+  return {
+    lastName: lastNameInput.value.trim(),
+    firstName: firstNameInput.value.trim(),
+    middleInitial: middleInitialInput.value.trim(),
+    suffix: suffixInput.value.trim(),
+    parentEmail: emailInput.value.trim(),
+    relationship: relationshipInput.value
+  };
 }
 
-// Sign-out, auth guard and signed-in email are owned by the shared teacher nav.
-// This page keeps its auth listener only to load the student it's registering for.
-onAuthStateChanged(auth, async (user) => {
-  if (!user) return; // nav performs the redirect
-  const studentSnap = await getDoc(doc(db, "students", studentId));
-  if (studentSnap.exists()) {
-    const s = studentSnap.data();
-    document.getElementById("studentLabel").textContent =
-      `${s.fullName} · Grade ${s.grade || "-"}`;
+function guardianDisplayName(draft) {
+  return [draft.firstName, draft.middleInitial, draft.lastName, draft.suffix].filter(Boolean).join(" ");
+}
+
+function relationshipLabel() {
+  return relationshipInput.options[relationshipInput.selectedIndex]?.textContent?.trim() || "Parent / Guardian";
+}
+
+function updateReviewState() {
+  reviewBtn.disabled = !studentReady || !form.checkValidity();
+}
+
+function clearFeedback() {
+  errorMsg.classList.add("hidden");
+  dialogError.classList.add("hidden");
+}
+
+function showFormError(message) {
+  errorMsg.textContent = message;
+  errorMsg.classList.remove("hidden");
+}
+
+form.addEventListener("input", () => {
+  clearFeedback();
+  updateReviewState();
+});
+form.addEventListener("change", updateReviewState);
+form.addEventListener("submit", (event) => event.preventDefault());
+
+reviewBtn.addEventListener("click", () => {
+  clearFeedback();
+  if (!studentReady || !form.reportValidity()) return;
+  const draft = readDraft();
+  document.getElementById("reviewStudent").textContent = studentLabel.textContent;
+  document.getElementById("reviewGuardian").textContent = guardianDisplayName(draft);
+  document.getElementById("reviewRelationship").textContent = relationshipLabel();
+  document.getElementById("reviewEmail").textContent = draft.parentEmail;
+  if (typeof dialog.showModal === "function") {
+    dialog.showModal();
+  } else {
+    showFormError("Your browser cannot open the review dialog. Please update your browser before registering guardians.");
   }
 });
 
-document.getElementById("registerForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const submitButton = e.currentTarget.querySelector('button[type="submit"]');
-  if (submitButton.disabled) return;
-  setSubmitButtonBusy(submitButton, true, "Registering…");
-  const errorMsg = document.getElementById("errorMsg");
-  const successMsg = document.getElementById("successMsg");
-  errorMsg.classList.add("hidden");
-  successMsg.classList.add("hidden");
+keepEditingBtn.addEventListener("click", () => {
+  if (!registerBtn.disabled) {
+    dialog.close();
+    lastNameInput.focus();
+  }
+});
 
-  const lastName = document.getElementById("lastName").value.trim();
-  const firstName = document.getElementById("firstName").value.trim();
-  const middleInitial = document.getElementById("middleInitial").value.trim();
-  const suffix = document.getElementById("suffix").value.trim();
-  const parentEmail = document.getElementById("parentEmail").value.trim();
-  const relationship = document.getElementById("relationship").value;
+registerBtn.addEventListener("click", async () => {
+  clearFeedback();
+  const draft = readDraft();
+  if (!studentReady || !form.checkValidity()) {
+    dialog.close();
+    form.reportValidity();
+    updateReviewState();
+    return;
+  }
+
+  setSubmitButtonBusy(registerBtn, true, "Registering…");
+  keepEditingBtn.disabled = true;
 
   try {
-    const res = await authedFetch("/teacher/register-parent", {
+    const response = await authedFetch("/teacher/register-parent", {
       method: "POST",
-      body: JSON.stringify({ studentId, lastName, firstName, middleInitial, suffix, parentEmail, relationship }),
+      body: JSON.stringify({
+        studentId,
+        lastName: draft.lastName,
+        firstName: draft.firstName,
+        middleInitial: draft.middleInitial,
+        suffix: draft.suffix,
+        parentEmail: draft.parentEmail,
+        relationship: draft.relationship
+      })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Could not register parent");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Could not register guardian");
 
+    dialog.close();
+    successMsg.classList.remove("pp-alert--success", "pp-alert--warning");
+
+    let message;
+    let tone;
     if (data.status === "linked_existing") {
-      successMsg.textContent = `Linked — ${parentEmail} already had an account.`;
+      message = `Linked — ${draft.parentEmail} already had a PickupPass account.`;
+      tone = "success";
     } else if (data.emailSent) {
-      successMsg.textContent = `Invite sent to ${parentEmail}.`;
+      message = `Invite sent to ${draft.parentEmail}.`;
+      tone = "success";
     } else {
-      successMsg.textContent = `Account created for ${parentEmail}, but the invite email couldn't be sent — ask them to use "Forgot password?" on the sign-in page with this email.`;
+      message = `Account created for ${draft.parentEmail}, but the invite email couldn't be sent — ask them to use "Forgot password?" on the sign-in page with this email.`;
+      tone = "warning";
     }
+
+    successMsg.textContent = message;
+    successMsg.classList.add(tone === "warning" ? "pp-alert--warning" : "pp-alert--success");
     successMsg.classList.remove("hidden");
-    showToast(successMsg.textContent, data.emailSent === false ? "warning" : "success");
-    e.target.reset();
-  } catch (err) {
-    errorMsg.textContent = err.message;
-    errorMsg.classList.remove("hidden");
-    showToast(err.message || "Could not register parent.", "error");
+    showToast(message, tone);
+
+    form.reset();
+    updateReviewState();
+    lastNameInput.focus();
+  } catch (error) {
+    dialogError.textContent = error?.message || "Could not register guardian.";
+    dialogError.classList.remove("hidden");
+    showToast(error?.message || "Could not register guardian.", "error");
   } finally {
-    setSubmitButtonBusy(submitButton, false);
+    setSubmitButtonBusy(registerBtn, false);
+    keepEditingBtn.disabled = false;
   }
 });
+
+dialog.addEventListener("cancel", (event) => {
+  if (registerBtn.disabled) event.preventDefault();
+});
+
+updateReviewState();
 </script>
 </body>
 </html>
