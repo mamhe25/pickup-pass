@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -57,6 +58,7 @@ fun ScannerScreen(
     onGoToExitLogs: () -> Unit,
     onGoToNotifications: () -> Unit,
     onGoToBroadcast: () -> Unit,
+    onGoToOperations: () -> Unit,
     onSignOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -139,6 +141,22 @@ fun ScannerScreen(
                             onClick = {
                                 menuExpanded = false
                                 onGoToNotifications()
+                            }
+                        )
+
+                        DropdownMenuItem(
+                            text = {
+                                Text("Pickup Operations")
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.Settings,
+                                    contentDescription = null
+                                )
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                onGoToOperations()
                             }
                         )
 

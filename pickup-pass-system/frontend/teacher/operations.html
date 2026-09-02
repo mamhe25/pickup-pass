@@ -1,29 +1,998 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Teacher Operations — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head><body class="min-h-screen pp-portal-body">
-<div id="teacherNav" data-active="operations"></div><script type="module" src="../shared/teacher-nav.js"></script>
-<main class="pp-page"><div class="pp-page-head"><div><h1>Pickup Operations</h1><p>Your current pickup-gate access, academic structure, and school feature availability. Gate access follows PickupPass' 0 / 1 / multiple-gate behavior automatically in the scanner.</p></div><button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh</button></div>
-<div class="pp-grid"><div class="pp-kpi"><div class="pp-kpi__label">Accessible gates</div><div id="gateCount" class="pp-kpi__value">—</div></div><div class="pp-kpi"><div class="pp-kpi__label">Current academic year</div><div id="yearName" class="pp-kpi__value text-lg">—</div></div><div class="pp-kpi"><div class="pp-kpi__label">Active sections</div><div id="sectionCount" class="pp-kpi__value">—</div></div></div>
-<section class="pp-section"><div class="pp-section__head"><h2>Pickup gate access</h2></div><div id="gateBody" class="pp-section__body pp-grid"><p class="pp-mini">Loading…</p></div></section>
-<section class="pp-section"><div class="pp-section__head"><h2>Academic structure</h2></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Grade</th><th>Section</th><th>Academic year</th><th>Status</th></tr></thead><tbody id="sectionsRows"><tr><td colspan="4" class="pp-empty">Loading…</td></tr></tbody></table></div></section>
-<section class="pp-section"><div class="pp-section__head"><h2>School features</h2></div><div id="featureBody" class="pp-section__body pp-grid"><p class="pp-mini">Loading…</p></div></section></main>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#047857" />
+
+<title>Pickup Operations — PickupPass</title>
+
+<link rel="stylesheet" href="../shared/theme.css" />
+<link rel="stylesheet" href="../shared/components.css" />
+<link rel="stylesheet" href="../shared/portal.css" />
+<link rel="stylesheet" href="./operations.css" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+
+<body class="min-h-screen pp-portal-body">
+<div id="teacherNav" data-active="operations"></div>
+<script type="module" src="../shared/teacher-nav.js"></script>
+
+<main class="pp-page pp-operations-page">
+  <header class="pp-operations-head">
+    <div>
+      <p class="pp-operations-eyebrow">Staff reference</p>
+      <h1>Pickup operations</h1>
+      <p>
+        Your current gate access, academic structure, and school feature
+        availability.
+      </p>
+    </div>
+
+    <button
+      id="refreshBtn"
+      type="button"
+      class="pp-btn pp-btn--ghost">
+      Refresh
+    </button>
+  </header>
+
+  <section class="pp-operations-summary" aria-label="Operations summary">
+    <article class="pp-operations-summary__item">
+      <span>Accessible gates</span>
+      <strong id="gateCount">—</strong>
+    </article>
+
+    <article class="pp-operations-summary__item">
+      <span>Academic year</span>
+      <strong id="yearName">—</strong>
+    </article>
+
+    <article class="pp-operations-summary__item">
+      <span>Active sections</span>
+      <strong id="sectionCount">—</strong>
+    </article>
+  </section>
+
+  <section class="pp-operations-section">
+    <div class="pp-operations-section__head">
+      <div>
+        <p class="pp-operations-kicker">GATE ACCESS</p>
+        <h2>Pickup gate behavior</h2>
+      </div>
+
+      <span id="gateModePill" class="pp-operations-status-pill">
+        Loading…
+      </span>
+    </div>
+
+    <p class="pp-operations-section__intro">
+      Scanner gate selection adapts automatically to the number of active gates
+      available to your account.
+    </p>
+
+    <div
+      id="gateBody"
+      class="pp-operations-gate-list"
+      aria-live="polite">
+      <div class="pp-operations-loading-row">
+        <span class="pp-operations-spinner"></span>
+        Loading gate access…
+      </div>
+    </div>
+  </section>
+
+  <section class="pp-operations-section">
+    <div class="pp-operations-section__head">
+      <div>
+        <p class="pp-operations-kicker">ACADEMIC STRUCTURE</p>
+        <h2>Grades and sections</h2>
+      </div>
+
+      <span id="structureStatus" class="pp-operations-status-pill">
+        Loading…
+      </span>
+    </div>
+
+    <p class="pp-operations-section__intro">
+      Review the school structure currently available to your account.
+    </p>
+
+    <div
+      id="sectionsBody"
+      class="pp-operations-grade-list"
+      aria-live="polite">
+      <div class="pp-operations-loading-row">
+        <span class="pp-operations-spinner"></span>
+        Loading academic structure…
+      </div>
+    </div>
+  </section>
+
+  <section class="pp-operations-section">
+    <div class="pp-operations-section__head">
+      <div>
+        <p class="pp-operations-kicker">SCHOOL PLAN</p>
+        <h2>Feature availability</h2>
+      </div>
+
+      <span id="entitlementStatus" class="pp-operations-status-pill">
+        Loading…
+      </span>
+    </div>
+
+    <p class="pp-operations-section__intro">
+      Feature availability is controlled by the school's current plan and
+      subscription state.
+    </p>
+
+    <div
+      id="featureBody"
+      class="pp-operations-feature-list"
+      aria-live="polite">
+      <div class="pp-operations-loading-row">
+        <span class="pp-operations-spinner"></span>
+        Loading school features…
+      </div>
+    </div>
+  </section>
+</main>
+
 <script type="module">
-import { apiJson, requireRole, bindRefresh, escapeHtml, statusPill, titleCase } from '../shared/portal.js';
-async function load(){
-  const [gateResult, structureResult, entResult]=await Promise.allSettled([apiJson('/pickup/gates'),apiJson('/academic-structure'),apiJson('/tenant/entitlements')]);
-  if(gateResult.status==='fulfilled'){
-    const gates=gateResult.value.gates||[]; document.getElementById('gateCount').textContent=gates.length;
-    document.getElementById('gateBody').innerHTML=gates.length?gates.map(g=>`<div class="pp-kpi"><div class="pp-kpi__label">${escapeHtml(g.campusName||'Campus')}</div><div class="font-bold text-ink-strong">${escapeHtml(g.name||'Gate')}</div><div class="pp-mini">Available to this account</div></div>`).join(''):'<div class="pp-alert pp-alert--info">No active gates are configured. The scanner works normally without gate selection.</div>';
-  }
-  if(structureResult.status==='fulfilled'){
-    const d=structureResult.value, sections=d.gradeSections||[], current=d.currentAcademicYear;
-    document.getElementById('yearName').textContent=current?.name||'Not set';
-    document.getElementById('sectionCount').textContent=sections.filter(s=>s.active!==false).length;
-    document.getElementById('sectionsRows').innerHTML=sections.length?sections.map(s=>`<tr><td>${escapeHtml(s.gradeLevel)}</td><td>${escapeHtml(s.sectionName)}</td><td>${escapeHtml(s.academicYearName||'')}</td><td>${statusPill(s.active===false?'archived':'active')}</td></tr>`).join(''):'<tr><td colspan="4" class="pp-empty">No sections configured.</td></tr>';
-  }
-  if(entResult.status==='fulfilled'){
-    const e=entResult.value; const features=e.features||e.featureFlags||{};
-    const entries=Object.entries(features);
-    document.getElementById('featureBody').innerHTML=`<div class="pp-kpi"><div class="pp-kpi__label">Plan</div><div class="font-bold">${escapeHtml(e.plan||e.planName||'Legacy')}</div></div><div class="pp-kpi"><div class="pp-kpi__label">Subscription</div><div>${statusPill(e.subscriptionStatus||e.status||'active')}</div></div>`+(entries.length?entries.map(([k,v])=>`<div class="pp-kpi"><div class="pp-kpi__label">${escapeHtml(titleCase(k))}</div><div>${statusPill(v?'enabled':'disabled')}</div></div>`).join(''):'');
-  }
+import {
+  apiJson,
+  requireRole,
+  bindRefresh,
+  escapeHtml,
+  titleCase
+} from "../shared/portal.js";
+
+const gateCount =
+  document.getElementById(
+    "gateCount"
+  );
+
+const yearName =
+  document.getElementById(
+    "yearName"
+  );
+
+const sectionCount =
+  document.getElementById(
+    "sectionCount"
+  );
+
+const gateModePill =
+  document.getElementById(
+    "gateModePill"
+  );
+
+const structureStatus =
+  document.getElementById(
+    "structureStatus"
+  );
+
+const entitlementStatus =
+  document.getElementById(
+    "entitlementStatus"
+  );
+
+const gateBody =
+  document.getElementById(
+    "gateBody"
+  );
+
+const sectionsBody =
+  document.getElementById(
+    "sectionsBody"
+  );
+
+const featureBody =
+  document.getElementById(
+    "featureBody"
+  );
+
+async function load() {
+  setLoadingState();
+
+  const [
+    gateResult,
+    structureResult,
+    entitlementResult
+  ] =
+    await Promise.allSettled([
+      apiJson("/pickup/gates"),
+      apiJson("/academic-structure"),
+      apiJson("/tenant/entitlements")
+    ]);
+
+  renderGateResult(
+    gateResult
+  );
+
+  renderStructureResult(
+    structureResult
+  );
+
+  renderEntitlementResult(
+    entitlementResult
+  );
 }
-bindRefresh('refreshBtn',load); requireRole(['teacher','school_admin'],load);
-</script></body></html>
+
+function setLoadingState() {
+  gateCount.textContent = "—";
+  yearName.textContent = "—";
+  sectionCount.textContent = "—";
+
+  setStatus(
+    gateModePill,
+    "Loading…",
+    "neutral"
+  );
+
+  setStatus(
+    structureStatus,
+    "Loading…",
+    "neutral"
+  );
+
+  setStatus(
+    entitlementStatus,
+    "Loading…",
+    "neutral"
+  );
+
+  gateBody.innerHTML =
+    loadingRow(
+      "Loading gate access…"
+    );
+
+  sectionsBody.innerHTML =
+    loadingRow(
+      "Loading academic structure…"
+    );
+
+  featureBody.innerHTML =
+    loadingRow(
+      "Loading school features…"
+    );
+}
+
+function renderGateResult(
+  result
+) {
+  if (
+    result.status !==
+    "fulfilled"
+  ) {
+    gateCount.textContent = "—";
+
+    setStatus(
+      gateModePill,
+      "Unavailable",
+      "danger"
+    );
+
+    gateBody.innerHTML =
+      errorCard(
+        "Gate access could not be loaded.",
+        result.reason
+      );
+
+    return;
+  }
+
+  const gates =
+    result.value.gates || [];
+
+  gateCount.textContent =
+    String(gates.length);
+
+  if (gates.length === 0) {
+    setStatus(
+      gateModePill,
+      "No gate selection",
+      "info"
+    );
+
+    gateBody.innerHTML = `
+      <article class="pp-operations-info-card">
+        <span class="pp-operations-info-card__icon" aria-hidden="true">
+          ${iconGate()}
+        </span>
+
+        <div>
+          <strong>No active gates configured</strong>
+          <p>
+            The scanner can continue without asking you to select a gate.
+          </p>
+        </div>
+      </article>
+    `;
+
+    return;
+  }
+
+  if (gates.length === 1) {
+    setStatus(
+      gateModePill,
+      "Automatic gate",
+      "success"
+    );
+  } else {
+    setStatus(
+      gateModePill,
+      "Gate selection required",
+      "warning"
+    );
+  }
+
+  gateBody.innerHTML =
+    gates
+      .map(
+        (gate, index) =>
+          gateCard(
+            gate,
+            index,
+            gates.length
+          )
+      )
+      .join("");
+}
+
+function gateCard(
+  gate,
+  index,
+  total
+) {
+  const modeText =
+    total === 1
+      ? "Selected automatically in scanner"
+      : "Available for scanner selection";
+
+  return `
+    <article class="pp-operations-gate-card">
+      <span class="pp-operations-gate-card__index">
+        ${index + 1}
+      </span>
+
+      <div class="pp-operations-gate-card__main">
+        <strong>
+          ${escapeHtml(
+            gate.name ||
+            "Gate"
+          )}
+        </strong>
+
+        <span>
+          ${escapeHtml(
+            gate.campusName ||
+            "Campus"
+          )}
+        </span>
+      </div>
+
+      <small>
+        ${escapeHtml(
+          modeText
+        )}
+      </small>
+    </article>
+  `;
+}
+
+function renderStructureResult(
+  result
+) {
+  if (
+    result.status !==
+    "fulfilled"
+  ) {
+    yearName.textContent = "—";
+    sectionCount.textContent = "—";
+
+    setStatus(
+      structureStatus,
+      "Unavailable",
+      "danger"
+    );
+
+    sectionsBody.innerHTML =
+      errorCard(
+        "Academic structure could not be loaded.",
+        result.reason
+      );
+
+    return;
+  }
+
+  const data =
+    result.value || {};
+
+  const sections =
+    data.gradeSections || [];
+
+  const current =
+    data.currentAcademicYear;
+
+  const activeSections =
+    sections.filter(
+      (section) =>
+        section.active !== false
+    );
+
+  yearName.textContent =
+    current?.name ||
+    "Not set";
+
+  sectionCount.textContent =
+    String(
+      activeSections.length
+    );
+
+  if (sections.length === 0) {
+    setStatus(
+      structureStatus,
+      "No sections",
+      "info"
+    );
+
+    sectionsBody.innerHTML =
+      emptyCard(
+        "No sections configured",
+        "Your school administrator has not configured academic sections yet."
+      );
+
+    return;
+  }
+
+  setStatus(
+    structureStatus,
+    `${activeSections.length} active`,
+    "success"
+  );
+
+  const groups =
+    groupSectionsByGrade(
+      sections
+    );
+
+  sectionsBody.innerHTML =
+    groups
+      .map(
+        (
+          [grade, gradeSections],
+          index
+        ) =>
+          gradeGroup(
+            grade,
+            gradeSections,
+            index === 0
+          )
+      )
+      .join("");
+}
+
+function groupSectionsByGrade(
+  sections
+) {
+  const grouped =
+    new Map();
+
+  sections.forEach(
+    (section) => {
+      const grade =
+        section.gradeLevel ||
+        "Unspecified grade";
+
+      if (
+        !grouped.has(grade)
+      ) {
+        grouped.set(
+          grade,
+          []
+        );
+      }
+
+      grouped
+        .get(grade)
+        .push(section);
+    }
+  );
+
+  return [
+    ...grouped.entries()
+  ].sort(
+    ([a], [b]) =>
+      String(a).localeCompare(
+        String(b),
+        undefined,
+        {
+          numeric: true,
+          sensitivity: "base"
+        }
+      )
+  );
+}
+
+function gradeGroup(
+  grade,
+  sections,
+  open
+) {
+  const active =
+    sections.filter(
+      (section) =>
+        section.active !== false
+    ).length;
+
+  return `
+    <details
+      class="pp-operations-grade"
+      ${open ? "open" : ""}>
+      <summary>
+        <span class="pp-operations-grade__badge">
+          ${escapeHtml(
+            gradeBadge(grade)
+          )}
+        </span>
+
+        <span class="pp-operations-grade__main">
+          <strong>
+            Grade ${escapeHtml(
+              grade
+            )}
+          </strong>
+
+          <small>
+            ${sections.length}
+            section${
+              sections.length === 1
+                ? ""
+                : "s"
+            }
+            ·
+            ${active} active
+          </small>
+        </span>
+
+        <span
+          class="pp-operations-grade__chevron"
+          aria-hidden="true">
+          ${iconChevron()}
+        </span>
+      </summary>
+
+      <div class="pp-operations-section-rows">
+        ${sections
+          .map(
+            (section) =>
+              sectionRow(section)
+          )
+          .join("")}
+      </div>
+    </details>
+  `;
+}
+
+function sectionRow(
+  section
+) {
+  const active =
+    section.active !== false;
+
+  return `
+    <div class="pp-operations-section-row">
+      <div>
+        <strong>
+          ${escapeHtml(
+            section.sectionName ||
+            "Section"
+          )}
+        </strong>
+
+        <span>
+          ${escapeHtml(
+            section.academicYearName ||
+            "Academic year not set"
+          )}
+        </span>
+      </div>
+
+      <span
+        class="pp-operations-mini-status
+          ${
+            active
+              ? "pp-operations-mini-status--success"
+              : "pp-operations-mini-status--neutral"
+          }">
+        ${
+          active
+            ? "Active"
+            : "Archived"
+        }
+      </span>
+    </div>
+  `;
+}
+
+function renderEntitlementResult(
+  result
+) {
+  if (
+    result.status !==
+    "fulfilled"
+  ) {
+    setStatus(
+      entitlementStatus,
+      "Unavailable",
+      "danger"
+    );
+
+    featureBody.innerHTML =
+      errorCard(
+        "School feature availability could not be loaded.",
+        result.reason
+      );
+
+    return;
+  }
+
+  const entitlement =
+    result.value || {};
+
+  const features =
+    entitlement.features ||
+    entitlement.featureFlags ||
+    {};
+
+  const featureEntries =
+    Object.entries(
+      features
+    );
+
+  const plan =
+    entitlement.plan ||
+    entitlement.planName ||
+    "Legacy";
+
+  const subscription =
+    entitlement.subscriptionStatus ||
+    entitlement.status ||
+    "active";
+
+  setStatus(
+    entitlementStatus,
+    titleCase(
+      subscription
+    ),
+    subscriptionState(
+      subscription
+    )
+  );
+
+  const featureCards =
+    featureEntries.length
+      ? featureEntries
+          .sort(
+            ([a], [b]) =>
+              titleCase(a)
+                .localeCompare(
+                  titleCase(b)
+                )
+          )
+          .map(
+            ([key, enabled]) =>
+              featureCard(
+                key,
+                enabled
+              )
+          )
+          .join("")
+      : `
+        <article class="pp-operations-feature-card">
+          <span class="pp-operations-feature-card__icon pp-operations-feature-card__icon--neutral">
+            ${iconSettings()}
+          </span>
+
+          <div>
+            <strong>
+              Standard school features
+            </strong>
+            <p>
+              No individual feature flags were returned for this plan.
+            </p>
+          </div>
+        </article>
+      `;
+
+  featureBody.innerHTML = `
+    <div class="pp-operations-plan-row">
+      <div>
+        <span>Plan</span>
+        <strong>
+          ${escapeHtml(
+            plan
+          )}
+        </strong>
+      </div>
+
+      <div>
+        <span>Subscription</span>
+        <strong>
+          ${escapeHtml(
+            titleCase(
+              subscription
+            )
+          )}
+        </strong>
+      </div>
+    </div>
+
+    <div class="pp-operations-feature-grid">
+      ${featureCards}
+    </div>
+  `;
+}
+
+function featureCard(
+  key,
+  enabled
+) {
+  return `
+    <article class="pp-operations-feature-card">
+      <span
+        class="
+          pp-operations-feature-card__icon
+          ${
+            enabled
+              ? "pp-operations-feature-card__icon--enabled"
+              : "pp-operations-feature-card__icon--disabled"
+          }"
+        aria-hidden="true">
+        ${
+          enabled
+            ? iconCheck()
+            : iconMinus()
+        }
+      </span>
+
+      <div>
+        <strong>
+          ${escapeHtml(
+            titleCase(key)
+          )}
+        </strong>
+
+        <p>
+          ${
+            enabled
+              ? "Available for this school"
+              : "Not available on the current plan"
+          }
+        </p>
+      </div>
+    </article>
+  `;
+}
+
+function subscriptionState(
+  value
+) {
+  const normalized =
+    String(value)
+      .toLowerCase();
+
+  if (
+    normalized.includes(
+      "active"
+    ) ||
+    normalized.includes(
+      "trial"
+    )
+  ) {
+    return "success";
+  }
+
+  if (
+    normalized.includes(
+      "past"
+    ) ||
+    normalized.includes(
+      "due"
+    )
+  ) {
+    return "warning";
+  }
+
+  if (
+    normalized.includes(
+      "cancel"
+    ) ||
+    normalized.includes(
+      "suspend"
+    ) ||
+    normalized.includes(
+      "expired"
+    )
+  ) {
+    return "danger";
+  }
+
+  return "neutral";
+}
+
+function setStatus(
+  element,
+  label,
+  tone
+) {
+  element.className =
+    "pp-operations-status-pill " +
+    `pp-operations-status-pill--${tone}`;
+
+  element.textContent =
+    label;
+}
+
+function loadingRow(
+  message
+) {
+  return `
+    <div class="pp-operations-loading-row">
+      <span class="pp-operations-spinner"></span>
+      ${escapeHtml(
+        message
+      )}
+    </div>
+  `;
+}
+
+function emptyCard(
+  title,
+  message
+) {
+  return `
+    <article class="pp-operations-info-card">
+      <span class="pp-operations-info-card__icon" aria-hidden="true">
+        ${iconSettings()}
+      </span>
+
+      <div>
+        <strong>
+          ${escapeHtml(title)}
+        </strong>
+
+        <p>
+          ${escapeHtml(message)}
+        </p>
+      </div>
+    </article>
+  `;
+}
+
+function errorCard(
+  message,
+  reason
+) {
+  const detail =
+    reason?.message
+      ? ` ${reason.message}`
+      : "";
+
+  return `
+    <article class="pp-operations-error-card" role="alert">
+      <strong>
+        ${escapeHtml(message)}
+      </strong>
+
+      <p>
+        Refresh this page to try again.${
+          escapeHtml(detail)
+        }
+      </p>
+    </article>
+  `;
+}
+
+function gradeBadge(
+  grade
+) {
+  return String(grade)
+    .replace(
+      /^grade\s*/i,
+      ""
+    )
+    .trim()
+    .slice(0, 3) || "G";
+}
+
+function iconGate() {
+  return `
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round">
+      <path d="M5 21V6l7-3 7 3v15"/>
+      <path d="M9 21v-7h6v7"/>
+      <path d="M8 9h.01M12 9h.01M16 9h.01"/>
+    </svg>
+  `;
+}
+
+function iconSettings() {
+  return `
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14v-4a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3h4a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9A1.7 1.7 0 0 0 21 10v4a1.7 1.7 0 0 0-1.6 1Z"/>
+    </svg>
+  `;
+}
+
+function iconCheck() {
+  return `
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round">
+      <path d="m6 12 4 4 8-8"/>
+    </svg>
+  `;
+}
+
+function iconMinus() {
+  return `
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round">
+      <path d="M6 12h12"/>
+    </svg>
+  `;
+}
+
+function iconChevron() {
+  return `
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round">
+      <path d="m9 18 6-6-6-6"/>
+    </svg>
+  `;
+}
+
+bindRefresh(
+  "refreshBtn",
+  load
+);
+
+requireRole(
+  [
+    "teacher",
+    "school_admin"
+  ],
+  load
+);
+</script>
+</body>
+</html>

@@ -44,6 +44,7 @@ import com.pickuppass.android.ui.splash.SplashDestination
 import com.pickuppass.android.ui.splash.SplashScreen
 import com.pickuppass.android.ui.teacher.broadcast.TeacherBroadcastScreen
 import com.pickuppass.android.ui.teacher.exitlogs.ExitLogsScreen
+import com.pickuppass.android.ui.teacher.operations.TeacherOperationsScreen
 import com.pickuppass.android.ui.teacher.registerparent.RegisterParentScreen
 import com.pickuppass.android.ui.teacher.scanner.ScannerScreen
 import com.pickuppass.android.ui.teacher.students.TeacherStudentsScreen
@@ -404,6 +405,11 @@ fun PickupPassNavHost(
                         Screen.TeacherBroadcast.route
                     )
                 },
+                onGoToOperations = {
+                    navController.navigate(
+                        Screen.TeacherOperations.route
+                    )
+                },
                 onSignOut = {
                     navController
                         .navigateToLoginClearingBackStack()
@@ -493,6 +499,17 @@ fun PickupPassNavHost(
             Screen.TeacherBroadcast.route
         ) {
             TeacherBroadcastScreen(
+                onBack = {
+                    navController
+                        .popBackStack()
+                }
+            )
+        }
+
+        composable(
+            Screen.TeacherOperations.route
+        ) {
+            TeacherOperationsScreen(
                 onBack = {
                     navController
                         .popBackStack()

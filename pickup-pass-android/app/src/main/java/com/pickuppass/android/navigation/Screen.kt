@@ -72,6 +72,9 @@ sealed class Screen(
     data object TeacherBroadcast :
         Screen("teacher/broadcast")
 
+    data object TeacherOperations :
+        Screen("teacher/operations")
+
     data object MasterAdminHome :
         Screen("master-admin/home")
 
