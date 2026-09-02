@@ -3,22 +3,27 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Dismissal Scanner — PickupPass</title>
 <meta name="theme-color" content="#047857" />
+<title>Dismissal Scanner — PickupPass</title>
+
 <link rel="stylesheet" href="../shared/theme.css" />
 <link rel="stylesheet" href="../shared/components.css" />
 <link rel="stylesheet" href="../shared/portal.css" />
 <link rel="stylesheet" href="./scanner.css" />
+
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../shared/tailwind-config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 </head>
+
 <body class="min-h-screen pp-portal-body">
 <div id="scannerRoleNav"></div>
 
 <script type="module">
 import { auth } from "../shared/firebase-init.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -26,165 +31,337 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  const tokenResult = await user.getIdTokenResult();
-  const role = tokenResult.claims.role;
-  const host = document.getElementById("scannerRoleNav");
+  const tokenResult =
+    await user.getIdTokenResult();
+
+  const role =
+    tokenResult.claims.role;
+
+  const host =
+    document.getElementById(
+      "scannerRoleNav"
+    );
 
   if (role === "school_admin") {
-    const nav = document.createElement("div");
+    const nav =
+      document.createElement("div");
+
     nav.id = "adminNav";
     nav.dataset.active = "pickup";
     host.replaceChildren(nav);
-    await import("../shared/school-admin-nav.js");
+
+    await import(
+      "../shared/school-admin-nav.js"
+    );
+
     return;
   }
 
-  if (role === "teacher" || role === "staff") {
-    const nav = document.createElement("div");
+  if (
+    role === "teacher" ||
+    role === "staff"
+  ) {
+    const nav =
+      document.createElement("div");
+
     nav.id = "teacherNav";
     nav.dataset.active = "scanner";
     host.replaceChildren(nav);
-    await import("../shared/teacher-nav.js");
+
+    await import(
+      "../shared/teacher-nav.js"
+    );
+
     return;
   }
 
-  window.location.href = "../login.html";
+  window.location.href =
+    "../login.html";
 });
 </script>
 
-<div id="requestOverlay" class="pp-request-overlay hidden" aria-live="assertive">
-  <div class="pp-request-overlay__card">
-    <div class="pp-request-overlay__spinner" aria-hidden="true"></div>
-    <p id="requestOverlayMessage" class="font-semibold">Verifying pass…</p>
+<div
+  id="scannerAlert"
+  role="alert"
+  class="hidden fixed top-4 left-4 right-4 z-50 max-w-md mx-auto rounded-md px-4 py-3 text-center text-sm font-semibold shadow-lg"
+  style="background-color:var(--danger);color:#fff;"></div>
+
+<div
+  id="requestOverlay"
+  class="pp-request-overlay hidden fixed inset-0 z-50 flex items-center justify-center p-6"
+  aria-live="assertive">
+  <div class="pp-request-card flex flex-col items-center gap-4 text-center">
+    <div class="h-10 w-10 rounded-full border-4 border-white/20 border-t-white animate-spin"></div>
+
+    <p
+      id="requestOverlayMessage"
+      class="text-base font-semibold text-white">
+      Verifying pass…
+    </p>
   </div>
 </div>
 
-<div id="releaseSuccess" class="pp-release-success hidden" aria-live="assertive">
-  <div class="pp-release-success__card">
-    <div class="pp-release-success__icon" aria-hidden="true">✓</div>
-    <h2>Release logged</h2>
-    <p id="releaseSuccessDetail">Student release was recorded successfully.</p>
-  </div>
-</div>
+<div
+  id="scanErrorModal"
+  class="hidden fixed inset-0 z-[60] flex items-center justify-center p-6"
+  style="background:rgba(0,0,0,0.75);"
+  role="alertdialog"
+  aria-modal="true"
+  aria-labelledby="scanErrorMessage">
+  <div class="pp-error-dialog w-full max-w-sm p-5 text-center">
+    <p class="text-lg font-bold" style="color:var(--danger);">
+      Pass could not be verified
+    </p>
 
-<div id="scanErrorModal" class="hidden fixed inset-0 z-[80] flex items-center justify-center p-6"
-  style="background:rgba(5,10,16,.82);" role="alertdialog" aria-modal="true" aria-labelledby="scanErrorTitle">
-  <div class="pp-card pp-card--pad w-full max-w-sm text-center">
-    <p id="scanErrorTitle" class="text-lg font-bold" style="color:var(--danger);">Pass could not be verified</p>
-    <p id="scanErrorMessage" class="mt-3 text-sm text-ink-muted"></p>
-    <button id="scanErrorRetryBtn" type="button" class="pp-btn pp-btn--primary w-full mt-5">Scan again</button>
+    <p
+      id="scanErrorMessage"
+      class="mt-3 text-sm text-ink-muted"></p>
+
+    <button
+      id="scanErrorRetryBtn"
+      type="button"
+      class="pp-btn pp-btn--primary mt-5">
+      Scan Again
+    </button>
   </div>
 </div>
 
 <main class="pp-page pp-scanner-page">
-  <div class="mb-4">
-    <p class="pp-eyebrow">Secure dismissal</p>
-    <h1 class="pp-page-title">Dismissal Scanner</h1>
-    <p class="pp-page-subtitle">Scan the live pass, compare the authorized guardian, then approve the release.</p>
-  </div>
-
-  <div id="stepper" class="pp-scan-steps" aria-label="Release progress">
-    <div id="stepScan" class="pp-scan-step pp-scan-step--active"><span class="pp-scan-step__num">1</span><strong>Scan pass</strong></div>
-    <div id="stepVerify" class="pp-scan-step"><span class="pp-scan-step__num">2</span><strong>Verify person</strong></div>
-    <div id="stepRelease" class="pp-scan-step"><span class="pp-scan-step__num">3</span><strong>Release</strong></div>
-  </div>
-
-  <section id="gateBar" class="pp-card pp-card--pad pp-gate-card hidden">
-    <label id="gateLabel" for="gateSelect" class="text-sm font-semibold text-ink-strong">Release location</label>
-    <select id="gateSelect" class="pp-field mt-2 hidden"></select>
-    <p id="gateHint" class="text-xs text-ink-muted mt-1"></p>
-  </section>
+  <header class="pp-scanner-heading">
+    <div>
+      <h1>Dismissal Scanner</h1>
+      <p>
+        Scan → verify the guardian → approve the student release.
+      </p>
+    </div>
+  </header>
 
   <section class="pp-scanner-stage">
-    <div id="scanScreen">
-      <div id="qrReader" class="pp-scanner-camera">
-        <p class="text-sm" style="color:#8fa0b0;">Starting camera…</p>
-      </div>
+    <div id="scannerTop" class="pp-scanner-top">
+      <div id="scanSteps" class="pp-scanner-steps">
+        <div class="pp-scanner-step pp-scanner-step--active">
+          1 · Scan
+        </div>
 
-      <div class="pp-scan-frame" aria-hidden="true">
-        <div class="pp-scan-frame__box">
-          <span class="pp-scan-frame__corner"></span>
-          <span class="pp-scan-frame__corner"></span>
-          <span class="pp-scan-frame__corner"></span>
-          <span class="pp-scan-frame__corner"></span>
+        <div class="pp-scanner-step">
+          2 · Verify
+        </div>
+
+        <div class="pp-scanner-step">
+          3 · Release
         </div>
       </div>
 
-      <div class="pp-scanner-instruction">
-        <strong id="scanInstructionTitle">Point the camera at the parent's live pass</strong>
-        <p id="scanInstructionDetail">Keep the QR inside the frame. Verification starts automatically.</p>
+      <div id="gateBar" class="pp-gate-panel">
+        <label id="gateLabel" for="gateSelect">
+          Active pickup gate
+        </label>
+
+        <select
+          id="gateSelect"
+          class="pp-gate-select hidden"></select>
+
+        <div
+          id="singleGateSummary"
+          class="pp-gate-summary hidden">
+          <div>
+            <strong id="singleGateName"></strong>
+            <span>Automatically selected</span>
+          </div>
+
+          <span class="pp-gate-ready">Ready</span>
+        </div>
+
+        <p
+          id="gateHint"
+          class="mt-2 text-xs"
+          style="color:#8b949e;"></p>
+      </div>
+    </div>
+
+    <div id="scanScreen">
+      <div class="pp-camera-stage">
+        <div
+          id="qrReader"
+          class="flex items-center justify-center">
+          <p class="text-sm" style="color:#8b949e;">
+            Starting camera…
+          </p>
+        </div>
+      </div>
+
+      <div class="pp-scanner-bottom">
+        <div class="pp-scanner-bottom__icon" aria-hidden="true">
+          ✓
+        </div>
+
+        <div>
+          <strong id="scanPrompt">
+            Preparing scanner…
+          </strong>
+
+          <p id="scanDetail">
+            PickupPass will start when the release location is ready.
+          </p>
+
+          <p
+            id="scanStatus"
+            role="alert"
+            class="hidden mt-2"
+            style="color:#ffb4ab;"></p>
+        </div>
       </div>
     </div>
 
     <div id="verifyScreen" class="pp-verify-stage hidden">
-      <div class="pp-verify-header">
-        <span class="pp-verify-badge">✓ Pass verified by PickupPass</span>
-        <h2>Verify the person in front of you</h2>
-        <p>The QR is valid. Before releasing the student, visually compare the person present with the authorized guardian profile below.</p>
-      </div>
+      <div class="pp-verify-sheet">
+        <div class="pp-verify-scroll">
+          <div class="pp-scanner-steps">
+            <div class="pp-scanner-step pp-scanner-step--complete">
+              1 · Scanned
+            </div>
 
-      <div class="pp-identity-grid">
-        <article class="pp-identity-card">
-          <div id="studentAvatar" class="pp-student-avatar"><span id="studentInitials">PP</span></div>
-          <div>
-            <p class="pp-identity-label">Student</p>
-            <h3 id="studentName"></h3>
-            <p id="studentMeta" class="pp-identity-meta"></p>
+            <div class="pp-scanner-step pp-scanner-step--active">
+              2 · Verify
+            </div>
+
+            <div class="pp-scanner-step">
+              3 · Release
+            </div>
           </div>
-        </article>
 
-        <article class="pp-identity-card pp-identity-card--guardian">
-          <p class="pp-identity-label">Authorized guardian</p>
-          <div id="guardianPhotoWrap" class="pp-guardian-photo">
-            <span id="guardianPhotoFallback" class="pp-guardian-photo__fallback" aria-hidden="true">PP</span>
-            <img id="parentPhoto" class="hidden" alt="Authorized guardian profile photo" />
+          <h2 class="pp-verify-title">
+            Does the person present match this authorized guardian?
+          </h2>
+
+          <p class="pp-verify-copy">
+            A valid QR is not enough. Visually confirm the guardian before
+            approving the handoff.
+          </p>
+
+          <div class="pp-identity-grid">
+            <article class="pp-identity-card">
+              <p class="pp-identity-label">
+                Student to release
+              </p>
+
+              <h3
+                id="studentName"
+                class="pp-student-name"></h3>
+
+              <p
+                id="studentGrade"
+                class="pp-student-meta"></p>
+
+              <p
+                id="studentSection"
+                class="pp-student-meta"></p>
+            </article>
+
+            <article class="pp-identity-card pp-guardian-card">
+              <div class="pp-guardian-photo-wrap">
+                <img
+                  id="parentPhoto"
+                  class="pp-guardian-photo"
+                  alt="Authorized guardian identity photo" />
+
+                <span
+                  id="photoState"
+                  class="pp-photo-state"
+                  aria-label="Guardian photo status">
+                  …
+                </span>
+              </div>
+
+              <div class="min-w-0">
+                <p class="pp-identity-label">
+                  Authorized guardian
+                </p>
+
+                <p
+                  id="parentName"
+                  class="pp-guardian-name"></p>
+
+                <p
+                  id="guardianStateText"
+                  class="pp-guardian-state">
+                  Loading identity photo…
+                </p>
+              </div>
+            </article>
           </div>
-          <h3 id="parentName"></h3>
-          <p id="guardianRelationship" class="pp-identity-meta"></p>
-          <p id="guardianPhotoStatus" class="pp-photo-status">Loading identity photo…</p>
-        </article>
-      </div>
 
-      <div id="identityDecision" class="pp-identity-decision">
-        <strong>Does the person present match this authorized guardian?</strong>
-        <p>Approve only after you have personally confirmed the identity.</p>
-      </div>
+          <div
+            id="releaseLocation"
+            class="pp-release-location hidden"></div>
 
-      <div id="identityWarning" class="pp-identity-warning hidden" role="alert"></div>
-      <p id="releaseLocation" class="pp-release-location"></p>
+          <div
+            id="identityWarning"
+            class="pp-identity-warning hidden">
+            Guardian photo is unavailable. QR release is blocked. Use the
+            school's manual identity-verification process.
+          </div>
 
-      <div class="pp-verify-actions">
-        <button id="approveBtn" class="pp-btn pp-btn--primary pp-release-btn w-full" type="button">
-          Yes, identity matches — approve release
-        </button>
-        <button id="cancelBtn" class="pp-secondary-dark w-full" type="button">
-          Cancel / scan another pass
-        </button>
+          <div
+            id="errorBanner"
+            class="hidden rounded-md mt-3 p-3 text-center font-semibold text-sm"
+            style="background-color:var(--danger);color:#fff;"></div>
+        </div>
+
+        <div class="pp-verify-actions">
+          <button
+            id="approveBtn"
+            type="button"
+            class="pp-approve-btn"
+            disabled>
+            RELEASE BLOCKED
+          </button>
+
+          <button
+            id="cancelBtn"
+            type="button"
+            class="pp-cancel-btn">
+            Cancel / Scan Next
+          </button>
+        </div>
       </div>
     </div>
   </section>
 </main>
 
 <script type="module">
-import { auth, db, authedFetch, showToast } from "../shared/firebase-init.js";
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  auth,
+  db,
+  authedFetch,
+  showToast
+} from "../shared/firebase-init.js";
+
+import {
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 let currentQrToken = null;
 let currentApprovalKey = null;
-let currentParentUid = "";
 let html5QrCode = null;
 let isHandlingScan = false;
 let isApprovingRelease = false;
 let currentGateId = "";
 let currentGateLabel = "";
 let gateCount = 0;
-let identityPhotoAvailable = false;
+let guardianPhotoReady = false;
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) return;
 
-  if (typeof Html5Qrcode === "undefined") {
+  if (
+    typeof Html5Qrcode === "undefined"
+  ) {
     showCameraProblem(
       "Scanner didn't load",
       "The scanner component couldn't load. Check your internet connection, then reload the page."
@@ -195,32 +372,63 @@ onAuthStateChanged(auth, async (user) => {
   try {
     await configurePickupGates();
   } catch (err) {
-    showToast(err.message || "Could not load pickup gates.", "error");
+    showToast(
+      err.message ||
+        "Could not load pickup gates.",
+      "error"
+    );
   }
 
-  html5QrCode = new Html5Qrcode("qrReader");
+  html5QrCode =
+    new Html5Qrcode("qrReader");
+
   startScanner();
 });
 
 async function configurePickupGates() {
-  const res = await authedFetch("/pickup/gates");
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Could not load pickup gates");
+  const res =
+    await authedFetch("/pickup/gates");
 
-  const gates = Array.isArray(data.gates) ? data.gates : [];
+  const data =
+    await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(
+      data.error ||
+        "Could not load pickup gates"
+    );
+  }
+
+  const gates =
+    Array.isArray(data.gates)
+      ? data.gates
+      : [];
+
   gateCount = gates.length;
 
-  const bar = document.getElementById("gateBar");
-  const select = document.getElementById("gateSelect");
-  const hint = document.getElementById("gateHint");
+  const bar =
+    document.getElementById("gateBar");
 
-  select.replaceChildren();
+  const select =
+    document.getElementById("gateSelect");
+
+  const hint =
+    document.getElementById("gateHint");
+
+  const summary =
+    document.getElementById(
+      "singleGateSummary"
+    );
 
   if (gates.length === 0) {
     currentGateId = "";
     currentGateLabel = "";
-    bar.classList.add("hidden");
-    updateScanInstruction();
+    select.classList.add("hidden");
+    summary.classList.add("hidden");
+    hint.textContent =
+      "No pickup gate configured · normal scanner mode.";
+
+    updateScanPrompt();
     return;
   }
 
@@ -228,127 +436,245 @@ async function configurePickupGates() {
 
   if (gates.length === 1) {
     currentGateId = gates[0].id;
-    currentGateLabel = gateLabel(gates[0]);
+    currentGateLabel =
+      gateDisplayName(gates[0]);
+
     select.classList.add("hidden");
-    hint.textContent = `${currentGateLabel} is automatically selected.`;
-    updateScanInstruction();
+    summary.classList.remove("hidden");
+
+    document.getElementById(
+      "singleGateName"
+    ).textContent =
+      currentGateLabel;
+
+    hint.textContent =
+      "Release location selected automatically.";
+
+    updateScanPrompt();
     return;
   }
 
   currentGateId = "";
   currentGateLabel = "";
+
+  summary.classList.add("hidden");
+
+  select.innerHTML =
+    '<option value="">Select a pickup gate…</option>' +
+    gates
+      .map(
+        (gate) =>
+          `<option value="${escapeHtml(gate.id)}">${escapeHtml(
+            gateDisplayName(gate)
+          )}</option>`
+      )
+      .join("");
+
   select.classList.remove("hidden");
 
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = "Select a pickup gate…";
-  select.appendChild(placeholder);
+  hint.textContent =
+    "Choose the gate where this release is taking place.";
 
-  gates.forEach((gate) => {
-    const option = document.createElement("option");
-    option.value = gate.id;
-    option.textContent = gateLabel(gate);
-    option.dataset.label = gateLabel(gate);
-    select.appendChild(option);
-  });
+  select.addEventListener(
+    "change",
+    () => {
+      currentGateId = select.value;
 
-  hint.textContent = "Choose the gate where this release is taking place.";
-  select.addEventListener("change", () => {
-    currentGateId = select.value;
-    currentGateLabel = select.selectedOptions[0]?.dataset.label || "";
-    updateScanInstruction();
-  });
+      currentGateLabel =
+        select.options[
+          select.selectedIndex
+        ]?.textContent || "";
 
-  updateScanInstruction();
+      updateScanPrompt();
+    }
+  );
+
+  updateScanPrompt();
 }
 
-function gateLabel(gate) {
-  return `${gate.campusName ? gate.campusName + " — " : ""}${gate.name}`;
+function gateDisplayName(gate) {
+  return gate.campusName
+    ? `${gate.campusName} — ${gate.name}`
+    : gate.name;
 }
 
-function updateScanInstruction() {
-  const title = document.getElementById("scanInstructionTitle");
-  const detail = document.getElementById("scanInstructionDetail");
+function updateScanPrompt() {
+  const prompt =
+    document.getElementById(
+      "scanPrompt"
+    );
 
-  if (gateCount > 1 && !currentGateId) {
-    title.textContent = "Select a pickup gate before scanning";
-    detail.textContent = "The release location must be recorded before PickupPass can continue.";
-    return;
-  }
+  const detail =
+    document.getElementById(
+      "scanDetail"
+    );
 
-  title.textContent = "Point the camera at the parent's live pass";
-  detail.textContent = currentGateLabel
-    ? `Release location: ${currentGateLabel}`
-    : "Keep the QR inside the frame. Verification starts automatically.";
+  const ready =
+    gateCount === 0 ||
+    !!currentGateId;
+
+  prompt.textContent =
+    ready
+      ? "Ready to scan a parent pass"
+      : "Select a pickup gate first";
+
+  detail.textContent =
+    ready
+      ? currentGateLabel
+        ? `Release location: ${currentGateLabel}`
+        : "Hold the QR inside the camera frame."
+      : "Scanning remains paused until a release location is selected.";
 }
 
 function friendlyCameraError(err) {
-  const name = err && (err.name || err.constructor?.name) || "";
-  const raw = (err && (err.message || err.toString())) || "";
+  const name =
+    err &&
+      (
+        err.name ||
+        err.constructor?.name
+      ) ||
+    "";
 
-  if (name === "NotAllowedError" || /permission|denied/i.test(raw)) {
-    return "Camera access was blocked. Allow camera access for this site, then tap Try again.";
+  const raw =
+    (
+      err &&
+      (
+        err.message ||
+        err.toString()
+      )
+    ) ||
+    "";
+
+  if (
+    name === "NotAllowedError" ||
+    /permission|denied/i.test(raw)
+  ) {
+    return "Camera access was blocked. Allow camera access for this site in your browser, then tap Try again.";
   }
-  if (name === "NotFoundError" || /no.*camera|not found|no.*device/i.test(raw)) {
+
+  if (
+    name === "NotFoundError" ||
+    /no.*camera|not found|no.*device/i.test(raw)
+  ) {
     return "No camera was found on this device. Connect a camera, then tap Try again.";
   }
-  if (name === "NotReadableError" || name === "AbortError" || /in use|videoinput failed|starting/i.test(raw)) {
-    return "The camera couldn't start. Close other apps or tabs using the camera, then tap Try again.";
+
+  if (
+    name === "NotReadableError" ||
+    name === "AbortError" ||
+    /in use|videoinput failed|starting/i.test(raw)
+  ) {
+    return "The camera couldn't start — it may be in use by another app or browser tab. Close anything else using the camera, then tap Try again.";
   }
-  if (name === "OverconstrainedError") {
-    return "This camera doesn't support the requested mode. Tap Try again to retry.";
+
+  if (
+    name === "OverconstrainedError"
+  ) {
+    return "This device's camera doesn't support the requested mode. Tap Try again to retry.";
   }
+
   return "The camera couldn't start. Close other apps using it and tap Try again.";
 }
 
-function showCameraProblem(title, message) {
-  const reader = document.getElementById("qrReader");
-  reader.replaceChildren();
+function showCameraProblem(
+  title,
+  message
+) {
+  const reader =
+    document.getElementById(
+      "qrReader"
+    );
 
-  const box = document.createElement("div");
-  box.className = "flex flex-col items-center text-center gap-3 p-6";
+  reader.innerHTML = `
+    <div class="flex flex-col items-center text-center gap-3 p-6">
+      <svg
+        width="40"
+        height="40"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#f85149"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+        <line x1="1" y1="1" x2="23" y2="23"/>
+      </svg>
 
-  const heading = document.createElement("p");
-  heading.className = "font-semibold";
-  heading.style.color = "#f8fafc";
-  heading.textContent = title;
+      <p class="font-semibold" style="color:#f0f6fc;">
+        ${escapeHtml(title)}
+      </p>
 
-  const copy = document.createElement("p");
-  copy.className = "text-sm";
-  copy.style.color = "#8fa0b0";
-  copy.textContent = message;
+      <p class="text-sm" style="color:#8b949e;">
+        ${escapeHtml(message)}
+      </p>
 
-  const retry = document.createElement("button");
-  retry.type = "button";
-  retry.className = "pp-btn pp-btn--primary mt-1";
-  retry.textContent = "Try again";
+      <button
+        id="cameraRetryBtn"
+        type="button"
+        class="pp-btn pp-btn--primary mt-1">
+        Try again
+      </button>
+    </div>
+  `;
 
-  box.append(heading, copy, retry);
-  reader.appendChild(box);
+  const retry =
+    document.getElementById(
+      "cameraRetryBtn"
+    );
 
-  retry.addEventListener("click", () => {
-    reader.innerHTML = '<p class="text-sm" style="color:#8fa0b0;">Starting camera…</p>';
-    if (!html5QrCode) html5QrCode = new Html5Qrcode("qrReader");
-    startScanner();
-  });
+  if (retry) {
+    retry.addEventListener(
+      "click",
+      () => {
+        reader.innerHTML =
+          '<p class="text-sm" style="color:#8b949e;">Starting camera…</p>';
+
+        if (!html5QrCode) {
+          html5QrCode =
+            new Html5Qrcode(
+              "qrReader"
+            );
+        }
+
+        startScanner();
+      }
+    );
+  }
 }
 
 function startScanner() {
-  html5QrCode.start(
-    { facingMode: "environment" },
-    { fps: 15, qrbox: 280 },
-    onScanSuccess,
-    () => {}
-  ).catch((err) => {
-    showCameraProblem("Camera couldn't start", friendlyCameraError(err));
-  });
+  html5QrCode
+    .start(
+      { facingMode: "environment" },
+      {
+        fps: 15,
+        qrbox: 280
+      },
+      onScanSuccess,
+      () => {}
+    )
+    .catch((err) => {
+      showCameraProblem(
+        "Camera couldn't start",
+        friendlyCameraError(err)
+      );
+    });
 }
 
-async function onScanSuccess(decodedText) {
+async function onScanSuccess(
+  decodedText
+) {
   if (isHandlingScan) return;
 
-  if (gateCount > 1 && !currentGateId) {
-    showToast("Select the pickup gate before scanning a pass.", "warning");
+  if (
+    gateCount > 1 &&
+    !currentGateId
+  ) {
+    showToast(
+      "Select the pickup gate before scanning a pass.",
+      "warning"
+    );
     return;
   }
 
@@ -356,13 +682,27 @@ async function onScanSuccess(decodedText) {
 
   try {
     html5QrCode.pause(true);
-    currentQrToken = decodedText;
-    currentApprovalKey = crypto.randomUUID();
 
-    setRequestBusy(true, "Verifying pass…");
+    currentQrToken =
+      decodedText;
 
-    const requestController = new AbortController();
-    const requestTimeout = setTimeout(() => requestController.abort(), 15000);
+    currentApprovalKey =
+      crypto.randomUUID();
+
+    setRequestBusy(
+      true,
+      "Verifying pass…"
+    );
+
+    const requestController =
+      new AbortController();
+
+    const requestTimeout =
+      setTimeout(
+        () =>
+          requestController.abort(),
+        15000
+      );
 
     const res = await authedFetch("/pickup/verify", {
       method: "POST",
@@ -372,272 +712,558 @@ async function onScanSuccess(decodedText) {
 
     clearTimeout(requestTimeout);
 
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.valid) {
-      showError(data.reason || `Verification failed (HTTP ${res.status})`);
+    const data =
+      await res
+        .json()
+        .catch(() => ({}));
+
+    if (
+      !res.ok ||
+      !data.valid
+    ) {
+      showError(
+        data.reason ||
+          `Verification failed (HTTP ${res.status})`
+      );
       return;
     }
 
-    currentParentUid = data.parentUid || "";
+    const [
+      studentSnap,
+      parentSnap
+    ] =
+      await Promise.all([
+        getDoc(
+          doc(
+            db,
+            "students",
+            data.studentId
+          )
+        ),
+        getDoc(
+          doc(
+            db,
+            "users",
+            data.parentUid
+          )
+        )
+      ]);
 
-    const [studentSnap, parentSnap] = await Promise.all([
-      getDoc(doc(db, "students", data.studentId)),
-      getDoc(doc(db, "users", data.parentUid)),
-    ]);
-
-    if (!studentSnap.exists() || !parentSnap.exists()) {
-      throw new Error("The student or authorized guardian profile could not be loaded. Do not release the student.");
+    if (
+      !studentSnap.exists() ||
+      !parentSnap.exists()
+    ) {
+      throw new Error(
+        "Student or parent record could not be loaded"
+      );
     }
 
     setRequestBusy(false);
-    await renderVerifyScreen(studentSnap.data(), parentSnap.data());
+
+    renderVerifyScreen(
+      studentSnap.data(),
+      parentSnap.data()
+    );
   } catch (err) {
     setRequestBusy(false);
+
     if (err.name === "AbortError") {
-      showError("Verification timed out. Check the connection and scan again.");
+      showError(
+        "Verification timed out. Check that the deployed backend is reachable."
+      );
       return;
     }
-    showError(err.message || "Network error — try again");
+
+    if (err.message) {
+      showError(err.message);
+      return;
+    }
+
+    showError(
+      "Network error — try again"
+    );
   }
 }
 
-async function renderVerifyScreen(student, parent) {
-  document.getElementById("scanScreen").classList.add("hidden");
-  document.getElementById("verifyScreen").classList.remove("hidden");
-  setStep(2);
+function renderVerifyScreen(
+  student,
+  parent
+) {
+  document
+    .getElementById(
+      "scanScreen"
+    )
+    .classList.add("hidden");
 
-  document.getElementById("studentName").textContent = student.fullName || "Student";
-  document.getElementById("studentMeta").textContent = [
-    formatGrade(student.grade),
-    student.section ? `Section ${student.section}` : ""
-  ].filter(Boolean).join(" • ");
+  document
+    .getElementById(
+      "verifyScreen"
+    )
+    .classList.remove("hidden");
 
-  const avatar = document.getElementById("studentAvatar");
-  avatar.replaceChildren();
-  if (student.photoUrl) {
-    const img = document.createElement("img");
-    img.src = student.photoUrl;
-    img.alt = `${student.fullName || "Student"} profile photo`;
-    img.onerror = () => {
-      avatar.replaceChildren();
-      const span = document.createElement("span");
-      span.textContent = initialsFor(student.fullName);
-      avatar.appendChild(span);
-    };
-    avatar.appendChild(img);
-  } else {
-    const span = document.createElement("span");
-    span.textContent = initialsFor(student.fullName);
-    avatar.appendChild(span);
-  }
+  document
+    .getElementById(
+      "errorBanner"
+    )
+    .classList.add("hidden");
 
-  document.getElementById("parentName").textContent = parent.displayName || "Authorized guardian";
+  document.getElementById(
+    "studentName"
+  ).textContent =
+    student.fullName || "Student";
 
-  const relationship = student.guardians?.[currentParentUid]?.relationship || "";
-  document.getElementById("guardianRelationship").textContent =
-    relationship ? relationship : "Authorized for this student";
+  document.getElementById(
+    "studentGrade"
+  ).textContent =
+    `Grade ${student.grade || "—"}`;
 
-  const photoWrap = document.getElementById("guardianPhotoWrap");
-  const photo = document.getElementById("parentPhoto");
-  const warning = document.getElementById("identityWarning");
-  const approve = document.getElementById("approveBtn");
+  document.getElementById(
+    "studentSection"
+  ).textContent =
+    `Section ${student.section || "—"}`;
 
-  const photoFallback = document.getElementById("guardianPhotoFallback");
-  const photoStatus = document.getElementById("guardianPhotoStatus");
+  document.getElementById(
+    "parentName"
+  ).textContent =
+    parent.displayName ||
+    "Authorized guardian";
 
-  photoFallback.textContent = initialsFor(parent.displayName || "Authorized guardian");
-  photoFallback.classList.remove("hidden");
-  photo.classList.add("hidden");
-  photoStatus.textContent = "Loading identity photo…";
-  photoStatus.className = "pp-photo-status pp-photo-status--loading";
+  const releaseLocation =
+    document.getElementById(
+      "releaseLocation"
+    );
+
+  releaseLocation.textContent =
+    currentGateLabel
+      ? `Release location: ${currentGateLabel}`
+      : "Release location: normal scanner mode";
+
+  releaseLocation.classList.remove(
+    "hidden"
+  );
+
+  prepareGuardianPhoto(
+    parent.photoUrl
+  );
+}
+
+function prepareGuardianPhoto(
+  photoUrl
+) {
+  guardianPhotoReady = false;
+
+  const photo =
+    document.getElementById(
+      "parentPhoto"
+    );
+
+  const state =
+    document.getElementById(
+      "photoState"
+    );
+
+  const text =
+    document.getElementById(
+      "guardianStateText"
+    );
+
+  const warning =
+    document.getElementById(
+      "identityWarning"
+    );
+
+  const approve =
+    document.getElementById(
+      "approveBtn"
+    );
+
   warning.classList.add("hidden");
+
+  state.textContent = "…";
+  state.className =
+    "pp-photo-state";
+
+  text.textContent =
+    "Loading identity photo…";
+
   approve.disabled = true;
-  identityPhotoAvailable = false;
+  approve.textContent =
+    "RELEASE BLOCKED";
 
-  identityPhotoAvailable = await loadGuardianPhoto(parent.photoUrl, photo, photoFallback);
-  photoWrap.classList.toggle("pp-guardian-photo--missing", !identityPhotoAvailable);
+  photo.onload = null;
+  photo.onerror = null;
 
-  if (identityPhotoAvailable) {
-    photoStatus.textContent = "Photo ready for comparison";
-    photoStatus.className = "pp-photo-status pp-photo-status--ready";
-    warning.classList.add("hidden");
-    approve.disabled = false;
-  } else {
-    photoStatus.textContent = "Identity photo unavailable";
-    photoStatus.className = "pp-photo-status pp-photo-status--missing";
-    warning.textContent =
-      "Guardian identity photo is unavailable or could not be rendered. Do not approve a QR release. Use the school's manual identity-verification process instead.";
-    warning.classList.remove("hidden");
-    approve.disabled = true;
-  }
-
-  document.getElementById("releaseLocation").textContent =
-    currentGateLabel ? `Release location: ${currentGateLabel}` : "";
-}
-
-function loadGuardianPhoto(photoUrl, image, fallback) {
-  return new Promise((resolve) => {
-    if (!photoUrl) {
-      image.removeAttribute("src");
-      image.classList.add("hidden");
-      fallback.classList.remove("hidden");
-      resolve(false);
-      return;
-    }
-
-    let settled = false;
-    const finish = (ok) => {
-      if (settled) return;
-      settled = true;
-      image.onload = null;
-      image.onerror = null;
-
-      if (ok) {
-        image.classList.remove("hidden");
-        fallback.classList.add("hidden");
-      } else {
-        image.classList.add("hidden");
-        fallback.classList.remove("hidden");
-      }
-      resolve(ok);
-    };
-
-    image.onload = () => finish(image.naturalWidth > 0 && image.naturalHeight > 0);
-    image.onerror = () => finish(false);
-    image.src = photoUrl;
-
-    if (image.complete) {
-      queueMicrotask(() => finish(image.naturalWidth > 0 && image.naturalHeight > 0));
-    }
-  });
-}
-
-function showError(reason) {
-  document.getElementById("scanErrorMessage").textContent = reason;
-  document.getElementById("scanErrorModal").classList.remove("hidden");
-}
-
-document.getElementById("approveBtn").addEventListener("click", async () => {
-  if (isApprovingRelease || !currentQrToken || !identityPhotoAvailable) return;
-
-  if (gateCount > 1 && !currentGateId) {
-    showToast("Select the pickup gate before approving the release.", "warning");
+  if (!isSafePhotoSource(photoUrl)) {
+    markPhotoUnavailable();
     return;
   }
 
-  isApprovingRelease = true;
-  setStep(3);
-  setRequestBusy(true, "Approving release…");
-
-  const approvalController = new AbortController();
-  const approvalTimeout = setTimeout(() => approvalController.abort(), 15000);
-
-  try {
-    const res = await authedFetch("/pickup/approve", {
-      method: "POST",
-      headers: {
-        "Idempotency-Key": currentApprovalKey,
-        ...(currentGateId ? { "X-Pickup-Gate-Id": currentGateId } : {}),
-      },
-      body: JSON.stringify({ qrToken: currentQrToken }),
-      signal: approvalController.signal,
-    });
-
-    clearTimeout(approvalTimeout);
-
-    const result = await res.json().catch(() => ({}));
-    if (!res.ok || result.status !== "release_approved") {
-      throw new Error(result.reason || `Approval failed (HTTP ${res.status})`);
+  photo.onload = () => {
+    if (
+      photo.naturalWidth < 1 ||
+      photo.naturalHeight < 1
+    ) {
+      markPhotoUnavailable();
+      return;
     }
 
-    setRequestBusy(false);
-    showReleaseSuccess();
-  } catch (err) {
-    showError(
-      err.name === "AbortError"
-        ? "Approval timed out. Check the connection and try again."
-        : (err.message || "Could not approve the release")
+    guardianPhotoReady = true;
+
+    state.textContent = "✓";
+    state.className =
+      "pp-photo-state pp-photo-state--ready";
+
+    text.textContent =
+      "Photo available · visually compare with the person present.";
+
+    warning.classList.add("hidden");
+
+    approve.disabled =
+      isApprovingRelease;
+
+    approve.textContent =
+      "APPROVE RELEASE";
+  };
+
+  photo.onerror =
+    markPhotoUnavailable;
+
+  photo.src = photoUrl;
+}
+
+function markPhotoUnavailable() {
+  guardianPhotoReady = false;
+
+  const photo =
+    document.getElementById(
+      "parentPhoto"
     );
-    setStep(2);
-  } finally {
-    clearTimeout(approvalTimeout);
-    isApprovingRelease = false;
-    setRequestBusy(false);
-  }
-});
 
-document.getElementById("cancelBtn").addEventListener("click", resetToScanner);
-document.getElementById("scanErrorRetryBtn").addEventListener("click", resetToScanner);
+  photo.onload = null;
+  photo.onerror = null;
 
-function showReleaseSuccess() {
-  const detail = document.getElementById("releaseSuccessDetail");
-  detail.textContent = currentGateLabel
-    ? `Release recorded at ${currentGateLabel}.`
-    : "Student release was recorded successfully.";
+  photo.src =
+    "../assets/default-avatar.svg";
 
-  document.getElementById("releaseSuccess").classList.remove("hidden");
-  window.setTimeout(() => {
-    document.getElementById("releaseSuccess").classList.add("hidden");
-    resetToScanner();
-  }, 1400);
+  const state =
+    document.getElementById(
+      "photoState"
+    );
+
+  state.textContent = "!";
+  state.className =
+    "pp-photo-state pp-photo-state--blocked";
+
+  document.getElementById(
+    "guardianStateText"
+  ).textContent =
+    "Identity photo unavailable.";
+
+  document
+    .getElementById(
+      "identityWarning"
+    )
+    .classList.remove("hidden");
+
+  const approve =
+    document.getElementById(
+      "approveBtn"
+    );
+
+  approve.disabled = true;
+  approve.textContent =
+    "RELEASE BLOCKED";
 }
 
-function setStep(active) {
-  const steps = [
-    document.getElementById("stepScan"),
-    document.getElementById("stepVerify"),
-    document.getElementById("stepRelease"),
-  ];
+function isSafePhotoSource(value) {
+  const source =
+    String(value || "").trim();
 
-  steps.forEach((step, index) => {
-    const number = index + 1;
-    step.classList.toggle("pp-scan-step--active", number === active);
-    step.classList.toggle("pp-scan-step--done", number < active);
-  });
+  return (
+    source.startsWith(
+      "data:image/"
+    ) ||
+    source.startsWith(
+      "https://"
+    ) ||
+    source.startsWith(
+      "http://"
+    )
+  );
 }
 
-function setRequestBusy(isBusy, message = "") {
-  document.getElementById("requestOverlayMessage").textContent = message;
-  document.getElementById("requestOverlay").classList.toggle("hidden", !isBusy);
-  document.getElementById("approveBtn").disabled = isBusy || !identityPhotoAvailable;
-  document.getElementById("cancelBtn").disabled = isBusy;
+function showError(reason) {
+  const alert =
+    document.getElementById(
+      "scannerAlert"
+    );
+
+  alert.textContent =
+    "Scanner error: " + reason;
+
+  alert.classList.remove(
+    "hidden"
+  );
+
+  const status =
+    document.getElementById(
+      "scanStatus"
+    );
+
+  status.textContent =
+    "Verification error: " +
+    reason;
+
+  status.classList.remove(
+    "hidden"
+  );
+
+  const banner =
+    document.getElementById(
+      "errorBanner"
+    );
+
+  banner.textContent =
+    "⚠️ " + reason;
+
+  banner.classList.remove(
+    "hidden"
+  );
+
+  document.getElementById(
+    "scanErrorMessage"
+  ).textContent =
+    reason;
+
+  document
+    .getElementById(
+      "scanErrorModal"
+    )
+    .classList.remove("hidden");
+}
+
+document
+  .getElementById("approveBtn")
+  .addEventListener(
+    "click",
+    async () => {
+      if (
+        isApprovingRelease ||
+        !currentQrToken
+      ) {
+        return;
+      }
+
+      if (!guardianPhotoReady) {
+        showToast(
+          "Guardian identity photo is unavailable. Use the school's manual identity-verification process.",
+          "warning"
+        );
+        return;
+      }
+
+      if (
+        gateCount > 1 &&
+        !currentGateId
+      ) {
+        showToast(
+          "Select the pickup gate before approving the release.",
+          "warning"
+        );
+        return;
+      }
+
+      isApprovingRelease = true;
+
+      setRequestBusy(
+        true,
+        "Approving release…"
+      );
+
+      const approvalController =
+        new AbortController();
+
+      const approvalTimeout =
+        setTimeout(
+          () =>
+            approvalController.abort(),
+          15000
+        );
+
+      try {
+        const res = await authedFetch("/pickup/approve", {
+          method: "POST",
+          headers: {
+            "Idempotency-Key": currentApprovalKey,
+            ...(currentGateId ? { "X-Pickup-Gate-Id": currentGateId } : {}),
+          },
+          body: JSON.stringify({ qrToken: currentQrToken }),
+          signal: approvalController.signal,
+        });
+
+        clearTimeout(
+          approvalTimeout
+        );
+
+        const result =
+          await res.json();
+
+        if (
+          !res.ok ||
+          result.status !== "release_approved"
+        ) {
+          throw new Error(
+            result.reason ||
+              `Approval failed (HTTP ${res.status})`
+          );
+        }
+
+        if (
+          result.status === "release_approved"
+        ) {
+          showToast(
+            "Release logged successfully.",
+            "success"
+          );
+        } else {
+          showToast(
+            "Approval failed: " +
+              (
+                result.reason ||
+                "unknown error"
+              ),
+            "error"
+          );
+        }
+
+        resetToScanner();
+      } catch (err) {
+        showError(
+          err.name === "AbortError"
+            ? "Approval timed out. Check that the deployed backend is reachable."
+            : (
+                err.message ||
+                "Could not approve the release"
+              )
+        );
+      } finally {
+        clearTimeout(
+          approvalTimeout
+        );
+
+        isApprovingRelease = false;
+
+        setRequestBusy(false);
+      }
+    }
+  );
+
+document
+  .getElementById("cancelBtn")
+  .addEventListener(
+    "click",
+    resetToScanner
+  );
+
+document
+  .getElementById(
+    "scanErrorRetryBtn"
+  )
+  .addEventListener(
+    "click",
+    resetToScanner
+  );
+
+function setRequestBusy(
+  isBusy,
+  message = ""
+) {
+  const overlay =
+    document.getElementById(
+      "requestOverlay"
+    );
+
+  document.getElementById(
+    "requestOverlayMessage"
+  ).textContent =
+    message;
+
+  overlay.classList.toggle(
+    "hidden",
+    !isBusy
+  );
+
+  document.getElementById(
+    "approveBtn"
+  ).disabled =
+    isBusy ||
+    !guardianPhotoReady;
+
+  document.getElementById(
+    "cancelBtn"
+  ).disabled =
+    isBusy;
 }
 
 function resetToScanner() {
-  document.getElementById("verifyScreen").classList.add("hidden");
-  document.getElementById("scanScreen").classList.remove("hidden");
-  document.getElementById("scanErrorModal").classList.add("hidden");
-  document.getElementById("releaseSuccess").classList.add("hidden");
-  document.getElementById("identityWarning").classList.add("hidden");
+  document
+    .getElementById(
+      "verifyScreen"
+    )
+    .classList.add("hidden");
+
+  document
+    .getElementById(
+      "scanScreen"
+    )
+    .classList.remove("hidden");
+
+  document
+    .getElementById(
+      "scanStatus"
+    )
+    .classList.add("hidden");
+
+  document
+    .getElementById(
+      "scannerAlert"
+    )
+    .classList.add("hidden");
+
+  document
+    .getElementById(
+      "scanErrorModal"
+    )
+    .classList.add("hidden");
+
+  document
+    .getElementById(
+      "identityWarning"
+    )
+    .classList.add("hidden");
 
   setRequestBusy(false);
-  setStep(1);
 
+  guardianPhotoReady = false;
   currentQrToken = null;
   currentApprovalKey = null;
-  currentParentUid = "";
-  identityPhotoAvailable = false;
   isHandlingScan = false;
 
-  updateScanInstruction();
+  updateScanPrompt();
 
-  try {
-    if (html5QrCode) html5QrCode.resume();
-  } catch (_) {
-    // If the scanner stopped because the camera was interrupted, a later
-    // camera retry will reconstruct it.
+  if (html5QrCode) {
+    html5QrCode.resume();
   }
 }
 
-function initialsFor(name) {
-  return String(name || "PP").trim().split(/\s+/).filter(Boolean).slice(0, 2)
-    .map(part => part[0]?.toUpperCase() || "").join("") || "PP";
-}
+function escapeHtml(value) {
+  const div =
+    document.createElement("div");
 
-function formatGrade(value) {
-  const grade = String(value || "").trim();
-  if (!grade) return "";
-  return /^grade\b/i.test(grade) ? grade : `Grade ${grade}`;
+  div.textContent =
+    String(value ?? "");
+
+  return div.innerHTML;
 }
 </script>
 </body>
