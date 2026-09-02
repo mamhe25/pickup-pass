@@ -3,82 +3,252 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#047857" />
 <title>Students — PickupPass</title>
+
 <link rel="stylesheet" href="../shared/theme.css" />
 <link rel="stylesheet" href="../shared/components.css" />
 <link rel="stylesheet" href="../shared/portal.css" />
+<link rel="stylesheet" href="./students.css" />
+
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../shared/tailwind-config.js"></script>
 </head>
+
 <body class="min-h-screen pp-portal-body">
+<div id="teacherNav" data-active="students"></div>
+<script type="module" src="../shared/teacher-nav.js"></script>
 
-  <div id="teacherNav" data-active="students"></div>
-  <script type="module" src="../shared/teacher-nav.js"></script>
+<main class="pp-page pp-students-page">
+  <section class="pp-roster-hero">
+    <p class="pp-roster-hero__eyebrow">Dismissal roster</p>
 
-  <main class="pp-page pp-page--narrow">
-    <h1 class="text-xl font-bold text-ink-strong mb-3">Students</h1>
+    <h1 id="rosterHeroTitle">Your student roster at a glance.</h1>
 
-    <input id="searchBox" type="text" placeholder="Search by name, grade, or section..."
-      class="pp-field mb-3" />
+    <p>
+      Search by student, review guardian readiness, and register pickup contacts
+      without leaving the roster.
+    </p>
 
-    <div id="studentList" class="space-y-2 mb-6"></div>
-    <div id="emptyState" class="pp-empty hidden mb-6">
-      No students yet — add your first one below.
+    <div class="pp-roster-metrics" aria-label="Roster summary">
+      <div class="pp-roster-metric">
+        <strong id="studentCount">—</strong>
+        <span>Students</span>
+      </div>
+
+      <div class="pp-roster-metric">
+        <strong id="readyCount">—</strong>
+        <span>Ready</span>
+      </div>
+
+      <div class="pp-roster-metric">
+        <strong id="needsGuardianCount">—</strong>
+        <span>Needs guardian</span>
+      </div>
     </div>
-    <div id="noResultsState" class="pp-empty hidden mb-6">
-      No students found.
-    </div>
-    <div id="noSectionsState" class="pp-empty hidden mb-6">
-      No sections assigned yet — ask your school admin to assign you a grade and section.
-    </div>
+  </section>
 
-    <div id="addStudentPanel" class="pp-card pp-card--pad">
-      <h2 class="font-semibold text-ink-strong mb-3">Add a Student</h2>
-      <form id="addStudentForm" class="space-y-2">
-        <input id="lastName" type="text" required placeholder="Last name" class="pp-field" />
-        <input id="firstName" type="text" required placeholder="First name" class="pp-field" />
-        <div class="flex gap-2">
-          <input id="middleInitial" type="text" maxlength="4" placeholder="M.I." class="pp-field w-1/3" />
-          <input id="suffix" type="text" placeholder="Suffix (Jr., III...)" class="pp-field w-2/3" />
-        </div>
-        <div class="flex gap-2">
-          <input id="studentGrade" type="text" placeholder="Grade" class="pp-field w-1/2" />
-          <input id="studentSection" type="text" placeholder="Section" class="pp-field w-1/2" />
-        </div>
+  <div class="pp-roster-toolbar">
+    <label class="pp-roster-search">
+      <span class="sr-only">Search students</span>
 
-        <p id="formError" class="hidden" style="display: none"></p>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        aria-hidden="true">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="m21 21-4.3-4.3"/>
+      </svg>
 
-        <button id="addStudentBtn" type="submit" class="pp-btn pp-btn--primary w-full">
-          Add Student
+      <input
+        id="searchBox"
+        type="search"
+        placeholder="Search name, grade, or section"
+        class="pp-field" />
+    </label>
+
+    <button
+      id="toggleAddStudentBtn"
+      type="button"
+      class="pp-btn pp-btn--primary">
+      Add student
+    </button>
+  </div>
+
+  <div id="loadingState" class="pp-roster-state pp-roster-loading">
+    <strong>Loading roster…</strong>
+    <p>Fetching the students available to your account.</p>
+  </div>
+
+  <div id="studentList" class="pp-roster-groups hidden"></div>
+
+  <div id="emptyState" class="pp-roster-state hidden">
+    <div class="pp-roster-state__icon" aria-hidden="true">ST</div>
+    <strong>No students yet</strong>
+    <p>Add the first student to begin building this dismissal roster.</p>
+  </div>
+
+  <div id="noResultsState" class="pp-roster-state hidden">
+    <div class="pp-roster-state__icon" aria-hidden="true">?</div>
+    <strong>No students found</strong>
+    <p>Try another name, grade, or section.</p>
+  </div>
+
+  <div id="noSectionsState" class="pp-roster-state hidden">
+    <div class="pp-roster-state__icon" aria-hidden="true">—</div>
+    <strong>No sections assigned yet</strong>
+    <p>
+      Ask your school admin to assign your grade and section. Your roster stays
+      scoped to those assignments.
+    </p>
+  </div>
+
+  <div id="errorState" class="pp-roster-state hidden" role="alert">
+    <strong>We couldn't load the student roster.</strong>
+    <p id="errorDetail">Check your connection and try again.</p>
+
+    <button id="retryBtn" type="button" class="pp-btn pp-btn--ghost">
+      Try again
+    </button>
+  </div>
+
+  <section id="addStudentPanel" class="pp-add-student-panel hidden">
+    <h2>Add student</h2>
+
+    <p class="pp-add-student-panel__intro">
+      Create the roster record first. After a successful save, PickupPass can
+      take you directly to parent / guardian registration.
+    </p>
+
+    <form id="addStudentForm">
+      <div class="pp-add-student-form">
+        <label>
+          Last name
+          <input id="lastName" type="text" required class="pp-field" />
+        </label>
+
+        <label>
+          First name
+          <input id="firstName" type="text" required class="pp-field" />
+        </label>
+
+        <label>
+          Middle initial
+          <input id="middleInitial" type="text" maxlength="4" class="pp-field" />
+        </label>
+
+        <label>
+          Suffix
+          <input id="suffix" type="text" class="pp-field" />
+        </label>
+
+        <label>
+          Grade
+          <input id="studentGrade" type="text" class="pp-field" />
+        </label>
+
+        <label>
+          Section
+          <input id="studentSection" type="text" class="pp-field" />
+        </label>
+      </div>
+
+      <p id="formError" class="pp-alert pp-alert--danger hidden mt-3"></p>
+
+      <div class="pp-add-student-actions">
+        <button
+          id="cancelAddStudentBtn"
+          type="button"
+          class="pp-btn pp-btn--ghost">
+          Cancel
         </button>
-      </form>
-    </div>
 
-    <div id="studentAddedPanel" class="pp-alert pp-alert--success hidden flex-col" role="status">
-      <h2 class="font-semibold">Student added successfully</h2>
-      <p id="addedStudentName" class="text-sm mt-1"></p>
-      <p class="text-sm mt-2">Would you like to register a parent or guardian now?</p>
-      <button id="registerAddedStudentParentBtn" type="button"
-        class="pp-btn pp-btn--primary w-full mt-4">
-        Register Parent / Guardian
+        <button
+          id="addStudentBtn"
+          type="submit"
+          class="pp-btn pp-btn--primary">
+          Add student
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section
+    id="studentAddedPanel"
+    class="pp-alert pp-alert--success pp-student-added hidden"
+    role="status">
+    <strong>Student added successfully</strong>
+
+    <p id="addedStudentName" class="mt-1"></p>
+
+    <p class="mt-2">
+      Register a parent or guardian now so this student is ready for secure
+      pickup.
+    </p>
+
+    <div class="pp-student-added__actions">
+      <button
+        id="registerAddedStudentParentBtn"
+        type="button"
+        class="pp-btn pp-btn--primary">
+        Register parent / guardian
       </button>
-      <button id="backToStudentListBtn" type="button"
-        class="pp-btn pp-btn--secondary w-full mt-2">
-        Back to Student List
+
+      <button
+        id="backToStudentListBtn"
+        type="button"
+        class="pp-btn pp-btn--secondary">
+        Back to roster
       </button>
     </div>
-  </main>
+  </section>
+</main>
 
 <script type="module">
-import { auth, db, authedFetch, showToast } from "../shared/firebase-init.js";
-import { collection, query, where, orderBy, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  auth,
+  db,
+  authedFetch,
+  showToast,
+  setSubmitButtonBusy
+} from "../shared/firebase-init.js";
+
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs,
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 let currentSchoolId = null;
 let currentRole = null;
-let allStudents = []; // cached so search filters client-side without re-querying
+let allStudents = [];
 let isAddingStudent = false;
 let addedStudentId = null;
+
+const ui = {
+  heroTitle: document.getElementById("rosterHeroTitle"),
+  studentCount: document.getElementById("studentCount"),
+  readyCount: document.getElementById("readyCount"),
+  needsGuardianCount: document.getElementById("needsGuardianCount"),
+  search: document.getElementById("searchBox"),
+  list: document.getElementById("studentList"),
+  loading: document.getElementById("loadingState"),
+  empty: document.getElementById("emptyState"),
+  noResults: document.getElementById("noResultsState"),
+  noSections: document.getElementById("noSectionsState"),
+  error: document.getElementById("errorState"),
+  errorDetail: document.getElementById("errorDetail"),
+  addPanel: document.getElementById("addStudentPanel"),
+  addedPanel: document.getElementById("studentAddedPanel"),
+  toggleAdd: document.getElementById("toggleAddStudentBtn")
+};
 
 document.getElementById("registerAddedStudentParentBtn").addEventListener("click", () => {
   if (!addedStudentId) return;
@@ -87,63 +257,78 @@ document.getElementById("registerAddedStudentParentBtn").addEventListener("click
 });
 
 document.getElementById("backToStudentListBtn").addEventListener("click", () => {
-  document.getElementById("studentAddedPanel").classList.add("hidden");
-  document.getElementById("addStudentPanel").classList.remove("hidden");
-  document.getElementById("lastName").focus();
+  ui.addedPanel.classList.add("hidden");
+  ui.addPanel.classList.add("hidden");
+  ui.toggleAdd.textContent = "Add student";
+  ui.search.focus();
 });
 
+ui.toggleAdd.addEventListener("click", () => {
+  const opening = ui.addPanel.classList.contains("hidden");
+  ui.addedPanel.classList.add("hidden");
+  ui.addPanel.classList.toggle("hidden", !opening);
+  ui.toggleAdd.textContent = opening ? "Close form" : "Add student";
+  if (opening) document.getElementById("lastName").focus();
+});
+
+document.getElementById("cancelAddStudentBtn").addEventListener("click", () => {
+  ui.addPanel.classList.add("hidden");
+  ui.toggleAdd.textContent = "Add student";
+});
+
+document.getElementById("retryBtn").addEventListener("click", loadStudents);
+
 onAuthStateChanged(auth, async (user) => {
-  if (!user) return; // the shared teacher nav performs the redirect
+  if (!user) return;
+
   const tokenResult = await user.getIdTokenResult();
   currentSchoolId = tokenResult.claims.schoolId;
   currentRole = tokenResult.claims.role;
-
-  // School logo + name are shown persistently in the shared nav app-bar now,
-  // so this page no longer loads its own school banner.
   await loadStudents();
 });
 
 async function loadStudents() {
-  document.getElementById("noSectionsState").classList.add("hidden");
+  showLoading();
 
-  if (currentRole === "teacher") {
-    const mySections = await getMyAssignedSections();
-    if (mySections.length === 0) {
-      allStudents = [];
-      document.getElementById("noSectionsState").classList.remove("hidden");
-      document.getElementById("studentList").innerHTML = "";
+  try {
+    if (currentRole === "teacher") {
+      const mySections = await getMyAssignedSections();
+
+      if (mySections.length === 0) {
+        allStudents = [];
+        updateMetrics();
+        showNoSections();
+        return;
+      }
+
+      allStudents = await getStudentsForSections(mySections);
+    } else {
+      const q = query(
+        collection(db, "students"),
+        where("schoolId", "==", currentSchoolId),
+        orderBy("fullName")
+      );
+
+      const snap = await getDocs(q);
+      allStudents = snap.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+    }
+
+    updateMetrics();
+
+    if (allStudents.length === 0) {
+      showEmpty();
       return;
     }
-    allStudents = await getStudentsForSections(mySections);
-  } else {
-    // School admin: unrestricted, whole-school roster — unchanged from before.
-    // fullName is stored server-side as "Lastname, Firstname M. Suffix" (see
-    // NameFormatter on the backend), so ordering by it here already sorts
-    // last-name-first with no extra client-side logic needed.
-    const q = query(
-      collection(db, "students"),
-      where("schoolId", "==", currentSchoolId),
-      orderBy("fullName")
-    );
-    const snap = await getDocs(q);
-    allStudents = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-  }
 
-  if (allStudents.length === 0) {
-    document.getElementById("emptyState").classList.remove("hidden");
-  } else {
-    document.getElementById("emptyState").classList.add("hidden");
+    renderList(allStudents);
+  } catch (error) {
+    showError(error);
   }
-  renderList(allStudents);
 }
 
-/**
- * A teacher's own assigned sections, read directly from their own
- * users/{uid} Firestore doc — the same field BroadcastService reads
- * server-side to scope "announce to my section." Self-reads are already
- * permitted by the existing security rules, so no new backend endpoint
- * is needed just to see your own assignment.
- */
 async function getMyAssignedSections() {
   const uid = auth.currentUser.uid;
   const snap = await getDoc(doc(db, "users", uid));
@@ -151,27 +336,20 @@ async function getMyAssignedSections() {
   return snap.data().assignedSections || [];
 }
 
-/**
- * Roster scoped to only the given grade/section pairs. Firestore has no
- * clean "match any of these (grade, section) pairs" in one query without a
- * computed composite field (which would need a one-time migration to
- * backfill every existing student doc) — since a teacher's assigned
- * sections list is always small, one query per pair merged in memory is
- * simpler. Same reasoning already used for the Android app and for
- * BroadcastService's section-targeting on the backend.
- */
 async function getStudentsForSections(sections) {
   const results = [];
   const seenIds = new Set();
 
-  for (const s of sections) {
+  for (const section of sections) {
     const q = query(
       collection(db, "students"),
       where("schoolId", "==", currentSchoolId),
-      where("grade", "==", s.grade),
-      where("section", "==", s.section)
+      where("grade", "==", section.grade),
+      where("section", "==", section.section)
     );
+
     const snap = await getDocs(q);
+
     snap.docs.forEach((docSnap) => {
       if (!seenIds.has(docSnap.id)) {
         seenIds.add(docSnap.id);
@@ -180,20 +358,35 @@ async function getStudentsForSections(sections) {
     });
   }
 
-  results.sort((a, b) => (a.fullName || "").localeCompare(b.fullName || ""));
+  results.sort((a, b) =>
+    (a.fullName || "").localeCompare(b.fullName || "")
+  );
+
   return results;
 }
 
-/**
- * Grade labels are free text ("1", "10", "K"), so a plain string sort
- * would put "10" before "2". Extract leading digits when present and sort
- * numerically; non-numeric labels sort after all numeric grades.
- */
+function updateMetrics() {
+  const ready = allStudents.filter(
+    (student) => (student.guardianUids || []).length > 0
+  ).length;
+
+  const needs = allStudents.length - ready;
+
+  ui.studentCount.textContent = String(allStudents.length);
+  ui.readyCount.textContent = String(ready);
+  ui.needsGuardianCount.textContent = String(needs);
+
+  ui.heroTitle.textContent = allStudents.length === 0
+    ? "Your student roster at a glance."
+    : `${allStudents.length} student${allStudents.length === 1 ? "" : "s"} in this dismissal roster`;
+}
+
 function gradeCompare(a, b) {
   const na = parseInt((a || "").replace(/\D/g, ""), 10);
   const nb = parseInt((b || "").replace(/\D/g, ""), 10);
   const aIsNum = !Number.isNaN(na);
   const bIsNum = !Number.isNaN(nb);
+
   if (aIsNum && bIsNum) return na - nb;
   if (aIsNum) return -1;
   if (bIsNum) return 1;
@@ -202,13 +395,15 @@ function gradeCompare(a, b) {
 
 function groupStudents(students) {
   const byGrade = new Map();
-  students.forEach((s) => {
-    const grade = s.grade || "-";
-    const section = s.section || "-";
+
+  students.forEach((student) => {
+    const grade = student.grade || "—";
+    const section = student.section || "—";
+
     if (!byGrade.has(grade)) byGrade.set(grade, new Map());
     const bySection = byGrade.get(grade);
     if (!bySection.has(section)) bySection.set(section, []);
-    bySection.get(section).push(s);
+    bySection.get(section).push(student);
   });
 
   return [...byGrade.keys()]
@@ -219,97 +414,164 @@ function groupStudents(students) {
         .sort()
         .map((section) => ({
           section,
-          students: byGrade.get(grade).get(section).sort((a, b) => (a.fullName || "").localeCompare(b.fullName || "")),
-        })),
+          students: byGrade
+            .get(grade)
+            .get(section)
+            .sort((a, b) =>
+              (a.fullName || "").localeCompare(b.fullName || "")
+            )
+        }))
     }));
 }
 
 function renderList(students) {
-  const list = document.getElementById("studentList");
-  const noResultsState = document.getElementById("noResultsState");
-  list.innerHTML = "";
+  hideRosterStates();
 
   if (students.length === 0) {
-    noResultsState.classList.toggle("hidden", allStudents.length === 0);
+    if (allStudents.length > 0) {
+      ui.noResults.classList.remove("hidden");
+    } else {
+      ui.empty.classList.remove("hidden");
+    }
     return;
   }
-  noResultsState.classList.add("hidden");
 
-  const groups = groupStudents(students);
+  ui.list.classList.remove("hidden");
+  ui.list.innerHTML = "";
 
-  groups.forEach((gradeGroup) => {
-    const gradeHeader = document.createElement("h2");
-    gradeHeader.className = "text-lg font-bold text-ink-strong mt-4 mb-1";
-    gradeHeader.textContent = `Grade ${gradeGroup.grade}`;
-    list.appendChild(gradeHeader);
+  groupStudents(students).forEach((gradeGroup) => {
+    const block = document.createElement("section");
+    block.className = "pp-grade-block";
+
+    const total = gradeGroup.sections.reduce(
+      (sum, section) => sum + section.students.length,
+      0
+    );
+
+    block.innerHTML = `
+      <div class="pp-grade-head">
+        <h2>Grade ${escapeHtml(gradeGroup.grade)}</h2>
+        <span>${total} student${total === 1 ? "" : "s"}</span>
+      </div>
+    `;
 
     gradeGroup.sections.forEach((sectionGroup) => {
-      const sectionHeader = document.createElement("h3");
-      sectionHeader.className = "text-sm font-semibold text-ink-muted mb-2 ml-1";
-      sectionHeader.textContent = `Section ${sectionGroup.section}`;
-      list.appendChild(sectionHeader);
+      const sectionWrap = document.createElement("div");
 
-      sectionGroup.students.forEach((s) => {
-        list.appendChild(renderStudentCard(s));
+      sectionWrap.innerHTML = `
+        <div class="pp-section-head">
+          <span class="pp-section-pill">
+            Section ${escapeHtml(sectionGroup.section)} · ${sectionGroup.students.length}
+          </span>
+        </div>
+        <div class="pp-student-grid"></div>
+      `;
+
+      const grid = sectionWrap.querySelector(".pp-student-grid");
+      sectionGroup.students.forEach((student) => {
+        grid.appendChild(renderStudentCard(student));
       });
+
+      block.appendChild(sectionWrap);
     });
+
+    ui.list.appendChild(block);
   });
 }
 
-function renderStudentCard(s) {
-  const guardianCount = (s.guardianUids || []).length;
+function renderStudentCard(student) {
+  const guardianCount = (student.guardianUids || []).length;
+  const card = document.createElement("article");
+  card.className = "pp-student-card";
 
-  const card = document.createElement("div");
-  card.className = "pp-card pp-card--pad mb-2";
   card.innerHTML = `
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="font-semibold text-ink-strong">${escapeHtml(s.fullName || "Unnamed Student")}</p>
-        <p class="text-sm text-ink-muted">Grade ${escapeHtml(s.grade || "-")} · Section ${escapeHtml(s.section || "-")}</p>
+    <div class="pp-student-card__head">
+      <div class="pp-student-avatar">
+        ${escapeHtml(initials(student.fullName))}
       </div>
-      <span class="pp-badge ${guardianCount > 0 ? "pp-badge--success" : "pp-badge--warning"}">
-        ${guardianCount} guardian${guardianCount === 1 ? "" : "s"}
+
+      <div class="min-w-0">
+        <p class="pp-student-name truncate">
+          ${escapeHtml(student.fullName || "Unnamed student")}
+        </p>
+        <p class="pp-student-meta">
+          Grade ${escapeHtml(student.grade || "—")} ·
+          Section ${escapeHtml(student.section || "—")}
+        </p>
+      </div>
+
+      <span class="pp-status ${
+        guardianCount > 0
+          ? "pp-status--success"
+          : "pp-status--warning"
+      }">
+        ${guardianCount > 0 ? "Ready" : "Action needed"}
       </span>
     </div>
-    <a href="${guardianCount > 0 ? `./manage-guardians.html?studentId=${encodeURIComponent(s.id)}` : `./register-parent.html?studentId=${encodeURIComponent(s.id)}`}"
-       class="student-action-link pp-btn pp-btn--secondary w-full mt-3">
-      ${guardianCount > 0 ? "Manage Guardians" : "Register Parent"}
-    </a>
+
+    <div class="pp-student-readiness ${
+      guardianCount > 0
+        ? "pp-student-readiness--ready"
+        : "pp-student-readiness--needs"
+    }">
+      ${
+        guardianCount > 0
+          ? `${guardianCount} authorized guardian${guardianCount === 1 ? "" : "s"} on file`
+          : "No authorized guardian on file yet"
+      }
+    </div>
+
+    <div class="pp-student-card__actions">
+      <a
+        href="${
+          guardianCount > 0
+            ? `./manage-guardians.html?studentId=${encodeURIComponent(student.id)}`
+            : `./register-parent.html?studentId=${encodeURIComponent(student.id)}`
+        }"
+        class="student-action-link pp-btn pp-btn--secondary">
+        ${guardianCount > 0 ? "Manage guardians" : "Register parent"}
+      </a>
+    </div>
   `;
+
   card.querySelector(".student-action-link").addEventListener("click", () => {
     sessionStorage.setItem(
-      guardianCount > 0 ? "pendingStaffGuardianStudentId" : "pendingParentStudentId",
-      s.id
+      guardianCount > 0
+        ? "pendingStaffGuardianStudentId"
+        : "pendingParentStudentId",
+      student.id
     );
   });
+
   return card;
 }
 
-document.getElementById("searchBox").addEventListener("input", (e) => {
-  const term = e.target.value.trim().toLowerCase();
+ui.search.addEventListener("input", (event) => {
+  const term = event.target.value.trim().toLowerCase();
+
   if (!term) {
     renderList(allStudents);
     return;
   }
-  const filtered = allStudents.filter((s) =>
-    (s.fullName || "").toLowerCase().includes(term) ||
-    (s.grade || "").toLowerCase().includes(term) ||
-    (s.section || "").toLowerCase().includes(term)
+
+  const filtered = allStudents.filter((student) =>
+    (student.fullName || "").toLowerCase().includes(term) ||
+    (student.grade || "").toLowerCase().includes(term) ||
+    (student.section || "").toLowerCase().includes(term)
   );
+
   renderList(filtered);
 });
 
-document.getElementById("addStudentForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
+document.getElementById("addStudentForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
   if (isAddingStudent) return;
 
   const formError = document.getElementById("formError");
   const submitButton = document.getElementById("addStudentBtn");
   formError.classList.add("hidden");
   isAddingStudent = true;
-  submitButton.disabled = true;
-  submitButton.textContent = "Adding student...";
-  submitButton.classList.add("opacity-60", "cursor-not-allowed");
+  setSubmitButtonBusy(submitButton, true, "Adding…");
 
   const lastName = document.getElementById("lastName").value.trim();
   const firstName = document.getElementById("firstName").value.trim();
@@ -321,39 +583,88 @@ document.getElementById("addStudentForm").addEventListener("submit", async (e) =
   try {
     const res = await authedFetch("/teacher/students", {
       method: "POST",
-      body: JSON.stringify({ lastName, firstName, middleInitial, suffix, grade, section }),
+      body: JSON.stringify({
+        lastName,
+        firstName,
+        middleInitial,
+        suffix,
+        grade,
+        section
+      })
     });
+
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not add student");
 
     await loadStudents();
-    e.target.reset();
+    event.currentTarget.reset();
     addedStudentId = data.studentId;
     document.getElementById("addedStudentName").textContent = data.fullName;
-    document.getElementById("addStudentPanel").classList.add("hidden");
-    document.getElementById("studentAddedPanel").classList.remove("hidden");
-    showToast(`${data.fullName} was added. You can register a parent or guardian next.`, "success");
+    ui.addPanel.classList.add("hidden");
+    ui.addedPanel.classList.remove("hidden");
+    ui.toggleAdd.textContent = "Add student";
 
-    // Jump straight into registering their parent — the natural next step
-    // right after adding a new student to the roster.
+    showToast(
+      `${data.fullName} was added. Register a parent or guardian next.`,
+      "success"
+    );
+
     sessionStorage.setItem("pendingParentStudentId", data.studentId);
-  } catch (err) {
-    formError.textContent = err.message;
+  } catch (error) {
+    formError.textContent = error.message;
     formError.classList.remove("hidden");
-    showToast(err.message || "Could not add student.", "error");
+    showToast(error.message || "Could not add student.", "error");
   } finally {
-    // Successful submissions navigate to the parent-registration page. If
-    // the request fails, restore the form so the user can correct and retry.
     isAddingStudent = false;
-    submitButton.disabled = false;
-    submitButton.textContent = "Add Student";
-    submitButton.classList.remove("opacity-60", "cursor-not-allowed");
+    setSubmitButtonBusy(submitButton, false);
   }
 });
 
-function escapeHtml(str) {
+function showLoading() {
+  hideRosterStates();
+  ui.loading.classList.remove("hidden");
+}
+
+function showEmpty() {
+  hideRosterStates();
+  ui.empty.classList.remove("hidden");
+}
+
+function showNoSections() {
+  hideRosterStates();
+  ui.noSections.classList.remove("hidden");
+}
+
+function showError(error) {
+  hideRosterStates();
+  ui.errorDetail.textContent = error?.message || "Check your connection and try again.";
+  ui.error.classList.remove("hidden");
+}
+
+function hideRosterStates() {
+  ui.loading.classList.add("hidden");
+  ui.list.classList.add("hidden");
+  ui.empty.classList.add("hidden");
+  ui.noResults.classList.add("hidden");
+  ui.noSections.classList.add("hidden");
+  ui.error.classList.add("hidden");
+}
+
+function initials(name) {
+  const parts = String(name || "")
+    .replace(",", " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) return "S";
+
+  return ((parts[0][0] || "") + (parts[1]?.[0] || "")).toUpperCase();
+}
+
+function escapeHtml(value) {
   const div = document.createElement("div");
-  div.textContent = str;
+  div.textContent = String(value ?? "");
   return div.innerHTML;
 }
 </script>
