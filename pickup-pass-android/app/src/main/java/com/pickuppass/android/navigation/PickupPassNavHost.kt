@@ -198,48 +198,28 @@ fun PickupPassNavHost(
                     }
                 },
                 onParentHome = {
-                    navController.navigate(
-                        Screen.ParentStudents.route
-                    ) {
-                        popUpTo(
-                            Screen.Login.route
-                        ) {
-                            inclusive = true
-                        }
-                    }
+                    navController
+                        .navigateToAuthenticatedRoot(
+                            Screen.ParentStudents.route
+                        )
                 },
                 onTeacherHome = {
-                    navController.navigate(
-                        Screen.TeacherScanner.route
-                    ) {
-                        popUpTo(
-                            Screen.Login.route
-                        ) {
-                            inclusive = true
-                        }
-                    }
+                    navController
+                        .navigateToAuthenticatedRoot(
+                            Screen.TeacherScanner.route
+                        )
                 },
                 onSchoolAdminHome = {
-                    navController.navigate(
-                        Screen.SchoolAdminBranding.route
-                    ) {
-                        popUpTo(
-                            Screen.Login.route
-                        ) {
-                            inclusive = true
-                        }
-                    }
+                    navController
+                        .navigateToAuthenticatedRoot(
+                            Screen.SchoolAdminBranding.route
+                        )
                 },
                 onMasterAdminHome = {
-                    navController.navigate(
-                        Screen.MasterAdminHome.route
-                    ) {
-                        popUpTo(
-                            Screen.Login.route
-                        ) {
-                            inclusive = true
-                        }
-                    }
+                    navController
+                        .navigateToAuthenticatedRoot(
+                            Screen.MasterAdminHome.route
+                        )
                 }
             )
         }
@@ -868,6 +848,21 @@ fun PickupPassNavHost(
                 }
             )
         }
+    }
+}
+
+private fun NavHostController
+    .navigateToAuthenticatedRoot(
+        route: String
+    ) {
+    navigate(route) {
+        popUpTo(graph.id) {
+            inclusive = false
+            saveState = false
+        }
+
+        launchSingleTop = true
+        restoreState = false
     }
 }
 
