@@ -1,0 +1,393 @@
+/* PickupPass Parent — Screen 03: Authorized Guardians */
+
+.pp-guardians-page {
+  max-width: 920px;
+}
+
+.pp-guardians-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(20px, 4vw, 30px);
+  border-radius: var(--radius-xl);
+  color: #fff;
+  background:
+    radial-gradient(
+      380px 240px at 100% 0%,
+      rgba(132, 204, 22, .25),
+      transparent 72%
+    ),
+    linear-gradient(
+      145deg,
+      var(--indigo-900),
+      var(--indigo-700) 58%,
+      var(--primary)
+    );
+  box-shadow: var(--shadow-lg);
+}
+
+.pp-guardians-hero__eyebrow {
+  margin: 0;
+  color: rgba(255,255,255,.67);
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.pp-guardians-hero h1 {
+  margin: 7px 0 0;
+  max-width: 680px;
+  color: #fff;
+  font-size: clamp(1.6rem, 5vw, 2.3rem);
+  line-height: 1.08;
+  letter-spacing: -.035em;
+  font-weight: 850;
+}
+
+.pp-guardians-hero p {
+  margin: 9px 0 0;
+  max-width: 680px;
+  color: rgba(255,255,255,.76);
+  font-size: .84rem;
+  line-height: 1.55;
+}
+
+.pp-guardian-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 20px;
+}
+
+.pp-guardian-metric {
+  padding: 13px 10px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 15px;
+  background: rgba(255,255,255,.09);
+  text-align: center;
+}
+
+.pp-guardian-metric strong {
+  display: block;
+  color: #fff;
+  font-size: 1.25rem;
+  line-height: 1;
+  font-weight: 850;
+}
+
+.pp-guardian-metric span {
+  display: block;
+  margin-top: 5px;
+  color: rgba(255,255,255,.70);
+  font-size: .66rem;
+}
+
+.pp-guardians-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 26px 0 12px;
+}
+
+.pp-guardians-toolbar h2,
+.pp-guardian-form-card h2,
+.pp-schedule-card h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.05rem;
+  line-height: 1.25;
+  font-weight: 820;
+}
+
+.pp-guardians-toolbar p,
+.pp-guardian-form-card__intro,
+.pp-schedule-card__intro {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: .75rem;
+  line-height: 1.5;
+}
+
+.pp-guardians-list {
+  display: grid;
+  gap: 12px;
+}
+
+.pp-guardian-card {
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  gap: 13px;
+  align-items: center;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.pp-guardian-card__avatar {
+  width: 54px;
+  height: 54px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--primary-container);
+}
+
+.pp-guardian-card__avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.pp-guardian-card__name {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: .92rem;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.pp-guardian-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.pp-guardian-card__summary {
+  margin-top: 7px;
+  color: var(--text-muted);
+  font-size: .71rem;
+  line-height: 1.45;
+}
+
+.pp-guardian-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.pp-guardian-card__actions .pp-btn {
+  width: auto;
+  min-height: 42px;
+  flex: 0 0 auto;
+}
+
+.pp-guardian-card__protected {
+  color: var(--text-subtle);
+  font-size: .67rem;
+}
+
+.pp-guardian-add {
+  margin-top: 28px;
+}
+
+.pp-guardian-add__head h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.08rem;
+  font-weight: 820;
+}
+
+.pp-guardian-add__head p {
+  margin: 4px 0 0;
+  max-width: 700px;
+  color: var(--text-muted);
+  font-size: .76rem;
+  line-height: 1.5;
+}
+
+.pp-guardian-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.pp-guardian-mode button {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: .73rem;
+  font-weight: 760;
+}
+
+.pp-guardian-mode button[aria-selected="true"] {
+  border-color: color-mix(in srgb,var(--primary) 34%,var(--border));
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.pp-guardian-form-wrap {
+  margin-top: 12px;
+}
+
+.pp-guardian-form-card,
+.pp-schedule-card {
+  padding: clamp(16px,3vw,22px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.pp-guardian-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.pp-guardian-form-grid .pp-span-2 {
+  grid-column: 1 / -1;
+}
+
+.pp-guardian-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.pp-guardian-form-actions .pp-btn {
+  width: auto;
+  min-height: 44px;
+  flex: 0 0 auto;
+}
+
+.pp-schedule-card {
+  margin-top: 18px;
+  scroll-margin-top: 18px;
+}
+
+.pp-schedule-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.pp-schedule-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 15px;
+  color: var(--text-strong);
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.pp-schedule-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7,minmax(0,1fr));
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.pp-schedule-weekdays .pp-weekday {
+  min-width: 0;
+}
+
+.pp-schedule-callout {
+  margin-top: 14px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface-variant);
+  color: var(--text-muted);
+  font-size: .71rem;
+  line-height: 1.5;
+}
+
+.pp-guardian-safety {
+  margin-top: 18px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-variant);
+  color: var(--text-muted);
+  font-size: .72rem;
+  line-height: 1.5;
+}
+
+.pp-guardians-loading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: .76rem;
+}
+
+.pp-guardians-loading::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  border: 2px solid var(--primary-container);
+  border-top-color: var(--primary);
+  border-radius: 999px;
+  animation: pp-guardian-spin .8s linear infinite;
+}
+
+@keyframes pp-guardian-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 660px) {
+  .pp-guardian-card {
+    grid-template-columns: 48px minmax(0,1fr);
+  }
+
+  .pp-guardian-card__avatar {
+    width: 48px;
+    height: 48px;
+  }
+
+  .pp-guardian-card__actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+
+  .pp-guardian-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pp-guardian-form-grid .pp-span-2 {
+    grid-column: auto;
+  }
+
+  .pp-schedule-weekdays {
+    grid-template-columns: repeat(4,minmax(0,1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .pp-guardian-metrics {
+    gap: 6px;
+  }
+
+  .pp-guardian-metric {
+    padding-inline: 6px;
+  }
+
+  .pp-schedule-weekdays {
+    grid-template-columns: repeat(3,minmax(0,1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-guardians-loading::before {
+    animation: none;
+  }
+}

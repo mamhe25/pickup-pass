@@ -1,54 +1,950 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="theme-color" content="#047857" />
 <title>Guardians — PickupPass</title>
-<link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css">
-<script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head>
+
+<link rel="stylesheet" href="../shared/theme.css" />
+<link rel="stylesheet" href="../shared/components.css" />
+<link rel="stylesheet" href="../shared/portal.css" />
+<link rel="stylesheet" href="./manage-guardians.css" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+
 <body class="min-h-screen pp-portal-body">
-<div id="parentNav" data-active="guardians"></div><script type="module" src="../shared/parent-nav.js"></script>
-<main class="pp-page pp-page--narrow">
-  <div class="pp-page-head"><div><a href="./students.html" class="pp-backlink">← My Students</a><h1 class="mt-3">Authorized Pickup Guardians</h1><p id="studentLabel">Manage permanent backup guardians, recurring pickup schedules, and one-day temporary authorizations for this student.</p></div><button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh</button></div>
-  <section class="pp-section mt-0"><div class="pp-section__head"><div><h2>Authorized people</h2><p class="pp-mini">Primary guardians cannot be removed here. Schedule restrictions are optional and only apply when enabled.</p></div></div><div class="pp-section__body"><div id="guardianList" class="pp-card-list"><div class="pp-empty">Loading guardians…</div></div></div></section>
-  <div class="pp-split mt-4">
-    <section class="pp-section mt-0"><div class="pp-section__head"><h2>Add permanent backup guardian</h2></div><div class="pp-section__body"><form id="addForm" class="space-y-3">
-      <div class="pp-form-grid"><label>Last name<input id="lastName" required class="pp-field"></label><label>First name<input id="firstName" required class="pp-field"></label><label>Middle initial<input id="middleInitial" maxlength="4" class="pp-field"></label><label>Suffix<input id="suffix" class="pp-field"></label></div>
-      <label>Email address<input id="guardianEmail" type="email" required class="pp-field"></label>
-      <label>Relationship<select id="guardianRelationship" class="pp-field"><option value="parent/guardian">Parent / Guardian</option><option value="grandparent">Grandparent</option><option value="relative">Other Relative</option><option value="caregiver">Caregiver / Nanny</option><option value="authorized pickup">Other Authorized Pickup</option></select></label>
-      <button class="pp-btn pp-btn--primary w-full">Add permanent guardian</button>
-    </form></div></section>
-    <section class="pp-section mt-0"><div class="pp-section__head"><div><h2>One-day temporary guardian</h2><p class="pp-mini">Valid for one pickup on one date, up to 30 days ahead.</p></div></div><div class="pp-section__body"><form id="tempForm" class="space-y-3">
-      <div class="pp-form-grid"><label>Last name<input id="tempLastName" required class="pp-field"></label><label>First name<input id="tempFirstName" required class="pp-field"></label></div>
-      <label>Email address<input id="tempEmail" type="email" required class="pp-field"></label><label>Relationship<input id="tempRelationship" value="authorized pickup" class="pp-field"></label><label>Pickup date<input id="tempDate" type="date" required class="pp-field"></label>
-      <button class="pp-btn pp-btn--secondary w-full">Authorize for one day</button>
-      <p id="tempFeatureNote" class="pp-mini">Availability depends on your school's enabled features.</p>
-    </form></div></section>
+<div id="parentNav" data-active="guardians"></div>
+<script type="module" src="../shared/parent-nav.js"></script>
+
+<main class="pp-page pp-guardians-page">
+  <a href="./students.html" class="pp-backlink">← My Students</a>
+
+  <section class="pp-guardians-hero mt-3">
+    <p class="pp-guardians-hero__eyebrow">Pickup authorization</p>
+
+    <h1>Trusted people for a safe handoff.</h1>
+
+    <p id="studentLabel">
+      Loading student…
+    </p>
+
+    <div class="pp-guardian-metrics" aria-label="Guardian access summary">
+      <div class="pp-guardian-metric">
+        <strong id="primaryCount">—</strong>
+        <span>Primary</span>
+      </div>
+
+      <div class="pp-guardian-metric">
+        <strong id="backupCount">—</strong>
+        <span>Backup</span>
+      </div>
+
+      <div class="pp-guardian-metric">
+        <strong id="temporaryCount">—</strong>
+        <span>One-day</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="pp-guardians-toolbar">
+    <div>
+      <h2>Authorized people</h2>
+      <p>
+        Primary guardians stay protected. Backup and one-day permissions can be
+        adjusted here.
+      </p>
+    </div>
+
+    <button id="refreshBtn" type="button" class="pp-btn pp-btn--ghost">
+      Refresh
+    </button>
+  </section>
+
+  <div id="guardianList" class="pp-guardians-list" aria-live="polite">
+    <div class="pp-guardians-loading">
+      Loading authorized guardians…
+    </div>
   </div>
-  <section id="schedulePanel" class="pp-section hidden"><div class="pp-section__head"><div><h2>Recurring pickup schedule</h2><p id="scheduleGuardianName" class="pp-mini"></p></div><button id="closeSchedule" class="pp-btn pp-btn--ghost">Close</button></div><div class="pp-section__body">
-    <label class="flex items-center gap-2"><input id="scheduleEnabled" type="checkbox"> Restrict this backup guardian to selected days/dates</label>
-    <div class="mt-4"><div class="pp-label">Authorized weekdays</div><div class="pp-weekdays" id="weekdayGrid"></div></div>
-    <div class="pp-form-grid mt-4"><label>Start date (optional)<input id="scheduleStart" type="date" class="pp-field"></label><label>End date (optional)<input id="scheduleEnd" type="date" class="pp-field"></label></div>
-    <div class="pp-callout mt-4">Saving a schedule invalidates any unused QR pass already issued to this guardian so the next pass is checked against the new schedule.</div>
-    <div class="pp-actions mt-4"><button id="saveSchedule" class="pp-btn pp-btn--primary">Save schedule</button><button id="clearSchedule" class="pp-btn pp-btn--ghost">Allow any permitted day</button></div>
-  </div></section>
+
+  <section class="pp-guardian-add">
+    <div class="pp-guardian-add__head">
+      <h2>Add pickup access</h2>
+      <p>
+        Choose permanent backup access or a one-day authorization. Every pickup
+        still requires staff verification.
+      </p>
+    </div>
+
+    <div class="pp-guardian-mode" role="tablist" aria-label="Guardian access type">
+      <button
+        id="permanentModeBtn"
+        type="button"
+        role="tab"
+        aria-selected="true">
+        Permanent backup
+      </button>
+
+      <button
+        id="temporaryModeBtn"
+        type="button"
+        role="tab"
+        aria-selected="false">
+        One-day pickup
+      </button>
+    </div>
+
+    <div class="pp-guardian-form-wrap">
+      <section id="permanentPanel" class="pp-guardian-form-card">
+        <h2>Permanent backup guardian</h2>
+
+        <p class="pp-guardian-form-card__intro">
+          Add someone who may pick up this student when you are unavailable.
+          They receive their own account and identity profile.
+        </p>
+
+        <form id="addForm">
+          <div class="pp-guardian-form-grid">
+            <label>
+              Last name
+              <input id="lastName" required class="pp-field" />
+            </label>
+
+            <label>
+              First name
+              <input id="firstName" required class="pp-field" />
+            </label>
+
+            <label>
+              Middle initial
+              <input id="middleInitial" maxlength="4" class="pp-field" />
+            </label>
+
+            <label>
+              Suffix
+              <input id="suffix" class="pp-field" />
+            </label>
+
+            <label class="pp-span-2">
+              Email address
+              <input id="guardianEmail" type="email" required class="pp-field" />
+            </label>
+
+            <label class="pp-span-2">
+              Relationship
+              <select id="guardianRelationship" class="pp-field">
+                <option value="parent/guardian">Parent / Guardian</option>
+                <option value="grandparent">Grandparent</option>
+                <option value="relative">Other Relative</option>
+                <option value="caregiver">Caregiver / Nanny</option>
+                <option value="authorized pickup">Other Authorized Pickup</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="pp-guardian-form-actions">
+            <button class="pp-btn pp-btn--primary">
+              Add permanent guardian
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section id="temporaryPanel" class="pp-guardian-form-card hidden">
+        <h2>One-day pickup authorization</h2>
+
+        <p class="pp-guardian-form-card__intro">
+          Valid for one pickup on one date, up to 30 days ahead. Access ends
+          automatically after the successful pickup.
+        </p>
+
+        <form id="tempForm">
+          <div class="pp-guardian-form-grid">
+            <label>
+              Last name
+              <input id="tempLastName" required class="pp-field" />
+            </label>
+
+            <label>
+              First name
+              <input id="tempFirstName" required class="pp-field" />
+            </label>
+
+            <label class="pp-span-2">
+              Email address
+              <input id="tempEmail" type="email" required class="pp-field" />
+            </label>
+
+            <label>
+              Relationship
+              <input
+                id="tempRelationship"
+                value="authorized pickup"
+                class="pp-field" />
+            </label>
+
+            <label>
+              Pickup date
+              <input id="tempDate" type="date" required class="pp-field" />
+            </label>
+          </div>
+
+          <p id="tempFeatureNote" class="pp-mini mt-3">
+            Availability depends on your school's enabled features.
+          </p>
+
+          <div class="pp-guardian-form-actions">
+            <button class="pp-btn pp-btn--secondary">
+              Authorize for one day
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </section>
+
+  <section id="schedulePanel" class="pp-schedule-card hidden">
+    <div class="pp-schedule-card__head">
+      <div>
+        <h2>Recurring pickup schedule</h2>
+        <p id="scheduleGuardianName" class="pp-schedule-card__intro"></p>
+      </div>
+
+      <button id="closeSchedule" type="button" class="pp-btn pp-btn--ghost">
+        Close
+      </button>
+    </div>
+
+    <label class="pp-schedule-toggle">
+      <input id="scheduleEnabled" type="checkbox" />
+      Restrict this backup guardian to selected days/dates
+    </label>
+
+    <div class="mt-4">
+      <div class="pp-label">Authorized weekdays</div>
+      <div class="pp-schedule-weekdays" id="weekdayGrid"></div>
+    </div>
+
+    <div class="pp-form-grid mt-4">
+      <label>
+        Start date (optional)
+        <input id="scheduleStart" type="date" class="pp-field" />
+      </label>
+
+      <label>
+        End date (optional)
+        <input id="scheduleEnd" type="date" class="pp-field" />
+      </label>
+    </div>
+
+    <div class="pp-schedule-callout">
+      Saving a schedule invalidates any unused QR pass already issued to this
+      guardian so the next pass is checked against the new schedule.
+    </div>
+
+    <div class="pp-guardian-form-actions">
+      <button id="clearSchedule" type="button" class="pp-btn pp-btn--ghost">
+        Allow any permitted day
+      </button>
+
+      <button id="saveSchedule" type="button" class="pp-btn pp-btn--primary">
+        Save schedule
+      </button>
+    </div>
+  </section>
+
+  <aside class="pp-guardian-safety">
+    Changing guardian access does not release a student. Every pickup still
+    requires a valid pass and staff identity verification.
+  </aside>
 </main>
+
 <script type="module">
-import { auth, db, authedFetch, showToast, setSubmitButtonBusy } from '../shared/firebase-init.js';
-import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { bindRefresh, escapeHtml, statusPill } from '../shared/portal.js';
-const params=new URLSearchParams(location.search);const studentId=params.get('studentId')||sessionStorage.getItem('pendingGuardianStudentId');if(!studentId)location.href='./students.html';
-let student=null,profiles={},scheduleUid='';const DAYS=['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'];
-weekdayGrid.innerHTML=DAYS.map(d=>`<label class="pp-weekday"><input type="checkbox" value="${d}"><span>${d.slice(0,3)}</span></label>`).join('');
-function dateText(v){return v||'no date limit'}
-function scheduleSummary(e){if(!e?.pickupScheduleEnabled)return 'No recurring restriction';const days=(e.pickupDays||[]).map(x=>String(x).slice(0,3)).join(', ')||'No days';return `${days} · ${dateText(e.scheduleStartDate)} → ${dateText(e.scheduleEndDate)}`;}
-async function load(){const snap=await getDoc(doc(db,'students',studentId));if(!snap.exists()){studentLabel.textContent='Student not found.';guardianList.innerHTML='<div class="pp-empty">Student not found.</div>';return;}student=snap.data();studentLabel.textContent=`${student.fullName||'Student'} · Grade ${student.grade||'—'}${student.section?' · '+student.section:''}`;try{const r=await authedFetch(`/parent/students/${encodeURIComponent(studentId)}/guardian-profiles`);if(r.ok){const d=await r.json();profiles=Object.fromEntries((d.guardians||[]).map(x=>[x.uid,x]));}}catch(_){profiles={};}render();}
-function render(){const guardians=student.guardians||{};const uids=[...new Set([...(student.guardianUids||[]),...Object.keys(guardians)])];guardianList.innerHTML=uids.map(uid=>{const e=guardians[uid]||{},p=profiles[uid]||{},temp=String(e.authorizationType||'permanent').toLowerCase()==='temporary';const badges=[e.isPrimary?'<span class="pp-status pp-status--success">Primary</span>':'',temp?'<span class="pp-status pp-status--warning">One-day</span>':''].join('');const meta=temp?`Valid ${escapeHtml(e.validDate||'—')} · ${Number(e.remainingUses??1)} use remaining`:escapeHtml(scheduleSummary(e));return `<div class="pp-person"><img class="pp-avatar" src="${escapeHtml(p.photoUrl||'../assets/default-avatar.svg')}" alt=""><div class="min-w-0"><div class="font-bold text-ink-strong truncate">${escapeHtml(p.displayName||'Pending guardian')}</div><div class="pp-meta-row">${badges}<span class="pp-mini">${escapeHtml(e.relationship||'Authorized pickup')}</span></div><div class="pp-mini mt-1">${meta}</div></div><div class="pp-actions">${!temp&&!e.isPrimary?`<button class="pp-btn pp-btn--ghost scheduleBtn" data-uid="${escapeHtml(uid)}">Schedule</button>`:''}${!e.isPrimary?`<button class="pp-btn pp-btn--ghost removeBtn !text-danger" data-uid="${escapeHtml(uid)}">Remove</button>`:''}</div></div>`}).join('')||'<div class="pp-empty">No guardians on record.</div>';document.querySelectorAll('.scheduleBtn').forEach(b=>b.onclick=()=>openSchedule(b.dataset.uid));document.querySelectorAll('.removeBtn').forEach(b=>b.onclick=()=>removeGuardian(b.dataset.uid,b));}
-function openSchedule(uid){scheduleUid=uid;const e=(student.guardians||{})[uid]||{},p=profiles[uid]||{};scheduleGuardianName.textContent=p.displayName||'Backup guardian';scheduleEnabled.checked=!!e.pickupScheduleEnabled;scheduleStart.value=e.scheduleStartDate||'';scheduleEnd.value=e.scheduleEndDate||'';const set=new Set((e.pickupDays||[]).map(x=>String(x).toUpperCase()));document.querySelectorAll('#weekdayGrid input').forEach(x=>x.checked=set.has(x.value));schedulePanel.classList.remove('hidden');schedulePanel.scrollIntoView({behavior:'smooth',block:'start'});}
-closeSchedule.onclick=()=>{schedulePanel.classList.add('hidden');scheduleUid=''};
-async function saveScheduleRequest(enabled){if(!scheduleUid)return;const pickupDays=[...document.querySelectorAll('#weekdayGrid input:checked')].map(x=>x.value);if(enabled&&pickupDays.length===0){showToast('Select at least one weekday.','error');return;}if(scheduleStart.value&&scheduleEnd.value&&scheduleEnd.value<scheduleStart.value){showToast('End date cannot be before start date.','error');return;}try{await apiCall('/parent/guardian-schedule',{method:'PUT',body:JSON.stringify({studentId,guardianUid:scheduleUid,enabled,pickupDays:enabled?pickupDays:[],startDate:enabled?scheduleStart.value:'',endDate:enabled?scheduleEnd.value:''})});showToast(enabled?'Pickup schedule saved.':'Recurring restriction removed.');schedulePanel.classList.add('hidden');await load();}catch(e){showToast(e.message,'error');}}
-saveSchedule.onclick=()=>saveScheduleRequest(scheduleEnabled.checked);clearSchedule.onclick=()=>saveScheduleRequest(false);
-async function apiCall(path,options){const r=await authedFetch(path,options);const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||d.message||'Request failed');return d;}
-async function removeGuardian(uid,btn){if(!confirm('Remove this authorized guardian? Any unused QR pass they hold will stop working.'))return;setSubmitButtonBusy(btn,true,'Removing…');try{await apiCall('/parent/remove-guardian',{method:'POST',body:JSON.stringify({studentId,guardianUid:uid})});showToast('Guardian removed.');await load();}catch(e){showToast(e.message,'error');}finally{setSubmitButtonBusy(btn,false);}}
-addForm.onsubmit=async e=>{e.preventDefault();const btn=e.currentTarget.querySelector('button');setSubmitButtonBusy(btn,true,'Adding…');try{const d=await apiCall('/parent/add-guardian',{method:'POST',body:JSON.stringify({studentId,lastName:lastName.value.trim(),firstName:firstName.value.trim(),middleInitial:middleInitial.value.trim(),suffix:suffix.value.trim(),guardianEmail:guardianEmail.value.trim(),relationship:guardianRelationship.value})});showToast(d.emailSent===false?'Guardian added; invite email was not sent.':'Guardian added.',d.emailSent===false?'warning':'success');e.currentTarget.reset();await load();}catch(err){showToast(err.message,'error');}finally{setSubmitButtonBusy(btn,false);}};
-tempForm.onsubmit=async e=>{e.preventDefault();const btn=e.currentTarget.querySelector('button');setSubmitButtonBusy(btn,true,'Authorizing…');try{const d=await apiCall('/parent/add-temporary-guardian',{method:'POST',body:JSON.stringify({studentId,lastName:tempLastName.value.trim(),firstName:tempFirstName.value.trim(),middleInitial:'',suffix:'',guardianEmail:tempEmail.value.trim(),relationship:tempRelationship.value.trim()||'authorized pickup',validDate:tempDate.value})});showToast(d.emailSent===false?'Temporary guardian authorized; invite email was not sent.':'Temporary guardian authorized.',d.emailSent===false?'warning':'success');e.currentTarget.reset();await load();}catch(err){showToast(err.message,'error');}finally{setSubmitButtonBusy(btn,false);}};
-bindRefresh('refreshBtn',load);onAuthStateChanged(auth,async u=>{if(u)await load();});
-</script></body></html>
+import {
+  auth,
+  db,
+  authedFetch,
+  showToast,
+  setSubmitButtonBusy
+} from "../shared/firebase-init.js";
+
+import {
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+import {
+  bindRefresh,
+  escapeHtml
+} from "../shared/portal.js";
+
+const params = new URLSearchParams(location.search);
+
+const studentId =
+  params.get("studentId") ||
+  sessionStorage.getItem("pendingGuardianStudentId");
+
+if (!studentId) {
+  location.href = "./students.html";
+}
+
+let student = null;
+let profiles = {};
+let scheduleUid = "";
+
+const DAYS = [
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY"
+];
+
+const ui = {
+  studentLabel: document.getElementById("studentLabel"),
+  guardianList: document.getElementById("guardianList"),
+  primaryCount: document.getElementById("primaryCount"),
+  backupCount: document.getElementById("backupCount"),
+  temporaryCount: document.getElementById("temporaryCount"),
+  permanentMode: document.getElementById("permanentModeBtn"),
+  temporaryMode: document.getElementById("temporaryModeBtn"),
+  permanentPanel: document.getElementById("permanentPanel"),
+  temporaryPanel: document.getElementById("temporaryPanel")
+};
+
+const weekdayGrid = document.getElementById("weekdayGrid");
+const schedulePanel = document.getElementById("schedulePanel");
+const scheduleGuardianName = document.getElementById("scheduleGuardianName");
+const scheduleEnabled = document.getElementById("scheduleEnabled");
+const scheduleStart = document.getElementById("scheduleStart");
+const scheduleEnd = document.getElementById("scheduleEnd");
+const saveSchedule = document.getElementById("saveSchedule");
+const clearSchedule = document.getElementById("clearSchedule");
+const closeSchedule = document.getElementById("closeSchedule");
+
+const addForm = document.getElementById("addForm");
+const lastName = document.getElementById("lastName");
+const firstName = document.getElementById("firstName");
+const middleInitial = document.getElementById("middleInitial");
+const suffix = document.getElementById("suffix");
+const guardianEmail = document.getElementById("guardianEmail");
+const guardianRelationship = document.getElementById("guardianRelationship");
+
+const tempForm = document.getElementById("tempForm");
+const tempLastName = document.getElementById("tempLastName");
+const tempFirstName = document.getElementById("tempFirstName");
+const tempEmail = document.getElementById("tempEmail");
+const tempRelationship = document.getElementById("tempRelationship");
+const tempDate = document.getElementById("tempDate");
+
+weekdayGrid.innerHTML =
+  DAYS.map(
+    (day) => `
+      <label class="pp-weekday">
+        <input type="checkbox" value="${day}">
+        <span>${day.slice(0, 3)}</span>
+      </label>
+    `
+  ).join("");
+
+ui.permanentMode.addEventListener("click", () => {
+  setMode("permanent");
+});
+
+ui.temporaryMode.addEventListener("click", () => {
+  setMode("temporary");
+});
+
+function setMode(mode) {
+  const temporary = mode === "temporary";
+
+  ui.permanentMode.setAttribute(
+    "aria-selected",
+    String(!temporary)
+  );
+
+  ui.temporaryMode.setAttribute(
+    "aria-selected",
+    String(temporary)
+  );
+
+  ui.permanentPanel.classList.toggle(
+    "hidden",
+    temporary
+  );
+
+  ui.temporaryPanel.classList.toggle(
+    "hidden",
+    !temporary
+  );
+}
+
+function dateText(value) {
+  return value || "no date limit";
+}
+
+function scheduleSummary(entry) {
+  if (!entry?.pickupScheduleEnabled) {
+    return "No recurring restriction";
+  }
+
+  const days =
+    (entry.pickupDays || [])
+      .map((value) =>
+        String(value).slice(0, 3)
+      )
+      .join(", ") ||
+    "No days";
+
+  return (
+    `${days} · ` +
+    `${dateText(entry.scheduleStartDate)} → ` +
+    `${dateText(entry.scheduleEndDate)}`
+  );
+}
+
+async function load() {
+  ui.guardianList.innerHTML = `
+    <div class="pp-guardians-loading">
+      Loading authorized guardians…
+    </div>
+  `;
+
+  const snap =
+    await getDoc(
+      doc(db, "students", studentId)
+    );
+
+  if (!snap.exists()) {
+    ui.studentLabel.textContent =
+      "Student not found.";
+
+    ui.guardianList.innerHTML =
+      '<div class="pp-empty">Student not found.</div>';
+
+    setCounts([]);
+    return;
+  }
+
+  student = snap.data();
+
+  ui.studentLabel.textContent =
+    `${student.fullName || "Student"} · ` +
+    `Grade ${student.grade || "—"}` +
+    `${student.section ? " · " + student.section : ""}`;
+
+  try {
+    const response =
+      await authedFetch(
+        `/parent/students/${encodeURIComponent(studentId)}/guardian-profiles`
+      );
+
+    if (response.ok) {
+      const data = await response.json();
+
+      profiles =
+        Object.fromEntries(
+          (data.guardians || [])
+            .map((item) => [
+              item.uid,
+              item
+            ])
+        );
+    }
+  } catch (_) {
+    profiles = {};
+  }
+
+  render();
+}
+
+function render() {
+  const guardians =
+    student.guardians || {};
+
+  const uids = [
+    ...new Set([
+      ...(student.guardianUids || []),
+      ...Object.keys(guardians)
+    ])
+  ];
+
+  const records =
+    uids.map((uid) => ({
+      uid,
+      entry: guardians[uid] || {},
+      profile: profiles[uid] || {}
+    }));
+
+  setCounts(records);
+
+  ui.guardianList.innerHTML =
+    records.map(({ uid, entry, profile }) =>
+      guardianCard(uid, entry, profile)
+    ).join("") ||
+    '<div class="pp-empty">No guardians on record.</div>';
+
+  document
+    .querySelectorAll(".scheduleBtn")
+    .forEach((button) => {
+      button.onclick =
+        () => openSchedule(button.dataset.uid);
+    });
+
+  document
+    .querySelectorAll(".removeBtn")
+    .forEach((button) => {
+      button.onclick =
+        () => removeGuardian(
+          button.dataset.uid,
+          button
+        );
+    });
+}
+
+function setCounts(records) {
+  const primary =
+    records.filter(
+      ({ entry }) => !!entry.isPrimary
+    ).length;
+
+  const temporary =
+    records.filter(
+      ({ entry }) =>
+        String(
+          entry.authorizationType || "permanent"
+        ).toLowerCase() === "temporary"
+    ).length;
+
+  const backup =
+    Math.max(
+      0,
+      records.length - primary - temporary
+    );
+
+  ui.primaryCount.textContent =
+    String(primary);
+
+  ui.backupCount.textContent =
+    String(backup);
+
+  ui.temporaryCount.textContent =
+    String(temporary);
+}
+
+function guardianCard(uid, entry, profile) {
+  const temporary =
+    String(
+      entry.authorizationType || "permanent"
+    ).toLowerCase() === "temporary";
+
+  const badge = entry.isPrimary
+    ? '<span class="pp-status pp-status--success">Primary</span>'
+    : temporary
+      ? '<span class="pp-status pp-status--warning">One-day</span>'
+      : '<span class="pp-status">Backup</span>';
+
+  const meta = temporary
+    ? `Valid ${escapeHtml(entry.validDate || "—")} · ` +
+      `${Number(entry.remainingUses ?? 1)} use remaining`
+    : escapeHtml(scheduleSummary(entry));
+
+  const actions = entry.isPrimary
+    ? '<span class="pp-guardian-card__protected">Protected access</span>'
+    : `
+      ${!temporary
+        ? `<button
+            class="pp-btn pp-btn--ghost scheduleBtn"
+            data-uid="${escapeHtml(uid)}">
+            Schedule
+          </button>`
+        : ""
+      }
+
+      <button
+        class="pp-btn pp-btn--ghost removeBtn !text-danger"
+        data-uid="${escapeHtml(uid)}">
+        Remove
+      </button>
+    `;
+
+  return `
+    <article class="pp-guardian-card">
+      <div class="pp-guardian-card__avatar">
+        <img
+          src="${escapeHtml(profile.photoUrl || "../assets/default-avatar.svg")}"
+          alt=""
+          loading="lazy">
+      </div>
+
+      <div class="min-w-0">
+        <p class="pp-guardian-card__name truncate">
+          ${escapeHtml(profile.displayName || "Pending guardian")}
+        </p>
+
+        <div class="pp-guardian-card__meta">
+          ${badge}
+          <span class="pp-mini">
+            ${escapeHtml(entry.relationship || "Authorized pickup")}
+          </span>
+        </div>
+
+        <div class="pp-guardian-card__summary">
+          ${meta}
+        </div>
+      </div>
+
+      <div class="pp-guardian-card__actions">
+        ${actions}
+      </div>
+    </article>
+  `;
+}
+
+function openSchedule(uid) {
+  scheduleUid = uid;
+
+  const entry =
+    (student.guardians || {})[uid] || {};
+
+  const profile =
+    profiles[uid] || {};
+
+  scheduleGuardianName.textContent =
+    profile.displayName || "Backup guardian";
+
+  scheduleEnabled.checked =
+    !!entry.pickupScheduleEnabled;
+
+  scheduleStart.value =
+    entry.scheduleStartDate || "";
+
+  scheduleEnd.value =
+    entry.scheduleEndDate || "";
+
+  const selected =
+    new Set(
+      (entry.pickupDays || [])
+        .map((value) =>
+          String(value).toUpperCase()
+        )
+    );
+
+  document
+    .querySelectorAll("#weekdayGrid input")
+    .forEach((input) => {
+      input.checked =
+        selected.has(input.value);
+    });
+
+  schedulePanel.classList.remove("hidden");
+
+  schedulePanel.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+}
+
+closeSchedule.onclick = () => {
+  schedulePanel.classList.add("hidden");
+  scheduleUid = "";
+};
+
+async function saveScheduleRequest(enabled) {
+  if (!scheduleUid) return;
+
+  const pickupDays = [
+    ...document.querySelectorAll(
+      "#weekdayGrid input:checked"
+    )
+  ].map((input) => input.value);
+
+  if (enabled && pickupDays.length === 0) {
+    showToast(
+      "Select at least one weekday.",
+      "error"
+    );
+    return;
+  }
+
+  if (
+    scheduleStart.value &&
+    scheduleEnd.value &&
+    scheduleEnd.value < scheduleStart.value
+  ) {
+    showToast(
+      "End date cannot be before start date.",
+      "error"
+    );
+    return;
+  }
+
+  setSubmitButtonBusy(
+    saveSchedule,
+    true,
+    "Saving…"
+  );
+
+  try {
+    await apiCall(
+      "/parent/guardian-schedule",
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          studentId,
+          guardianUid: scheduleUid,
+          enabled,
+          pickupDays:
+            enabled ? pickupDays : [],
+          startDate:
+            enabled
+              ? scheduleStart.value
+              : "",
+          endDate:
+            enabled
+              ? scheduleEnd.value
+              : ""
+        })
+      }
+    );
+
+    showToast(
+      enabled
+        ? "Pickup schedule saved."
+        : "Recurring restriction removed."
+    );
+
+    schedulePanel.classList.add("hidden");
+    scheduleUid = "";
+    await load();
+  } catch (error) {
+    showToast(
+      error.message,
+      "error"
+    );
+  } finally {
+    setSubmitButtonBusy(
+      saveSchedule,
+      false
+    );
+  }
+}
+
+saveSchedule.onclick =
+  () =>
+    saveScheduleRequest(
+      scheduleEnabled.checked
+    );
+
+clearSchedule.onclick =
+  () =>
+    saveScheduleRequest(false);
+
+async function apiCall(path, options) {
+  const response =
+    await authedFetch(path, options);
+
+  const data =
+    await response.json()
+      .catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      data.error ||
+      data.message ||
+      "Request failed"
+    );
+  }
+
+  return data;
+}
+
+async function removeGuardian(uid, button) {
+  if (
+    !confirm(
+      "Remove this authorized guardian? Any unused QR pass they hold will stop working."
+    )
+  ) {
+    return;
+  }
+
+  setSubmitButtonBusy(
+    button,
+    true,
+    "Removing…"
+  );
+
+  try {
+    await apiCall(
+      "/parent/remove-guardian",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          studentId,
+          guardianUid: uid
+        })
+      }
+    );
+
+    showToast("Guardian removed.");
+    await load();
+  } catch (error) {
+    showToast(
+      error.message,
+      "error"
+    );
+  } finally {
+    setSubmitButtonBusy(
+      button,
+      false
+    );
+  }
+}
+
+addForm.onsubmit = async (event) => {
+  event.preventDefault();
+
+  const button =
+    event.currentTarget
+      .querySelector("button");
+
+  setSubmitButtonBusy(
+    button,
+    true,
+    "Adding…"
+  );
+
+  try {
+    const data =
+      await apiCall(
+        "/parent/add-guardian",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            studentId,
+            lastName:
+              lastName.value.trim(),
+            firstName:
+              firstName.value.trim(),
+            middleInitial:
+              middleInitial.value.trim(),
+            suffix:
+              suffix.value.trim(),
+            guardianEmail:
+              guardianEmail.value.trim(),
+            relationship:
+              guardianRelationship.value
+          })
+        }
+      );
+
+    showToast(
+      data.emailSent === false
+        ? "Guardian added; invite email was not sent."
+        : "Guardian added.",
+      data.emailSent === false
+        ? "warning"
+        : "success"
+    );
+
+    event.currentTarget.reset();
+    await load();
+  } catch (error) {
+    showToast(
+      error.message,
+      "error"
+    );
+  } finally {
+    setSubmitButtonBusy(
+      button,
+      false
+    );
+  }
+};
+
+tempForm.onsubmit = async (event) => {
+  event.preventDefault();
+
+  const button =
+    event.currentTarget
+      .querySelector("button");
+
+  setSubmitButtonBusy(
+    button,
+    true,
+    "Authorizing…"
+  );
+
+  try {
+    const data =
+      await apiCall(
+        "/parent/add-temporary-guardian",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            studentId,
+            lastName:
+              tempLastName.value.trim(),
+            firstName:
+              tempFirstName.value.trim(),
+            middleInitial: "",
+            suffix: "",
+            guardianEmail:
+              tempEmail.value.trim(),
+            relationship:
+              tempRelationship.value.trim() ||
+              "authorized pickup",
+            validDate:
+              tempDate.value
+          })
+        }
+      );
+
+    showToast(
+      data.emailSent === false
+        ? "Temporary guardian authorized; invite email was not sent."
+        : "Temporary guardian authorized.",
+      data.emailSent === false
+        ? "warning"
+        : "success"
+    );
+
+    event.currentTarget.reset();
+    await load();
+  } catch (error) {
+    showToast(
+      error.message,
+      "error"
+    );
+  } finally {
+    setSubmitButtonBusy(
+      button,
+      false
+    );
+  }
+};
+
+bindRefresh(
+  "refreshBtn",
+  load
+);
+
+onAuthStateChanged(
+  auth,
+  async (user) => {
+    if (user) {
+      await load();
+    }
+  }
+);
+</script>
+</body>
+</html>
