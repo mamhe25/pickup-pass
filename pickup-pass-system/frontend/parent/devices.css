@@ -1,0 +1,331 @@
+/* PickupPass Parent — Screen 06: Devices & Sessions */
+
+.pp-devices-page {
+  max-width: 900px;
+}
+
+.pp-devices-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(20px,4vw,30px);
+  border-radius: var(--radius-xl);
+  color: #fff;
+  background:
+    radial-gradient(
+      380px 230px at 100% 0%,
+      rgba(132,204,22,.24),
+      transparent 72%
+    ),
+    linear-gradient(
+      145deg,
+      var(--indigo-900),
+      var(--indigo-700) 58%,
+      var(--primary)
+    );
+  box-shadow: var(--shadow-lg);
+}
+
+.pp-devices-hero__eyebrow {
+  margin: 0;
+  color: rgba(255,255,255,.67);
+  font-size: .65rem;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.pp-devices-hero h1 {
+  margin: 7px 0 0;
+  max-width: 680px;
+  color: #fff;
+  font-size: clamp(1.6rem,5vw,2.3rem);
+  line-height: 1.08;
+  letter-spacing: -.035em;
+  font-weight: 850;
+}
+
+.pp-devices-hero p {
+  margin: 9px 0 0;
+  max-width: 680px;
+  color: rgba(255,255,255,.76);
+  font-size: .84rem;
+  line-height: 1.55;
+}
+
+.pp-device-metrics {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 9px;
+  margin-top: 20px;
+}
+
+.pp-device-metric {
+  padding: 13px 9px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 15px;
+  background: rgba(255,255,255,.09);
+  text-align: center;
+}
+
+.pp-device-metric strong {
+  display: block;
+  color: #fff;
+  font-size: 1.25rem;
+  line-height: 1;
+  font-weight: 850;
+}
+
+.pp-device-metric span {
+  display: block;
+  margin-top: 5px;
+  color: rgba(255,255,255,.70);
+  font-size: .65rem;
+}
+
+.pp-devices-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.pp-devices-hero__actions .pp-btn {
+  width: auto;
+  min-height: 42px;
+  flex: 0 0 auto;
+  border-color: rgba(255,255,255,.20);
+  color: #fff;
+}
+
+.pp-devices-section-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 26px 0 12px;
+}
+
+.pp-devices-section-head h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.05rem;
+  font-weight: 820;
+}
+
+.pp-devices-section-head p {
+  margin: 4px 0 0;
+  max-width: 650px;
+  color: var(--text-muted);
+  font-size: .75rem;
+  line-height: 1.5;
+}
+
+.pp-device-list {
+  display: grid;
+  gap: 12px;
+}
+
+.pp-device-card {
+  display: grid;
+  grid-template-columns: 48px minmax(0,1fr) auto;
+  gap: 13px;
+  align-items: start;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 19px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.pp-device-card--current {
+  border-color:
+    color-mix(in srgb,var(--primary) 28%,var(--border));
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb,var(--primary-container) 34%,var(--surface)),
+      var(--surface)
+    );
+}
+
+.pp-device-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-variant);
+  color: var(--text-muted);
+}
+
+.pp-device-card--active .pp-device-icon {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.pp-device-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.pp-device-card__name {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: .92rem;
+  line-height: 1.3;
+  font-weight: 820;
+}
+
+.pp-device-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.pp-device-card__meta {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+}
+
+.pp-device-meta-row {
+  display: grid;
+  grid-template-columns: 105px minmax(0,1fr);
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: .70rem;
+  line-height: 1.4;
+}
+
+.pp-device-meta-row span:last-child {
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+
+.pp-device-id {
+  margin-top: 9px;
+  color: var(--text-subtle);
+  font-size: .62rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.pp-device-card__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.pp-device-card__actions .pp-btn {
+  width: auto;
+  min-height: 42px;
+  flex: 0 0 auto;
+}
+
+.pp-device-loading,
+.pp-device-empty,
+.pp-device-error {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.pp-device-loading {
+  color: var(--text-muted);
+  font-size: .76rem;
+  font-weight: 650;
+}
+
+.pp-device-loading::before {
+  content: "";
+  width: 27px;
+  height: 27px;
+  border: 3px solid var(--primary-container);
+  border-top-color: var(--primary);
+  border-radius: 999px;
+  animation: pp-device-spin .8s linear infinite;
+}
+
+@keyframes pp-device-spin {
+  to { transform: rotate(360deg); }
+}
+
+.pp-device-empty__icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.pp-device-empty strong,
+.pp-device-error strong {
+  color: var(--text-strong);
+  font-size: .96rem;
+}
+
+.pp-device-empty p,
+.pp-device-error p {
+  margin: 0;
+  max-width: 470px;
+  color: var(--text-muted);
+  font-size: .74rem;
+  line-height: 1.5;
+}
+
+.pp-device-security-note {
+  margin-top: 16px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-variant);
+  color: var(--text-muted);
+  font-size: .70rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 680px) {
+  .pp-device-card {
+    grid-template-columns: 44px minmax(0,1fr);
+  }
+
+  .pp-device-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .pp-device-card__actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 430px) {
+  .pp-device-metrics {
+    gap: 6px;
+  }
+
+  .pp-device-metric {
+    padding-inline: 6px;
+  }
+
+  .pp-device-meta-row {
+    grid-template-columns: 88px minmax(0,1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-device-loading::before {
+    animation: none;
+  }
+}

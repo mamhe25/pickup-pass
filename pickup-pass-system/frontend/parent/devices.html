@@ -1,26 +1,476 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Devices & Sessions — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head>
-<body class="min-h-screen pp-portal-body"><div id="parentNav" data-active="devices"></div><script type="module" src="../shared/parent-nav.js"></script>
-<main class="pp-page"><div class="pp-page-head"><div><h1>Devices & Sessions</h1><p>Review devices that have used your PickupPass account. You can revoke a lost or shared device without changing your password.</p></div><div class="pp-actions"><button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh</button><button id="revokeOthersBtn" class="pp-btn pp-btn--secondary">Revoke other devices</button></div></div>
-<div id="featureNotice" class="pp-alert pp-alert--info hidden"></div>
-<section class="pp-section"><div class="pp-section__head"><h2>Signed-in devices</h2><span id="deviceCount" class="pp-mini"></span></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Device</th><th>Version</th><th>Last seen</th><th>Status</th><th></th></tr></thead><tbody id="rows"><tr><td colspan="5" class="pp-empty">Loading…</td></tr></tbody></table></div></section>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="theme-color" content="#047857" />
+<title>Devices & Sessions — PickupPass</title>
+
+<link rel="stylesheet" href="../shared/theme.css" />
+<link rel="stylesheet" href="../shared/components.css" />
+<link rel="stylesheet" href="../shared/portal.css" />
+<link rel="stylesheet" href="./devices.css" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+
+<body class="min-h-screen pp-portal-body">
+<div id="parentNav" data-active="devices"></div>
+<script type="module" src="../shared/parent-nav.js"></script>
+
+<main class="pp-page pp-devices-page">
+  <section class="pp-devices-hero">
+    <p class="pp-devices-hero__eyebrow">Account security</p>
+
+    <h1 id="heroTitle">Review where your PickupPass account is signed in.</h1>
+
+    <p>
+      If a phone or browser is lost, shared, or unfamiliar, revoke it here
+      without changing your password.
+    </p>
+
+    <div class="pp-device-metrics" aria-label="Device session summary">
+      <div class="pp-device-metric">
+        <strong id="activeCount">—</strong>
+        <span>Active</span>
+      </div>
+
+      <div class="pp-device-metric">
+        <strong id="otherCount">—</strong>
+        <span>Other</span>
+      </div>
+
+      <div class="pp-device-metric">
+        <strong id="recordedCount">—</strong>
+        <span>Recorded</span>
+      </div>
+    </div>
+
+    <div class="pp-devices-hero__actions">
+      <button
+        id="revokeOthersBtn"
+        type="button"
+        class="pp-btn pp-btn--ghost hidden">
+        Sign out other devices
+      </button>
+
+      <button
+        id="refreshBtn"
+        type="button"
+        class="pp-btn pp-btn--ghost">
+        Refresh
+      </button>
+    </div>
+  </section>
+
+  <div id="featureNotice" class="pp-alert pp-alert--info hidden mt-4"></div>
+
+  <section class="pp-devices-section-head">
+    <div>
+      <h2>Signed-in devices</h2>
+      <p>
+        Current and revoked sessions stay visible so unfamiliar activity is
+        easier to spot.
+      </p>
+    </div>
+  </section>
+
+  <div id="loadingState" class="pp-device-loading">
+    Loading device sessions…
+  </div>
+
+  <div id="deviceList" class="pp-device-list hidden" aria-live="polite"></div>
+
+  <div id="emptyState" class="pp-device-empty hidden">
+    <div class="pp-device-empty__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="7" y="2" width="10" height="20" rx="2"/>
+        <path d="M11 18h2"/>
+      </svg>
+    </div>
+
+    <strong>No device sessions recorded</strong>
+
+    <p>
+      Once PickupPass records a device session, it will appear here for review.
+    </p>
+  </div>
+
+  <div id="errorState" class="pp-device-error hidden" role="alert">
+    <strong>Device sessions are unavailable.</strong>
+    <p id="errorDetail">Check your connection and try again.</p>
+
+    <button id="retryBtn" type="button" class="pp-btn pp-btn--ghost">
+      Try again
+    </button>
+  </div>
+
+  <aside class="pp-device-security-note">
+    Revoking a device blocks its authenticated PickupPass requests. If you
+    believe someone else knows your password, change the password as well.
+  </aside>
 </main>
+
 <script type="module">
-import { showToast } from '../shared/firebase-init.js';
-import { apiJson, requireRole, fmtDate, statusPill, escapeHtml, bindRefresh, confirmAction } from '../shared/portal.js';
-let loaded=false;
-async function load(){
-  try{
-    const data=await apiJson('/session/devices'); const devices=data.devices||[]; loaded=true;
-    document.getElementById('deviceCount').textContent=`${devices.length} device${devices.length===1?'':'s'}`;
-    document.getElementById('rows').innerHTML=devices.length?devices.map(d=>`<tr><td><strong>${escapeHtml(d.deviceName||'Unknown device')}</strong>${d.current?' <span class="pp-status pp-status--success">Current</span>':''}<div class="pp-mini"><span class="pp-code">${escapeHtml(d.deviceId||'')}</span></div></td><td>${escapeHtml(d.clientVersion||'—')}</td><td>${escapeHtml(fmtDate(d.lastSeenAt))}</td><td>${statusPill(d.active?'active':'revoked')}</td><td>${d.active&&!d.current?`<button class="pp-btn pp-btn--ghost revoke" data-id="${escapeHtml(d.deviceId)}">Revoke</button>`:'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="pp-empty">No device sessions recorded yet.</td></tr>';
-    document.querySelectorAll('.revoke').forEach(btn=>btn.addEventListener('click',async()=>{ if(!confirmAction('Revoke this device session?'))return; try{await apiJson(`/session/devices/${encodeURIComponent(btn.dataset.id)}/revoke`,{method:'POST'});showToast('Device revoked.');await load();}catch(e){showToast(e.message,'error');}}));
-  }catch(e){
-    const notice=document.getElementById('featureNotice'); notice.textContent=e.status===403?'Device session management is not enabled for your school plan.':e.message; notice.classList.remove('hidden');
-    document.getElementById('rows').innerHTML='<tr><td colspan="5" class="pp-empty">Device sessions are unavailable.</td></tr>';
+import {
+  showToast,
+  setSubmitButtonBusy
+} from "../shared/firebase-init.js";
+
+import {
+  apiJson,
+  requireRole,
+  fmtDate,
+  escapeHtml,
+  confirmAction
+} from "../shared/portal.js";
+
+let devices = [];
+let loaded = false;
+
+const ui = {
+  heroTitle: document.getElementById("heroTitle"),
+  activeCount: document.getElementById("activeCount"),
+  otherCount: document.getElementById("otherCount"),
+  recordedCount: document.getElementById("recordedCount"),
+  revokeOthers: document.getElementById("revokeOthersBtn"),
+  refresh: document.getElementById("refreshBtn"),
+  notice: document.getElementById("featureNotice"),
+  loading: document.getElementById("loadingState"),
+  list: document.getElementById("deviceList"),
+  empty: document.getElementById("emptyState"),
+  error: document.getElementById("errorState"),
+  errorDetail: document.getElementById("errorDetail"),
+  retry: document.getElementById("retryBtn")
+};
+
+async function load() {
+  setLoading(true);
+  ui.notice.classList.add("hidden");
+
+  try {
+    const data = await apiJson("/session/devices");
+
+    devices = data.devices || [];
+    loaded = true;
+
+    render();
+  } catch (error) {
+    devices = [];
+    loaded = false;
+    showError(error);
+  } finally {
+    setLoading(false);
   }
 }
-document.getElementById('revokeOthersBtn').addEventListener('click',async()=>{if(!loaded||!confirmAction('Revoke all other recorded devices?'))return;try{const r=await apiJson('/session/devices/revoke-others',{method:'POST'});showToast(`${r.revokedCount||0} other device session(s) revoked.`);await load();}catch(e){showToast(e.message,'error');}});
-bindRefresh('refreshBtn',load); requireRole('parent',load);
-</script></body></html>
+
+function render() {
+  const active =
+    devices.filter((device) => device.active);
+
+  const otherActive =
+    active.filter((device) => !device.current);
+
+  ui.activeCount.textContent =
+    String(active.length);
+
+  ui.otherCount.textContent =
+    String(otherActive.length);
+
+  ui.recordedCount.textContent =
+    String(devices.length);
+
+  ui.heroTitle.textContent =
+    otherActive.length > 0
+      ? `Your account is active on ${active.length} devices`
+      : active.length > 0
+        ? "This is your only active device"
+        : "Review your PickupPass sessions.";
+
+  ui.revokeOthers.classList.toggle(
+    "hidden",
+    otherActive.length === 0
+  );
+
+  ui.error.classList.add("hidden");
+
+  if (devices.length === 0) {
+    ui.list.classList.add("hidden");
+    ui.empty.classList.remove("hidden");
+    return;
+  }
+
+  ui.empty.classList.add("hidden");
+  ui.list.classList.remove("hidden");
+  ui.list.innerHTML = "";
+
+  devices.forEach((device) => {
+    ui.list.appendChild(
+      createDeviceCard(device)
+    );
+  });
+}
+
+function createDeviceCard(device) {
+  const card = document.createElement("article");
+
+  card.className =
+    `pp-device-card${
+      device.current
+        ? " pp-device-card--current"
+        : ""
+    }${
+      device.active
+        ? " pp-device-card--active"
+        : ""
+    }`;
+
+  const badges = [
+    `<span class="pp-status ${
+      device.active
+        ? "pp-status--success"
+        : ""
+    }">
+      ${device.active ? "Active" : "Signed out"}
+    </span>`,
+    device.current
+      ? '<span class="pp-status pp-status--info">This device</span>'
+      : ""
+  ].join("");
+
+  const action =
+    device.active
+      ? `<button
+          type="button"
+          class="pp-btn pp-btn--ghost revoke-device"
+          data-id="${escapeHtml(device.deviceId || "")}">
+          ${device.current ? "Sign out this device" : "Sign out device"}
+        </button>`
+      : "";
+
+  card.innerHTML = `
+    <div class="pp-device-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="7" y="2" width="10" height="20" rx="2"/>
+        <path d="M11 18h2"/>
+      </svg>
+    </div>
+
+    <div class="min-w-0">
+      <h3 class="pp-device-card__name">
+        ${escapeHtml(device.deviceName || "Unknown device")}
+      </h3>
+
+      <div class="pp-device-card__badges">
+        ${badges}
+      </div>
+
+      <div class="pp-device-card__meta">
+        <div class="pp-device-meta-row">
+          <span>App version</span>
+          <span>${escapeHtml(device.clientVersion || "—")}</span>
+        </div>
+
+        <div class="pp-device-meta-row">
+          <span>Last seen</span>
+          <span>${escapeHtml(fmtDate(device.lastSeenAt))}</span>
+        </div>
+
+        ${
+          device.createdAt
+            ? `<div class="pp-device-meta-row">
+                <span>Registered</span>
+                <span>${escapeHtml(fmtDate(device.createdAt))}</span>
+              </div>`
+            : ""
+        }
+
+        ${
+          !device.active && device.revokedAt
+            ? `<div class="pp-device-meta-row">
+                <span>Signed out</span>
+                <span>${escapeHtml(fmtDate(device.revokedAt))}</span>
+              </div>`
+            : ""
+        }
+      </div>
+
+      ${
+        device.deviceId
+          ? `<div class="pp-device-id">
+              Device ID: ${escapeHtml(device.deviceId)}
+            </div>`
+          : ""
+      }
+    </div>
+
+    <div class="pp-device-card__actions">
+      ${action}
+    </div>
+  `;
+
+  card
+    .querySelector(".revoke-device")
+    ?.addEventListener(
+      "click",
+      (event) =>
+        revokeDevice(
+          device,
+          event.currentTarget
+        )
+    );
+
+  return card;
+}
+
+async function revokeDevice(
+  device,
+  button
+) {
+  const message = device.current
+    ? "Sign out this device? You will need to sign in again."
+    : "Sign out this device session? It will immediately lose authenticated PickupPass access.";
+
+  if (!confirmAction(message)) {
+    return;
+  }
+
+  setSubmitButtonBusy(
+    button,
+    true,
+    "Signing out…"
+  );
+
+  try {
+    await apiJson(
+      `/session/devices/${encodeURIComponent(device.deviceId)}/revoke`,
+      { method: "POST" }
+    );
+
+    showToast(
+      device.current
+        ? "This device was signed out."
+        : "Device session revoked."
+    );
+
+    await load();
+  } catch (error) {
+    showToast(
+      error.message,
+      "error"
+    );
+  } finally {
+    if (button.isConnected) {
+      setSubmitButtonBusy(
+        button,
+        false
+      );
+    }
+  }
+}
+
+ui.revokeOthers.addEventListener(
+  "click",
+  async () => {
+    if (
+      !loaded ||
+      !confirmAction(
+        "Sign out every other active device? This device will stay signed in."
+      )
+    ) {
+      return;
+    }
+
+    setSubmitButtonBusy(
+      ui.revokeOthers,
+      true,
+      "Signing out…"
+    );
+
+    try {
+      const response =
+        await apiJson(
+          "/session/devices/revoke-others",
+          { method: "POST" }
+        );
+
+      showToast(
+        `${response.revokedCount || 0} other device session(s) revoked.`
+      );
+
+      await load();
+    } catch (error) {
+      showToast(
+        error.message,
+        "error"
+      );
+    } finally {
+      setSubmitButtonBusy(
+        ui.revokeOthers,
+        false
+      );
+    }
+  }
+);
+
+ui.refresh.addEventListener(
+  "click",
+  load
+);
+
+ui.retry.addEventListener(
+  "click",
+  load
+);
+
+function setLoading(isLoading) {
+  ui.refresh.disabled = isLoading;
+
+  if (isLoading && devices.length === 0) {
+    ui.loading.classList.remove("hidden");
+    ui.list.classList.add("hidden");
+    ui.empty.classList.add("hidden");
+    ui.error.classList.add("hidden");
+  } else {
+    ui.loading.classList.add("hidden");
+  }
+}
+
+function showError(error) {
+  ui.loading.classList.add("hidden");
+  ui.list.classList.add("hidden");
+  ui.empty.classList.add("hidden");
+  ui.error.classList.remove("hidden");
+
+  ui.activeCount.textContent = "—";
+  ui.otherCount.textContent = "—";
+  ui.recordedCount.textContent = "—";
+  ui.revokeOthers.classList.add("hidden");
+
+  const planDisabled =
+    error?.status === 403;
+
+  ui.errorDetail.textContent =
+    planDisabled
+      ? "Device session management is not enabled for your school plan."
+      : error?.message ||
+        "Check your connection and try again.";
+
+  if (planDisabled) {
+    ui.notice.textContent =
+      "Device session management is not enabled for your school plan.";
+
+    ui.notice.classList.remove("hidden");
+  }
+}
+
+requireRole(
+  "parent",
+  load
+);
+</script>
+</body>
+</html>
