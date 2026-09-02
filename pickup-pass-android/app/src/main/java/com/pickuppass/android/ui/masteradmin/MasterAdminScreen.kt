@@ -8,7 +8,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AdminPanelSettings
-import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,9 +37,10 @@ import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MasterAdminScreen(
+fun MasterAdminAdvancedConsole(
     viewModel: MasterAdminViewModel = hiltViewModel(),
-    onSignedOut: () -> Unit
+    onSignedOut: () -> Unit,
+    onBackToOverview: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -75,10 +77,18 @@ fun MasterAdminScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("PickupPass SaaS Console") },
+                title = { Text("Advanced Platform Console") },
+                navigationIcon = {
+                    IconButton(onClick = onBackToOverview) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to control center"
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = { viewModel.signOut(); onSignedOut() }) {
-                        Icon(Icons.Filled.Logout, contentDescription = "Sign out")
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sign out")
                     }
                 }
             )
