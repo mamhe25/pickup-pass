@@ -8,10 +8,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Campaign
@@ -516,31 +516,38 @@ private fun BoxScope.VerifiedIdentityScreen(
             .fillMaxSize(),
         color = Gray900
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             FlowProgress(activeStep = 2)
 
+            // Identity evidence can be taller than the available viewport on
+            // smaller phones or with accessibility font scaling. Keep the
+            // evidence scrollable while the release decision remains pinned.
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .weight(1f)
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .navigationBarsPadding()
                     .padding(
                         start = Spacing.lg,
                         end = Spacing.lg,
                         top = Spacing.lg,
-                        bottom = Spacing.xl
+                        bottom = Spacing.md
                     ),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Surface(
                     shape = CircleShape,
                     color = ScannerGreenDark.copy(alpha = 0.28f),
-                    border = BorderStroke(1.dp, ScannerGreen.copy(alpha = 0.30f))
+                    border = BorderStroke(
+                        1.dp,
+                        ScannerGreen.copy(alpha = 0.30f)
+                    )
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = 7.dp),
+                        modifier = Modifier.padding(
+                            horizontal = Spacing.md,
+                            vertical = 7.dp
+                        ),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
@@ -604,7 +611,10 @@ private fun BoxScope.VerifiedIdentityScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         color = ScannerGreenDark.copy(alpha = 0.15f),
-                        border = BorderStroke(1.dp, ScannerGreen.copy(alpha = 0.18f))
+                        border = BorderStroke(
+                            1.dp,
+                            ScannerGreen.copy(alpha = 0.18f)
+                        )
                     ) {
                         Column(
                             modifier = Modifier.padding(Spacing.md),
@@ -631,11 +641,15 @@ private fun BoxScope.VerifiedIdentityScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         color = ScannerAmber.copy(alpha = 0.14f),
-                        border = BorderStroke(1.dp, ScannerAmber.copy(alpha = 0.32f))
+                        border = BorderStroke(
+                            1.dp,
+                            ScannerAmber.copy(alpha = 0.32f)
+                        )
                     ) {
                         Text(
-                            "Guardian identity photo is unavailable. Do not approve a QR release. " +
-                                "Use the school's manual identity-verification process instead.",
+                            "Guardian identity photo is unavailable or could not be decoded. " +
+                                "Do not approve a QR release. Use the school's manual " +
+                                "identity-verification process instead.",
                             modifier = Modifier.padding(Spacing.md),
                             color = Color(0xFFFDE68A),
                             style = MaterialTheme.typography.bodySmall,
@@ -654,41 +668,91 @@ private fun BoxScope.VerifiedIdentityScreen(
                 }
 
                 Spacer(Modifier.height(Spacing.lg))
+            }
 
-                Button(
-                    onClick = onApprove,
-                    enabled = photoAvailable && !state.isApproving,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 58.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ScannerGreenDark,
-                        contentColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Icon(Icons.Filled.CheckCircle, contentDescription = null)
-                    Spacer(Modifier.width(Spacing.sm))
-                    Text(
-                        "Yes, identity matches — approve release",
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(Modifier.height(Spacing.sm))
-
-                OutlinedButton(
-                    onClick = onCancel,
-                    enabled = !state.isApproving,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp),
-                    border = BorderStroke(1.dp, Gray400),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.White
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding(),
+                color = Color(0xFF0A1118),
+                shadowElevation = 12.dp,
+                border = BorderStroke(
+                    1.dp,
+                    Color.White.copy(alpha = 0.07f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(
+                        horizontal = Spacing.lg,
+                        vertical = Spacing.md
                     )
                 ) {
-                    Text("Cancel / scan another pass")
+                    if (!photoAvailable) {
+                        Text(
+                            "Guardian identity photo is unavailable. Release remains disabled.",
+                            color = Color(0xFFFDE68A),
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(bottom = Spacing.sm)
+                        )
+                    }
+
+                    Button(
+                        onClick = onApprove,
+                        enabled = photoAvailable && !state.isApproving,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 58.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ScannerGreenDark,
+                            contentColor = Color.White,
+                            disabledContainerColor = Gray800,
+                            disabledContentColor = Gray400
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        if (state.isApproving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                            Spacer(Modifier.width(Spacing.sm))
+                            Text(
+                                "Approving release…",
+                                fontWeight = FontWeight.Bold
+                            )
+                        } else {
+                            Icon(
+                                Icons.Filled.CheckCircle,
+                                contentDescription = null
+                            )
+                            Spacer(Modifier.width(Spacing.sm))
+                            Text(
+                                if (photoAvailable) {
+                                    "Yes, identity matches — approve release"
+                                } else {
+                                    "Approve release unavailable"
+                                },
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(Spacing.sm))
+
+                    OutlinedButton(
+                        onClick = onCancel,
+                        enabled = !state.isApproving,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp),
+                        border = BorderStroke(1.dp, Gray400),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("Cancel / scan another pass")
+                    }
                 }
             }
         }
