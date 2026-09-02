@@ -3,136 +3,742 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#047857" />
 <title>Notifications — PickupPass</title>
+
 <link rel="stylesheet" href="../shared/theme.css" />
 <link rel="stylesheet" href="../shared/components.css" />
 <link rel="stylesheet" href="../shared/portal.css" />
+<link rel="stylesheet" href="./notifications.css" />
+
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../shared/tailwind-config.js"></script>
 </head>
+
 <body class="min-h-screen pp-portal-body">
+<div id="teacherNav" data-active="notifications"></div>
+<script type="module" src="../shared/teacher-nav.js"></script>
 
-  <div id="teacherNav" data-active="notifications"></div>
-  <script type="module" src="../shared/teacher-nav.js"></script>
-
-  <main class="pp-page pp-page--narrow">
-    <div class="flex items-center justify-between mb-4">
-      <h1 class="text-xl font-bold text-ink-strong">Notifications</h1>
-      <button id="markAllReadBtn" class="pp-btn pp-btn--ghost hidden">Mark all read</button>
+<main class="pp-page pp-staff-notifications-page">
+  <header class="pp-staff-notifications-head">
+    <div>
+      <p class="pp-staff-notifications-eyebrow">Staff inbox</p>
+      <h1>Notifications</h1>
+      <p>
+        Pickup updates, school announcements, and operational messages.
+      </p>
     </div>
 
-    <div id="notificationList" class="space-y-2"></div>
-    <div id="emptyState" class="pp-empty hidden">
-      No notifications yet. You'll see pickup confirmations here.
+    <button
+      id="markAllReadBtn"
+      type="button"
+      class="pp-btn pp-btn--ghost hidden">
+      Mark all read
+    </button>
+  </header>
+
+  <section class="pp-staff-notifications-summary" aria-label="Notification summary">
+    <div class="pp-staff-summary-item">
+      <strong id="unreadCount">—</strong>
+      <span>Unread</span>
     </div>
-    <div id="loadingState" class="text-center text-sm text-ink-subtle py-6">Loading…</div>
-  </main>
+
+    <div class="pp-staff-summary-item">
+      <strong id="totalCount">—</strong>
+      <span>Total</span>
+    </div>
+
+    <div class="pp-staff-notification-filters" role="group" aria-label="Notification filter">
+      <button
+        id="allFilterBtn"
+        type="button"
+        class="pp-staff-filter"
+        aria-pressed="true">
+        All
+      </button>
+
+      <button
+        id="unreadFilterBtn"
+        type="button"
+        class="pp-staff-filter"
+        aria-pressed="false">
+        Unread
+      </button>
+    </div>
+  </section>
+
+  <div
+    id="loadingState"
+    class="pp-staff-notification-state pp-staff-notification-loading"
+    aria-live="polite">
+    Loading notifications…
+  </div>
+
+  <div
+    id="notificationList"
+    class="pp-staff-notification-list hidden"
+    aria-live="polite"></div>
+
+  <div
+    id="emptyState"
+    class="pp-staff-notification-state hidden">
+    <div class="pp-staff-notification-state__icon" aria-hidden="true">✓</div>
+    <strong id="emptyTitle">No notifications yet</strong>
+    <p id="emptyDetail">
+      Pickup and school updates will appear here.
+    </p>
+  </div>
+
+  <div
+    id="errorState"
+    class="pp-staff-notification-state hidden"
+    role="alert">
+    <div class="pp-staff-notification-state__icon" aria-hidden="true">!</div>
+    <strong>Notifications are unavailable.</strong>
+    <p id="errorDetail">
+      Check your connection and try again.
+    </p>
+
+    <button
+      id="retryBtn"
+      type="button"
+      class="pp-btn pp-btn--ghost">
+      Try again
+    </button>
+  </div>
+</main>
 
 <script type="module">
-import { auth, db } from "../shared/firebase-init.js";
-import { collection, query, where, orderBy, limit, getDocs, doc, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  auth,
+  db,
+  showToast,
+  setSubmitButtonBusy
+} from "../shared/firebase-init.js";
+
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  doc,
+  updateDoc,
+  writeBatch
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 let currentUid = null;
 let allNotifications = [];
+let activeFilter = "all";
 
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    window.location.href = "../login.html";
-    return;
+const ui = {
+  unreadCount:
+    document.getElementById("unreadCount"),
+  totalCount:
+    document.getElementById("totalCount"),
+  markAll:
+    document.getElementById("markAllReadBtn"),
+  allFilter:
+    document.getElementById("allFilterBtn"),
+  unreadFilter:
+    document.getElementById("unreadFilterBtn"),
+  loading:
+    document.getElementById("loadingState"),
+  list:
+    document.getElementById("notificationList"),
+  empty:
+    document.getElementById("emptyState"),
+  emptyTitle:
+    document.getElementById("emptyTitle"),
+  emptyDetail:
+    document.getElementById("emptyDetail"),
+  error:
+    document.getElementById("errorState"),
+  errorDetail:
+    document.getElementById("errorDetail"),
+  retry:
+    document.getElementById("retryBtn")
+};
+
+onAuthStateChanged(
+  auth,
+  async (user) => {
+    if (!user) {
+      window.location.href =
+        "../login.html";
+      return;
+    }
+
+    currentUid = user.uid;
+    await loadNotifications();
   }
-  currentUid = user.uid;
-  await loadNotifications();
-});
+);
+
+ui.allFilter.addEventListener(
+  "click",
+  () => {
+    activeFilter = "all";
+    updateFilterButtons();
+    render();
+  }
+);
+
+ui.unreadFilter.addEventListener(
+  "click",
+  () => {
+    activeFilter = "unread";
+    updateFilterButtons();
+    render();
+  }
+);
+
+ui.retry.addEventListener(
+  "click",
+  loadNotifications
+);
 
 async function loadNotifications() {
-  const loadingState = document.getElementById("loadingState");
-  loadingState.classList.remove("hidden");
+  showLoading();
 
-  const q = query(
-    collection(db, "notifications"),
-    where("recipientUid", "==", currentUid),
-    orderBy("createdAt", "desc"),
-    limit(100)
-  );
-  const snap = await getDocs(q);
+  try {
+    const q = query(
+      collection(db, "notifications"),
+      where(
+        "recipientUid",
+        "==",
+        currentUid
+      ),
+      orderBy(
+        "createdAt",
+        "desc"
+      ),
+      limit(100)
+    );
 
-  allNotifications = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  loadingState.classList.add("hidden");
+    const snap =
+      await getDocs(q);
 
-  if (allNotifications.length === 0) {
-    document.getElementById("emptyState").classList.remove("hidden");
-    return;
+    allNotifications =
+      snap.docs.map(
+        (d) => ({
+          id: d.id,
+          ...d.data()
+        })
+      );
+
+    render();
+  } catch (error) {
+    console.error(
+      "Failed to load notifications",
+      error
+    );
+
+    showError(error);
   }
-
-  render();
 }
 
 function render() {
-  const list = document.getElementById("notificationList");
-  list.innerHTML = "";
+  const unreadCount =
+    allNotifications.filter(
+      (notification) =>
+        !notification.read
+    ).length;
 
-  const hasUnread = allNotifications.some((n) => !n.read);
-  document.getElementById("markAllReadBtn").classList.toggle("hidden", !hasUnread);
+  const visible =
+    activeFilter === "unread"
+      ? allNotifications.filter(
+          (notification) =>
+            !notification.read
+        )
+      : allNotifications;
 
-  allNotifications.forEach((n) => {
-    const card = document.createElement("button");
-    card.className = `pp-card pp-card--pad pp-card--interactive w-full text-left ${
-      n.read ? "" : "!border-brand-600"
+  ui.unreadCount.textContent =
+    String(unreadCount);
+
+  ui.totalCount.textContent =
+    String(allNotifications.length);
+
+  ui.unreadFilter.textContent =
+    unreadCount > 0
+      ? `Unread ${unreadCount}`
+      : "Unread";
+
+  ui.markAll.classList.toggle(
+    "hidden",
+    unreadCount === 0
+  );
+
+  ui.loading.classList.add(
+    "hidden"
+  );
+
+  ui.error.classList.add(
+    "hidden"
+  );
+
+  if (visible.length === 0) {
+    ui.list.classList.add(
+      "hidden"
+    );
+
+    ui.empty.classList.remove(
+      "hidden"
+    );
+
+    ui.emptyTitle.textContent =
+      activeFilter === "unread"
+        ? "You're all caught up"
+        : "No notifications yet";
+
+    ui.emptyDetail.textContent =
+      activeFilter === "unread"
+        ? "There are no unread staff updates right now."
+        : "Pickup and school updates will appear here.";
+
+    return;
+  }
+
+  ui.empty.classList.add(
+    "hidden"
+  );
+
+  ui.list.classList.remove(
+    "hidden"
+  );
+
+  ui.list.innerHTML = "";
+
+  visible.forEach(
+    (notification) => {
+      ui.list.appendChild(
+        createNotificationRow(
+          notification
+        )
+      );
+    }
+  );
+}
+
+function createNotificationRow(
+  notification
+) {
+  const unread =
+    !notification.read;
+
+  const presentation =
+    notificationPresentation(
+      notification.type
+    );
+
+  const row =
+    document.createElement(
+      unread ? "button" : "article"
+    );
+
+  row.className =
+    `pp-staff-notification-row${
+      unread
+        ? " pp-staff-notification-row--unread"
+        : ""
     }`;
-    if (!n.read) card.style.backgroundColor = "var(--primary-container)";
-    card.innerHTML = `
-      <div class="flex items-start justify-between gap-2">
-        <p class="font-semibold text-ink-strong text-sm">${escapeHtml(n.title || "Notification")}</p>
-        ${!n.read ? '<span class="pp-dot pp-dot--brand mt-1.5"></span>' : ""}
+
+  if (unread) {
+    row.type = "button";
+    row.setAttribute(
+      "aria-label",
+      `Mark ${notification.title || "notification"} as read`
+    );
+  }
+
+  const sender =
+    notification.type === "broadcast" &&
+    notification.senderName
+      ? `<span class="pp-staff-notification-sender">
+          From ${escapeHtml(
+            notification.senderName
+          )}
+        </span>`
+      : "";
+
+  const timestamp =
+    notification.createdAt?.toDate
+      ? formatTime(
+          notification.createdAt.toDate()
+        )
+      : "";
+
+  row.innerHTML = `
+    <div class="pp-staff-notification-icon" aria-hidden="true">
+      ${presentation.icon}
+    </div>
+
+    <div class="pp-staff-notification-main">
+      <div class="pp-staff-notification-title-row">
+        <h2>
+          ${escapeHtml(
+            notification.title ||
+            presentation.label
+          )}
+        </h2>
+
+        ${
+          unread
+            ? '<span class="pp-staff-unread-dot" aria-label="Unread"></span>'
+            : ""
+        }
       </div>
-      <p class="text-sm text-ink-muted mt-1">${escapeHtml(n.body || "")}</p>
-      ${n.type === "broadcast" && n.senderName ? `<p class="text-xs text-brand-600 mt-1">From: ${escapeHtml(n.senderName)}</p>` : ""}
-      <p class="text-xs text-ink-subtle mt-2">${n.createdAt?.toDate ? formatTime(n.createdAt.toDate()) : ""}</p>
-    `;
-    card.addEventListener("click", () => markAsRead(n));
-    list.appendChild(card);
-  });
+
+      <div class="pp-staff-notification-meta">
+        <span class="pp-staff-notification-type">
+          ${escapeHtml(
+            presentation.label
+          )}
+        </span>
+
+        ${sender}
+
+        ${
+          timestamp
+            ? `<time>${escapeHtml(
+                timestamp
+              )}</time>`
+            : ""
+        }
+      </div>
+
+      ${
+        notification.body
+          ? `<p class="pp-staff-notification-body">
+              ${escapeHtml(
+                notification.body
+              )}
+            </p>`
+          : ""
+      }
+    </div>
+  `;
+
+  if (unread) {
+    row.addEventListener(
+      "click",
+      () =>
+        markAsRead(
+          notification
+        )
+    );
+  }
+
+  return row;
 }
 
-async function markAsRead(notification) {
-  if (notification.read) return;
-  notification.read = true; // optimistic update
+async function markAsRead(
+  notification
+) {
+  if (notification.read) {
+    return;
+  }
+
+  notification.read = true;
   render();
+
   try {
-    await updateDoc(doc(db, "notifications", notification.id), { read: true });
-  } catch (err) {
-    notification.read = false; // revert on failure
+    await updateDoc(
+      doc(
+        db,
+        "notifications",
+        notification.id
+      ),
+      { read: true }
+    );
+  } catch (error) {
+    notification.read = false;
     render();
+
+    showToast(
+      "Couldn't mark this notification as read.",
+      "error"
+    );
   }
 }
 
-document.getElementById("markAllReadBtn").addEventListener("click", async () => {
-  const unread = allNotifications.filter((n) => !n.read);
-  if (unread.length === 0) return;
+ui.markAll.addEventListener(
+  "click",
+  async () => {
+    const unread =
+      allNotifications.filter(
+        (notification) =>
+          !notification.read
+      );
 
-  unread.forEach((n) => { n.read = true; }); // optimistic
-  render();
+    if (unread.length === 0) {
+      return;
+    }
 
-  const batch = writeBatch(db);
-  unread.forEach((n) => batch.update(doc(db, "notifications", n.id), { read: true }));
-  try {
-    await batch.commit();
-  } catch (err) {
-    await loadNotifications(); // fall back to a fresh reload on failure
+    const previousIds =
+      unread.map(
+        (notification) =>
+          notification.id
+      );
+
+    unread.forEach(
+      (notification) => {
+        notification.read = true;
+      }
+    );
+
+    render();
+
+    setSubmitButtonBusy(
+      ui.markAll,
+      true,
+      "Marking…"
+    );
+
+    const batch =
+      writeBatch(db);
+
+    unread.forEach(
+      (notification) =>
+        batch.update(
+          doc(
+            db,
+            "notifications",
+            notification.id
+          ),
+          { read: true }
+        )
+    );
+
+    try {
+      await batch.commit();
+    } catch (error) {
+      const failed =
+        new Set(previousIds);
+
+      allNotifications.forEach(
+        (notification) => {
+          if (
+            failed.has(
+              notification.id
+            )
+          ) {
+            notification.read = false;
+          }
+        }
+      );
+
+      render();
+
+      showToast(
+        "Couldn't mark all notifications as read.",
+        "error"
+      );
+    } finally {
+      setSubmitButtonBusy(
+        ui.markAll,
+        false
+      );
+    }
   }
-});
+);
 
-function formatTime(date) {
-  return date.toLocaleString(undefined, {
-    month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
-  });
+function updateFilterButtons() {
+  ui.allFilter.setAttribute(
+    "aria-pressed",
+    String(
+      activeFilter === "all"
+    )
+  );
+
+  ui.unreadFilter.setAttribute(
+    "aria-pressed",
+    String(
+      activeFilter === "unread"
+    )
+  );
 }
 
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
+function showLoading() {
+  ui.loading.classList.remove(
+    "hidden"
+  );
+
+  ui.list.classList.add(
+    "hidden"
+  );
+
+  ui.empty.classList.add(
+    "hidden"
+  );
+
+  ui.error.classList.add(
+    "hidden"
+  );
+}
+
+function showError(error) {
+  ui.loading.classList.add(
+    "hidden"
+  );
+
+  ui.list.classList.add(
+    "hidden"
+  );
+
+  ui.empty.classList.add(
+    "hidden"
+  );
+
+  ui.error.classList.remove(
+    "hidden"
+  );
+
+  ui.errorDetail.textContent =
+    error?.message ||
+    "Check your connection and try again.";
+
+  ui.unreadCount.textContent = "—";
+  ui.totalCount.textContent = "—";
+  ui.markAll.classList.add(
+    "hidden"
+  );
+}
+
+function notificationPresentation(
+  type
+) {
+  const normalized =
+    String(type || "")
+      .trim()
+      .toLowerCase();
+
+  if (
+    normalized === "broadcast" ||
+    normalized.includes(
+      "announcement"
+    )
+  ) {
+    return {
+      label: "Announcement",
+      icon: campaignIcon()
+    };
+  }
+
+  if (
+    normalized.includes("release") ||
+    normalized.includes("pickup") ||
+    normalized.includes("dismiss")
+  ) {
+    return {
+      label: "Pickup",
+      icon: checkIcon()
+    };
+  }
+
+  if (
+    normalized.includes("guardian") ||
+    normalized.includes("security") ||
+    normalized.includes("verification")
+  ) {
+    return {
+      label: "Safety",
+      icon: shieldIcon()
+    };
+  }
+
+  return {
+    label: "Update",
+    icon: bellIcon()
+  };
+}
+
+function formatTime(
+  date
+) {
+  const now =
+    new Date();
+
+  const sameDay =
+    date.getFullYear() ===
+      now.getFullYear() &&
+    date.getMonth() ===
+      now.getMonth() &&
+    date.getDate() ===
+      now.getDate();
+
+  return date.toLocaleString(
+    undefined,
+    sameDay
+      ? {
+          hour: "numeric",
+          minute: "2-digit"
+        }
+      : {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit"
+        }
+  );
+}
+
+function escapeHtml(
+  value
+) {
+  const div =
+    document.createElement(
+      "div"
+    );
+
+  div.textContent =
+    String(value ?? "");
+
   return div.innerHTML;
+}
+
+function bellIcon() {
+  return `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M10 21h4"/>
+    </svg>
+  `;
+}
+
+function campaignIcon() {
+  return `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m3 11 18-5v12L3 14v-3Z"/>
+      <path d="M11.5 16 13 21H7l-1.2-6"/>
+    </svg>
+  `;
+}
+
+function checkIcon() {
+  return `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="m8 12 2.5 2.5L16 9"/>
+    </svg>
+  `;
+}
+
+function shieldIcon() {
+  return `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3 4 6v5c0 5 3.4 9 8 10 4.6-1 8-5 8-10V6l-8-3Z"/>
+      <path d="m9 12 2 2 4-4"/>
+    </svg>
+  `;
 }
 </script>
 </body>
