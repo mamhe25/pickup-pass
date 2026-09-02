@@ -3,85 +3,453 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#047857" />
+
 <title>Send Announcement — PickupPass</title>
+
 <link rel="stylesheet" href="../shared/theme.css" />
 <link rel="stylesheet" href="../shared/components.css" />
 <link rel="stylesheet" href="../shared/portal.css" />
+<link rel="stylesheet" href="./broadcast.css" />
+
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../shared/tailwind-config.js"></script>
 </head>
+
 <body class="min-h-screen pp-portal-body">
+<div id="teacherNav" data-active="announce"></div>
+<script type="module" src="../shared/teacher-nav.js"></script>
 
-  <div id="teacherNav" data-active="announce"></div>
-  <script type="module" src="../shared/teacher-nav.js"></script>
-
-  <main class="pp-page pp-page--narrow">
-    <h1 class="text-xl font-bold text-ink-strong mb-1">Send an Announcement</h1>
-    <p class="text-sm text-ink-muted mb-4">
-      Goes out immediately to the guardians of students in your assigned section(s) — as a push and in their notification inbox.
+<main class="pp-page pp-broadcast-page">
+  <header class="pp-broadcast-head">
+    <p class="pp-broadcast-eyebrow">Staff communication</p>
+    <h1>Send announcement</h1>
+    <p>
+      Send an immediate update to guardians connected to students in your
+      assigned sections.
     </p>
+  </header>
 
-    <div class="pp-card pp-card--pad">
-      <form id="broadcastForm" class="space-y-3">
-        <div>
-          <label class="pp-label" for="title">Title</label>
-          <input id="title" type="text" required maxlength="120" placeholder="e.g. Field Trip Reminder" class="pp-field" />
-        </div>
-        <div>
-          <label class="pp-label" for="body">Message</label>
-          <textarea id="body" required rows="4" maxlength="1000" placeholder="What do guardians need to know?" class="pp-field" style="min-height:auto;"></textarea>
-        </div>
+  <section class="pp-broadcast-audience" aria-labelledby="audienceTitle">
+    <span class="pp-broadcast-audience__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    </span>
 
-        <p id="formError" class="pp-alert pp-alert--danger hidden"></p>
-        <p id="formSuccess" class="pp-alert pp-alert--success hidden"></p>
+    <div class="pp-broadcast-audience__main">
+      <h2 id="audienceTitle">Guardians in your assigned sections</h2>
+      <p>
+        PickupPass determines the recipients from your current section
+        assignments.
+      </p>
 
-        <button type="submit" id="sendBtn" class="pp-btn pp-btn--primary w-full">
-          Send Announcement
-        </button>
-      </form>
+      <div class="pp-broadcast-delivery" aria-label="Delivery channels">
+        <span>
+          <span class="pp-broadcast-dot"></span>
+          Push notification
+        </span>
+        <span>
+          <span class="pp-broadcast-dot"></span>
+          Notification inbox
+        </span>
+      </div>
     </div>
-  </main>
+  </section>
+
+  <section class="pp-broadcast-composer">
+    <div class="pp-broadcast-composer__intro">
+      <div>
+        <h2>Compose message</h2>
+        <p>Keep it clear, specific, and useful to guardians.</p>
+      </div>
+
+      <span class="pp-broadcast-immediate">Immediate delivery</span>
+    </div>
+
+    <form id="broadcastForm" novalidate>
+      <label class="pp-broadcast-field">
+        <span class="pp-label">Title</span>
+
+        <input
+          id="title"
+          type="text"
+          required
+          maxlength="120"
+          placeholder="e.g. Dismissal time reminder"
+          class="pp-field" />
+
+        <span class="pp-broadcast-counter">
+          <span id="titleCount">0</span>/120
+        </span>
+      </label>
+
+      <label class="pp-broadcast-field">
+        <span class="pp-label">Message</span>
+
+        <textarea
+          id="body"
+          required
+          rows="6"
+          maxlength="1000"
+          placeholder="What do guardians need to know?"
+          class="pp-field"></textarea>
+
+        <span class="pp-broadcast-counter">
+          <span id="bodyCount">0</span>/1000
+        </span>
+      </label>
+
+      <div
+        id="formError"
+        class="pp-alert pp-alert--danger hidden"
+        role="alert"></div>
+
+      <div
+        id="formSuccess"
+        class="pp-alert pp-alert--success hidden"
+        role="status"></div>
+
+      <aside class="pp-broadcast-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          aria-hidden="true">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M10 21h4"/>
+        </svg>
+
+        <div>
+          <strong>Review before sending</strong>
+          <p>
+            Announcements are delivered immediately after confirmation.
+          </p>
+        </div>
+      </aside>
+
+      <div class="pp-broadcast-actions">
+        <button
+          type="button"
+          id="reviewBtn"
+          class="pp-btn pp-btn--primary"
+          disabled>
+          Review announcement
+        </button>
+      </div>
+    </form>
+  </section>
+</main>
+
+<dialog id="confirmationDialog" class="pp-broadcast-dialog">
+  <form method="dialog" class="pp-broadcast-dialog__card">
+    <div class="pp-broadcast-dialog__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m3 11 18-5v12L3 14v-3Z"/>
+        <path d="M11.5 16 13 21H7l-1.2-6"/>
+      </svg>
+    </div>
+
+    <div class="pp-broadcast-dialog__copy">
+      <h2>Send this announcement?</h2>
+      <p>
+        This will be delivered immediately to reachable guardians in your
+        assigned sections.
+      </p>
+    </div>
+
+    <div class="pp-broadcast-preview">
+      <strong id="previewTitle"></strong>
+      <p id="previewBody"></p>
+    </div>
+
+    <div
+      id="dialogError"
+      class="pp-alert pp-alert--danger hidden"
+      role="alert"></div>
+
+    <div class="pp-broadcast-dialog__actions">
+      <button
+        type="button"
+        id="keepEditingBtn"
+        class="pp-btn pp-btn--ghost">
+        Keep editing
+      </button>
+
+      <button
+        type="button"
+        id="sendBtn"
+        class="pp-btn pp-btn--primary">
+        Send now
+      </button>
+    </div>
+  </form>
+</dialog>
 
 <script type="module">
-// Sign-out, the auth guard, and the signed-in email are all owned by the
-// shared teacher nav (teacher-nav.js). This page only handles its own form.
-import { authedFetch } from "../shared/firebase-init.js";
+import {
+  authedFetch
+} from "../shared/firebase-init.js";
 
-document.getElementById("broadcastForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const formError = document.getElementById("formError");
-  const formSuccess = document.getElementById("formSuccess");
-  const sendBtn = document.getElementById("sendBtn");
-  formError.classList.add("hidden");
-  formSuccess.classList.add("hidden");
+const form =
+  document.getElementById(
+    "broadcastForm"
+  );
 
-  const title = document.getElementById("title").value.trim();
-  const body = document.getElementById("body").value.trim();
+const titleInput =
+  document.getElementById(
+    "title"
+  );
 
-  sendBtn.disabled = true;
-  sendBtn.textContent = "Sending…";
+const bodyInput =
+  document.getElementById(
+    "body"
+  );
 
-  try {
-    const res = await authedFetch("/teacher/broadcasts", {
-      method: "POST",
-      body: JSON.stringify({ title, body }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Could not send announcement");
+const titleCount =
+  document.getElementById(
+    "titleCount"
+  );
 
-    formSuccess.textContent = data.recipientCount > 0
-      ? `Sent to ${data.recipientCount} guardian${data.recipientCount === 1 ? "" : "s"}.`
-      : "Sent — but no guardians were reachable in your section(s) yet.";
-    formSuccess.classList.remove("hidden");
-    e.target.reset();
-  } catch (err) {
-    formError.textContent = err.message;
-    formError.classList.remove("hidden");
-  } finally {
-    sendBtn.disabled = false;
-    sendBtn.textContent = "Send Announcement";
+const bodyCount =
+  document.getElementById(
+    "bodyCount"
+  );
+
+const reviewBtn =
+  document.getElementById(
+    "reviewBtn"
+  );
+
+const sendBtn =
+  document.getElementById(
+    "sendBtn"
+  );
+
+const keepEditingBtn =
+  document.getElementById(
+    "keepEditingBtn"
+  );
+
+const dialog =
+  document.getElementById(
+    "confirmationDialog"
+  );
+
+const previewTitle =
+  document.getElementById(
+    "previewTitle"
+  );
+
+const previewBody =
+  document.getElementById(
+    "previewBody"
+  );
+
+const formError =
+  document.getElementById(
+    "formError"
+  );
+
+const formSuccess =
+  document.getElementById(
+    "formSuccess"
+  );
+
+const dialogError =
+  document.getElementById(
+    "dialogError"
+  );
+
+function getDraft() {
+  return {
+    title:
+      titleInput.value.trim(),
+    body:
+      bodyInput.value.trim()
+  };
+}
+
+function updateComposer() {
+  titleCount.textContent =
+    String(
+      titleInput.value.length
+    );
+
+  bodyCount.textContent =
+    String(
+      bodyInput.value.length
+    );
+
+  const draft =
+    getDraft();
+
+  reviewBtn.disabled =
+    !draft.title ||
+    !draft.body;
+}
+
+function clearMessages() {
+  formError.classList.add(
+    "hidden"
+  );
+
+  formSuccess.classList.add(
+    "hidden"
+  );
+
+  dialogError.classList.add(
+    "hidden"
+  );
+}
+
+titleInput.addEventListener(
+  "input",
+  updateComposer
+);
+
+bodyInput.addEventListener(
+  "input",
+  updateComposer
+);
+
+reviewBtn.addEventListener(
+  "click",
+  () => {
+    clearMessages();
+
+    if (!form.reportValidity()) {
+      return;
+    }
+
+    const draft =
+      getDraft();
+
+    previewTitle.textContent =
+      draft.title;
+
+    previewBody.textContent =
+      draft.body;
+
+    if (
+      typeof dialog.showModal ===
+      "function"
+    ) {
+      dialog.showModal();
+    } else {
+      formError.textContent =
+        "Your browser cannot open the review dialog. Please update your browser before sending announcements.";
+
+      formError.classList.remove(
+        "hidden"
+      );
+    }
   }
-});
+);
+
+keepEditingBtn.addEventListener(
+  "click",
+  () => {
+    if (!sendBtn.disabled) {
+      dialog.close();
+      titleInput.focus();
+    }
+  }
+);
+
+sendBtn.addEventListener(
+  "click",
+  async () => {
+    clearMessages();
+
+    const draft =
+      getDraft();
+
+    if (
+      !draft.title ||
+      !draft.body
+    ) {
+      dialog.close();
+      updateComposer();
+      return;
+    }
+
+    sendBtn.disabled = true;
+    keepEditingBtn.disabled = true;
+    sendBtn.textContent =
+      "Sending…";
+
+    try {
+      const response =
+        await authedFetch(
+          "/teacher/broadcasts",
+          {
+            method: "POST",
+            body: JSON.stringify(
+              draft
+            )
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+          "Could not send announcement"
+        );
+      }
+
+      dialog.close();
+
+      formSuccess.textContent =
+        data.recipientCount > 0
+          ? `Sent to ${data.recipientCount} guardian${
+              data.recipientCount === 1
+                ? ""
+                : "s"
+            }.`
+          : "Sent — but no guardians were reachable in your section(s) yet.";
+
+      formSuccess.classList.remove(
+        "hidden"
+      );
+
+      form.reset();
+      updateComposer();
+      titleInput.focus();
+    } catch (error) {
+      dialogError.textContent =
+        error?.message ||
+        "Could not send announcement.";
+
+      dialogError.classList.remove(
+        "hidden"
+      );
+    } finally {
+      sendBtn.disabled = false;
+      keepEditingBtn.disabled =
+        false;
+      sendBtn.textContent =
+        "Send now";
+    }
+  }
+);
+
+dialog.addEventListener(
+  "cancel",
+  (event) => {
+    if (sendBtn.disabled) {
+      event.preventDefault();
+    }
+  }
+);
+
+updateComposer();
 </script>
 </body>
 </html>
