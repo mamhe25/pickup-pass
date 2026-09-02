@@ -2,23 +2,25 @@ package com.pickuppass.android.ui.teacher.exitlogs
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,9 +42,21 @@ fun ExitLogsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val todayCount = uiState.allLogs.count { log ->
-        log.timestampMillis?.let(::isToday) == true
+    var filtersOpen by remember {
+        mutableStateOf(false)
     }
+
+    val activeFilterCount =
+        listOf(
+            uiState.gradeFilter,
+            uiState.sectionFilter,
+            uiState.staffFilter
+        ).count { !it.isNullOrBlank() }
+
+    val todayCount =
+        uiState.allLogs.count { log ->
+            log.timestampMillis?.let(::isToday) == true
+        }
 
     val uniqueStudents =
         uiState.allLogs
@@ -61,7 +75,9 @@ fun ExitLogsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Dismissal History") },
+                title = {
+                    Text("Dismissal History")
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -78,415 +94,553 @@ fun ExitLogsScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            if (!uiState.isLoading && uiState.error == null) {
-                HistoryHero(
+            if (
+                !uiState.isLoading &&
+                uiState.error == null
+            ) {
+                CompactSummaryBar(
                     todayCount = todayCount,
                     uniqueStudents = uniqueStudents,
                     approverCount = approverCount
                 )
 
-                HistoryFilters(
-                    uiState = uiState,
+                CompactToolbar(
+                    searchTerm = uiState.searchTerm,
                     onSearchChange = viewModel::onSearchChange,
-                    onGradeChange = viewModel::onGradeFilterChange,
-                    onSectionChange = viewModel::onSectionFilterChange,
-                    onStaffChange = viewModel::onStaffFilterChange
+                    activeFilterCount = activeFilterCount,
+                    onFilterClick = {
+                        filtersOpen = true
+                    }
+                )
+
+                ActiveFiltersRow(
+                    uiState = uiState,
+                    onGradeClear = {
+                        viewModel.onGradeFilterChange(null)
+                    },
+                    onSectionClear = {
+                        viewModel.onSectionFilterChange(null)
+                    },
+                    onStaffClear = {
+                        viewModel.onStaffFilterChange(null)
+                    }
                 )
             }
 
             val phase = when {
-                uiState.isLoading -> "loading"
-                uiState.error != null -> "error"
-                uiState.allLogs.isEmpty() -> "empty"
-                uiState.filteredLogs.isEmpty() -> "nomatch"
-                else -> "list"
+                uiState.isLoading ->
+                    "loading"
+
+                uiState.error != null ->
+                    "error"
+
+                uiState.allLogs.isEmpty() ->
+                    "empty"
+
+                uiState.filteredLogs.isEmpty() ->
+                    "nomatch"
+
+                else ->
+                    "list"
             }
 
             Crossfade(
                 targetState = phase,
-                animationSpec = tween(220),
+                animationSpec = tween(180),
                 label = "dismissalHistoryPhase",
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
             ) { state ->
                 when (state) {
-                    "loading" -> FullScreenLoading()
+                    "loading" ->
+                        FullScreenLoading()
 
-                    "error" -> HistoryErrorState(
-                        message = uiState.error
-                            ?: "Couldn't load dismissal history",
-                        onRetry = viewModel::load
-                    )
+                    "error" ->
+                        HistoryErrorState(
+                            message =
+                                uiState.error
+                                    ?: "Couldn't load dismissal history",
+                            onRetry = viewModel::load
+                        )
 
-                    "empty" -> HistoryEmptyState(
-                        title = "No dismissal records yet",
-                        detail = "Approved student releases will appear here after the first completed pickup."
-                    )
+                    "empty" ->
+                        HistoryEmptyState(
+                            title = "No dismissal records yet",
+                            detail =
+                                "Approved releases will appear here after the first completed pickup."
+                        )
 
-                    "nomatch" -> HistoryEmptyState(
-                        title = "No records match these filters",
-                        detail = "Try a different student name, grade, section, or approving staff member."
-                    )
+                    "nomatch" ->
+                        HistoryEmptyState(
+                            title = "No matching records",
+                            detail =
+                                "Change the search or clear a filter."
+                        )
 
-                    else -> LazyColumn(
-                        contentPadding = PaddingValues(
-                            start = Spacing.md,
-                            end = Spacing.md,
-                            top = Spacing.xs,
-                            bottom = Spacing.xl
-                        ),
-                        verticalArrangement =
-                            Arrangement.spacedBy(Spacing.sm)
-                    ) {
-                        item {
-                            Text(
-                                text =
-                                    "${uiState.filteredLogs.size} of ${uiState.allLogs.size} records",
-                                style =
-                                    MaterialTheme.typography.labelMedium,
-                                color =
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    else ->
+                        LazyColumn(
+                            contentPadding =
+                                PaddingValues(
+                                    start = Spacing.md,
+                                    end = Spacing.md,
+                                    top = 2.dp,
+                                    bottom = Spacing.xl
+                                ),
+                            verticalArrangement =
+                                Arrangement.spacedBy(6.dp)
+                        ) {
+                            item {
+                                Text(
+                                    text =
+                                        "${uiState.filteredLogs.size} record${if (uiState.filteredLogs.size == 1) "" else "s"}",
+                                    style =
+                                        MaterialTheme.typography.labelSmall,
+                                    color =
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            items(
+                                items = uiState.filteredLogs,
+                                key = { it.id }
+                            ) { log ->
+                                CompactExitLogRow(log)
+                            }
                         }
-
-                        items(
-                            items = uiState.filteredLogs,
-                            key = { it.id }
-                        ) { log ->
-                            ExitLogCard(log)
-                        }
-                    }
                 }
             }
         }
     }
-}
 
-@Composable
-private fun HistoryHero(
-    todayCount: Int,
-    uniqueStudents: Int,
-    approverCount: Int
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                horizontal = Spacing.md,
-                vertical = Spacing.sm
-            ),
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
-        shadowElevation = 5.dp
-    ) {
-        Column(
-            modifier = Modifier.padding(Spacing.lg)
-        ) {
-            Text(
-                text = "RELEASE RECORDS",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color =
-                    MaterialTheme.colorScheme.onPrimary
-                        .copy(alpha = 0.68f)
-            )
-
-            Spacer(Modifier.height(Spacing.xs))
-
-            Text(
-                text = if (todayCount > 0) {
-                    "$todayCount release${if (todayCount == 1) "" else "s"} recorded today"
-                } else {
-                    "Review completed student handoffs"
-                },
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.ExtraBold
-            )
-
-            Spacer(Modifier.height(Spacing.xs))
-
-            Text(
-                text =
-                    "Every entry shows the student, authorized guardian, approving staff member, and recorded release time.",
-                style = MaterialTheme.typography.bodyMedium,
-                color =
-                    MaterialTheme.colorScheme.onPrimary
-                        .copy(alpha = 0.78f)
-            )
-
-            Spacer(Modifier.height(Spacing.md))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.spacedBy(Spacing.sm)
-            ) {
-                HistoryMetric(
-                    value = todayCount.toString(),
-                    label = "Today",
-                    modifier = Modifier.weight(1f)
-                )
-
-                HistoryMetric(
-                    value = uniqueStudents.toString(),
-                    label = "Students",
-                    modifier = Modifier.weight(1f)
-                )
-
-                HistoryMetric(
-                    value = approverCount.toString(),
-                    label = "Approvers",
-                    modifier = Modifier.weight(1f)
-                )
+    if (filtersOpen) {
+        ModalBottomSheet(
+            onDismissRequest = {
+                filtersOpen = false
             }
+        ) {
+            HistoryFilterSheet(
+                uiState = uiState,
+                onGradeChange = viewModel::onGradeFilterChange,
+                onSectionChange = viewModel::onSectionFilterChange,
+                onStaffChange = viewModel::onStaffFilterChange,
+                onClear = {
+                    viewModel.onGradeFilterChange(null)
+                    viewModel.onSectionFilterChange(null)
+                    viewModel.onStaffFilterChange(null)
+                },
+                onDone = {
+                    filtersOpen = false
+                }
+            )
         }
     }
 }
 
 @Composable
-private fun HistoryMetric(
+private fun CompactSummaryBar(
+    todayCount: Int,
+    uniqueStudents: Int,
+    approverCount: Int
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = Spacing.md,
+                vertical = 4.dp
+            ),
+        horizontalArrangement =
+            Arrangement.spacedBy(6.dp)
+    ) {
+        SummaryPill(
+            value = todayCount.toString(),
+            label = "Today",
+            modifier = Modifier.weight(1f)
+        )
+
+        SummaryPill(
+            value = uniqueStudents.toString(),
+            label = "Students",
+            modifier = Modifier.weight(1f)
+        )
+
+        SummaryPill(
+            value = approverCount.toString(),
+            label = "Staff",
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun SummaryPill(
     value: String,
     label: String,
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.large,
+        shape = CircleShape,
         color =
-            MaterialTheme.colorScheme.onPrimary
-                .copy(alpha = 0.10f)
+            MaterialTheme.colorScheme.surfaceVariant
     ) {
-        Column(
+        Row(
             modifier = Modifier.padding(
-                horizontal = Spacing.sm,
-                vertical = Spacing.md
+                horizontal = 8.dp,
+                vertical = 6.dp
             ),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = value,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold
+                style =
+                    MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color =
+                    MaterialTheme.colorScheme.primary
             )
+
+            Spacer(Modifier.width(4.dp))
 
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelSmall,
+                style =
+                    MaterialTheme.typography.labelSmall,
                 color =
-                    MaterialTheme.colorScheme.onPrimary
-                        .copy(alpha = 0.70f)
+                    MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
 @Composable
-private fun HistoryFilters(
-    uiState: ExitLogsUiState,
+private fun CompactToolbar(
+    searchTerm: String,
     onSearchChange: (String) -> Unit,
-    onGradeChange: (String?) -> Unit,
-    onSectionChange: (String?) -> Unit,
-    onStaffChange: (String?) -> Unit
+    activeFilterCount: Int,
+    onFilterClick: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.padding(
-            horizontal = Spacing.md,
-            vertical = Spacing.sm
-        )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = Spacing.md,
+                vertical = 5.dp
+            ),
+        horizontalArrangement =
+            Arrangement.spacedBy(7.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         OutlinedTextField(
-            value = uiState.searchTerm,
+            value = searchTerm,
             onValueChange = onSearchChange,
             placeholder = {
-                Text("Search student name")
+                Text("Search student")
             },
             leadingIcon = {
                 Icon(
                     Icons.Filled.Search,
-                    contentDescription = null
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
                 )
             },
             singleLine = true,
-            shape = MaterialTheme.shapes.large,
-            modifier = Modifier.fillMaxWidth()
+            shape = CircleShape,
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(min = 48.dp)
         )
 
-        Spacer(Modifier.height(Spacing.sm))
-
-        Row(
-            horizontalArrangement =
-                Arrangement.spacedBy(Spacing.sm)
+        FilledTonalButton(
+            onClick = onFilterClick,
+            modifier =
+                Modifier.heightIn(min = 48.dp),
+            contentPadding =
+                PaddingValues(
+                    horizontal = 12.dp
+                )
         ) {
-            FilterDropdown(
-                label = "Grade",
-                options = uiState.availableGrades,
-                selected = uiState.gradeFilter,
-                onSelect = onGradeChange,
-                modifier = Modifier.weight(1f)
+            Icon(
+                Icons.Filled.FilterList,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
             )
 
-            FilterDropdown(
-                label = "Section",
-                options = uiState.availableSections,
-                selected = uiState.sectionFilter,
-                onSelect = onSectionChange,
-                modifier = Modifier.weight(1f)
+            Spacer(Modifier.width(5.dp))
+
+            Text(
+                if (activeFilterCount > 0) {
+                    "Filters $activeFilterCount"
+                } else {
+                    "Filters"
+                }
             )
         }
-
-        Spacer(Modifier.height(Spacing.sm))
-
-        FilterDropdown(
-            label = "Approved By",
-            options = uiState.availableStaff,
-            selected = uiState.staffFilter,
-            onSelect = onStaffChange,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }
 
 @Composable
-private fun ExitLogCard(
+private fun ActiveFiltersRow(
+    uiState: ExitLogsUiState,
+    onGradeClear: () -> Unit,
+    onSectionClear: () -> Unit,
+    onStaffClear: () -> Unit
+) {
+    val hasAny =
+        !uiState.gradeFilter.isNullOrBlank() ||
+            !uiState.sectionFilter.isNullOrBlank() ||
+            !uiState.staffFilter.isNullOrBlank()
+
+    if (!hasAny) {
+        return
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(
+                rememberScrollState()
+            )
+            .padding(
+                start = Spacing.md,
+                end = Spacing.md,
+                bottom = 4.dp
+            ),
+        horizontalArrangement =
+            Arrangement.spacedBy(5.dp)
+    ) {
+        uiState.gradeFilter?.let { value ->
+            InputChip(
+                selected = true,
+                onClick = onGradeClear,
+                label = {
+                    Text("Grade $value ×")
+                }
+            )
+        }
+
+        uiState.sectionFilter?.let { value ->
+            InputChip(
+                selected = true,
+                onClick = onSectionClear,
+                label = {
+                    Text("Section $value ×")
+                }
+            )
+        }
+
+        uiState.staffFilter?.let { value ->
+            InputChip(
+                selected = true,
+                onClick = onStaffClear,
+                label = {
+                    Text("$value ×")
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactExitLogRow(
     log: ExitLogEntry
 ) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 2.dp
-        )
+        shape = MaterialTheme.shapes.large,
+        colors =
+            CardDefaults.elevatedCardColors(
+                containerColor =
+                    MaterialTheme.colorScheme.surface
+            ),
+        elevation =
+            CardDefaults.elevatedCardElevation(
+                defaultElevation = 1.dp
+            )
     ) {
-        Column(
-            modifier = Modifier.padding(Spacing.md)
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 11.dp,
+                vertical = 8.dp
+            ),
+            verticalAlignment =
+                Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
+            Surface(
+                modifier = Modifier.size(34.dp),
+                shape = CircleShape,
+                color =
+                    MaterialTheme.colorScheme.secondaryContainer
             ) {
-                Surface(
-                    modifier = Modifier.size(44.dp),
-                    shape = CircleShape,
-                    color =
-                        MaterialTheme.colorScheme.secondaryContainer
+                Box(
+                    contentAlignment =
+                        Alignment.Center
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Filled.CheckCircle,
-                            contentDescription = null,
-                            tint =
-                                MaterialTheme.colorScheme
-                                    .onSecondaryContainer,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint =
+                            MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(17.dp)
+                    )
                 }
+            }
 
-                Spacer(Modifier.width(Spacing.md))
+            Spacer(Modifier.width(9.dp))
 
-                Column(
-                    modifier = Modifier.weight(1f)
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
                     Text(
-                        text = log.studentName.ifBlank {
-                            "Unknown student"
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold
+                        text =
+                            log.studentName.ifBlank {
+                                "Unknown student"
+                            },
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow =
+                            TextOverflow.Ellipsis,
+                        style =
+                            MaterialTheme.typography.titleSmall,
+                        fontWeight =
+                            FontWeight.ExtraBold
                     )
 
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(Modifier.width(7.dp))
 
                     Text(
                         text =
-                            "Grade ${log.grade.ifBlank { "—" }} · Section ${log.section.ifBlank { "—" }}",
-                        style = MaterialTheme.typography.bodySmall,
+                            log.timestampMillis?.let {
+                                formatCompactTime(it)
+                            } ?: "—",
+                        style =
+                            MaterialTheme.typography.labelSmall,
                         color =
                             MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
+                Spacer(Modifier.height(1.dp))
+
                 Text(
-                    text = log.timestampMillis?.let {
-                        formatHistoryTime(it)
-                    } ?: "—",
-                    style = MaterialTheme.typography.labelSmall,
+                    text =
+                        "G${log.grade.ifBlank { "—" }} · ${log.section.ifBlank { "—" }}  •  ${log.guardianName.ifBlank { "Unknown guardian" }}",
+                    maxLines = 1,
+                    overflow =
+                        TextOverflow.Ellipsis,
+                    style =
+                        MaterialTheme.typography.bodySmall,
                     color =
-                        MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.End
+                        MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
 
-            Spacer(Modifier.height(Spacing.md))
+                Spacer(Modifier.height(1.dp))
 
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                color =
-                    MaterialTheme.colorScheme.surfaceVariant
-                        .copy(alpha = 0.62f)
-            ) {
-                Column(
-                    modifier = Modifier.padding(Spacing.md)
-                ) {
-                    HistoryDetailRow(
-                        label = "Picked up by",
-                        value = log.guardianName.ifBlank {
-                            "Unknown guardian"
-                        }
-                    )
-
-                    Spacer(Modifier.height(Spacing.xs))
-
-                    HistoryDetailRow(
-                        label = "Approved by",
-                        value = log.staffName.ifBlank {
-                            "Unknown staff"
-                        }
-                    )
-                }
+                Text(
+                    text =
+                        "Approved by ${log.staffName.ifBlank { "Unknown staff" }}",
+                    maxLines = 1,
+                    overflow =
+                        TextOverflow.Ellipsis,
+                    style =
+                        MaterialTheme.typography.labelSmall,
+                    color =
+                        MaterialTheme.colorScheme.primary
+                )
             }
         }
     }
 }
 
 @Composable
-private fun HistoryDetailRow(
-    label: String,
-    value: String
+private fun HistoryFilterSheet(
+    uiState: ExitLogsUiState,
+    onGradeChange: (String?) -> Unit,
+    onSectionChange: (String?) -> Unit,
+    onStaffChange: (String?) -> Unit,
+    onClear: () -> Unit,
+    onDone: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = Spacing.lg,
+                end = Spacing.lg,
+                bottom = Spacing.xl
+            )
     ) {
-        Icon(
-            Icons.Filled.Person,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(17.dp)
-        )
-
-        Spacer(Modifier.width(Spacing.sm))
-
         Text(
-            text = "$label ",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            text = "Filter history",
+            style =
+                MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.ExtraBold
         )
 
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+        Spacer(Modifier.height(Spacing.md))
+
+        FilterDropdown(
+            label = "Grade",
+            options = uiState.availableGrades,
+            selected = uiState.gradeFilter,
+            onSelect = onGradeChange,
+            modifier = Modifier.fillMaxWidth()
         )
+
+        Spacer(Modifier.height(Spacing.sm))
+
+        FilterDropdown(
+            label = "Section",
+            options = uiState.availableSections,
+            selected = uiState.sectionFilter,
+            onSelect = onSectionChange,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(Spacing.sm))
+
+        FilterDropdown(
+            label = "Approved by",
+            options = uiState.availableStaff,
+            selected = uiState.staffFilter,
+            onSelect = onStaffChange,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(Spacing.lg))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement =
+                Arrangement.End,
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            TextButton(
+                onClick = onClear,
+                modifier =
+                    Modifier.heightIn(min = 44.dp)
+            ) {
+                Text("Clear")
+            }
+
+            Spacer(Modifier.width(Spacing.sm))
+
+            Button(
+                onClick = onDone,
+                modifier =
+                    Modifier.heightIn(min = 44.dp)
+            ) {
+                Text("Done")
+            }
+        }
     }
 }
 
@@ -499,24 +653,27 @@ private fun HistoryEmptyState(
         modifier = Modifier
             .fillMaxSize()
             .padding(Spacing.xl),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        horizontalAlignment =
+            Alignment.CenterHorizontally,
+        verticalArrangement =
+            Arrangement.Center
     ) {
         Surface(
-            modifier = Modifier.size(66.dp),
+            modifier = Modifier.size(58.dp),
             shape = CircleShape,
             color =
                 MaterialTheme.colorScheme.primaryContainer
         ) {
             Box(
-                contentAlignment = Alignment.Center
+                contentAlignment =
+                    Alignment.Center
             ) {
                 Icon(
                     Icons.Filled.History,
                     contentDescription = null,
                     tint =
                         MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(30.dp)
+                    modifier = Modifier.size(27.dp)
                 )
             }
         }
@@ -525,7 +682,8 @@ private fun HistoryEmptyState(
 
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLarge,
+            style =
+                MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.ExtraBold,
             textAlign = TextAlign.Center
         )
@@ -534,8 +692,10 @@ private fun HistoryEmptyState(
 
         Text(
             text = detail,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style =
+                MaterialTheme.typography.bodyMedium,
+            color =
+                MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
     }
@@ -550,8 +710,10 @@ private fun HistoryErrorState(
         modifier = Modifier
             .fillMaxSize()
             .padding(Spacing.lg),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        horizontalAlignment =
+            Alignment.CenterHorizontally,
+        verticalArrangement =
+            Arrangement.Center
     ) {
         ErrorBanner(message)
 
@@ -559,7 +721,8 @@ private fun HistoryErrorState(
 
         OutlinedButton(
             onClick = onRetry,
-            modifier = Modifier.heightIn(min = 44.dp)
+            modifier =
+                Modifier.heightIn(min = 44.dp)
         ) {
             Text("Try again")
         }
@@ -569,11 +732,13 @@ private fun HistoryErrorState(
 private fun isToday(
     millis: Long
 ): Boolean {
-    val target = Calendar.getInstance().apply {
-        timeInMillis = millis
-    }
+    val target =
+        Calendar.getInstance().apply {
+            timeInMillis = millis
+        }
 
-    val now = Calendar.getInstance()
+    val now =
+        Calendar.getInstance()
 
     return target.get(Calendar.YEAR) ==
         now.get(Calendar.YEAR) &&
@@ -581,19 +746,19 @@ private fun isToday(
         now.get(Calendar.DAY_OF_YEAR)
 }
 
-private fun formatHistoryTime(
+private fun formatCompactTime(
     millis: Long
 ): String {
     val date = Date(millis)
 
     return if (isToday(millis)) {
         SimpleDateFormat(
-            "'Today' · h:mm a",
+            "h:mm a",
             Locale.getDefault()
         ).format(date)
     } else {
         SimpleDateFormat(
-            "MMM d, yyyy\nh:mm a",
+            "MMM d · h:mm a",
             Locale.getDefault()
         ).format(date)
     }
