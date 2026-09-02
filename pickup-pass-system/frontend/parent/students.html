@@ -3,92 +3,393 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#047857" />
 <title>My Students — PickupPass</title>
+
 <link rel="stylesheet" href="../shared/theme.css" />
 <link rel="stylesheet" href="../shared/components.css" />
 <link rel="stylesheet" href="../shared/portal.css" />
+<link rel="stylesheet" href="./students.css" />
+
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../shared/tailwind-config.js"></script>
 </head>
+
 <body class="min-h-screen pp-portal-body">
+<div id="parentNav" data-active="students"></div>
+<script type="module" src="../shared/parent-nav.js"></script>
 
-  <div id="parentNav" data-active="students"></div>
-  <script type="module" src="../shared/parent-nav.js"></script>
-
-  <main class="pp-page pp-page--narrow">
-    <h1 class="text-xl font-bold text-ink-strong mb-3">My Students</h1>
-
-    <div id="studentList"></div>
-    <div id="emptyState" class="pp-empty hidden">
-      No students are linked to your account yet. Contact your school office to be
-      added as a pickup contact.
+<main class="pp-page pp-parent-students">
+  <section class="pp-parent-hero">
+    <div>
+      <p class="pp-parent-hero__eyebrow">Family pickup</p>
+      <h1>Everything you need for a safe handoff.</h1>
+      <p>
+        Generate a secure pickup pass for the child being collected, or review
+        who is authorized to pick them up.
+      </p>
     </div>
-  </main>
+
+    <div class="pp-parent-hero__count" aria-label="Linked student count">
+      <strong id="studentCount">—</strong>
+      <span id="studentCountLabel">students</span>
+    </div>
+  </section>
+
+  <section class="pp-parent-section-head">
+    <div>
+      <h2>Linked students</h2>
+      <p>
+        Pickup passes are issued per student and still require staff verification
+        before dismissal.
+      </p>
+    </div>
+  </section>
+
+  <div
+    id="loadingState"
+    class="pp-student-grid"
+    aria-live="polite"
+    aria-busy="true">
+    <div class="pp-student-skeleton" aria-hidden="true">
+      <div class="pp-skeleton-block pp-skeleton-avatar"></div>
+      <div>
+        <div class="pp-skeleton-block pp-skeleton-line"></div>
+        <div class="pp-skeleton-block pp-skeleton-line pp-skeleton-line--sm"></div>
+      </div>
+    </div>
+
+    <div class="pp-student-skeleton" aria-hidden="true">
+      <div class="pp-skeleton-block pp-skeleton-avatar"></div>
+      <div>
+        <div class="pp-skeleton-block pp-skeleton-line"></div>
+        <div class="pp-skeleton-block pp-skeleton-line pp-skeleton-line--sm"></div>
+      </div>
+    </div>
+  </div>
+
+  <div
+    id="studentList"
+    class="pp-student-grid hidden"
+    aria-live="polite"></div>
+
+  <div id="errorState" class="pp-alert pp-alert--danger hidden" role="alert">
+    <div>
+      <strong>We couldn't load your students.</strong>
+      <div class="mt-1">
+        Check your connection and try again.
+      </div>
+    </div>
+
+    <button
+      id="retryBtn"
+      type="button"
+      class="pp-btn pp-btn--ghost mt-3">
+      Try again
+    </button>
+  </div>
+
+  <div id="emptyState" class="pp-empty hidden">
+    <strong>No linked students yet</strong>
+    <div class="mt-2">
+      Contact your school office to be added as an authorized pickup contact for
+      a student.
+    </div>
+  </div>
+
+  <aside id="trustNote" class="pp-parent-trust-note hidden">
+    PickupPass never releases a student from this page. A pass must still be
+    verified by authorized school staff before dismissal is approved.
+  </aside>
+</main>
 
 <script type="module">
 import { auth, db } from "../shared/firebase-init.js";
-import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-// Sign-out, the auth guard, the signed-in email and the unread-notifications
-// badge are all owned by the shared parent nav (parent-nav.js). This page only
-// loads the school branding and the parent's linked students.
+import {
+  collection,
+  query,
+  where,
+  getDocs
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const ui = {
+  list: document.getElementById("studentList"),
+  loading: document.getElementById("loadingState"),
+  error: document.getElementById("errorState"),
+  empty: document.getElementById("emptyState"),
+  retry: document.getElementById("retryBtn"),
+  count: document.getElementById("studentCount"),
+  countLabel: document.getElementById("studentCountLabel"),
+  trust: document.getElementById("trustNote")
+};
+
+let currentUser = null;
+let currentSchoolId = null;
+
 onAuthStateChanged(auth, async (user) => {
-  if (!user) return; // nav performs the redirect
-  const tokenResult = await user.getIdTokenResult();
-  const schoolId = tokenResult.claims.schoolId;
-  // School logo + name are shown persistently in the shared nav app-bar now.
-  await loadStudents(user.uid, schoolId);
+  if (!user) return;
+
+  currentUser = user;
+
+  try {
+    const tokenResult = await user.getIdTokenResult();
+    currentSchoolId = tokenResult.claims.schoolId || null;
+
+    if (!currentSchoolId) {
+      showError();
+      return;
+    }
+
+    await loadStudents(user.uid, currentSchoolId);
+  } catch (_) {
+    showError();
+  }
+});
+
+ui.retry.addEventListener("click", async () => {
+  if (!currentUser || !currentSchoolId) return;
+  await loadStudents(currentUser.uid, currentSchoolId);
 });
 
 async function loadStudents(uid, schoolId) {
-  const list = document.getElementById("studentList");
-  const q = query(
-    collection(db, "students"),
-    where("schoolId", "==", schoolId),
-    where("guardianUids", "array-contains", uid)
-  );
+  showLoading();
 
-  const snap = await getDocs(q);
+  try {
+    const studentsQuery = query(
+      collection(db, "students"),
+      where("schoolId", "==", schoolId),
+      where("guardianUids", "array-contains", uid)
+    );
 
-  if (snap.empty) {
-    document.getElementById("emptyState").classList.remove("hidden");
+    const snap = await getDocs(studentsQuery);
+    const students = [];
+
+    snap.forEach((docSnap) => {
+      students.push({
+        id: docSnap.id,
+        ...docSnap.data()
+      });
+    });
+
+    students.sort((a, b) =>
+      String(a.fullName || "").localeCompare(
+        String(b.fullName || ""),
+        undefined,
+        { sensitivity: "base" }
+      )
+    );
+
+    renderStudents(students);
+  } catch (_) {
+    showError();
+  }
+}
+
+function renderStudents(students) {
+  ui.list.innerHTML = "";
+
+  ui.count.textContent = String(students.length);
+  ui.countLabel.textContent =
+    students.length === 1 ? "student" : "students";
+
+  ui.loading.classList.add("hidden");
+  ui.error.classList.add("hidden");
+
+  if (students.length === 0) {
+    ui.list.classList.add("hidden");
+    ui.empty.classList.remove("hidden");
+    ui.trust.classList.add("hidden");
     return;
   }
 
-  snap.forEach((docSnap) => {
-    const s = docSnap.data();
-    const studentId = docSnap.id;
+  ui.empty.classList.add("hidden");
+  ui.list.classList.remove("hidden");
+  ui.trust.classList.remove("hidden");
 
-    const card = document.createElement("div");
-    card.className = "pp-card pp-card--pad mb-3";
-    card.innerHTML = `
-      <p class="font-semibold text-ink-strong">${escapeHtml(s.fullName || "Unnamed Student")}</p>
-      <p class="text-sm text-ink-muted mb-3">Grade ${escapeHtml(s.grade || "-")} · Section ${escapeHtml(s.section || "-")}</p>
-      <div class="flex gap-2">
-        <a href="./pickup-pass.html?studentId=${encodeURIComponent(studentId)}"
-           class="get-pickup-pass-link pp-btn pp-btn--primary flex-1">
-          Get Pickup Pass
-        </a>
-        <a href="./manage-guardians.html?studentId=${encodeURIComponent(studentId)}"
-           class="manage-guardians-link pp-btn pp-btn--secondary flex-1">
-          Manage Guardians
-        </a>
-      </div>
-    `;
-    card.querySelector(".get-pickup-pass-link").addEventListener("click", () => {
-      sessionStorage.setItem("pickupPassStudentId", studentId);
-    });
-    card.querySelector(".manage-guardians-link").addEventListener("click", () => {
-      sessionStorage.setItem("pendingGuardianStudentId", studentId);
-    });
-    list.appendChild(card);
+  students.forEach((student) => {
+    ui.list.appendChild(createStudentCard(student));
   });
 }
 
-function escapeHtml(str) {
+function createStudentCard(student) {
+  const card = document.createElement("article");
+  card.className = "pp-student-card";
+
+  const active =
+    String(student.status || "active").toLowerCase() === "active";
+
+  const displayName =
+    String(student.fullName || "Unnamed student").trim();
+
+  const initials = getInitials(displayName);
+  const photo = safeImageSource(student.photoUrl);
+
+  card.innerHTML = `
+    <div class="pp-student-avatar">
+      ${photo
+        ? `<img
+            src="${escapeHtml(photo)}"
+            alt="${escapeHtml(displayName)} profile photo"
+            loading="lazy"
+            referrerpolicy="no-referrer" />`
+        : `<span aria-hidden="true">${escapeHtml(initials)}</span>`
+      }
+    </div>
+
+    <div class="pp-student-body">
+      <div class="pp-student-title-row">
+        <h3 class="pp-student-name">
+          ${escapeHtml(displayName)}
+        </h3>
+
+        <span
+          class="pp-student-status ${active ? "pp-student-status--active" : ""}">
+          ${escapeHtml(
+            active
+              ? "Active"
+              : titleCase(student.status || "Inactive")
+          )}
+        </span>
+      </div>
+
+      <p class="pp-student-meta">
+        Grade ${escapeHtml(student.grade || "—")}
+        · Section ${escapeHtml(student.section || "—")}
+      </p>
+
+      ${student.studentNumber
+        ? `<p class="pp-student-number">
+            Student no. ${escapeHtml(student.studentNumber)}
+          </p>`
+        : ""
+      }
+
+      ${active
+        ? ""
+        : `<div class="pp-student-note">
+            Pickup passes are unavailable while this student is
+            ${escapeHtml(String(student.status || "inactive"))}.
+          </div>`
+      }
+
+      <div class="pp-student-actions">
+        ${active
+          ? `<a
+              class="get-pickup-pass-link pp-btn pp-btn--primary"
+              href="./pickup-pass.html?studentId=${encodeURIComponent(student.id)}">
+              Pickup pass
+            </a>`
+          : `<span
+              class="pp-btn pp-btn--primary"
+              aria-disabled="true">
+              Pickup pass
+            </span>`
+        }
+
+        <a
+          class="manage-guardians-link pp-btn pp-btn--ghost"
+          href="./manage-guardians.html?studentId=${encodeURIComponent(student.id)}">
+          Guardians
+        </a>
+      </div>
+    </div>
+  `;
+
+  const passLink =
+    card.querySelector(".get-pickup-pass-link");
+
+  if (passLink) {
+    passLink.addEventListener("click", () => {
+      sessionStorage.setItem(
+        "pickupPassStudentId",
+        student.id
+      );
+    });
+  }
+
+  card
+    .querySelector(".manage-guardians-link")
+    ?.addEventListener("click", () => {
+      sessionStorage.setItem(
+        "pendingGuardianStudentId",
+        student.id
+      );
+    });
+
+  return card;
+}
+
+function showLoading() {
+  ui.loading.classList.remove("hidden");
+  ui.loading.setAttribute("aria-busy", "true");
+
+  ui.list.classList.add("hidden");
+  ui.error.classList.add("hidden");
+  ui.empty.classList.add("hidden");
+  ui.trust.classList.add("hidden");
+}
+
+function showError() {
+  ui.loading.classList.add("hidden");
+  ui.loading.setAttribute("aria-busy", "false");
+
+  ui.list.classList.add("hidden");
+  ui.empty.classList.add("hidden");
+  ui.trust.classList.add("hidden");
+  ui.error.classList.remove("hidden");
+
+  ui.count.textContent = "—";
+  ui.countLabel.textContent = "students";
+}
+
+function safeImageSource(value) {
+  const source = String(value || "").trim();
+
+  if (
+    source.startsWith("data:image/") ||
+    source.startsWith("https://") ||
+    source.startsWith("http://")
+  ) {
+    return source;
+  }
+
+  return "";
+}
+
+function getInitials(name) {
+  const parts =
+    String(name || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2);
+
+  return (
+    parts
+      .map((part) => part.charAt(0).toUpperCase())
+      .join("") || "S"
+  );
+}
+
+function titleCase(value) {
+  const text =
+    String(value || "")
+      .replace(/_/g, " ")
+      .trim();
+
+  return text
+    ? text.charAt(0).toUpperCase() + text.slice(1)
+    : "";
+}
+
+function escapeHtml(value) {
   const div = document.createElement("div");
-  div.textContent = str;
+  div.textContent = String(value ?? "");
   return div.innerHTML;
 }
 </script>

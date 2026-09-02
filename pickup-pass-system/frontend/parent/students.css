@@ -1,0 +1,343 @@
+/* PickupPass Parent — My Students
+   Screen-specific production UI. Shared tokens remain in theme.css. */
+
+.pp-parent-students {
+  max-width: 880px;
+}
+
+.pp-parent-hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-lg);
+  align-items: center;
+  padding: clamp(20px, 4vw, 30px);
+  border-radius: var(--radius-xl);
+  color: var(--text-on-brand);
+  background:
+    radial-gradient(
+      360px 220px at 100% 0%,
+      color-mix(in srgb, var(--indigo-500) 35%, transparent),
+      transparent 72%
+    ),
+    var(--brand-gradient);
+  box-shadow: var(--shadow-lg);
+}
+
+.pp-parent-hero__eyebrow {
+  margin: 0 0 var(--space-xs);
+  color: rgba(255, 255, 255, .68);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.pp-parent-hero h1 {
+  margin: 0;
+  max-width: 620px;
+  font-size: clamp(1.65rem, 5vw, 2.45rem);
+  line-height: 1.08;
+  letter-spacing: -.035em;
+  font-weight: 800;
+}
+
+.pp-parent-hero p {
+  margin: var(--space-sm) 0 0;
+  max-width: 620px;
+  color: rgba(255, 255, 255, .76);
+  font-size: .86rem;
+  line-height: 1.55;
+}
+
+.pp-parent-hero__count {
+  min-width: 88px;
+  min-height: 88px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, .10);
+  backdrop-filter: blur(6px);
+}
+
+.pp-parent-hero__count strong {
+  display: block;
+  font-size: 1.8rem;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.pp-parent-hero__count span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255, 255, 255, .70);
+  font-size: .67rem;
+}
+
+.pp-parent-section-head {
+  display: flex;
+  gap: var(--space-md);
+  align-items: end;
+  justify-content: space-between;
+  margin: var(--space-xl) 0 var(--space-md);
+}
+
+.pp-parent-section-head h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -.015em;
+}
+
+.pp-parent-section-head p {
+  margin: 4px 0 0;
+  max-width: 620px;
+  color: var(--text-muted);
+  font-size: .78rem;
+  line-height: 1.5;
+}
+
+.pp-student-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.pp-student-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-md);
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.pp-student-card:hover {
+  transform: translateY(-1px);
+  border-color:
+    color-mix(in srgb, var(--primary) 22%, var(--border));
+  box-shadow: var(--shadow-md);
+}
+
+.pp-student-avatar {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.pp-student-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.pp-student-body {
+  min-width: 0;
+}
+
+.pp-student-title-row {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.pp-student-name {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-strong);
+  font-size: .98rem;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.pp-student-status {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  background: var(--surface-variant);
+  color: var(--text-muted);
+  font-size: .65rem;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.pp-student-status--active {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.pp-student-meta {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: .76rem;
+  line-height: 1.45;
+}
+
+.pp-student-number {
+  margin: 2px 0 0;
+  color: var(--text-subtle);
+  font-size: .70rem;
+}
+
+.pp-student-note {
+  margin-top: var(--space-sm);
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-variant);
+  color: var(--text-muted);
+  font-size: .72rem;
+  line-height: 1.4;
+}
+
+.pp-student-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+  margin-top: var(--space-md);
+}
+
+.pp-student-actions .pp-btn {
+  width: auto;
+  min-height: 44px;
+  flex: 0 0 auto;
+}
+
+.pp-student-actions .pp-btn[aria-disabled="true"] {
+  pointer-events: none;
+  opacity: .52;
+}
+
+.pp-parent-trust-note {
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-variant);
+  color: var(--text-muted);
+  font-size: .74rem;
+  line-height: 1.5;
+}
+
+.pp-student-skeleton {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: var(--space-md);
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.pp-skeleton-block {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--surface-variant);
+}
+
+.pp-skeleton-block::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--surface) 72%, transparent),
+      transparent
+    );
+  animation: pp-student-shimmer 1.25s infinite;
+}
+
+.pp-skeleton-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+}
+
+.pp-skeleton-line {
+  width: 56%;
+  height: 13px;
+}
+
+.pp-skeleton-line--sm {
+  width: 38%;
+  height: 10px;
+  margin-top: 9px;
+}
+
+@keyframes pp-student-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (max-width: 560px) {
+  .pp-parent-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .pp-parent-hero__count {
+    min-width: 0;
+    min-height: 0;
+    width: fit-content;
+    padding: 12px 16px;
+    display: flex;
+    gap: 6px;
+  }
+
+  .pp-parent-hero__count span {
+    margin-top: 0;
+  }
+
+  .pp-parent-section-head {
+    align-items: flex-start;
+  }
+
+  .pp-student-card {
+    grid-template-columns: 52px minmax(0, 1fr);
+    padding: 15px;
+  }
+
+  .pp-student-avatar {
+    width: 52px;
+    height: 52px;
+  }
+
+  .pp-student-title-row {
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-student-card:hover {
+    transform: none;
+  }
+
+  .pp-skeleton-block::after {
+    animation: none;
+  }
+}
