@@ -102,10 +102,10 @@ fun PickupPassScreen(
 
                 WhatHappensNext()
 
-                if (uiState.error != null) {
+                uiState.error?.let { error ->
                     Spacer(Modifier.height(Spacing.md))
                     ErrorState(
-                        message = uiState.error,
+                        message = error,
                         onRetry = {
                             viewModel.generatePass(studentId)
                         }
