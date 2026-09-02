@@ -1,6 +1,5 @@
 /* Premium parent pickup credential. QR stays black-on-white for scan reliability. */
 .pp-pass-page { max-width:700px; }
-
 .pp-pass-card {
   overflow:hidden;
   border:1px solid color-mix(in srgb,var(--border) 82%,transparent);
@@ -32,7 +31,6 @@
 .pp-pass-hero-copy { margin-top:28px;max-width:520px;text-align:left; }
 .pp-pass-hero-copy h1 { margin:0;color:#fff;font-size:clamp(1.55rem,5vw,2rem);line-height:1.08;letter-spacing:-.035em;font-weight:840; }
 .pp-pass-hero-copy p { margin:9px 0 0;max-width:500px;color:rgba(255,255,255,.78);font-size:.88rem;line-height:1.55; }
-
 .pp-pass-card__body { padding:22px; }
 .pp-pass-student {
   display:flex;align-items:center;gap:13px;padding:13px;
@@ -49,16 +47,46 @@
 .pp-pass-label { margin:0;color:var(--text-subtle);font-size:.64rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase; }
 .pp-pass-student__name { margin:2px 0 0;color:var(--text-strong);font-size:1.03rem;line-height:1.25;letter-spacing:-.018em;font-weight:790; }
 .pp-pass-student__meta { margin:3px 0 0;color:var(--text-muted);font-size:.77rem; }
-
 .pp-pass-qr-section { display:flex;justify-content:center;margin-top:20px; }
 .pp-pass-qr-frame {
   position:relative;width:min(100%,370px);padding:14px;
   border:1px solid #e2e8f0;border-radius:24px;background:#fff;
   box-shadow:0 14px 38px rgba(15,23,42,.08),inset 0 0 0 1px rgba(15,23,42,.025);
 }
-.pp-pass-qr { min-height:320px;display:grid;place-items:center;background:#fff;border-radius:16px;color:#475569; }
-.pp-pass-qr__box { display:grid;place-items:center;width:100%; }
-.pp-pass-qr__box canvas,.pp-pass-qr__box img { display:block!important;width:min(100%,320px)!important;height:auto!important;aspect-ratio:1; }
+.pp-pass-qr {
+  min-height:320px;
+  display:grid;
+  place-items:center;
+  background:#fff;
+  border-radius:16px;
+  color:#475569;
+}
+
+/*
+ * qrcodejs deliberately creates both a CANVAS and IMG, then uses inline
+ * display styles to show one and hide the other. Never override `display`
+ * here; doing so reveals both QR renderers and makes the pass look vertically
+ * stretched/doubled.
+ */
+.pp-pass-qr__box {
+  display:grid;
+  place-items:center;
+  width:min(100%,320px);
+  max-width:320px;
+  aspect-ratio:1;
+  margin-inline:auto;
+}
+
+.pp-pass-qr__box > canvas,
+.pp-pass-qr__box > img {
+  width:100%!important;
+  max-width:320px!important;
+  height:auto!important;
+  max-height:320px!important;
+  aspect-ratio:1;
+  object-fit:contain;
+}
+
 .pp-pass-qr-frame--expired .pp-pass-qr { opacity:.24;filter:grayscale(1); }
 .pp-pass-expired-overlay { position:absolute;inset:0;display:grid;place-items:center;border-radius:inherit;pointer-events:none; }
 .pp-pass-expired-overlay span {
@@ -73,7 +101,6 @@
 .pp-pass-error-state>span { width:38px;height:38px;display:grid;place-items:center;margin-bottom:3px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-weight:850; }
 .pp-pass-error-state strong { color:#0f172a; }
 .pp-pass-error-state p { margin:0;font-size:.78rem; }
-
 .pp-pass-status {
   margin-top:17px;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;gap:14px;
   border:1px solid transparent;border-radius:15px;
@@ -85,7 +112,6 @@
 .pp-pass-status__title { margin:0;font-size:.82rem;line-height:1.25;font-weight:800; }
 .pp-pass-status__detail { margin:3px 0 0;max-width:420px;color:currentColor;opacity:.76;font-size:.72rem;line-height:1.4; }
 .pp-pass-status__time { flex:0 0 auto;font-variant-numeric:tabular-nums;font-size:1.08rem;letter-spacing:-.025em; }
-
 .pp-pass-policy {
   margin-top:15px;padding:12px 13px;display:flex;align-items:flex-start;gap:9px;
   border:1px solid color-mix(in srgb,var(--border) 86%,transparent);border-radius:14px;
@@ -93,7 +119,6 @@
 }
 .pp-pass-policy svg { flex:0 0 18px;margin-top:1px;color:var(--primary); }
 .pp-pass-policy p { margin:0;font-size:.75rem;line-height:1.5; }
-
 .pp-pass-next {
   margin-top:17px;padding:19px;border:1px solid color-mix(in srgb,var(--border) 86%,transparent);
   border-radius:20px;background:var(--surface);box-shadow:0 7px 24px rgba(15,23,42,.04);
@@ -108,7 +133,6 @@
 .pp-pass-steps strong { display:block;color:var(--text-strong);font-size:.8rem;line-height:1.35; }
 .pp-pass-steps p { margin:2px 0 0;color:var(--text-muted);font-size:.73rem;line-height:1.45; }
 .pp-pass-security-note { margin:14px auto 0;max-width:560px;color:var(--text-subtle);font-size:.7rem;line-height:1.5;text-align:center; }
-
 @media (max-width:520px) {
   .pp-pass-card { border-radius:22px; }
   .pp-pass-card__hero { padding:20px; }
