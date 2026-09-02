@@ -52,10 +52,13 @@ fun TeacherStudentsScreen(
         mutableStateOf(false)
     }
 
-    val expandedSections =
-        remember {
-            mutableStateMapOf<String, Boolean>()
-        }
+    var expandedGradeKey by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var expandedSectionKey by remember {
+        mutableStateOf<String?>(null)
+    }
 
     val addSheetState =
         rememberModalBottomSheetState(
@@ -150,10 +153,8 @@ fun TeacherStudentsScreen(
             ) {
                 CompactRosterSummary(
                     totalStudents = totalStudents,
-                    readyStudents =
-                        studentsWithGuardian,
-                    needsGuardian =
-                        needsGuardian
+                    sectionCount = totalSections,
+                    needsGuardian = needsGuardian
                 )
             }
 
@@ -259,61 +260,91 @@ fun TeacherStudentsScreen(
                                             gradeIndex,
                                             gradeGroup ->
 
-                                        gradeGroup.sections
-                                            .forEachIndexed {
-                                                    sectionIndex,
-                                                    sectionGroup ->
+                                        val gradeKey =
+                                            gradeGroup.grade
 
-                                                val key =
-                                                    "${gradeGroup.grade}|${sectionGroup.section}"
+                                        val forceExpanded =
+                                            uiState.searchTerm
+                                                .isNotBlank()
 
-                                                val forceExpanded =
-                                                    uiState.searchTerm
-                                                        .isNotBlank()
-
-                                                val defaultExpanded =
-                                                    gradeIndex == 0 &&
-                                                        sectionIndex == 0
-
-                                                val expanded =
-                                                    if (
-                                                        forceExpanded
-                                                    ) {
-                                                        true
-                                                    } else {
-                                                        expandedSections[
-                                                            key
-                                                        ] ?: defaultExpanded
+                                        val gradeExpanded =
+                                            if (forceExpanded) {
+                                                true
+                                            } else {
+                                                expandedGradeKey
+                                                    ?.let {
+                                                        it == gradeKey
                                                     }
-
-                                                item(
-                                                    key =
-                                                        "section-$key"
-                                                ) {
-                                                    CollapsibleSection(
-                                                        grade =
-                                                            gradeGroup.grade,
-                                                        section =
-                                                            sectionGroup.section,
-                                                        students =
-                                                            sectionGroup.students,
-                                                        expanded =
-                                                            expanded,
-                                                        onToggle = {
-                                                            if (
-                                                                !forceExpanded
-                                                            ) {
-                                                                expandedSections[
-                                                                    key
-                                                                ] =
-                                                                    !expanded
-                                                            }
-                                                        },
-                                                        onRegisterParent =
-                                                            onRegisterParent
-                                                    )
-                                                }
+                                                    ?: (gradeIndex == 0)
                                             }
+
+                                        item(
+                                            key =
+                                                "grade-$gradeKey"
+                                        ) {
+                                            GradeAccordion(
+                                                grade =
+                                                    gradeGroup.grade,
+                                                sections =
+                                                    gradeGroup.sections.map {
+                                                        SectionDisplay(
+                                                            section =
+                                                                it.section,
+                                                            students =
+                                                                it.students
+                                                        )
+                                                    },
+                                                expanded =
+                                                    gradeExpanded,
+                                                searchActive =
+                                                    forceExpanded,
+                                                expandedSectionKey =
+                                                    expandedSectionKey,
+                                                onGradeToggle = {
+                                                    if (
+                                                        !forceExpanded
+                                                    ) {
+                                                        if (
+                                                            gradeExpanded
+                                                        ) {
+                                                            expandedGradeKey =
+                                                                "__collapsed__"
+                                                            expandedSectionKey =
+                                                                null
+                                                        } else {
+                                                            expandedGradeKey =
+                                                                gradeKey
+
+                                                            expandedSectionKey =
+                                                                gradeGroup
+                                                                    .sections
+                                                                    .firstOrNull()
+                                                                    ?.let {
+                                                                        "${gradeGroup.grade}|${it.section}"
+                                                                    }
+                                                        }
+                                                    }
+                                                },
+                                                onSectionToggle = {
+                                                        sectionKey,
+                                                        isExpanded ->
+                                                    if (
+                                                        !forceExpanded
+                                                    ) {
+                                                        expandedSectionKey =
+                                                            if (
+                                                                isExpanded
+                                                            ) {
+                                                                null
+                                                            } else {
+                                                                sectionKey
+                                                            }
+                                                    }
+                                                },
+                                                onRegisterParent =
+                                                    onRegisterParent
+                                            )
+                                        }
                                     }
                             }
                     }
@@ -363,7 +394,7 @@ fun TeacherStudentsScreen(
 @Composable
 private fun CompactRosterSummary(
     totalStudents: Int,
-    readyStudents: Int,
+    sectionCount: Int,
     needsGuardian: Int
 ) {
     Row(
@@ -383,8 +414,8 @@ private fun CompactRosterSummary(
         )
 
         RosterSummaryPill(
-            value = readyStudents.toString(),
-            label = "Ready",
+            value = sectionCount.toString(),
+            label = "Sections",
             modifier = Modifier.weight(1f)
         )
 
@@ -503,22 +534,39 @@ private fun CompactSearchBar(
     }
 }
 
+private data class SectionDisplay(
+    val section: String,
+    val students: List<Student>
+)
+
 @Composable
-private fun CollapsibleSection(
+private fun GradeAccordion(
     grade: String,
-    section: String,
-    students: List<Student>,
+    sections: List<SectionDisplay>,
     expanded: Boolean,
-    onToggle: () -> Unit,
+    searchActive: Boolean,
+    expandedSectionKey: String?,
+    onGradeToggle: () -> Unit,
+    onSectionToggle: (
+        sectionKey: String,
+        isExpanded: Boolean
+    ) -> Unit,
     onRegisterParent: (String) -> Unit
 ) {
+    val studentCount =
+        sections.sumOf {
+            it.students.size
+        }
+
     val readyCount =
-        students.count {
-            it.guardianUids.isNotEmpty()
+        sections.sumOf { section ->
+            section.students.count {
+                it.guardianUids.isNotEmpty()
+            }
         }
 
     val needsCount =
-        students.size - readyCount
+        studentCount - readyCount
 
     ElevatedCard(
         modifier = Modifier
@@ -535,141 +583,341 @@ private fun CollapsibleSection(
                 defaultElevation = 1.dp
             )
     ) {
-        Row(
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onToggle)
-                .padding(
+                .clickable(
+                    enabled = !searchActive,
+                    onClick = onGradeToggle
+                ),
+            color =
+                MaterialTheme.colorScheme.primary,
+            contentColor =
+                MaterialTheme.colorScheme.onPrimary
+        ) {
+            Row(
+                modifier = Modifier.padding(
                     horizontal = 12.dp,
                     vertical = 10.dp
                 ),
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
-            Surface(
-                modifier = Modifier.size(36.dp),
-                shape = CircleShape,
-                color =
-                    MaterialTheme.colorScheme.primaryContainer
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
-                Box(
-                    contentAlignment =
-                        Alignment.Center
+                Surface(
+                    modifier = Modifier.size(38.dp),
+                    shape = CircleShape,
+                    color =
+                        MaterialTheme.colorScheme.onPrimary
+                            .copy(alpha = 0.14f)
+                ) {
+                    Box(
+                        contentAlignment =
+                            Alignment.Center
+                    ) {
+                        Text(
+                            text = gradeBadge(grade),
+                            style =
+                                MaterialTheme.typography.labelLarge,
+                            fontWeight =
+                                FontWeight.ExtraBold,
+                            color =
+                                MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(10.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f)
                 ) {
                     Text(
                         text =
-                            sectionInitial(
-                                section
-                            ),
+                            "Grade ${grade.ifBlank { "—" }}",
+                        maxLines = 1,
+                        overflow =
+                            TextOverflow.Ellipsis,
                         style =
-                            MaterialTheme.typography.labelLarge,
+                            MaterialTheme.typography.titleSmall,
                         fontWeight =
-                            FontWeight.ExtraBold,
+                            FontWeight.ExtraBold
+                    )
+
+                    Spacer(Modifier.height(1.dp))
+
+                    Text(
+                        text = buildString {
+                            append(
+                                "${sections.size} section${if (sections.size == 1) "" else "s"}"
+                            )
+                            append(
+                                " · $studentCount student${if (studentCount == 1) "" else "s"}"
+                            )
+
+                            if (needsCount > 0) {
+                                append(
+                                    " · $needsCount need guardian"
+                                )
+                            } else if (studentCount > 0) {
+                                append(
+                                    " · all ready"
+                                )
+                            }
+                        },
+                        maxLines = 1,
+                        overflow =
+                            TextOverflow.Ellipsis,
+                        style =
+                            MaterialTheme.typography.labelSmall,
                         color =
-                            MaterialTheme.colorScheme.onPrimaryContainer
+                            MaterialTheme.colorScheme.onPrimary
+                                .copy(alpha = 0.76f)
+                    )
+                }
+
+                if (!searchActive) {
+                    Icon(
+                        imageVector =
+                            if (expanded) {
+                                Icons.Filled.ExpandLess
+                            } else {
+                                Icons.Filled.ExpandMore
+                            },
+                        contentDescription =
+                            if (expanded) {
+                                "Collapse grade"
+                            } else {
+                                "Expand grade"
+                            }
                     )
                 }
             }
-
-            Spacer(Modifier.width(10.dp))
-
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text =
-                        "Grade ${grade.ifBlank { "—" }} · Section ${section.ifBlank { "—" }}",
-                    maxLines = 1,
-                    overflow =
-                        TextOverflow.Ellipsis,
-                    style =
-                        MaterialTheme.typography.titleSmall,
-                    fontWeight =
-                        FontWeight.ExtraBold
-                )
-
-                Spacer(Modifier.height(1.dp))
-
-                Text(
-                    text = buildString {
-                        append(
-                            "${students.size} student${if (students.size == 1) "" else "s"}"
-                        )
-
-                        append(
-                            " · $readyCount ready"
-                        )
-
-                        if (needsCount > 0) {
-                            append(
-                                " · $needsCount need guardian"
-                            )
-                        }
-                    },
-                    maxLines = 1,
-                    overflow =
-                        TextOverflow.Ellipsis,
-                    style =
-                        MaterialTheme.typography.labelSmall,
-                    color =
-                        if (needsCount > 0) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                )
-            }
-
-            Icon(
-                imageVector =
-                    if (expanded) {
-                        Icons.Filled.ExpandLess
-                    } else {
-                        Icons.Filled.ExpandMore
-                    },
-                contentDescription =
-                    if (expanded) {
-                        "Collapse section"
-                    } else {
-                        "Expand section"
-                    },
-                tint =
-                    MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
 
         AnimatedVisibility(
             visible = expanded
         ) {
-            Column {
-                HorizontalDivider(
-                    color =
-                        MaterialTheme.colorScheme.outlineVariant
-                )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(7.dp),
+                verticalArrangement =
+                    Arrangement.spacedBy(6.dp)
+            ) {
+                sections.forEachIndexed {
+                        sectionIndex,
+                        sectionGroup ->
 
-                students.forEachIndexed {
-                        index,
-                        student ->
-                    CompactStudentRow(
-                        student = student,
-                        onRegisterParent = {
-                            onRegisterParent(
-                                student.id
-                            )
+                    val sectionKey =
+                        "$grade|${sectionGroup.section}"
+
+                    val sectionExpanded =
+                        if (searchActive) {
+                            true
+                        } else {
+                            expandedSectionKey
+                                ?.let {
+                                    it == sectionKey
+                                }
+                                ?: (sectionIndex == 0)
                         }
+
+                    SectionAccordion(
+                        section =
+                            sectionGroup.section,
+                        students =
+                            sectionGroup.students,
+                        expanded =
+                            sectionExpanded,
+                        searchActive =
+                            searchActive,
+                        onToggle = {
+                            onSectionToggle(
+                                sectionKey,
+                                sectionExpanded
+                            )
+                        },
+                        onRegisterParent =
+                            onRegisterParent
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionAccordion(
+    section: String,
+    students: List<Student>,
+    expanded: Boolean,
+    searchActive: Boolean,
+    onToggle: () -> Unit,
+    onRegisterParent: (String) -> Unit
+) {
+    val readyCount =
+        students.count {
+            it.guardianUids.isNotEmpty()
+        }
+
+    val needsCount =
+        students.size - readyCount
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(),
+        shape = MaterialTheme.shapes.medium,
+        color =
+            MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        enabled = !searchActive,
+                        onClick = onToggle
+                    )
+                    .padding(
+                        horizontal = 11.dp,
+                        vertical = 8.dp
+                    ),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(30.dp),
+                    shape = CircleShape,
+                    color =
+                        MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Box(
+                        contentAlignment =
+                            Alignment.Center
+                    ) {
+                        Text(
+                            text =
+                                sectionInitial(section),
+                            style =
+                                MaterialTheme.typography.labelMedium,
+                            fontWeight =
+                                FontWeight.ExtraBold,
+                            color =
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(9.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text =
+                            "Section ${section.ifBlank { "—" }}",
+                        maxLines = 1,
+                        overflow =
+                            TextOverflow.Ellipsis,
+                        style =
+                            MaterialTheme.typography.bodyMedium,
+                        fontWeight =
+                            FontWeight.ExtraBold,
+                        color =
+                            MaterialTheme.colorScheme.onSurface
                     )
 
-                    if (
-                        index != students.lastIndex
-                    ) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(
-                                start = 58.dp
-                            ),
-                            color =
-                                MaterialTheme.colorScheme.outlineVariant
-                                    .copy(alpha = 0.65f)
-                        )
+                    Spacer(Modifier.height(1.dp))
+
+                    Text(
+                        text = buildString {
+                            append(
+                                "${students.size} student${if (students.size == 1) "" else "s"}"
+                            )
+
+                            append(
+                                " · $readyCount ready"
+                            )
+
+                            if (needsCount > 0) {
+                                append(
+                                    " · $needsCount need guardian"
+                                )
+                            }
+                        },
+                        maxLines = 1,
+                        overflow =
+                            TextOverflow.Ellipsis,
+                        style =
+                            MaterialTheme.typography.labelSmall,
+                        color =
+                            if (needsCount > 0) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                    )
+                }
+
+                if (!searchActive) {
+                    Icon(
+                        imageVector =
+                            if (expanded) {
+                                Icons.Filled.ExpandLess
+                            } else {
+                                Icons.Filled.ExpandMore
+                            },
+                        contentDescription =
+                            if (expanded) {
+                                "Collapse section"
+                            } else {
+                                "Expand section"
+                            },
+                        tint =
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            AnimatedVisibility(
+                visible = expanded
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color =
+                        MaterialTheme.colorScheme.surface
+                ) {
+                    Column {
+                        students.forEachIndexed {
+                                index,
+                                student ->
+
+                            CompactStudentRow(
+                                student = student,
+                                onRegisterParent = {
+                                    onRegisterParent(
+                                        student.id
+                                    )
+                                }
+                            )
+
+                            if (
+                                index != students.lastIndex
+                            ) {
+                                HorizontalDivider(
+                                    modifier =
+                                        Modifier.padding(
+                                            start = 58.dp
+                                        ),
+                                    color =
+                                        MaterialTheme.colorScheme.outlineVariant
+                                            .copy(
+                                                alpha = 0.65f
+                                            )
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1356,6 +1604,21 @@ private fun studentInitials(
 
     return (first + second)
         .ifBlank { "S" }
+}
+
+private fun gradeBadge(
+    grade: String
+): String {
+    val compact =
+        grade
+            .trim()
+            .replace(
+                Regex("(?i)^grade\\s*"),
+                ""
+            )
+            .take(3)
+
+    return compact.ifBlank { "G" }
 }
 
 private fun sectionInitial(
