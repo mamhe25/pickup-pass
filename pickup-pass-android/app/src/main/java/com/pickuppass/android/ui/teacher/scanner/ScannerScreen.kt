@@ -1,7 +1,6 @@
 package com.pickuppass.android.ui.teacher.scanner
 
 import android.Manifest
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -10,9 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.CheckCircle
@@ -36,6 +33,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -48,8 +46,8 @@ import com.google.accompanist.permissions.shouldShowRationale
 import com.pickuppass.android.data.model.PickupGateItem
 import com.pickuppass.android.ui.common.BrandedTitle
 import com.pickuppass.android.ui.common.GuardianAvatar
-import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.common.PrimaryButton
+import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.theme.Gray300
 import com.pickuppass.android.ui.theme.Gray400
 import com.pickuppass.android.ui.theme.Gray800
@@ -106,7 +104,6 @@ fun ScannerScreen(
                             tint = Color.White
                         )
                     }
-
                     IconButton(onClick = onGoToExitLogs) {
                         Icon(
                             Icons.Filled.History,
@@ -115,69 +112,42 @@ fun ScannerScreen(
                         )
                     }
 
-                    var menuExpanded by remember {
-                        mutableStateOf(false)
-                    }
-
-                    IconButton(
-                        onClick = {
-                            menuExpanded = true
-                        }
-                    ) {
+                    var menuExpanded by remember { mutableStateOf(false) }
+                    IconButton(onClick = { menuExpanded = true }) {
                         Icon(
                             Icons.Filled.MoreVert,
                             contentDescription = "More",
                             tint = Color.White
                         )
                     }
-
                     DropdownMenu(
                         expanded = menuExpanded,
-                        onDismissRequest = {
-                            menuExpanded = false
-                        }
+                        onDismissRequest = { menuExpanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = {
-                                Text("Notifications")
-                            },
+                            text = { Text("Notifications") },
                             leadingIcon = {
-                                Icon(
-                                    Icons.Filled.Notifications,
-                                    contentDescription = null
-                                )
+                                Icon(Icons.Filled.Notifications, contentDescription = null)
                             },
                             onClick = {
                                 menuExpanded = false
                                 onGoToNotifications()
                             }
                         )
-
                         DropdownMenuItem(
-                            text = {
-                                Text("Pickup Operations")
-                            },
+                            text = { Text("Pickup Operations") },
                             leadingIcon = {
-                                Icon(
-                                    Icons.Filled.Settings,
-                                    contentDescription = null
-                                )
+                                Icon(Icons.Filled.Settings, contentDescription = null)
                             },
                             onClick = {
                                 menuExpanded = false
                                 onGoToOperations()
                             }
                         )
-
                         DropdownMenuItem(
-                            text = {
-                                Text("Send Announcement")
-                            },
+                            text = { Text("Send Announcement") },
                             leadingIcon = {
-                                Icon(
-                                    Icons.Filled.Campaign,
-                                    contentDescription = null
-                                )
+                                Icon(Icons.Filled.Campaign, contentDescription = null)
                             },
                             onClick = {
                                 menuExpanded = false
@@ -185,12 +155,7 @@ fun ScannerScreen(
                             }
                         )
                     }
-
-                    IconButton(
-                        onClick = {
-                            viewModel.signOut()
-                        }
-                    ) {
+                    IconButton(onClick = viewModel::signOut) {
                         Icon(
                             Icons.Filled.Logout,
                             contentDescription = "Sign out",
@@ -209,22 +174,15 @@ fun ScannerScreen(
             when {
                 !cameraPermission.status.isGranted -> {
                     CameraPermissionRequest(
-                        shouldShowRationale =
-                            cameraPermission.status.shouldShowRationale,
-                        onRequest = {
-                            cameraPermission
-                                .launchPermissionRequest()
-                        }
+                        shouldShowRationale = cameraPermission.status.shouldShowRationale,
+                        onRequest = { cameraPermission.launchPermissionRequest() }
                     )
                 }
 
                 uiState is ScannerUiState.Approved -> {
                     ApprovedOverlay(
-                        gateLabel =
-                            (uiState as ScannerUiState.Approved)
-                                .gateLabel,
-                        onDone =
-                            viewModel::resetToScanning
+                        gateLabel = (uiState as ScannerUiState.Approved).gateLabel,
+                        onDone = viewModel::resetToScanning
                     )
                 }
 
@@ -233,8 +191,7 @@ fun ScannerScreen(
                         uiState = uiState,
                         viewModel = viewModel,
                         pickupGates = pickupGates,
-                        selectedPickupGate =
-                            selectedPickupGate,
+                        selectedPickupGate = selectedPickupGate,
                         gateLoading = gateLoading,
                         gateError = gateError
                     )
@@ -256,20 +213,12 @@ private fun ScanAndVerifyContent(
     val gateReady =
         !gateLoading &&
             gateError == null &&
-            (
-                pickupGates.isEmpty() ||
-                    selectedPickupGate != null
-                )
+            (pickupGates.isEmpty() || selectedPickupGate != null)
 
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
         QrScannerView(
-            paused =
-                uiState !is ScannerUiState.Scanning ||
-                    !gateReady,
-            onQrDetected =
-                viewModel::onQrCodeScanned
+            paused = uiState !is ScannerUiState.Scanning || !gateReady,
+            onQrDetected = viewModel::onQrCodeScanned
         )
 
         ScannerTopChrome(
@@ -279,48 +228,34 @@ private fun ScanAndVerifyContent(
             error = gateError,
             onSelect = viewModel::selectPickupGate,
             onRetry = viewModel::loadPickupGates,
-            modifier = Modifier.align(
-                Alignment.TopCenter
-            )
+            modifier = Modifier.align(Alignment.TopCenter)
         )
 
         when (uiState) {
             is ScannerUiState.Scanning -> {
                 ScanningOverlay(
                     gateReady = gateReady,
-                    selectedGateLabel =
-                        selectedPickupGate
-                            ?.displayName
-                            .orEmpty(),
-                    hasConfiguredGates =
-                        pickupGates.isNotEmpty()
+                    selectedGateLabel = selectedPickupGate?.displayName.orEmpty(),
+                    hasConfiguredGates = pickupGates.isNotEmpty()
                 )
             }
 
-            is ScannerUiState.Verifying -> {
-                RequestOverlay("Verifying pass…")
-            }
+            is ScannerUiState.Verifying -> RequestOverlay("Verifying pass…")
 
             is ScannerUiState.Verified -> {
                 VerifiedPanel(
                     state = uiState,
-                    selectedPickupGate =
-                        selectedPickupGate,
                     viewModel = viewModel
                 )
-
                 if (uiState.isApproving) {
-                    RequestOverlay(
-                        "Approving release…"
-                    )
+                    RequestOverlay("Approving release…")
                 }
             }
 
             is ScannerUiState.Error -> {
                 ErrorPanel(
                     message = uiState.message,
-                    onDismiss =
-                        viewModel::resetToScanning
+                    onDismiss = viewModel::resetToScanning
                 )
             }
 
@@ -343,189 +278,123 @@ private fun ScannerTopChrome(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(Spacing.sm),
+            .padding(horizontal = Spacing.sm, vertical = 8.dp),
         color = Color.Black.copy(alpha = 0.72f),
         shape = MaterialTheme.shapes.extraLarge,
         tonalElevation = 0.dp,
         shadowElevation = 8.dp
     ) {
-        Column(
+        Box(
             modifier = Modifier.padding(
                 horizontal = Spacing.md,
-                vertical = Spacing.sm
+                vertical = 10.dp
             )
         ) {
-            ScannerStepHeader()
-
-            Spacer(Modifier.height(Spacing.sm))
-
             when {
                 loading -> {
                     Row(
-                        verticalAlignment =
-                            Alignment.CenterVertically,
-                        horizontalArrangement =
-                            Arrangement.spacedBy(
-                                Spacing.sm
-                            )
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(
-                                18.dp
-                            ),
+                            modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
                             color = Color.White
                         )
-
                         Text(
                             "Loading pickup gates…",
                             color = Color.White,
-                            style =
-                                MaterialTheme.typography
-                                    .bodySmall
+                            style = MaterialTheme.typography.bodySmall
                         )
                     }
                 }
 
                 error != null -> {
                     Row(
-                        modifier =
-                            Modifier.fillMaxWidth(),
-                        verticalAlignment =
-                            Alignment.CenterVertically,
-                        horizontalArrangement =
-                            Arrangement.spacedBy(
-                                Spacing.sm
-                            )
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         Text(
                             text = error,
-                            color =
-                                MaterialTheme
-                                    .colorScheme
-                                    .errorContainer,
-                            modifier =
-                                Modifier.weight(1f),
-                            style =
-                                MaterialTheme.typography
-                                    .bodySmall
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
-
-                        TextButton(
-                            onClick = onRetry
-                        ) {
+                        TextButton(onClick = onRetry) {
                             Text("Retry")
                         }
                     }
                 }
 
                 gates.isEmpty() -> {
-                    Text(
-                        text =
-                            "No pickup gate configured · normal scanner mode",
-                        color = Gray300,
-                        style =
-                            MaterialTheme.typography
-                                .bodySmall
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.VerifiedUser,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "Scanner ready",
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
-                gates.size == 1 -> {
-                    GateSummary(
-                        gate =
-                            selected ?: gates.first()
-                    )
-                }
+                gates.size == 1 -> GateSummary(selected ?: gates.first())
 
                 else -> {
-                    var expanded by remember {
-                        mutableStateOf(false)
-                    }
-
+                    var expanded by remember { mutableStateOf(false) }
                     ExposedDropdownMenuBox(
                         expanded = expanded,
-                        onExpandedChange = {
-                            expanded = !expanded
-                        }
+                        onExpandedChange = { expanded = !expanded }
                     ) {
                         OutlinedTextField(
-                            value =
-                                selected
-                                    ?.displayName
-                                    .orEmpty(),
+                            value = selected?.displayName.orEmpty(),
                             onValueChange = {},
                             readOnly = true,
-                            label = {
-                                Text(
-                                    "Active pickup gate"
-                                )
-                            },
-                            placeholder = {
-                                Text(
-                                    "Select pickup gate"
-                                )
-                            },
+                            singleLine = true,
+                            label = { Text("Pickup gate") },
+                            placeholder = { Text("Select pickup gate") },
                             trailingIcon = {
-                                ExposedDropdownMenuDefaults
-                                    .TrailingIcon(
-                                        expanded = expanded
-                                    )
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                             },
                             modifier = Modifier
                                 .menuAnchor()
                                 .fillMaxWidth(),
-                            colors =
-                                OutlinedTextFieldDefaults
-                                    .colors(
-                                        focusedTextColor =
-                                            Color.White,
-                                        unfocusedTextColor =
-                                            Color.White,
-                                        focusedBorderColor =
-                                            MaterialTheme
-                                                .colorScheme
-                                                .secondary,
-                                        unfocusedBorderColor =
-                                            Gray400,
-                                        focusedLabelColor =
-                                            Gray300,
-                                        unfocusedLabelColor =
-                                            Gray300,
-                                        focusedPlaceholderColor =
-                                            Gray400,
-                                        unfocusedPlaceholderColor =
-                                            Gray400
-                                    )
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = MaterialTheme.colorScheme.secondary,
+                                unfocusedBorderColor = Gray400,
+                                focusedLabelColor = Gray300,
+                                unfocusedLabelColor = Gray300,
+                                focusedPlaceholderColor = Gray400,
+                                unfocusedPlaceholderColor = Gray400
+                            )
                         )
-
                         ExposedDropdownMenu(
                             expanded = expanded,
-                            onDismissRequest = {
-                                expanded = false
-                            }
+                            onDismissRequest = { expanded = false }
                         ) {
                             gates.forEach { gate ->
                                 DropdownMenuItem(
                                     text = {
                                         Column {
-                                            Text(
-                                                gate.name
-                                            )
-
-                                            if (
-                                                gate.campusName
-                                                    .isNotBlank()
-                                            ) {
+                                            Text(gate.name)
+                                            if (gate.campusName.isNotBlank()) {
                                                 Text(
                                                     gate.campusName,
-                                                    style =
-                                                        MaterialTheme
-                                                            .typography
-                                                            .bodySmall,
-                                                    color =
-                                                        MaterialTheme
-                                                            .colorScheme
-                                                            .onSurfaceVariant
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                         }
@@ -545,156 +414,38 @@ private fun ScannerTopChrome(
 }
 
 @Composable
-private fun ScannerStepHeader() {
+private fun GateSummary(gate: PickupGateItem) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement =
-            Arrangement.spacedBy(6.dp),
-        verticalAlignment =
-            Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        ScannerStep(
-            number = "1",
-            label = "Scan",
-            emphasized = true,
-            modifier = Modifier.weight(1f)
-        )
-
-        ScannerStep(
-            number = "2",
-            label = "Verify",
-            emphasized = false,
-            modifier = Modifier.weight(1f)
-        )
-
-        ScannerStep(
-            number = "3",
-            label = "Release",
-            emphasized = false,
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-private fun ScannerStep(
-    number: String,
-    label: String,
-    emphasized: Boolean,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = CircleShape,
-        color =
-            if (emphasized) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                Color.White.copy(alpha = 0.08f)
-            }
-    ) {
-        Row(
-            modifier = Modifier.padding(
-                horizontal = 9.dp,
-                vertical = 6.dp
-            ),
-            horizontalArrangement =
-                Arrangement.Center,
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = number,
-                color =
-                    if (emphasized) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        Gray300
-                    },
-                style =
-                    MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.ExtraBold
-            )
-
-            Spacer(Modifier.width(5.dp))
-
-            Text(
-                text = label,
-                color =
-                    if (emphasized) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        Gray300
-                    },
-                style =
-                    MaterialTheme.typography.labelSmall,
+                text = "PICKUP GATE",
+                color = Gray400,
+                style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold
             )
+            Text(
+                text = gate.displayName,
+                color = Color.White,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
-    }
-}
-
-@Composable
-private fun GateSummary(
-    gate: PickupGateItem
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = Color.White.copy(alpha = 0.08f)
-    ) {
-        Row(
-            modifier = Modifier.padding(
-                horizontal = Spacing.md,
-                vertical = Spacing.sm
-            ),
-            verticalAlignment =
-                Alignment.CenterVertically
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f)
         ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = "ACTIVE PICKUP GATE",
-                    color = Gray400,
-                    style =
-                        MaterialTheme.typography
-                            .labelSmall,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = gate.displayName,
-                    color = Color.White,
-                    style =
-                        MaterialTheme.typography
-                            .bodyMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Surface(
-                shape = CircleShape,
-                color =
-                    MaterialTheme.colorScheme
-                        .secondary
-                        .copy(alpha = 0.18f)
-            ) {
-                Text(
-                    text = "Ready",
-                    modifier = Modifier.padding(
-                        horizontal = 10.dp,
-                        vertical = 5.dp
-                    ),
-                    color =
-                        MaterialTheme.colorScheme
-                            .secondary,
-                    style =
-                        MaterialTheme.typography
-                            .labelSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            Text(
+                text = "Ready",
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -718,89 +469,52 @@ private fun ScanningOverlay(
             shadowElevation = 8.dp
         ) {
             Row(
-                modifier = Modifier.padding(Spacing.md),
-                verticalAlignment =
-                    Alignment.CenterVertically
+                modifier = Modifier.padding(
+                    horizontal = Spacing.md,
+                    vertical = 12.dp
+                ),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    modifier = Modifier.size(42.dp),
+                    modifier = Modifier.size(38.dp),
                     shape = CircleShape,
-                    color =
-                        if (gateReady) {
-                            MaterialTheme
-                                .colorScheme
-                                .primary
-                                .copy(alpha = 0.24f)
-                        } else {
-                            MaterialTheme
-                                .colorScheme
-                                .error
-                                .copy(alpha = 0.22f)
-                        }
+                    color = if (gateReady) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
+                    } else {
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.22f)
+                    }
                 ) {
-                    Box(
-                        contentAlignment =
-                            Alignment.Center
-                    ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            if (gateReady) {
-                                Icons.Filled.VerifiedUser
-                            } else {
-                                Icons.Filled.Security
-                            },
+                            if (gateReady) Icons.Filled.VerifiedUser else Icons.Filled.Security,
                             contentDescription = null,
-                            tint =
-                                if (gateReady) {
-                                    MaterialTheme
-                                        .colorScheme
-                                        .primaryContainer
-                                } else {
-                                    MaterialTheme
-                                        .colorScheme
-                                        .errorContainer
-                                }
+                            tint = if (gateReady) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.errorContainer
+                            },
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
-
-                Spacer(Modifier.width(Spacing.md))
-
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
+                Spacer(Modifier.width(Spacing.sm))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text =
-                            if (gateReady) {
-                                "Ready to scan a parent pass"
-                            } else {
-                                "Select a pickup gate first"
-                            },
+                        text = if (gateReady) "Ready to scan" else "Select a pickup gate",
                         color = Color.White,
-                        style =
-                            MaterialTheme.typography
-                                .titleSmall,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
-
-                    Spacer(Modifier.height(2.dp))
-
                     Text(
-                        text =
-                            if (
-                                hasConfiguredGates &&
-                                selectedGateLabel
-                                    .isNotBlank()
-                            ) {
-                                "Release location: $selectedGateLabel"
-                            } else if (gateReady) {
-                                "Hold the QR inside the camera frame."
-                            } else {
-                                "Scanning stays paused until a release location is selected."
-                            },
+                        text = when {
+                            hasConfiguredGates && selectedGateLabel.isNotBlank() -> selectedGateLabel
+                            gateReady -> "Hold the QR inside the camera frame."
+                            else -> "Scanning is paused."
+                        },
                         color = Gray300,
-                        style =
-                            MaterialTheme.typography
-                                .bodySmall
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -809,51 +523,34 @@ private fun ScanningOverlay(
 }
 
 @Composable
-private fun RequestOverlay(
-    message: String
-) {
+private fun RequestOverlay(message: String) {
     Surface(
         color = Color.Black.copy(alpha = 0.62f),
         modifier = Modifier.fillMaxSize()
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment =
-                Alignment.CenterHorizontally,
-            verticalArrangement =
-                Arrangement.Center
-        ) {
+        Box(contentAlignment = Alignment.Center) {
             Surface(
                 shape = MaterialTheme.shapes.extraLarge,
                 color = Gray800,
                 shadowElevation = 12.dp
             ) {
-                Column(
+                Row(
                     modifier = Modifier.padding(
-                        horizontal = Spacing.xl,
-                        vertical = Spacing.lg
+                        horizontal = Spacing.lg,
+                        vertical = Spacing.md
                     ),
-                    horizontalAlignment =
-                        Alignment.CenterHorizontally
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md)
                 ) {
                     CircularProgressIndicator(
-                        color =
-                            MaterialTheme
-                                .colorScheme.secondary
+                        modifier = Modifier.size(28.dp),
+                        strokeWidth = 3.dp,
+                        color = MaterialTheme.colorScheme.secondary
                     )
-
-                    Spacer(
-                        Modifier.height(
-                            Spacing.md
-                        )
-                    )
-
                     Text(
                         message,
                         color = Color.White,
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -865,12 +562,9 @@ private fun RequestOverlay(
 @Composable
 private fun BoxScope.VerifiedPanel(
     state: ScannerUiState.Verified,
-    selectedPickupGate: PickupGateItem?,
     viewModel: ScannerViewModel
 ) {
-    var showGuardianPhoto by remember(
-        state.guardian.photoUrl
-    ) {
+    var showGuardianPhoto by remember(state.guardian.photoUrl) {
         mutableStateOf(false)
     }
 
@@ -886,360 +580,129 @@ private fun BoxScope.VerifiedPanel(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .weight(
-                        weight = 1f,
-                        fill = false
-                    )
-                    .heightIn(max = 460.dp)
-                    .verticalScroll(
-                        rememberScrollState()
-                    )
-                    .padding(Spacing.md)
-            ) {
-                VerifyStepHeader()
+            VerifyHeader()
+            Spacer(Modifier.height(10.dp))
 
-                Spacer(Modifier.height(Spacing.md))
+            GuardianIdentityCard(
+                state = state,
+                onPhotoClick = { showGuardianPhoto = true }
+            )
 
-                Text(
-                    text =
-                        "Does the person present match this authorized guardian?",
-                    color = Color.White,
-                    style =
-                        MaterialTheme.typography
-                            .titleLarge,
-                    fontWeight = FontWeight.ExtraBold
-                )
+            Spacer(Modifier.height(8.dp))
+            StudentIdentityCard(state)
 
-                Spacer(Modifier.height(Spacing.xs))
-
-                Text(
-                    text =
-                        "Confirm the guardian's face before releasing the student. A valid QR alone is not enough.",
-                    color = Gray300,
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall
-                )
-
-                Spacer(Modifier.height(Spacing.md))
-
-                GuardianIdentityCard(
-                    state = state,
-                    onPhotoClick = {
-                        showGuardianPhoto = true
-                    }
-                )
-
-                Spacer(Modifier.height(Spacing.sm))
-
-                StudentIdentityCard(state)
-
-                selectedPickupGate?.let { gate ->
-                    Spacer(
-                        Modifier.height(
-                            Spacing.sm
-                        )
-                    )
-
-                    Surface(
-                        modifier =
-                            Modifier.fillMaxWidth(),
-                        shape =
-                            MaterialTheme.shapes.large,
-                        color =
-                            Color.Black.copy(
-                                alpha = 0.20f
-                            )
-                    ) {
-                        Column(
-                            modifier =
-                                Modifier.padding(
-                                    Spacing.md
-                                )
-                        ) {
-                            Text(
-                                text =
-                                    "RELEASE LOCATION",
-                                color = Gray400,
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .labelSmall,
-                                fontWeight =
-                                    FontWeight.Bold
-                            )
-
-                            Spacer(
-                                Modifier.height(
-                                    2.dp
-                                )
-                            )
-
-                            Text(
-                                text =
-                                    gate.displayName,
-                                color = Color.White,
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodyMedium,
-                                fontWeight =
-                                    FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                if (!state.guardianPhotoReady) {
-                    Spacer(
-                        Modifier.height(
-                            Spacing.sm
-                        )
-                    )
-
-                    Surface(
-                        modifier =
-                            Modifier.fillMaxWidth(),
-                        shape =
-                            MaterialTheme.shapes.large,
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .error
-                                .copy(alpha = 0.18f)
-                    ) {
-                        Row(
-                            modifier =
-                                Modifier.padding(
-                                    Spacing.md
-                                ),
-                            verticalAlignment =
-                                Alignment.Top
-                        ) {
-                            Icon(
-                                Icons.Filled.Security,
-                                contentDescription = null,
-                                tint =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .errorContainer
-                            )
-
-                            Spacer(
-                                Modifier.width(
-                                    Spacing.sm
-                                )
-                            )
-
-                            Text(
-                                text =
-                                    "Guardian photo is unavailable. QR release is blocked. Use the school's manual identity-verification process.",
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .errorContainer,
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall
-                            )
-                        }
-                    }
-                }
+            if (!state.guardianPhotoReady) {
+                Spacer(Modifier.height(8.dp))
+                MissingPhotoNotice()
             }
 
-            Surface(
+            Spacer(Modifier.height(10.dp))
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                color = Gray900,
-                tonalElevation = 0.dp
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
-                    modifier = Modifier.padding(
-                        horizontal = Spacing.md,
-                        vertical = Spacing.sm
+                OutlinedButton(
+                    onClick = viewModel::resetToScanning,
+                    enabled = !state.isApproving,
+                    modifier = Modifier
+                        .weight(0.38f)
+                        .heightIn(min = 48.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Gray300
                     )
                 ) {
-                    Button(
-                        onClick =
-                            viewModel::approveRelease,
-                        enabled =
-                            state.guardianPhotoReady &&
-                                !state.isApproving,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 54.dp),
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .secondary,
-                                contentColor =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSecondary
-                            )
-                    ) {
-                        Icon(
-                            Icons.Filled.CheckCircle,
-                            contentDescription = null
-                        )
+                    Text(
+                        "Cancel",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
-                        Spacer(
-                            Modifier.width(
-                                Spacing.sm
-                            )
-                        )
-
-                        Text(
-                            text =
-                                if (
-                                    state.guardianPhotoReady
-                                ) {
-                                    "APPROVE RELEASE"
-                                } else {
-                                    "RELEASE BLOCKED"
-                                },
-                            fontWeight =
-                                FontWeight.ExtraBold
-                        )
-                    }
-
-                    TextButton(
-                        onClick =
-                            viewModel::resetToScanning,
-                        enabled =
-                            !state.isApproving,
-                        modifier =
-                            Modifier
-                                .align(
-                                    Alignment.CenterHorizontally
-                                )
-                                .heightIn(
-                                    min = 44.dp
-                                )
-                    ) {
-                        Text(
-                            "Cancel / Scan Next",
-                            color = Gray300
-                        )
-                    }
+                Button(
+                    onClick = viewModel::approveRelease,
+                    enabled = state.guardianPhotoReady && !state.isApproving,
+                    modifier = Modifier
+                        .weight(0.62f)
+                        .heightIn(min = 48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        contentColor = MaterialTheme.colorScheme.onSecondary
+                    )
+                ) {
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(7.dp))
+                    Text(
+                        text = if (state.guardianPhotoReady) {
+                            "Release student"
+                        } else {
+                            "Release blocked"
+                        },
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1
+                    )
                 }
             }
         }
     }
 
-    if (
-        showGuardianPhoto &&
-        state.guardianPhotoReady
-    ) {
+    if (showGuardianPhoto && state.guardianPhotoReady) {
         GuardianPhotoPreviewDialog(
             photoUrl = state.guardian.photoUrl,
             guardianName = state.guardian.displayName,
-            onDismiss = {
-                showGuardianPhoto = false
-            }
+            onDismiss = { showGuardianPhoto = false }
         )
     }
 }
 
 @Composable
-private fun VerifyStepHeader() {
+private fun VerifyHeader() {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement =
-            Arrangement.spacedBy(6.dp)
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        VerifyStepChip(
-            number = "1",
-            label = "Scanned",
-            complete = true,
-            modifier = Modifier.weight(1f)
-        )
-
-        VerifyStepChip(
-            number = "2",
-            label = "Verify",
-            active = true,
-            modifier = Modifier.weight(1f)
-        )
-
-        VerifyStepChip(
-            number = "3",
-            label = "Release",
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-private fun VerifyStepChip(
-    number: String,
-    label: String,
-    active: Boolean = false,
-    complete: Boolean = false,
-    modifier: Modifier = Modifier
-) {
-    val container = when {
-        active ->
-            MaterialTheme.colorScheme.primary
-
-        complete ->
-            MaterialTheme.colorScheme.secondary
-                .copy(alpha = 0.24f)
-
-        else ->
-            Color.White.copy(alpha = 0.07f)
-    }
-
-    val content = when {
-        active ->
-            MaterialTheme.colorScheme.onPrimary
-
-        complete ->
-            MaterialTheme.colorScheme.secondary
-
-        else ->
-            Gray400
-    }
-
-    Surface(
-        modifier = modifier,
-        shape = CircleShape,
-        color = container
-    ) {
-        Row(
-            modifier = Modifier.padding(
-                horizontal = 8.dp,
-                vertical = 6.dp
-            ),
-            horizontalArrangement =
-                Arrangement.Center,
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                number,
-                color = content,
-                style =
-                    MaterialTheme.typography
-                        .labelSmall,
+                text = "Verify guardian",
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.ExtraBold
             )
-
-            Spacer(Modifier.width(4.dp))
-
             Text(
-                label,
-                color = content,
-                style =
-                    MaterialTheme.typography
-                        .labelSmall,
-                fontWeight = FontWeight.Bold
+                text = "Match the photo with the person present.",
+                color = Gray300,
+                style = MaterialTheme.typography.bodySmall
             )
+        }
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = "QR VERIFIED",
+                    color = MaterialTheme.colorScheme.secondary,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
         }
     }
 }
@@ -1250,222 +713,200 @@ private fun GuardianIdentityCard(
     onPhotoClick: () -> Unit
 ) {
     val canInspect =
-        state.guardianPhotoReady &&
-            !state.guardian.photoUrl.isNullOrBlank()
+        state.guardianPhotoReady && !state.guardian.photoUrl.isNullOrBlank()
+    val guardianEntry = state.student.guardians[state.guardian.uid]
+    val relationship = guardianEntry
+        ?.relationship
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?.replaceFirstChar { char ->
+            if (char.isLowerCase()) char.titlecase() else char.toString()
+        }
+        ?: "Guardian"
+    val relationshipLabel = if (guardianEntry?.isPrimary == true) {
+        "$relationship · Primary"
+    } else {
+        relationship
+    }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         color = Color.White.copy(alpha = 0.065f),
-        tonalElevation = 0.dp,
-        shadowElevation = 8.dp
+        tonalElevation = 0.dp
     ) {
-        Column(
-            modifier = Modifier.padding(Spacing.md)
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier.clickable(
+                    enabled = canInspect,
+                    onClick = onPhotoClick
+                ),
+                contentAlignment = Alignment.BottomEnd
             ) {
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
+                GuardianAvatar(
+                    photoUrl = state.guardian.photoUrl,
+                    size = 78.dp
+                )
+                if (canInspect) {
+                    Surface(
+                        modifier = Modifier
+                            .padding(1.dp)
+                            .size(28.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        shadowElevation = 4.dp
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Filled.ZoomIn,
+                                contentDescription = "Open guardian photo",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "AUTHORIZED GUARDIAN",
+                    color = Gray400,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = state.guardian.displayName,
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = relationshipLabel,
+                    color = Gray300,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                imageVector = if (state.guardianPhotoReady) {
+                    Icons.Filled.VerifiedUser
+                } else {
+                    Icons.Filled.Security
+                },
+                contentDescription = null,
+                tint = if (state.guardianPhotoReady) {
+                    MaterialTheme.colorScheme.secondary
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun StudentIdentityCard(state: ScannerUiState.Verified) {
+    val gradeSection = buildString {
+        if (state.student.grade.isNotBlank()) append("Grade ${state.student.grade}")
+        if (state.student.section.isNotBlank()) {
+            if (isNotEmpty()) append(" · ")
+            append("Section ${state.student.section}")
+        }
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = Color.Black.copy(alpha = 0.20f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "STUDENT",
+                    color = Gray400,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = state.student.fullName,
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (gradeSection.isNotBlank()) {
                     Text(
-                        text = "IDENTITY CHECK",
-                        color = Gray400,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = "Authorized guardian",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold
+                        text = gradeSection,
+                        color = Gray300,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
 
+            if (state.student.studentNumber.isNotBlank()) {
+                Spacer(Modifier.width(10.dp))
                 Surface(
                     shape = CircleShape,
-                    color =
-                        if (state.guardianPhotoReady) {
-                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f)
-                        } else {
-                            MaterialTheme.colorScheme.error.copy(alpha = 0.16f)
-                        }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(
-                            horizontal = 10.dp,
-                            vertical = 6.dp
-                        ),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector =
-                                if (state.guardianPhotoReady) {
-                                    Icons.Filled.CheckCircle
-                                } else {
-                                    Icons.Filled.Close
-                                },
-                            contentDescription = null,
-                            tint =
-                                if (state.guardianPhotoReady) {
-                                    MaterialTheme.colorScheme.secondary
-                                } else {
-                                    MaterialTheme.colorScheme.error
-                                },
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(Modifier.width(5.dp))
-                        Text(
-                            text =
-                                if (state.guardianPhotoReady) {
-                                    "PHOTO READY"
-                                } else {
-                                    "PHOTO MISSING"
-                                },
-                            color =
-                                if (state.guardianPhotoReady) {
-                                    MaterialTheme.colorScheme.secondary
-                                } else {
-                                    MaterialTheme.colorScheme.errorContainer
-                                },
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(Spacing.md))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier.clickable(
-                        enabled = canInspect,
-                        onClick = onPhotoClick
-                    ),
-                    contentAlignment = Alignment.BottomEnd
-                ) {
-                    GuardianAvatar(
-                        photoUrl = state.guardian.photoUrl,
-                        size = 112.dp
-                    )
-
-                    if (canInspect) {
-                        Surface(
-                            modifier = Modifier
-                                .padding(2.dp)
-                                .size(36.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary,
-                            shadowElevation = 6.dp
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Filled.ZoomIn,
-                                    contentDescription = "Open guardian photo",
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(19.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.width(Spacing.md))
-
-                Column(
-                    modifier = Modifier.weight(1f)
+                    color = Color.White.copy(alpha = 0.06f)
                 ) {
                     Text(
-                        text = state.guardian.displayName,
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-
-                    Spacer(Modifier.height(6.dp))
-
-                    Text(
-                        text =
-                            if (state.guardianPhotoReady) {
-                                "Photo on file and ready for face-to-face comparison."
-                            } else {
-                                "Identity photo is unavailable. Release approval stays blocked."
-                            },
-                        color =
-                            if (state.guardianPhotoReady) {
-                                Gray300
-                            } else {
-                                MaterialTheme.colorScheme.errorContainer
-                            },
-                        style = MaterialTheme.typography.bodySmall
-                    )
-
-                    if (canInspect) {
-                        Spacer(Modifier.height(8.dp))
-                        Surface(
-                            shape = CircleShape,
-                            color = Color.Black.copy(alpha = 0.22f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(
-                                    horizontal = 10.dp,
-                                    vertical = 6.dp
-                                ),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Filled.ZoomIn,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primaryContainer,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Spacer(Modifier.width(5.dp))
-                                Text(
-                                    text = "Tap photo to inspect",
-                                    color = Gray300,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(Spacing.md))
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                color = Color.Black.copy(alpha = 0.18f)
-            ) {
-                Row(
-                    modifier = Modifier.padding(Spacing.sm),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Filled.VerifiedUser,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(Spacing.sm))
-                    Text(
-                        text =
-                            "Match the face and guardian name before release. QR validity confirms authorization, not physical identity.",
+                        text = state.student.studentNumber,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         color = Gray300,
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MissingPhotoNotice() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.error.copy(alpha = 0.14f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Filled.Security,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.errorContainer,
+                modifier = Modifier.size(17.dp)
+            )
+            Spacer(Modifier.width(7.dp))
+            Text(
+                text = "Guardian photo unavailable · use manual identity verification.",
+                color = MaterialTheme.colorScheme.errorContainer,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
@@ -1476,34 +917,21 @@ private fun GuardianPhotoPreviewDialog(
     guardianName: String,
     onDismiss: () -> Unit
 ) {
-    var scale by remember(photoUrl) {
-        mutableFloatStateOf(1f)
-    }
-    var offsetX by remember(photoUrl) {
-        mutableFloatStateOf(0f)
-    }
-    var offsetY by remember(photoUrl) {
-        mutableFloatStateOf(0f)
-    }
+    var scale by remember(photoUrl) { mutableFloatStateOf(1f) }
+    var offsetX by remember(photoUrl) { mutableFloatStateOf(0f) }
+    var offsetY by remember(photoUrl) { mutableFloatStateOf(0f) }
 
-    val transformState =
-        rememberTransformableState {
-                zoomChange,
-                panChange,
-                _ ->
-            val nextScale =
-                (scale * zoomChange).coerceIn(1f, 4f)
-
-            scale = nextScale
-
-            if (nextScale <= 1.01f) {
-                offsetX = 0f
-                offsetY = 0f
-            } else {
-                offsetX += panChange.x
-                offsetY += panChange.y
-            }
+    val transformState = rememberTransformableState { zoomChange, panChange, _ ->
+        val nextScale = (scale * zoomChange).coerceIn(1f, 4f)
+        scale = nextScale
+        if (nextScale <= 1.01f) {
+            offsetX = 0f
+            offsetY = 0f
+        } else {
+            offsetX += panChange.x
+            offsetY += panChange.y
         }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1514,27 +942,20 @@ private fun GuardianPhotoPreviewDialog(
     ) {
         Surface(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    horizontal = Spacing.sm,
-                    vertical = Spacing.lg
-                )
+                .fillMaxSize()
+                .padding(Spacing.sm)
                 .statusBarsPadding()
                 .navigationBarsPadding(),
             shape = MaterialTheme.shapes.extraLarge,
             color = Gray900,
             shadowElevation = 24.dp
         ) {
-            Column(
-                modifier = Modifier.padding(Spacing.md)
-            ) {
+            Column(modifier = Modifier.padding(Spacing.md)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "GUARDIAN PHOTO",
                             color = Gray400,
@@ -1544,14 +965,13 @@ private fun GuardianPhotoPreviewDialog(
                         Text(
                             text = guardianName,
                             color = Color.White,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
-
-                    IconButton(
-                        onClick = onDismiss
-                    ) {
+                    IconButton(onClick = onDismiss) {
                         Icon(
                             Icons.Filled.Close,
                             contentDescription = "Close guardian photo",
@@ -1561,11 +981,10 @@ private fun GuardianPhotoPreviewDialog(
                 }
 
                 Spacer(Modifier.height(Spacing.sm))
-
                 Box(
                     modifier = Modifier
+                        .weight(1f)
                         .fillMaxWidth()
-                        .aspectRatio(0.82f)
                         .clip(MaterialTheme.shapes.extraLarge)
                         .background(Gray800)
                         .transformable(transformState),
@@ -1573,8 +992,7 @@ private fun GuardianPhotoPreviewDialog(
                 ) {
                     SmartImage(
                         model = photoUrl,
-                        contentDescription =
-                            "Enlarged guardian photo for $guardianName",
+                        contentDescription = "Enlarged guardian photo for $guardianName",
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
                             .fillMaxSize()
@@ -1587,26 +1005,17 @@ private fun GuardianPhotoPreviewDialog(
                     )
                 }
 
-                Spacer(Modifier.height(Spacing.sm))
-
+                Spacer(Modifier.height(6.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Filled.ZoomIn,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(Spacing.sm))
                     Text(
-                        text = "Pinch to zoom up to 4× · drag while zoomed",
+                        text = "Pinch to zoom · drag while zoomed",
                         color = Gray300,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.weight(1f)
                     )
-
                     if (scale > 1.01f) {
                         TextButton(
                             onClick = {
@@ -1620,53 +1029,6 @@ private fun GuardianPhotoPreviewDialog(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun StudentIdentityCard(
-    state: ScannerUiState.Verified
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        color =
-            Color.Black.copy(alpha = 0.20f)
-    ) {
-        Column(
-            modifier = Modifier.padding(Spacing.md)
-        ) {
-            Text(
-                text = "STUDENT TO RELEASE",
-                color = Gray400,
-                style =
-                    MaterialTheme.typography
-                        .labelSmall,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(Modifier.height(3.dp))
-
-            Text(
-                text = state.student.fullName,
-                color = Color.White,
-                style =
-                    MaterialTheme.typography
-                        .titleLarge,
-                fontWeight = FontWeight.ExtraBold
-            )
-
-            Spacer(Modifier.height(4.dp))
-
-            Text(
-                text =
-                    "Grade ${state.student.grade} · Section ${state.student.section}",
-                color = Gray300,
-                style =
-                    MaterialTheme.typography
-                        .bodyMedium
-            )
         }
     }
 }
@@ -1692,140 +1054,91 @@ private fun ErrorPanel(
             tonalElevation = 0.dp,
             shadowElevation = 24.dp
         ) {
-            Column(
-                modifier = Modifier.padding(Spacing.lg)
-            ) {
+            Column(modifier = Modifier.padding(Spacing.lg)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
-                        modifier = Modifier.size(54.dp),
+                        modifier = Modifier.size(48.dp),
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.error.copy(alpha = 0.14f)
                     ) {
-                        Box(
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 Icons.Filled.Security,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(25.dp)
                             )
                         }
                     }
-
                     Spacer(Modifier.width(Spacing.md))
-
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "PASS NOT VERIFIED",
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.ExtraBold
                         )
-                        Spacer(Modifier.height(2.dp))
                         Text(
                             text = "Release blocked",
                             color = Color.White,
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(Spacing.lg))
-
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.10f)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(Spacing.md)
-                    ) {
-                        Text(
-                            text = "VERIFICATION DETAILS",
-                            color = MaterialTheme.colorScheme.errorContainer,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            text = message,
-                            color = Color.White,
-                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
 
                 Spacer(Modifier.height(Spacing.md))
-
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.large,
-                    color = Color.White.copy(alpha = 0.055f)
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.10f)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(Spacing.md),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Icon(
-                            Icons.Filled.VerifiedUser,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(Spacing.sm))
-                        Column {
-                            Text(
-                                text = "Keep the handoff secure",
-                                color = Color.White,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(Modifier.height(3.dp))
-                            Text(
-                                text =
-                                    "Do not release the student until a valid pass is verified or the school's approved manual identity process is completed.",
-                                color = Gray300,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
+                    Text(
+                        text = message,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(Spacing.md)
+                    )
                 }
 
-                Spacer(Modifier.height(Spacing.lg))
+                Spacer(Modifier.height(Spacing.sm))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.VerifiedUser,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "Do not release the student until identity is verified.",
+                        color = Gray300,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
 
+                Spacer(Modifier.height(Spacing.md))
                 Button(
                     onClick = onDismiss,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 54.dp),
-                    shape = MaterialTheme.shapes.large,
+                        .heightIn(min = 50.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
                     Text(
-                        text = "SCAN ANOTHER PASS",
+                        "Scan again",
                         fontWeight = FontWeight.ExtraBold
                     )
                 }
-
-                Spacer(Modifier.height(Spacing.sm))
-
-                Text(
-                    text = "No release has been recorded.",
-                    color = Gray400,
-                    style = MaterialTheme.typography.labelSmall,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
         }
     }
@@ -1836,19 +1149,15 @@ private fun ApprovedOverlay(
     gateLabel: String,
     onDone: () -> Unit
 ) {
-    val scale = remember {
-        Animatable(0.4f)
-    }
+    val scale = remember { Animatable(0.4f) }
 
     LaunchedEffect(Unit) {
         scale.animateTo(
             1f,
             animationSpec = spring(
-                dampingRatio =
-                    Spring.DampingRatioMediumBouncy
+                dampingRatio = Spring.DampingRatioMediumBouncy
             )
         )
-
         kotlinx.coroutines.delay(1500)
         onDone()
     }
@@ -1867,78 +1176,51 @@ private fun ApprovedOverlay(
                     horizontal = 38.dp,
                     vertical = 30.dp
                 ),
-                horizontalAlignment =
-                    Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Surface(
-                    modifier = Modifier.size(86.dp),
+                    modifier = Modifier.size(78.dp),
                     shape = CircleShape,
-                    color =
-                        MaterialTheme.colorScheme
-                            .secondary
-                            .copy(alpha = 0.18f)
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
                 ) {
-                    Box(
-                        contentAlignment =
-                            Alignment.Center
-                    ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Filled.CheckCircle,
                             contentDescription = null,
-                            tint =
-                                MaterialTheme
-                                    .colorScheme
-                                    .secondary,
+                            tint = MaterialTheme.colorScheme.secondary,
                             modifier = Modifier
-                                .size(64.dp)
+                                .size(56.dp)
                                 .graphicsLayer {
-                                    scaleX =
-                                        scale.value
-                                    scaleY =
-                                        scale.value
+                                    scaleX = scale.value
+                                    scaleY = scale.value
                                 }
                         )
                     }
                 }
 
                 Spacer(Modifier.height(Spacing.md))
-
                 Text(
                     "Release Logged",
                     color = Color.White,
-                    style =
-                        MaterialTheme.typography
-                            .headlineSmall,
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold
                 )
-
                 Spacer(Modifier.height(Spacing.xs))
-
                 Text(
                     "Student handoff recorded successfully.",
                     color = Gray300,
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall,
+                    style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center
                 )
 
                 if (gateLabel.isNotBlank()) {
-                    Spacer(
-                        Modifier.height(
-                            Spacing.sm
-                        )
-                    )
-
+                    Spacer(Modifier.height(Spacing.sm))
                     Text(
                         gateLabel,
-                        color =
-                            MaterialTheme
-                                .colorScheme.secondary,
-                        style =
-                            MaterialTheme.typography
-                                .bodyMedium,
-                        fontWeight = FontWeight.Bold
+                        color = MaterialTheme.colorScheme.secondary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -1955,47 +1237,33 @@ private fun CameraPermissionRequest(
         modifier = Modifier
             .fillMaxSize()
             .padding(Spacing.xl),
-        horizontalAlignment =
-            Alignment.CenterHorizontally,
-        verticalArrangement =
-            Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Surface(
             modifier = Modifier.size(72.dp),
             shape = CircleShape,
-            color =
-                MaterialTheme.colorScheme.primary
-                    .copy(alpha = 0.20f)
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
         ) {
-            Box(
-                contentAlignment =
-                    Alignment.Center
-            ) {
+            Box(contentAlignment = Alignment.Center) {
                 Icon(
                     Icons.Filled.Security,
                     contentDescription = null,
-                    tint =
-                        MaterialTheme.colorScheme
-                            .primaryContainer,
+                    tint = MaterialTheme.colorScheme.primaryContainer,
                     modifier = Modifier.size(34.dp)
                 )
             }
         }
 
         Spacer(Modifier.height(Spacing.md))
-
         Text(
             "Camera access is required",
             color = Color.White,
             textAlign = TextAlign.Center,
-            style =
-                MaterialTheme.typography
-                    .titleLarge,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.ExtraBold
         )
-
         Spacer(Modifier.height(Spacing.xs))
-
         Text(
             if (shouldShowRationale) {
                 "Allow camera access in Android settings so staff can scan secure pickup passes."
@@ -2004,13 +1272,10 @@ private fun CameraPermissionRequest(
             },
             color = Gray400,
             textAlign = TextAlign.Center,
-            style =
-                MaterialTheme.typography
-                    .bodyMedium
+            style = MaterialTheme.typography.bodyMedium
         )
 
         Spacer(Modifier.height(Spacing.lg))
-
         PrimaryButton(
             text = "Grant Camera Access",
             onClick = onRequest
