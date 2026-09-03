@@ -6,6 +6,9 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -22,15 +25,20 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -40,6 +48,7 @@ import com.google.accompanist.permissions.shouldShowRationale
 import com.pickuppass.android.data.model.PickupGateItem
 import com.pickuppass.android.ui.common.BrandedTitle
 import com.pickuppass.android.ui.common.GuardianAvatar
+import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.common.PrimaryButton
 import com.pickuppass.android.ui.theme.Gray300
 import com.pickuppass.android.ui.theme.Gray400
@@ -859,6 +868,12 @@ private fun BoxScope.VerifiedPanel(
     selectedPickupGate: PickupGateItem?,
     viewModel: ScannerViewModel
 ) {
+    var showGuardianPhoto by remember(
+        state.guardian.photoUrl
+    ) {
+        mutableStateOf(false)
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -911,7 +926,12 @@ private fun BoxScope.VerifiedPanel(
 
                 Spacer(Modifier.height(Spacing.md))
 
-                GuardianIdentityCard(state)
+                GuardianIdentityCard(
+                    state = state,
+                    onPhotoClick = {
+                        showGuardianPhoto = true
+                    }
+                )
 
                 Spacer(Modifier.height(Spacing.sm))
 
@@ -1111,6 +1131,19 @@ private fun BoxScope.VerifiedPanel(
             }
         }
     }
+
+    if (
+        showGuardianPhoto &&
+        state.guardianPhotoReady
+    ) {
+        GuardianPhotoPreviewDialog(
+            photoUrl = state.guardian.photoUrl,
+            guardianName = state.guardian.displayName,
+            onDismiss = {
+                showGuardianPhoto = false
+            }
+        )
+    }
 }
 
 @Composable
@@ -1213,118 +1246,379 @@ private fun VerifyStepChip(
 
 @Composable
 private fun GuardianIdentityCard(
-    state: ScannerUiState.Verified
+    state: ScannerUiState.Verified,
+    onPhotoClick: () -> Unit
 ) {
+    val canInspect =
+        state.guardianPhotoReady &&
+            !state.guardian.photoUrl.isNullOrBlank()
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = Gray900
+        color = Color.White.copy(alpha = 0.065f),
+        tonalElevation = 0.dp,
+        shadowElevation = 8.dp
     ) {
-        Row(
-            modifier = Modifier.padding(Spacing.md),
-            verticalAlignment =
-                Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(Spacing.md)
         ) {
-            Box(
-                contentAlignment =
-                    Alignment.BottomEnd
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                GuardianAvatar(
-                    photoUrl =
-                        state.guardian.photoUrl,
-                    size = 96.dp
-                )
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "IDENTITY CHECK",
+                        color = Gray400,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Authorized guardian",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
 
                 Surface(
-                    modifier = Modifier.size(28.dp),
                     shape = CircleShape,
                     color =
-                        if (
-                            state.guardianPhotoReady
-                        ) {
-                            MaterialTheme
-                                .colorScheme
-                                .secondary
+                        if (state.guardianPhotoReady) {
+                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f)
                         } else {
-                            MaterialTheme
-                                .colorScheme
-                                .error
+                            MaterialTheme.colorScheme.error.copy(alpha = 0.16f)
                         }
                 ) {
-                    Box(
-                        contentAlignment =
-                            Alignment.Center
+                    Row(
+                        modifier = Modifier.padding(
+                            horizontal = 10.dp,
+                            vertical = 6.dp
+                        ),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            if (
-                                state.guardianPhotoReady
-                            ) {
-                                Icons.Filled.CheckCircle
-                            } else {
-                                Icons.Filled.Close
-                            },
+                            imageVector =
+                                if (state.guardianPhotoReady) {
+                                    Icons.Filled.CheckCircle
+                                } else {
+                                    Icons.Filled.Close
+                                },
                             contentDescription = null,
-                            tint = Color.White,
-                            modifier =
-                                Modifier.size(16.dp)
+                            tint =
+                                if (state.guardianPhotoReady) {
+                                    MaterialTheme.colorScheme.secondary
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                },
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            text =
+                                if (state.guardianPhotoReady) {
+                                    "PHOTO READY"
+                                } else {
+                                    "PHOTO MISSING"
+                                },
+                            color =
+                                if (state.guardianPhotoReady) {
+                                    MaterialTheme.colorScheme.secondary
+                                } else {
+                                    MaterialTheme.colorScheme.errorContainer
+                                },
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.width(Spacing.md))
+            Spacer(Modifier.height(Spacing.md))
 
-            Column(
-                modifier = Modifier.weight(1f)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "AUTHORIZED GUARDIAN",
-                    color = Gray400,
-                    style =
-                        MaterialTheme.typography
-                            .labelSmall,
-                    fontWeight = FontWeight.Bold
-                )
+                Box(
+                    modifier = Modifier.clickable(
+                        enabled = canInspect,
+                        onClick = onPhotoClick
+                    ),
+                    contentAlignment = Alignment.BottomEnd
+                ) {
+                    GuardianAvatar(
+                        photoUrl = state.guardian.photoUrl,
+                        size = 112.dp
+                    )
 
-                Spacer(Modifier.height(3.dp))
-
-                Text(
-                    text =
-                        state.guardian.displayName,
-                    color = Color.White,
-                    style =
-                        MaterialTheme.typography
-                            .titleLarge,
-                    fontWeight = FontWeight.ExtraBold
-                )
-
-                Spacer(Modifier.height(4.dp))
-
-                Text(
-                    text =
-                        if (
-                            state.guardianPhotoReady
+                    if (canInspect) {
+                        Surface(
+                            modifier = Modifier
+                                .padding(2.dp)
+                                .size(36.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary,
+                            shadowElevation = 6.dp
                         ) {
-                            "Photo available · visually compare with the person present"
-                        } else {
-                            "Identity photo unavailable"
-                        },
-                    color =
-                        if (
-                            state.guardianPhotoReady
+                            Box(
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Filled.ZoomIn,
+                                    contentDescription = "Open guardian photo",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.width(Spacing.md))
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = state.guardian.displayName,
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+
+                    Spacer(Modifier.height(6.dp))
+
+                    Text(
+                        text =
+                            if (state.guardianPhotoReady) {
+                                "Photo on file and ready for face-to-face comparison."
+                            } else {
+                                "Identity photo is unavailable. Release approval stays blocked."
+                            },
+                        color =
+                            if (state.guardianPhotoReady) {
+                                Gray300
+                            } else {
+                                MaterialTheme.colorScheme.errorContainer
+                            },
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    if (canInspect) {
+                        Spacer(Modifier.height(8.dp))
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.Black.copy(alpha = 0.22f)
                         ) {
-                            MaterialTheme
-                                .colorScheme
-                                .secondary
-                        } else {
-                            MaterialTheme
-                                .colorScheme
-                                .errorContainer
-                        },
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall
+                            Row(
+                                modifier = Modifier.padding(
+                                    horizontal = 10.dp,
+                                    vertical = 6.dp
+                                ),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Filled.ZoomIn,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(Modifier.width(5.dp))
+                                Text(
+                                    text = "Tap photo to inspect",
+                                    color = Gray300,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(Spacing.md))
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                color = Color.Black.copy(alpha = 0.18f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(Spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Filled.VerifiedUser,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(Spacing.sm))
+                    Text(
+                        text =
+                            "Match the face and guardian name before release. QR validity confirms authorization, not physical identity.",
+                        color = Gray300,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuardianPhotoPreviewDialog(
+    photoUrl: String?,
+    guardianName: String,
+    onDismiss: () -> Unit
+) {
+    var scale by remember(photoUrl) {
+        mutableFloatStateOf(1f)
+    }
+    var offsetX by remember(photoUrl) {
+        mutableFloatStateOf(0f)
+    }
+    var offsetY by remember(photoUrl) {
+        mutableFloatStateOf(0f)
+    }
+
+    val transformState =
+        rememberTransformableState {
+                zoomChange,
+                panChange,
+                _ ->
+            val nextScale =
+                (scale * zoomChange).coerceIn(1f, 4f)
+
+            scale = nextScale
+
+            if (nextScale <= 1.01f) {
+                offsetX = 0f
+                offsetY = 0f
+            } else {
+                offsetX += panChange.x
+                offsetY += panChange.y
+            }
+        }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = Spacing.sm,
+                    vertical = Spacing.lg
                 )
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = Gray900,
+            shadowElevation = 24.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(Spacing.md)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "GUARDIAN PHOTO",
+                            color = Gray400,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            text = guardianName,
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onDismiss
+                    ) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = "Close guardian photo",
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(Spacing.sm))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(0.82f)
+                        .clip(MaterialTheme.shapes.extraLarge)
+                        .background(Gray800)
+                        .transformable(transformState),
+                    contentAlignment = Alignment.Center
+                ) {
+                    SmartImage(
+                        model = photoUrl,
+                        contentDescription =
+                            "Enlarged guardian photo for $guardianName",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                                translationX = offsetX
+                                translationY = offsetY
+                            }
+                    )
+                }
+
+                Spacer(Modifier.height(Spacing.sm))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Filled.ZoomIn,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(Spacing.sm))
+                    Text(
+                        text = "Pinch to zoom up to 4× · drag while zoomed",
+                        color = Gray300,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    if (scale > 1.01f) {
+                        TextButton(
+                            onClick = {
+                                scale = 1f
+                                offsetX = 0f
+                                offsetY = 0f
+                            }
+                        ) {
+                            Text("Reset")
+                        }
+                    }
+                }
             }
         }
     }
@@ -1378,34 +1672,163 @@ private fun StudentIdentityCard(
 }
 
 @Composable
-private fun BoxScope.ErrorPanel(
+private fun ErrorPanel(
     message: String,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        icon = {
-            Icon(
-                Icons.Filled.Close,
-                contentDescription = null,
-                tint =
-                    MaterialTheme.colorScheme.error
-            )
-        },
-        title = {
-            Text("Pass could not be verified")
-        },
-        text = {
-            Text(message)
-        },
-        confirmButton = {
-            Button(
-                onClick = onDismiss
+        properties = DialogProperties(
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.md),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = Gray900,
+            tonalElevation = 0.dp,
+            shadowElevation = 24.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(Spacing.lg)
             ) {
-                Text("Scan Again")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        modifier = Modifier.size(54.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.14f)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Filled.Security,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.width(Spacing.md))
+
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "PASS NOT VERIFIED",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "Release blocked",
+                            color = Color.White,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(Spacing.lg))
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.10f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(Spacing.md)
+                    ) {
+                        Text(
+                            text = "VERIFICATION DETAILS",
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = message,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(Spacing.md))
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    color = Color.White.copy(alpha = 0.055f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(Spacing.md),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Icon(
+                            Icons.Filled.VerifiedUser,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(Spacing.sm))
+                        Column {
+                            Text(
+                                text = "Keep the handoff secure",
+                                color = Color.White,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text =
+                                    "Do not release the student until a valid pass is verified or the school's approved manual identity process is completed.",
+                                color = Gray300,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(Spacing.lg))
+
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 54.dp),
+                    shape = MaterialTheme.shapes.large,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Text(
+                        text = "SCAN ANOTHER PASS",
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+
+                Spacer(Modifier.height(Spacing.sm))
+
+                Text(
+                    text = "No release has been recorded.",
+                    color = Gray400,
+                    style = MaterialTheme.typography.labelSmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
-    )
+    }
 }
 
 @Composable
