@@ -1134,6 +1134,24 @@ private data class ScanErrorPresentation(
 private fun scanErrorPresentation(message: String): ScanErrorPresentation {
     val normalized = message.lowercase()
     return when {
+        normalized.contains("not a pickuppass qr") -> {
+            ScanErrorPresentation(
+                eyebrow = "NOT A PICKUPPASS QR",
+                title = "Unsupported QR code",
+                detail = "This QR code was not issued by PickupPass.",
+                guidance = "Ask the guardian to open their current PickupPass pickup pass and scan that QR code."
+            )
+        }
+
+        normalized.contains("invalid or tampered pickuppass") -> {
+            ScanErrorPresentation(
+                eyebrow = "PASS NOT AUTHENTICATED",
+                title = "Pickup pass not recognized",
+                detail = "This QR resembles a PickupPass code but could not be authenticated.",
+                guidance = "Do not release the student. Ask the guardian to open a newly generated active PickupPass QR."
+            )
+        }
+
         normalized.contains("already been dismissed today") -> {
             ScanErrorPresentation(
                 eyebrow = "RELEASE ALREADY RECORDED",

@@ -2,6 +2,7 @@ package com.pickuppass.service;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.exceptions.TokenExpiredException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.*;
@@ -51,11 +52,17 @@ public class QrVerificationService {
         if (scanningSchoolId == null || scanningSchoolId.isBlank()) {
             return QrVerificationResult.fail("Staff account is not assigned to a school");
         }
+        if (!looksLikeCompactJwt(qrToken)) {
+            return QrVerificationResult.fail("Not a PickupPass QR code");
+        }
+
         DecodedJWT decoded;
         try {
             decoded = JWT.require(hmacAlgorithm).withIssuer("pps").build().verify(qrToken);
+        } catch (TokenExpiredException e) {
+            return QrVerificationResult.fail("Pickup pass expired");
         } catch (JWTVerificationException e) {
-            return QrVerificationResult.fail("Invalid, tampered, or expired QR code");
+            return QrVerificationResult.fail("Invalid or tampered PickupPass QR code");
         }
         String schoolId = decoded.getClaim("sid").asString();
         String studentId = decoded.getClaim("stid").asString();
@@ -401,6 +408,18 @@ public class QrVerificationService {
     private record PickupGateSnapshot(String gateId, String gateName, String campusId, String campusName) {
         private static PickupGateSnapshot none() { return new PickupGateSnapshot("", "", "", ""); }
     }
+    private boolean looksLikeCompactJwt(String value) {
+        if (value == null) return false;
+        String[] parts = value.trim().split("\\.", -1);
+        if (parts.length != 3) return false;
+        for (String part : parts) {
+            if (part.isBlank() || !part.matches("[A-Za-z0-9_-]+")) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     @SuppressWarnings("unchecked")
     private String pickupPolicyViolation(String schoolId) throws ExecutionException, InterruptedException {
         DocumentSnapshot school = firestore.collection("schools").document(schoolId).get().get();
