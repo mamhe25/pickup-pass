@@ -1,5 +1,4 @@
 package com.pickuppass.service;
-
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
@@ -12,7 +11,6 @@ import com.pickuppass.exception.ForbiddenException;
 import com.pickuppass.exception.NotFoundException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -29,13 +27,11 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class QrVerificationService {
-
     private final Firestore firestore;
     private final Algorithm hmacAlgorithm;
     private final ZoneId schoolTimeZone;
     private final int dismissalWindowMinutes;
     private final GuardianAuthorizationService guardianAuthorizationService;
-
     public QrVerificationService(Firestore firestore,
                                   @Value("${qr.signing.secret}") String secret,
                                   @Value("${app.school-time-zone:Asia/Manila}") String schoolTimeZone,
@@ -47,7 +43,6 @@ public class QrVerificationService {
         this.dismissalWindowMinutes = dismissalWindowMinutes;
         this.guardianAuthorizationService = guardianAuthorizationService;
     }
-
     public QrVerificationResult verify(String qrToken, String scanningSchoolId)
             throws ExecutionException, InterruptedException {
         if (qrToken == null || qrToken.isBlank()) {
@@ -56,14 +51,12 @@ public class QrVerificationService {
         if (scanningSchoolId == null || scanningSchoolId.isBlank()) {
             return QrVerificationResult.fail("Staff account is not assigned to a school");
         }
-
         DecodedJWT decoded;
         try {
             decoded = JWT.require(hmacAlgorithm).withIssuer("pps").build().verify(qrToken);
         } catch (JWTVerificationException e) {
             return QrVerificationResult.fail("Invalid, tampered, or expired QR code");
         }
-
         String schoolId = decoded.getClaim("sid").asString();
         String studentId = decoded.getClaim("stid").asString();
         String parentUid = decoded.getClaim("pid").asString();
@@ -71,7 +64,6 @@ public class QrVerificationService {
         if (schoolId == null || studentId == null || parentUid == null || nonce == null) {
             return QrVerificationResult.fail("QR code is missing required data");
         }
-
         if (!schoolId.equals(scanningSchoolId)) {
             return QrVerificationResult.fail("QR code does not belong to this school");
         }
@@ -80,7 +72,6 @@ public class QrVerificationService {
         if (policyViolation != null) {
             return QrVerificationResult.fail(policyViolation);
         }
-
         DocumentReference tokenRef = firestore.collection("pickupTokens").document(nonce);
         DocumentSnapshot tokenSnap = tokenRef.get().get();
         if (!tokenSnap.exists()) return QrVerificationResult.fail("Unknown or revoked token");
@@ -90,7 +81,6 @@ public class QrVerificationService {
                 || !parentUid.equals(tokenSnap.getString("parentUid"))) {
             return QrVerificationResult.fail("QR token ledger mismatch");
         }
-
         Timestamp dismissalDeadline = tokenSnap.getTimestamp("dismissalDeadline");
         if (dismissalDeadline != null && dismissalDeadline.toDate().getTime() < System.currentTimeMillis()) {
             return QrVerificationResult.fail("Dismissal window has expired");
@@ -102,7 +92,6 @@ public class QrVerificationService {
                 return QrVerificationResult.fail("Dismissal window has expired");
             }
         }
-
         DocumentSnapshot studentSnap = firestore.collection("students").document(studentId).get().get();
         if (!studentSnap.exists() || !scanningSchoolId.equals(studentSnap.getString("schoolId"))) {
             return QrVerificationResult.fail("Student not found in this school");
@@ -111,15 +100,16 @@ public class QrVerificationService {
         if (studentStatus != null && !studentStatus.isBlank() && !"active".equalsIgnoreCase(studentStatus)) {
             return QrVerificationResult.fail("Student pickup access is not active");
         }
+        if (hasDismissalLock(scanningSchoolId, studentId)) {
+            return QrVerificationResult.fail("Student has already been dismissed today");
+        }
         GuardianAuthorizationService.AuthorizationDecision guardianDecision =
                 guardianAuthorizationService.check(studentSnap, parentUid);
         if (!guardianDecision.allowed()) {
             return QrVerificationResult.fail(guardianDecision.reason());
         }
-
         return QrVerificationResult.success(studentId, parentUid, tokenRef);
     }
-
     /**
      * Atomically redeems the QR token, acquires today's per-student dismissal lock,
      * and creates the immutable exit log. Concurrent/retried approvals cannot release
@@ -129,7 +119,6 @@ public class QrVerificationService {
             throws ExecutionException, InterruptedException {
         return markUsedAndLog(result, verifiedByUid, schoolId, null);
     }
-
     public String markUsedAndLog(QrVerificationResult result, String verifiedByUid, String schoolId, String pickupGateId)
             throws ExecutionException, InterruptedException {
         String businessDate = LocalDate.now(schoolTimeZone).toString();
@@ -140,22 +129,21 @@ public class QrVerificationService {
         ExitSnapshot snapshot = loadExitSnapshot(result.getStudentId(), result.getParentUid(), verifiedByUid, schoolId);
         PickupGateSnapshot gateSnapshot = resolvePickupGate(schoolId, pickupGateId, true, verifiedByUid);
 
-        firestore.runTransaction(tx -> {
+        TransactionDecision decision = firestore.runTransaction(tx -> {
             DocumentSnapshot token = tx.get(result.getTokenRef()).get();
             if (!token.exists() || Boolean.TRUE.equals(token.getBoolean("used"))) {
-                throw new ConflictException("QR code was already used or superseded");
+                return TransactionDecision.conflict("QR code was already used or superseded");
             }
             DocumentSnapshot lock = tx.get(lockRef).get();
             if (lock.exists()) {
-                throw new ConflictException("Student has already been dismissed today");
+                return TransactionDecision.conflict("Student has already been dismissed today");
             }
             DocumentSnapshot studentTx = tx.get(studentRef).get();
             GuardianAuthorizationService.AuthorizationDecision authTx =
                     guardianAuthorizationService.check(studentTx, result.getParentUid());
             if (!authTx.allowed()) {
-                throw new ForbiddenException(authTx.reason());
+                return TransactionDecision.forbidden(authTx.reason());
             }
-
             Map<String, Object> lockData = new HashMap<>();
             lockData.put("schoolId", schoolId);
             lockData.put("studentId", result.getStudentId());
@@ -163,10 +151,8 @@ public class QrVerificationService {
             lockData.put("exitLogId", exitLogRef.getId());
             lockData.put("pickupGateId", gateSnapshot.gateId());
             lockData.put("createdAt", FieldValue.serverTimestamp());
-
             Map<String, Object> log = buildExitLog(schoolId, result.getStudentId(), result.getParentUid(),
                     verifiedByUid, "qr_scan", businessDate, null, snapshot, gateSnapshot);
-
             tx.update(result.getTokenRef(), "used", true, "usedAt", FieldValue.serverTimestamp());
             if (authTx.temporary()) {
                 tx.update(studentRef,
@@ -175,18 +161,18 @@ public class QrVerificationService {
             }
             tx.set(lockRef, lockData);
             tx.set(exitLogRef, log);
-            return null;
+            return TransactionDecision.success();
         }).get();
+
+        decision.throwIfRejected();
         return exitLogRef.getId();
     }
-
     /** Controlled fallback for dead phones, camera failures, or other documented exceptions. */
     public String manualOverride(String studentId, String guardianUid, String reason,
                                  String verifiedByUid, String schoolId)
             throws ExecutionException, InterruptedException {
         return manualOverride(studentId, guardianUid, reason, verifiedByUid, schoolId, null);
     }
-
     public String manualOverride(String studentId, String guardianUid, String reason,
                                  String verifiedByUid, String schoolId, String pickupGateId)
             throws ExecutionException, InterruptedException {
@@ -206,7 +192,6 @@ public class QrVerificationService {
         if (!guardianDecision.allowed()) {
             throw new ForbiddenException(guardianDecision.reason());
         }
-
         String businessDate = LocalDate.now(schoolTimeZone).toString();
         String lockId = safeId(schoolId) + "_" + businessDate + "_" + safeId(studentId);
         DocumentReference lockRef = firestore.collection("dismissalLocks").document(lockId);
@@ -214,16 +199,17 @@ public class QrVerificationService {
         ExitSnapshot snapshot = loadExitSnapshot(studentId, guardianUid, verifiedByUid, schoolId);
         PickupGateSnapshot gateSnapshot = resolvePickupGate(schoolId, pickupGateId, true, verifiedByUid);
 
-        firestore.runTransaction(tx -> {
+        TransactionDecision decision = firestore.runTransaction(tx -> {
             DocumentSnapshot lock = tx.get(lockRef).get();
-            if (lock.exists()) throw new ConflictException("Student has already been dismissed today");
+            if (lock.exists()) {
+                return TransactionDecision.conflict("Student has already been dismissed today");
+            }
             DocumentSnapshot studentTx = tx.get(studentRef).get();
             GuardianAuthorizationService.AuthorizationDecision guardianDecisionTx =
                     guardianAuthorizationService.check(studentTx, guardianUid);
             if (!guardianDecisionTx.allowed()) {
-                throw new ForbiddenException(guardianDecisionTx.reason());
+                return TransactionDecision.forbidden(guardianDecisionTx.reason());
             }
-
             Map<String, Object> lockData = new HashMap<>();
             lockData.put("schoolId", schoolId);
             lockData.put("studentId", studentId);
@@ -231,7 +217,6 @@ public class QrVerificationService {
             lockData.put("exitLogId", exitLogRef.getId());
             lockData.put("pickupGateId", gateSnapshot.gateId());
             lockData.put("createdAt", FieldValue.serverTimestamp());
-
             Map<String, Object> log = buildExitLog(schoolId, studentId, guardianUid,
                     verifiedByUid, "manual_override", businessDate, reason.trim(), snapshot, gateSnapshot);
             if (guardianDecisionTx.temporary()) {
@@ -241,11 +226,12 @@ public class QrVerificationService {
             }
             tx.set(lockRef, lockData);
             tx.set(exitLogRef, log);
-            return null;
+            return TransactionDecision.success();
         }).get();
+
+        decision.throwIfRejected();
         return exitLogRef.getId();
     }
-
     private Map<String, Object> buildExitLog(String schoolId, String studentId, String parentUid,
                                               String verifiedByUid, String method, String businessDate,
                                               String overrideReason, ExitSnapshot snapshot, PickupGateSnapshot gateSnapshot) {
@@ -270,7 +256,6 @@ public class QrVerificationService {
         if (overrideReason != null) log.put("overrideReason", overrideReason);
         return log;
     }
-
     private ExitSnapshot loadExitSnapshot(String studentId, String guardianUid, String staffUid, String schoolId)
             throws ExecutionException, InterruptedException {
         DocumentSnapshot student = firestore.collection("students").document(studentId).get().get();
@@ -288,7 +273,6 @@ public class QrVerificationService {
                 displayName(staff, "Unknown staff")
         );
     }
-
     private String displayName(DocumentSnapshot user, String fallback) {
         if (user == null || !user.exists()) return fallback;
         return stringValue(user.getString("displayName"), stringValue(user.getString("email"), fallback));
@@ -297,15 +281,48 @@ public class QrVerificationService {
     private String stringValue(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value;
     }
-
     private record ExitSnapshot(String studentName, String studentNumber, String grade, String section,
                                 String guardianName, String staffName) { }
+
+    private enum TransactionDecisionType {
+        SUCCESS,
+        CONFLICT,
+        FORBIDDEN
+    }
+
+    private record TransactionDecision(TransactionDecisionType type, String message) {
+        private static TransactionDecision success() {
+            return new TransactionDecision(TransactionDecisionType.SUCCESS, "");
+        }
+
+        private static TransactionDecision conflict(String message) {
+            return new TransactionDecision(TransactionDecisionType.CONFLICT, message);
+        }
+
+        private static TransactionDecision forbidden(String message) {
+            return new TransactionDecision(TransactionDecisionType.FORBIDDEN, message);
+        }
+
+        private void throwIfRejected() {
+            switch (type) {
+                case SUCCESS -> { }
+                case CONFLICT -> throw new ConflictException(message);
+                case FORBIDDEN -> throw new ForbiddenException(message);
+            }
+        }
+    }
+
+    private boolean hasDismissalLock(String schoolId, String studentId)
+            throws ExecutionException, InterruptedException {
+        String businessDate = LocalDate.now(schoolTimeZone).toString();
+        String lockId = safeId(schoolId) + "_" + businessDate + "_" + safeId(studentId);
+        return firestore.collection("dismissalLocks").document(lockId).get().get().exists();
+    }
 
     public List<Map<String, Object>> activePickupGates(String schoolId)
             throws ExecutionException, InterruptedException {
         return activePickupGates(schoolId, null);
     }
-
     /** Returns active pickup gates, optionally restricted by a staff member's assignedPickupGateIds.
      *  A missing/empty assignment keeps backward-compatible access to every active gate. */
     public List<Map<String, Object>> activePickupGates(String schoolId, String staffUid)
@@ -344,7 +361,6 @@ public class QrVerificationService {
         items.sort(Comparator.comparing(m -> (String.valueOf(m.get("campusName")) + " " + String.valueOf(m.get("name"))).toLowerCase(Locale.ROOT)));
         return items;
     }
-
     private PickupGateSnapshot resolvePickupGate(String schoolId, String pickupGateId, boolean requireWhenConfigured, String staffUid)
             throws ExecutionException, InterruptedException {
         String requested = pickupGateId == null ? "" : pickupGateId.trim();
@@ -354,7 +370,6 @@ public class QrVerificationService {
             }
             return PickupGateSnapshot.none();
         }
-
         DocumentSnapshot gate = firestore.collection("pickupGates").document(requested).get().get();
         if (!gate.exists() || !schoolId.equals(gate.getString("schoolId")) || Boolean.FALSE.equals(gate.getBoolean("active"))) {
             throw new ForbiddenException("Selected pickup gate is not active for this school");
@@ -383,25 +398,20 @@ public class QrVerificationService {
                 campusName
         );
     }
-
     private record PickupGateSnapshot(String gateId, String gateName, String campusId, String campusName) {
         private static PickupGateSnapshot none() { return new PickupGateSnapshot("", "", "", ""); }
     }
-
     @SuppressWarnings("unchecked")
     private String pickupPolicyViolation(String schoolId) throws ExecutionException, InterruptedException {
         DocumentSnapshot school = firestore.collection("schools").document(schoolId).get().get();
         if (!school.exists()) return "School is not active or could not be found";
-
         Map<String, Object> policy = (Map<String, Object>) school.get("pickupPolicy");
         if (policy == null || !"time_window".equals(String.valueOf(policy.get("mode")))) {
             return null; // Original PickupPass behavior: any currently-valid QR can be scanned.
         }
-
         Object startObj = policy.get("earliestPickupTime");
         Object endObj = policy.get("latestPickupTime");
         if (startObj == null || endObj == null) return null; // fail open for legacy/malformed optional config
-
         try {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
             LocalTime start = LocalTime.parse(String.valueOf(startObj), formatter);
@@ -415,7 +425,6 @@ public class QrVerificationService {
             return null; // administrators can repair malformed policy without blocking dismissal
         }
     }
-
     @SuppressWarnings("unchecked")
     private boolean isManualOverrideAllowed(String schoolId) throws ExecutionException, InterruptedException {
         DocumentSnapshot school = firestore.collection("schools").document(schoolId).get().get();
@@ -423,7 +432,6 @@ public class QrVerificationService {
         Map<String, Object> policy = (Map<String, Object>) school.get("pickupPolicy");
         return policy == null || !Boolean.FALSE.equals(policy.get("allowManualOverride"));
     }
-
     private String safeId(String value) {
         return value.replaceAll("[^A-Za-z0-9_-]", "_");
     }
