@@ -625,82 +625,97 @@ private fun VerifiedReviewContent(
         mutableStateOf(false)
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Gray900)
             .navigationBarsPadding()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
     ) {
-        VerificationHeader(selectedPickupGate)
-        Spacer(Modifier.height(10.dp))
-
-        GuardianIdentityCard(
-            state = state,
-            onPhotoClick = { showGuardianPhoto = true }
-        )
-
-        Spacer(Modifier.height(8.dp))
-        StudentIdentityCard(state)
-
-        if (!state.guardianPhotoReady) {
-            Spacer(Modifier.height(8.dp))
-            MissingPhotoNotice()
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        Row(
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .widthIn(max = 560.dp),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = Gray800,
+            tonalElevation = 0.dp,
+            shadowElevation = 18.dp
         ) {
-            OutlinedButton(
-                onClick = viewModel::resetToScanning,
-                enabled = !state.isApproving,
+            Column(
                 modifier = Modifier
-                    .weight(0.38f)
-                    .heightIn(min = 48.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Gray300
-                )
+                    .fillMaxWidth()
+                    .padding(12.dp)
             ) {
-                Text(
-                    "Cancel",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+                VerificationHeader(selectedPickupGate)
+                Spacer(Modifier.height(10.dp))
 
-            Button(
-                onClick = viewModel::approveRelease,
-                enabled = state.guardianPhotoReady && !state.isApproving,
-                modifier = Modifier
-                    .weight(0.62f)
-                    .heightIn(min = 48.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary
+                GuardianIdentityCard(
+                    state = state,
+                    onPhotoClick = { showGuardianPhoto = true }
                 )
-            ) {
-                Icon(
-                    Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(7.dp))
-                Text(
-                    text = if (state.guardianPhotoReady) {
-                        "Release student"
-                    } else {
-                        "Release blocked"
-                    },
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1
-                )
+
+                Spacer(Modifier.height(8.dp))
+                StudentIdentityCard(state)
+
+                if (!state.guardianPhotoReady) {
+                    Spacer(Modifier.height(8.dp))
+                    MissingPhotoNotice()
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = viewModel::resetToScanning,
+                        enabled = !state.isApproving,
+                        modifier = Modifier
+                            .weight(0.38f)
+                            .heightIn(min = 48.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Gray300
+                        )
+                    ) {
+                        Text(
+                            "Cancel",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Button(
+                        onClick = viewModel::approveRelease,
+                        enabled = state.guardianPhotoReady && !state.isApproving,
+                        modifier = Modifier
+                            .weight(0.62f)
+                            .heightIn(min = 48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            contentColor = MaterialTheme.colorScheme.onSecondary
+                        )
+                    ) {
+                        Icon(
+                            Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(7.dp))
+                        Text(
+                            text = if (state.guardianPhotoReady) {
+                                "Release student"
+                            } else {
+                                "Release blocked"
+                            },
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            maxLines = 1
+                        )
+                    }
+                }
             }
         }
     }
