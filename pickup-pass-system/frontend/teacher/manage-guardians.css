@@ -717,3 +717,105 @@
 .pp-staff-dialog .pp-btn--danger:hover:not(:disabled) {
   filter: brightness(.96);
 }
+
+/* Guardian management v2 — primary/secondary hierarchy */
+.pp-staff-primary-required,
+.pp-staff-missing-primary {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: 16px;
+  background: var(--primary-container);
+}
+
+.pp-staff-primary-required strong,
+.pp-staff-missing-primary strong {
+  color: var(--on-primary-container);
+  font-size: .72rem;
+  font-weight: 850;
+}
+
+.pp-staff-primary-required p,
+.pp-staff-missing-primary p {
+  margin: 3px 0 0;
+  color: var(--on-primary-container);
+  font-size: .63rem;
+  line-height: 1.45;
+  opacity: .82;
+}
+
+.pp-staff-missing-primary {
+  grid-template-columns: 40px minmax(0,1fr);
+}
+
+.pp-staff-missing-primary__icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--text-on-brand);
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+.pp-staff-missing-primary .pp-btn {
+  width: fit-content;
+  min-height: 42px;
+  margin-top: 9px;
+}
+
+.pp-staff-guardian-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 1px 0;
+}
+
+.pp-staff-guardian-group-head span {
+  color: var(--primary);
+  font-size: .57rem;
+  font-weight: 850;
+  letter-spacing: .08em;
+}
+
+.pp-staff-guardian-group-head small {
+  color: var(--text-subtle);
+  font-size: .58rem;
+}
+
+.pp-staff-guardian-group-head--secondary {
+  margin-top: 8px;
+}
+
+.pp-staff-empty--compact {
+  min-height: 0;
+  padding: 12px;
+}
+
+.pp-staff-mode-switch button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+@media (max-width: 560px) {
+  .pp-staff-primary-required {
+    grid-template-columns: 1fr;
+  }
+
+  .pp-staff-primary-required .pp-btn,
+  .pp-staff-missing-primary .pp-btn {
+    width: 100%;
+  }
+
+  .pp-staff-guardian-group-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+}

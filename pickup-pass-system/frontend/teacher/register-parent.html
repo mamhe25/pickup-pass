@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#047857" />
-<title>Register Guardian — PickupPass</title>
+<title>Register Primary Guardian — PickupPass</title>
 <link rel="stylesheet" href="../shared/theme.css" />
 <link rel="stylesheet" href="../shared/components.css" />
 <link rel="stylesheet" href="../shared/portal.css" />
@@ -17,12 +17,12 @@
 <script type="module" src="../shared/teacher-nav.js"></script>
 
 <main class="pp-page pp-register-parent-page">
-  <a href="./students.html" class="pp-backlink">← Back to Students</a>
+  <a id="backLink" href="./students.html" class="pp-backlink">← Back to Students</a>
 
   <header class="pp-register-parent-head">
     <p class="pp-register-parent-eyebrow">Student access</p>
-    <h1>Register guardian</h1>
-    <p>Link an existing PickupPass account or create a new guardian account for this student.</p>
+    <h1>Register primary guardian</h1>
+    <p>Establish the student’s one protected guardian of record before adding backup or one-day pickup access.</p>
   </header>
 
   <section id="studentContext" class="pp-register-parent-student" aria-live="polite">
@@ -45,17 +45,23 @@
       </svg>
     </span>
     <div>
-      <strong>What happens next</strong>
-      <p>If this email already belongs to a PickupPass account, that account is linked to the student. Otherwise, PickupPass creates an account and sends setup instructions.</p>
+      <strong>Primary guardian of record</strong>
+      <p>This action creates the student’s one protected primary guardian. If the email already belongs to PickupPass, that account is linked; otherwise PickupPass creates the account and sends setup instructions.</p>
       <p>The guardian must finish account setup and upload their identity photo before using the secure pickup workflow.</p>
     </div>
+  </section>
+
+  <section id="primaryExistsCard" class="pp-register-parent-conflict hidden" role="status">
+    <strong>Primary guardian already registered</strong>
+    <p>This student already has a protected primary guardian. Return to Student Pickup Guardians to manage backup or one-day access instead.</p>
+    <a id="manageGuardiansLink" href="#" class="pp-btn pp-btn--secondary">Manage pickup guardians</a>
   </section>
 
   <section class="pp-register-parent-form-card">
     <div class="pp-register-parent-form-card__head">
       <div>
         <h2>Guardian details</h2>
-        <p>Use the name and email this person should use in PickupPass.</p>
+        <p>Use the name and email of the accountable guardian who should be primary for this student.</p>
       </div>
       <span class="pp-register-parent-required">* Required</span>
     </div>
@@ -104,7 +110,7 @@
       <p id="successMsg" class="pp-alert pp-alert--success hidden" role="status"></p>
 
       <div class="pp-register-parent-actions">
-        <button id="reviewBtn" type="button" class="pp-btn pp-btn--primary" disabled>Review registration</button>
+        <button id="reviewBtn" type="button" class="pp-btn pp-btn--primary" disabled>Review primary guardian</button>
       </div>
     </form>
   </section>
@@ -118,8 +124,8 @@
       </svg>
     </div>
     <div>
-      <h2>Register this guardian?</h2>
-      <p class="pp-register-parent-dialog__intro">Confirm the identity and email before PickupPass links or creates the account.</p>
+      <h2>Register this primary guardian?</h2>
+      <p class="pp-register-parent-dialog__intro">Confirm the identity and email before PickupPass establishes this person as the student’s protected primary guardian.</p>
     </div>
 
     <dl class="pp-register-parent-review">
@@ -129,12 +135,12 @@
       <div><dt>Email</dt><dd id="reviewEmail"></dd></div>
     </dl>
 
-    <div class="pp-register-parent-dialog__notice">This may immediately link an existing PickupPass account to the student.</div>
+    <div class="pp-register-parent-dialog__notice">A student can have only one primary guardian. Additional people must be added later as backup or one-day guardians.</div>
     <p id="dialogError" class="pp-alert pp-alert--danger hidden" role="alert"></p>
 
     <div class="pp-register-parent-dialog__actions">
       <button id="keepEditingBtn" type="button" class="pp-btn pp-btn--secondary">Keep editing</button>
-      <button id="registerBtn" type="button" class="pp-btn pp-btn--primary">Register guardian</button>
+      <button id="registerBtn" type="button" class="pp-btn pp-btn--primary">Register primary guardian</button>
     </div>
   </form>
 </dialog>
@@ -147,6 +153,13 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/f
 const params = new URLSearchParams(window.location.search);
 const studentId = params.get("studentId") || sessionStorage.getItem("pendingParentStudentId");
 if (!studentId) window.location.href = "./students.html";
+
+const returnTo = params.get("return");
+const backLink = document.getElementById("backLink");
+if (returnTo === "guardians") {
+  backLink.href = `./manage-guardians.html?studentId=${encodeURIComponent(studentId)}`;
+  backLink.textContent = "← Back to Pickup Guardians";
+}
 
 const form = document.getElementById("registerForm");
 const lastNameInput = document.getElementById("lastName");
@@ -164,6 +177,9 @@ const successMsg = document.getElementById("successMsg");
 const dialogError = document.getElementById("dialogError");
 const studentLabel = document.getElementById("studentLabel");
 const studentMeta = document.getElementById("studentMeta");
+const primaryExistsCard = document.getElementById("primaryExistsCard");
+const manageGuardiansLink = document.getElementById("manageGuardiansLink");
+manageGuardiansLink.href = `./manage-guardians.html?studentId=${encodeURIComponent(studentId)}`;
 let studentReady = false;
 
 onAuthStateChanged(auth, async (user) => {
@@ -182,6 +198,20 @@ onAuthStateChanged(auth, async (user) => {
     if (student.grade) metaParts.push(`Grade ${student.grade}`);
     if (student.section) metaParts.push(`Section ${student.section}`);
     studentMeta.textContent = metaParts.join(" · ") || "Student record loaded";
+
+    const guardianEntries = Object.values(student.guardians || {});
+    const hasPrimary = guardianEntries.some((entry) => entry?.isPrimary === true);
+    primaryExistsCard.classList.toggle("hidden", !hasPrimary);
+
+    if (hasPrimary) {
+      studentReady = false;
+      form.querySelectorAll("input, select, button").forEach((control) => {
+        control.disabled = true;
+      });
+      reviewBtn.disabled = true;
+      return;
+    }
+
     studentReady = true;
     updateReviewState();
   } catch (error) {
@@ -288,13 +318,13 @@ registerBtn.addEventListener("click", async () => {
     let message;
     let tone;
     if (data.status === "linked_existing") {
-      message = `Linked — ${draft.parentEmail} already had a PickupPass account.`;
+      message = `Primary guardian linked — ${draft.parentEmail} already had a PickupPass account.`;
       tone = "success";
     } else if (data.emailSent) {
-      message = `Invite sent to ${draft.parentEmail}.`;
+      message = `Primary guardian registered. Invite sent to ${draft.parentEmail}.`;
       tone = "success";
     } else {
-      message = `Account created for ${draft.parentEmail}, but the invite email couldn't be sent — ask them to use "Forgot password?" on the sign-in page with this email.`;
+      message = `Primary guardian registered for ${draft.parentEmail}, but the invite email couldn't be sent — ask them to use "Forgot password?" on the sign-in page with this email.`;
       tone = "warning";
     }
 

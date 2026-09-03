@@ -16,7 +16,8 @@ data class RegisterParentUiState(
     val isSubmitting: Boolean = false,
     val error: String? = null,
     val successMessage: String? = null,
-    val successIsWarning: Boolean = false
+    val successIsWarning: Boolean = false,
+    val hasPrimaryGuardian: Boolean = false
 )
 
 @HiltViewModel
@@ -33,7 +34,9 @@ class RegisterParentViewModel @Inject constructor(
             studentRepository.getStudent(studentId).onSuccess { student ->
                 if (student != null) {
                     _uiState.value = _uiState.value.copy(
-                        studentLabel = "${student.fullName} · Grade ${student.grade.ifBlank { "-" }}"
+                        studentLabel = "${student.fullName} · Grade ${student.grade.ifBlank { "-" }}",
+                        hasPrimaryGuardian = student.guardians.values.any { it.isPrimary },
+                        error = null
                     )
                 }
             }
@@ -64,15 +67,15 @@ class RegisterParentViewModel @Inject constructor(
                     val isWarning: Boolean
                     when {
                         result.data.status == "linked_existing" -> {
-                            message = "Linked — $parentEmail already had an account."
+                            message = "Primary guardian linked — $parentEmail already had an account."
                             isWarning = false
                         }
                         result.data.emailSent -> {
-                            message = "Invite sent to $parentEmail."
+                            message = "Primary guardian registered. Invite sent to $parentEmail."
                             isWarning = false
                         }
                         else -> {
-                            message = "Account created for $parentEmail, but the invite email couldn't be sent — ask them to use \"Forgot password?\" on the sign-in page with this email."
+                            message = "Primary guardian registered for $parentEmail, but the invite email couldn't be sent — ask them to use \"Forgot password?\" on the sign-in page with this email."
                             isWarning = true
                         }
                     }

@@ -73,7 +73,8 @@ fun RegisterParentScreen(
         ?.second
         ?: "Parent / Guardian"
 
-    val formComplete = lastName.isNotBlank() &&
+    val formComplete = !uiState.hasPrimaryGuardian &&
+        lastName.isNotBlank() &&
         firstName.isNotBlank() &&
         normalizedEmail.isNotBlank()
 
@@ -97,7 +98,7 @@ fun RegisterParentScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Register guardian") },
+                title = { Text("Register primary guardian") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -120,6 +121,11 @@ fun RegisterParentScreen(
             StudentContextCard(uiState.studentLabel)
 
             Spacer(Modifier.height(Spacing.md))
+
+            if (uiState.hasPrimaryGuardian) {
+                PrimaryGuardianExistsCard(onBack = onBack)
+                Spacer(Modifier.height(Spacing.md))
+            }
 
             RegistrationOutcomeCard()
 
@@ -349,7 +355,7 @@ fun RegisterParentScreen(
                     contentDescription = null
                 )
                 Spacer(Modifier.width(Spacing.sm))
-                Text("Review registration")
+                Text("Review primary guardian")
             }
 
             Spacer(Modifier.height(Spacing.md))
@@ -439,6 +445,42 @@ private fun StudentContextCard(studentLabel: String) {
 }
 
 @Composable
+private fun PrimaryGuardianExistsCard(
+    onBack: () -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(Spacing.md)) {
+            Text(
+                text = "Primary guardian already registered",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                text = "This student already has the protected primary guardian of record. Return to guardian management to add or update backup and one-day pickup access.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Spacer(Modifier.height(Spacing.sm))
+            OutlinedButton(
+                onClick = onBack,
+                modifier = Modifier.heightIn(min = 44.dp)
+            ) {
+                Text("Back to guardian management")
+            }
+        }
+    }
+}
+
+@Composable
 private fun RegistrationOutcomeCard() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -464,7 +506,7 @@ private fun RegistrationOutcomeCard() {
                 )
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    text = "If the email already belongs to a PickupPass account, that account is linked to this student. Otherwise, PickupPass creates the account and sends setup instructions.",
+                    text = "This creates the student’s one protected primary guardian. If the email already belongs to PickupPass, that account is linked; otherwise PickupPass creates the account and sends setup instructions.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -508,14 +550,14 @@ private fun RegistrationConfirmationDialog(
         },
         title = {
             Text(
-                text = "Register this guardian?",
+                text = "Register this primary guardian?",
                 fontWeight = FontWeight.ExtraBold
             )
         },
         text = {
             Column {
                 Text(
-                    text = "Confirm the identity and email before PickupPass links or creates the account.",
+                    text = "Confirm the identity and email before PickupPass establishes this person as the student’s protected primary guardian.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -531,7 +573,7 @@ private fun RegistrationConfirmationDialog(
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Text(
-                        text = "This action may immediately link an existing PickupPass account to the student.",
+                        text = "A student can have only one primary guardian. After registration, additional people must be added as backup or one-day guardians.",
                         modifier = Modifier.padding(Spacing.sm),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -560,7 +602,7 @@ private fun RegistrationConfirmationDialog(
                     )
                     Spacer(Modifier.width(Spacing.sm))
                 }
-                Text(if (isSubmitting) "Registering…" else "Register guardian")
+                Text(if (isSubmitting) "Registering…" else "Register primary guardian")
             }
         }
     )

@@ -509,6 +509,13 @@ fun PickupPassNavHost(
                 onBack = {
                     navController
                         .popBackStack()
+                },
+                canRegisterPrimary = true,
+                onRegisterPrimary = {
+                    navController.navigate(
+                        Screen.TeacherRegisterParent
+                            .createRoute(studentId)
+                    )
                 }
             )
         }

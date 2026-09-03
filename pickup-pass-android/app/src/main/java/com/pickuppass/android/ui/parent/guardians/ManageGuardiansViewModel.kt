@@ -61,9 +61,15 @@ class ManageGuardiansViewModel @Inject constructor(
                 return@launch
             }
 
-            val profileMap = when (val profiles = guardianRepository.getGuardianProfiles(studentId)) {
-                is ApiResult.Success -> profiles.data
+            val profileResult = guardianRepository.getGuardianProfiles(studentId)
+            val profileMap = when (profileResult) {
+                is ApiResult.Success -> profileResult.data
                 is ApiResult.Failure -> emptyMap()
+            }
+            val identityLoadError = when (profileResult) {
+                is ApiResult.Success -> null
+                is ApiResult.Failure ->
+                    "Guardian identity details could not be loaded. Pickup permissions are still shown, but names and photos may be unavailable."
             }
             val rows = student.guardians.map { (uid, entry) ->
                 GuardianRow(uid, entry, profileMap[uid])
@@ -73,6 +79,7 @@ class ManageGuardiansViewModel @Inject constructor(
                 isLoading = false,
                 studentName = "${student.fullName} · Grade ${student.grade}",
                 guardians = rows,
+                listError = identityLoadError,
                 temporaryGuardiansEnabled = entitlements["temporary_guardians"] != false,
                 guardianSchedulesEnabled = entitlements["guardian_pickup_schedules"] != false
             )
@@ -90,15 +97,15 @@ class ManageGuardiansViewModel @Inject constructor(
                     val isWarning: Boolean
                     when {
                         result.data.status == "linked_existing" -> {
-                            message = "Added — this person already had an account."
+                            message = "Backup guardian added — this person already had an account."
                             isWarning = false
                         }
                         result.data.emailSent -> {
-                            message = "Added! They'll receive an email to set up their account."
+                            message = "Backup guardian added. They'll receive an email to set up their account."
                             isWarning = false
                         }
                         else -> {
-                            message = "Added, but the invite email couldn't be sent — ask them to use \"Forgot password?\" on the sign-in page with their email."
+                            message = "Backup guardian added, but the invite email couldn't be sent — ask them to use \"Forgot password?\" on the sign-in page with their email."
                             isWarning = true
                         }
                     }

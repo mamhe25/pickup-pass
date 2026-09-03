@@ -30,8 +30,9 @@ import java.util.Map;
  * may need to pick up when the primary parent can't).
  *
  * Authorization model:
- *  - Only someone already listed in a student's guardianUids can add/remove
- *    guardians for that student — a stranger can't add themselves.
+ *  - Parents must already be listed in a student's guardianUids before they
+ *    can manage secondary guardians. Teachers are restricted to their
+ *    assigned sections; school admins are restricted to their own school.
  *  - The PRIMARY guardian (set at teacher-registration time) can't be
  *    removed through this endpoint, to avoid a student ending up with no
  *    accountable guardian of record; only school staff can change that.
@@ -69,42 +70,55 @@ public class ParentGuardianController {
     }
 
     /**
-     * Returns only the guardian identity fields required by the parent UI.
-     * Parents no longer receive direct Firestore read access to the school's
-     * user directory.
+     * Returns only the guardian identity fields required by an authorized
+     * guardian-management UI. This endpoint deliberately avoids granting
+     * clients direct read access to the school's user directory.
+     *
+     * Parent/guardian callers must already be permanently authorized for the
+     * student. Teachers are additionally restricted to their assigned
+     * grade/section. School admins may manage any student in their own school.
      */
     @GetMapping("/students/{studentId}/guardian-profiles")
-    @PreAuthorize("hasRole('parent')")
+    @PreAuthorize("hasAnyRole('parent', 'teacher', 'school_admin')")
     @SuppressWarnings("unchecked")
     public ResponseEntity<?> guardianProfiles(
             @PathVariable String studentId,
-            @AuthenticationPrincipal FirebaseUserDetails parent) throws Exception {
+            @AuthenticationPrincipal FirebaseUserDetails actor) throws Exception {
 
         DocumentSnapshot studentSnap = firestore.collection("students").document(studentId).get().get();
-        if (!studentSnap.exists() || !parent.getSchoolId().equals(studentSnap.getString("schoolId"))) {
+        if (!studentSnap.exists() || !actor.getSchoolId().equals(studentSnap.getString("schoolId"))) {
             throw new NotFoundException("Student not found");
         }
 
-        GuardianAuthorizationService.AuthorizationDecision decision =
-                guardianAuthorizationService.check(studentSnap, parent.getUid());
-        if (!decision.allowed()) throw new ForbiddenException(decision.reason());
-        if (decision.temporary()) {
-            throw new ForbiddenException("Temporary guardians cannot view or manage the permanent guardian directory");
-        }
+        requireGuardianManagementAccess(
+                studentSnap,
+                actor,
+                "Temporary guardians cannot view or manage the permanent guardian directory");
 
-        List<String> guardianUids = (List<String>) studentSnap.get("guardianUids");
-        if (guardianUids == null) guardianUids = List.of();
+        List<String> guardianUids = new ArrayList<>();
+        List<String> storedGuardianUids = (List<String>) studentSnap.get("guardianUids");
+        if (storedGuardianUids != null) guardianUids.addAll(storedGuardianUids);
+        Map<String, Object> guardianEntries = (Map<String, Object>) studentSnap.get("guardians");
+        if (guardianEntries != null) {
+            for (String uid : guardianEntries.keySet()) {
+                if (uid != null && !uid.isBlank() && !guardianUids.contains(uid)) guardianUids.add(uid);
+            }
+        }
 
         List<Map<String, Object>> profiles = new ArrayList<>();
         for (String uid : guardianUids) {
             if (uid == null || uid.isBlank()) continue;
             DocumentSnapshot user = firestore.collection("users").document(uid).get().get();
-            if (!user.exists() || !parent.getSchoolId().equals(user.getString("schoolId"))) continue;
+            if (!user.exists() || !actor.getSchoolId().equals(user.getString("schoolId"))) continue;
+
+            String displayName = safe(user.getString("displayName"));
+            String email = safe(user.getString("email"));
+            if (displayName.isBlank()) displayName = email;
 
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("uid", uid);
-            item.put("displayName", user.getString("displayName") == null ? "" : user.getString("displayName"));
-            item.put("photoUrl", user.getString("photoUrl") == null ? "" : user.getString("photoUrl"));
+            item.put("displayName", displayName);
+            item.put("photoUrl", safe(user.getString("photoUrl")));
             profiles.add(item);
         }
         return ResponseEntity.ok(Map.of("guardians", profiles));
@@ -128,10 +142,14 @@ public class ParentGuardianController {
         List<String> guardianUids = (List<String>) studentSnap.get("guardianUids");
         if (guardianUids == null) guardianUids = new java.util.ArrayList<>();
         boolean isSchoolStaff = "teacher".equals(parent.getRole()) || "school_admin".equals(parent.getRole());
-        if (!isSchoolStaff) {
-            GuardianAuthorizationService.AuthorizationDecision decision = guardianAuthorizationService.check(studentSnap, parent.getUid());
-            if (!decision.allowed()) throw new ForbiddenException(decision.reason());
-            if (decision.temporary()) throw new ForbiddenException("Temporary guardians cannot manage other guardians");
+        requireGuardianManagementAccess(
+                studentSnap,
+                parent,
+                "Temporary guardians cannot manage other guardians");
+
+        if (!hasPrimaryGuardian(studentSnap)) {
+            return ResponseEntity.status(409).body(
+                    Map.of("error", "Register a primary guardian before adding backup pickup access"));
         }
 
         if (guardianUids.size() >= maxGuardiansPerStudent) {
@@ -193,10 +211,14 @@ public class ParentGuardianController {
         List<String> guardianUids = (List<String>) studentSnap.get("guardianUids");
         if (guardianUids == null) guardianUids = new java.util.ArrayList<>();
         boolean isSchoolStaff = "teacher".equals(parent.getRole()) || "school_admin".equals(parent.getRole());
-        if (!isSchoolStaff) {
-            GuardianAuthorizationService.AuthorizationDecision decision = guardianAuthorizationService.check(studentSnap, parent.getUid());
-            if (!decision.allowed()) throw new ForbiddenException(decision.reason());
-            if (decision.temporary()) throw new ForbiddenException("Temporary guardians cannot authorize other guardians");
+        requireGuardianManagementAccess(
+                studentSnap,
+                parent,
+                "Temporary guardians cannot authorize other guardians");
+
+        if (!hasPrimaryGuardian(studentSnap)) {
+            return ResponseEntity.status(409).body(
+                    Map.of("error", "Register a primary guardian before adding one-day pickup access"));
         }
 
         if (req.getLastName() == null || req.getLastName().isBlank()
@@ -289,13 +311,12 @@ public class ParentGuardianController {
         }
 
         boolean isSchoolStaff = "teacher".equals(actor.getRole()) || "school_admin".equals(actor.getRole());
-        if (!isSchoolStaff) {
-            GuardianAuthorizationService.AuthorizationDecision actorDecision = guardianAuthorizationService.check(studentSnap, actor.getUid());
-            if (!actorDecision.allowed()) throw new ForbiddenException(actorDecision.reason());
-            if (actorDecision.temporary()) throw new ForbiddenException("Temporary guardians cannot manage pickup schedules");
-            if (actor.getUid().equals(req.getGuardianUid())) {
-                throw new ForbiddenException("A guardian cannot restrict their own pickup schedule. Contact the school office if this is needed.");
-            }
+        requireGuardianManagementAccess(
+                studentSnap,
+                actor,
+                "Temporary guardians cannot manage pickup schedules");
+        if (!isSchoolStaff && actor.getUid().equals(req.getGuardianUid())) {
+            throw new ForbiddenException("A guardian cannot restrict their own pickup schedule. Contact the school office if this is needed.");
         }
 
         Map<String, Object> guardians = (Map<String, Object>) studentSnap.get("guardians");
@@ -389,11 +410,10 @@ public class ParentGuardianController {
 
         List<String> guardianUids = (List<String>) studentSnap.get("guardianUids");
         boolean isSchoolStaff = "teacher".equals(parent.getRole()) || "school_admin".equals(parent.getRole());
-        if (!isSchoolStaff) {
-            GuardianAuthorizationService.AuthorizationDecision decision = guardianAuthorizationService.check(studentSnap, parent.getUid());
-            if (!decision.allowed()) throw new ForbiddenException(decision.reason());
-            if (decision.temporary()) throw new ForbiddenException("Temporary guardians cannot manage other guardians");
-        }
+        requireGuardianManagementAccess(
+                studentSnap,
+                parent,
+                "Temporary guardians cannot manage other guardians");
 
         Map<String, Object> guardians = (Map<String, Object>) studentSnap.get("guardians");
         Map<String, Object> target = guardians != null
@@ -426,6 +446,65 @@ public class ParentGuardianController {
         return ResponseEntity.ok(Map.of("status", "removed"));
     }
 
+
+    @SuppressWarnings("unchecked")
+    private void requireGuardianManagementAccess(
+            DocumentSnapshot studentSnap,
+            FirebaseUserDetails actor,
+            String temporaryGuardianMessage) throws Exception {
+        String role = actor.getRole();
+        if ("school_admin".equals(role)) return;
+
+        if ("teacher".equals(role)) {
+            DocumentSnapshot teacherSnap = firestore.collection("users").document(actor.getUid()).get().get();
+            if (!teacherSnap.exists()
+                    || !actor.getSchoolId().equals(teacherSnap.getString("schoolId"))
+                    || !"teacher".equals(teacherSnap.getString("role"))) {
+                throw new ForbiddenException("Teacher account is not active in this school");
+            }
+
+            List<Map<String, Object>> assignedSections =
+                    (List<Map<String, Object>>) teacherSnap.get("assignedSections");
+            if (assignedSections == null || assignedSections.isEmpty()) {
+                throw new ForbiddenException(
+                        "You don't have any assigned sections yet — ask your school admin to assign you one first.");
+            }
+
+            String studentGrade = safe(studentSnap.getString("grade"));
+            String studentSection = safe(studentSnap.getString("section"));
+            boolean assigned = assignedSections.stream().anyMatch(section ->
+                    studentGrade.equalsIgnoreCase(safeValue(section.get("grade")))
+                            && studentSection.equalsIgnoreCase(safeValue(section.get("section"))));
+            if (!assigned) {
+                throw new ForbiddenException("This student is not in one of your assigned sections");
+            }
+            return;
+        }
+
+        GuardianAuthorizationService.AuthorizationDecision decision =
+                guardianAuthorizationService.check(studentSnap, actor.getUid());
+        if (!decision.allowed()) throw new ForbiddenException(decision.reason());
+        if (decision.temporary()) throw new ForbiddenException(temporaryGuardianMessage);
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean hasPrimaryGuardian(DocumentSnapshot studentSnap) {
+        Map<String, Object> guardians = (Map<String, Object>) studentSnap.get("guardians");
+        if (guardians == null || guardians.isEmpty()) return false;
+        for (Object value : guardians.values()) {
+            if (!(value instanceof Map<?, ?> entry)) continue;
+            if (Boolean.TRUE.equals(entry.get("isPrimary"))) return true;
+        }
+        return false;
+    }
+
+    private static String safe(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private static String safeValue(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
+    }
 
     private void initializeGuardianVerification(String guardianUid, String schoolId, boolean addedBySchoolStaff) throws Exception {
         DocumentReference userRef = firestore.collection("users").document(guardianUid);

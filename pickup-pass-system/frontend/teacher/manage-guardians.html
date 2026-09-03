@@ -72,9 +72,17 @@
     <div class="pp-staff-section-head">
       <div>
         <p class="pp-staff-section-kicker">ADD PICKUP ACCESS</p>
-        <h2>Authorize another person</h2>
-        <p>Choose the type of access before entering guardian details.</p>
+        <h2>Add secondary pickup access</h2>
+        <p>Backup and one-day permissions are available only after the primary guardian is registered.</p>
       </div>
+    </div>
+
+    <div id="primaryRequired" class="pp-staff-primary-required hidden">
+      <div>
+        <strong>Primary guardian required</strong>
+        <p>Register the student's accountable primary guardian before adding backup or one-day pickup access.</p>
+      </div>
+      <a id="registerPrimaryBtn" class="pp-btn pp-btn--primary" href="#">Register primary guardian</a>
     </div>
 
     <div class="pp-staff-mode-switch" role="tablist" aria-label="Guardian access type">
@@ -128,12 +136,12 @@
       </label>
 
       <aside class="pp-staff-form-note">
-        Permanent backup access remains valid unless removed or restricted by a recurring pickup schedule.
+        Backup guardian access remains valid unless removed or restricted by a recurring pickup schedule. It does not replace the primary guardian.
       </aside>
 
       <div class="pp-staff-form-actions">
         <button id="reviewPermanentBtn" type="submit" class="pp-btn pp-btn--primary">
-          Review permanent access
+          Review backup access
         </button>
       </div>
     </form>
@@ -328,6 +336,8 @@ const temporaryModeBtn = document.getElementById("temporaryModeBtn");
 const permanentForm = document.getElementById("permanentForm");
 const temporaryForm = document.getElementById("temporaryForm");
 const temporaryUnavailable = document.getElementById("temporaryUnavailable");
+const primaryRequired = document.getElementById("primaryRequired");
+const registerPrimaryBtn = document.getElementById("registerPrimaryBtn");
 const tempDate = document.getElementById("tempDate");
 
 const addDialog = document.getElementById("addDialog");
@@ -369,6 +379,7 @@ const todayIso = [
 
 tempDate.min = todayIso;
 if (!tempDate.value) tempDate.value = todayIso;
+registerPrimaryBtn.href = `./register-parent.html?studentId=${encodeURIComponent(studentId)}&return=guardians`;
 
 async function api(path, options) {
   const response = await authedFetch(path, options);
@@ -397,17 +408,15 @@ async function load() {
     student = studentSnap.data();
     entitlements = entitlementResult.features || entitlementResult.featureFlags || {};
 
-    const uids = guardianUids();
-    profiles = {};
+    const profileResult = await api(
+      `/parent/students/${encodeURIComponent(studentId)}/guardian-profiles`
+    );
 
-    await Promise.all(uids.map(async (uid) => {
-      try {
-        const profileSnap = await getDoc(doc(db, "users", uid));
-        profiles[uid] = profileSnap.exists() ? profileSnap.data() : {};
-      } catch (_) {
-        profiles[uid] = {};
-      }
-    }));
+    profiles = {};
+    (profileResult.guardians || []).forEach((profile) => {
+      if (!profile?.uid) return;
+      profiles[profile.uid] = profile;
+    });
 
     studentName.textContent = student.fullName || "Selected student";
     studentMeta.textContent = [
@@ -434,11 +443,10 @@ function guardianUids() {
 
 function applyEntitlements() {
   const temporaryEnabled = entitlements.temporary_guardians !== false;
-  temporaryModeBtn.disabled = !temporaryEnabled;
   temporaryUnavailable.classList.toggle("hidden", temporaryEnabled);
 
   if (!temporaryEnabled && currentAddMode === "temporary") {
-    switchMode("permanent");
+    currentAddMode = "permanent";
   }
 }
 
@@ -451,26 +459,69 @@ function renderGuardians() {
     return { uid, entry, profile: profiles[uid] || {} };
   }).sort((a, b) => Number(b.entry.isPrimary) - Number(a.entry.isPrimary));
 
-  const primary = rows.filter((row) => row.entry.isPrimary).length;
-  const temporary = rows.filter((row) => isTemporary(row.entry)).length;
-  const backup = Math.max(0, rows.length - primary - temporary);
+  const primaryRows = rows.filter((row) => row.entry.isPrimary);
+  const additionalRows = rows.filter((row) => !row.entry.isPrimary);
+  const temporary = additionalRows.filter((row) => isTemporary(row.entry)).length;
+  const backup = Math.max(0, additionalRows.length - temporary);
+  const hasPrimary = primaryRows.length > 0;
 
-  primaryCount.textContent = String(primary);
+  primaryCount.textContent = String(primaryRows.length);
   backupCount.textContent = String(backup);
   temporaryCount.textContent = String(temporary);
   guardianCountPill.textContent = `${rows.length} authorized`;
 
-  if (rows.length === 0) {
-    guardianList.innerHTML = `
-      <div class="pp-staff-empty">
-        <strong>No guardians on record</strong>
-        <p>Register the first parent or guardian from the student roster.</p>
+  const primaryBlock = hasPrimary
+    ? `
+      <div class="pp-staff-guardian-group-head">
+        <span>PRIMARY GUARDIAN</span>
+        <small>Protected guardian of record</small>
       </div>
+      ${primaryRows.map(renderGuardianCard).join("")}
+    `
+    : `
+      <article class="pp-staff-missing-primary">
+        <div class="pp-staff-missing-primary__icon" aria-hidden="true">1</div>
+        <div>
+          <strong>No primary guardian registered</strong>
+          <p>Register the student's accountable guardian before adding backup or one-day pickup access.</p>
+          <a class="pp-btn pp-btn--primary" href="./register-parent.html?studentId=${encodeURIComponent(studentId)}&return=guardians">
+            Register primary guardian
+          </a>
+        </div>
+      </article>
     `;
-    return;
-  }
 
-  guardianList.innerHTML = rows.map(renderGuardianCard).join("");
+  const additionalBlock = `
+    <div class="pp-staff-guardian-group-head pp-staff-guardian-group-head--secondary">
+      <span>BACKUP & ONE-DAY</span>
+      <small>Secondary pickup permissions</small>
+    </div>
+    ${additionalRows.length
+      ? additionalRows.map(renderGuardianCard).join("")
+      : `
+        <div class="pp-staff-empty pp-staff-empty--compact">
+          <strong>No secondary guardians</strong>
+          <p>${hasPrimary
+            ? "Only the primary guardian is currently authorized."
+            : "Secondary access stays locked until a primary guardian is registered."}</p>
+        </div>
+      `}
+  `;
+
+  guardianList.innerHTML = primaryBlock + additionalBlock;
+
+  primaryRequired.classList.toggle("hidden", hasPrimary);
+  permanentModeBtn.disabled = !hasPrimary;
+
+  const temporaryEnabled = entitlements.temporary_guardians !== false;
+  temporaryModeBtn.disabled = !hasPrimary || !temporaryEnabled;
+
+  if (!hasPrimary) {
+    permanentForm.classList.add("hidden");
+    temporaryForm.classList.add("hidden");
+  } else {
+    switchMode(currentAddMode);
+  }
 
   document.querySelectorAll(".scheduleBtn").forEach((button) => {
     button.addEventListener("click", () => openSchedule(button.dataset.uid));
@@ -485,7 +536,7 @@ function renderGuardianCard(row) {
   const { uid, entry, profile } = row;
   const temporary = isTemporary(entry);
   const primary = !!entry.isPrimary;
-  const displayName = profile.displayName || profile.email || "Pending guardian";
+  const displayName = profile.displayName || profile.email || "Guardian identity unavailable";
   const photo = profile.photoUrl || "../assets/default-avatar.svg";
   const type = primary ? "Primary" : temporary ? "One-day" : "Backup";
   const typeClass = primary ? "success" : temporary ? "warning" : "neutral";
@@ -607,6 +658,9 @@ function openAddReview(mode) {
   document.getElementById("reviewEmail").textContent = draft.guardianEmail;
   document.getElementById("reviewDateRow").classList.toggle("hidden", mode !== "temporary");
   document.getElementById("reviewDate").textContent = draft.validDate || "";
+  confirmAddBtn.textContent = mode === "temporary"
+    ? "Authorize one-day pickup"
+    : "Add backup guardian";
   addDialogError.classList.add("hidden");
   addDialog.showModal();
 }
@@ -652,12 +706,12 @@ confirmAddBtn.addEventListener("click", async () => {
     const warning = data.emailSent === false;
     showFeedback(
       warning
-        ? `${temporary ? "Authorized" : "Guardian added"}, but the invite email was not sent. Ask them to use “Forgot password?” with ${draft.guardianEmail}.`
+        ? `${temporary ? "One-day guardian authorized" : "Backup guardian added"}, but the invite email was not sent. Ask them to use “Forgot password?” with ${draft.guardianEmail}.`
         : temporary
           ? "One-day guardian authorized."
           : data.status === "linked_existing"
-            ? "Guardian added — this person already had a PickupPass account."
-            : "Guardian added and account setup instructions were sent.",
+            ? "Backup guardian added — this person already had a PickupPass account."
+            : "Backup guardian added and account setup instructions were sent.",
       warning ? "warning" : "success"
     );
 
@@ -685,7 +739,7 @@ function openSchedule(uid) {
   const entry = student?.guardians?.[uid] || {};
   const profile = profiles[uid] || {};
   scheduleUid = uid;
-  scheduleGuardianName.textContent = profile.displayName || profile.email || "Backup guardian";
+  scheduleGuardianName.textContent = profile.displayName || profile.email || "Guardian identity unavailable";
   scheduleEnabled.checked = !!entry.pickupScheduleEnabled;
   scheduleStart.value = entry.scheduleStartDate || "";
   scheduleEnd.value = entry.scheduleEndDate || "";

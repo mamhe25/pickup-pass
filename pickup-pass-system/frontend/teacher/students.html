@@ -26,7 +26,7 @@
     <h1 id="rosterHeroTitle">Your student roster at a glance.</h1>
 
     <p>
-      Search by student, review guardian readiness, and register pickup contacts
+      Search by student, confirm primary-guardian readiness, and manage pickup contacts
       without leaving the roster.
     </p>
 
@@ -38,12 +38,12 @@
 
       <div class="pp-roster-metric">
         <strong id="readyCount">—</strong>
-        <span>Ready</span>
+        <span>Primary ready</span>
       </div>
 
       <div class="pp-roster-metric">
         <strong id="needsGuardianCount">—</strong>
-        <span>Needs guardian</span>
+        <span>Needs primary</span>
       </div>
     </div>
   </section>
@@ -181,7 +181,7 @@
     <p id="addedStudentName" class="mt-1"></p>
 
     <p class="mt-2">
-      Register a parent or guardian now so this student is ready for secure
+      Register the primary guardian now so this student is ready for secure
       pickup.
     </p>
 
@@ -190,7 +190,7 @@
         id="registerAddedStudentParentBtn"
         type="button"
         class="pp-btn pp-btn--primary">
-        Register parent / guardian
+        Register primary guardian
       </button>
 
       <button
@@ -365,9 +365,14 @@ async function getStudentsForSections(sections) {
   return results;
 }
 
+function hasPrimaryGuardian(student) {
+  return Object.values(student?.guardians || {})
+    .some((entry) => entry?.isPrimary === true);
+}
+
 function updateMetrics() {
   const ready = allStudents.filter(
-    (student) => (student.guardianUids || []).length > 0
+    (student) => hasPrimaryGuardian(student)
   ).length;
 
   const needs = allStudents.length - ready;
@@ -481,6 +486,7 @@ function renderList(students) {
 
 function renderStudentCard(student) {
   const guardianCount = (student.guardianUids || []).length;
+  const hasPrimary = hasPrimaryGuardian(student);
   const card = document.createElement("article");
   card.className = "pp-student-card";
 
@@ -501,23 +507,25 @@ function renderStudentCard(student) {
       </div>
 
       <span class="pp-status ${
-        guardianCount > 0
+        hasPrimary
           ? "pp-status--success"
           : "pp-status--warning"
       }">
-        ${guardianCount > 0 ? "Ready" : "Action needed"}
+        ${hasPrimary ? "Primary ready" : "Action needed"}
       </span>
     </div>
 
     <div class="pp-student-readiness ${
-      guardianCount > 0
+      hasPrimary
         ? "pp-student-readiness--ready"
         : "pp-student-readiness--needs"
     }">
       ${
-        guardianCount > 0
-          ? `${guardianCount} authorized guardian${guardianCount === 1 ? "" : "s"} on file`
-          : "No authorized guardian on file yet"
+        hasPrimary
+          ? `${guardianCount} authorized guardian${guardianCount === 1 ? "" : "s"} · primary guardian on file`
+          : guardianCount > 0
+            ? `Primary guardian missing · ${guardianCount} secondary guardian${guardianCount === 1 ? "" : "s"} on file`
+            : "No primary guardian on file yet"
       }
     </div>
 
@@ -529,7 +537,7 @@ function renderStudentCard(student) {
             : `./register-parent.html?studentId=${encodeURIComponent(student.id)}`
         }"
         class="student-action-link pp-btn pp-btn--secondary">
-        ${guardianCount > 0 ? "Manage guardians" : "Register parent"}
+        ${guardianCount > 0 ? "Manage guardians" : "Register primary"}
       </a>
     </div>
   `;
@@ -605,7 +613,7 @@ document.getElementById("addStudentForm").addEventListener("submit", async (even
     ui.toggleAdd.textContent = "Add student";
 
     showToast(
-      `${data.fullName} was added. Register a parent or guardian next.`,
+      `${data.fullName} was added. Register the primary guardian next.`,
       "success"
     );
 

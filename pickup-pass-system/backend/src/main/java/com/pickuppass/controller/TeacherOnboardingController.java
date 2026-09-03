@@ -1,5 +1,6 @@
 package com.pickuppass.controller;
 
+import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.FieldValue;
 import com.google.cloud.firestore.Firestore;
@@ -13,14 +14,14 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Registers a student's PRIMARY parent/guardian. This is the only path that
- * creates a student record's initial guardianUids entry — additional backup
- * guardians are added later by the primary parent via
- * ParentGuardianController, not by teachers, to keep an auditable chain of
- * "who authorized whom".
+ * creates a student's protected primary guardian relationship. Secondary
+ * backup and one-day pickup permissions are managed separately through
+ * ParentGuardianController after this primary relationship exists.
  */
 @RestController
 @RequestMapping("/api/teacher")
@@ -49,10 +50,20 @@ public class TeacherOnboardingController {
             return ResponseEntity.badRequest().body(Map.of("error", "lastName and firstName are required"));
         }
 
-        DocumentSnapshot studentDoc = firestore.collection("students")
-                .document(req.getStudentId()).get().get();
+        DocumentReference studentRef = firestore.collection("students").document(req.getStudentId());
+        DocumentSnapshot studentDoc = studentRef.get().get();
         if (!studentDoc.exists() || !schoolId.equals(studentDoc.getString("schoolId"))) {
             return ResponseEntity.status(403).body(Map.of("error", "Student not in your school"));
+        }
+
+        if ("teacher".equals(teacher.getRole()) && !teacherCanManageStudent(teacher, studentDoc)) {
+            return ResponseEntity.status(403).body(
+                    Map.of("error", "This student is not in one of your assigned sections"));
+        }
+
+        if (hasPrimaryGuardian(studentDoc)) {
+            return ResponseEntity.status(409).body(
+                    Map.of("error", "This student already has a primary guardian. Manage backup or temporary pickup access instead."));
         }
 
         GuardianProvisioningService.ProvisionResult result = guardianService.provisionGuardianAccount(
@@ -65,13 +76,28 @@ public class TeacherOnboardingController {
         guardianEntry.put("addedBy", teacher.getUid());
         guardianEntry.put("addedAt", FieldValue.serverTimestamp());
 
-        // .get() here (rather than fire-and-forget) so a Firestore write
-        // failure surfaces as a proper error response instead of the
-        // request appearing to succeed while the guardian link never landed.
-        firestore.collection("students").document(req.getStudentId()).update(
-                "guardianUids", FieldValue.arrayUnion(result.getUid()),
-                "guardians." + result.getUid(), guardianEntry
-        ).get();
+        // Re-check inside a Firestore transaction so two concurrent staff
+        // requests cannot both establish different primary guardians.
+        Boolean linked = firestore.runTransaction(transaction -> {
+            DocumentSnapshot freshStudent = transaction.get(studentRef).get();
+            if (!freshStudent.exists() || !schoolId.equals(freshStudent.getString("schoolId"))) {
+                return false;
+            }
+            if (hasPrimaryGuardian(freshStudent)) {
+                return false;
+            }
+            transaction.update(
+                    studentRef,
+                    "guardianUids", FieldValue.arrayUnion(result.getUid()),
+                    "guardians." + result.getUid(), guardianEntry
+            );
+            return true;
+        }).get();
+
+        if (!Boolean.TRUE.equals(linked)) {
+            return ResponseEntity.status(409).body(
+                    Map.of("error", "This student already has a primary guardian. Manage backup or temporary pickup access instead."));
+        }
 
         String status = result.isNewlyCreated()
                 ? (result.isEmailSent() ? "created_and_linked" : "created_and_linked_email_failed")
@@ -85,6 +111,54 @@ public class TeacherOnboardingController {
                 "status", status,
                 "emailSent", result.isEmailSent()
         ));
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean teacherCanManageStudent(
+            FirebaseUserDetails teacher,
+            DocumentSnapshot studentDoc) throws Exception {
+        DocumentSnapshot teacherDoc = firestore.collection("users")
+                .document(teacher.getUid()).get().get();
+        if (!teacherDoc.exists()
+                || !teacher.getSchoolId().equals(teacherDoc.getString("schoolId"))
+                || !"teacher".equals(teacherDoc.getString("role"))) {
+            return false;
+        }
+
+        List<Map<String, Object>> assignedSections =
+                (List<Map<String, Object>>) teacherDoc.get("assignedSections");
+        if (assignedSections == null || assignedSections.isEmpty()) return false;
+
+        String studentGrade = safe(studentDoc.getString("grade"));
+        String studentSection = safe(studentDoc.getString("section"));
+        for (Map<String, Object> assigned : assignedSections) {
+            String grade = safeValue(assigned.get("grade"));
+            String section = safeValue(assigned.get("section"));
+            if (studentGrade.equalsIgnoreCase(grade)
+                    && studentSection.equalsIgnoreCase(section)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean hasPrimaryGuardian(DocumentSnapshot studentDoc) {
+        Map<String, Object> guardians = (Map<String, Object>) studentDoc.get("guardians");
+        if (guardians == null || guardians.isEmpty()) return false;
+        for (Object value : guardians.values()) {
+            if (!(value instanceof Map<?, ?> entry)) continue;
+            if (Boolean.TRUE.equals(entry.get("isPrimary"))) return true;
+        }
+        return false;
+    }
+
+    private static String safe(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private static String safeValue(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
     }
 
     public static class RegisterParentRequest {

@@ -82,13 +82,13 @@ fun TeacherStudentsScreen(
     val totalStudents =
         uiState.allStudents.size
 
-    val studentsWithGuardian =
+    val studentsWithPrimaryGuardian =
         uiState.allStudents.count {
-            it.guardianUids.isNotEmpty()
+            hasPrimaryGuardian(it)
         }
 
-    val needsGuardian =
-        totalStudents - studentsWithGuardian
+    val needsPrimaryGuardian =
+        totalStudents - studentsWithPrimaryGuardian
 
     val totalSections =
         uiState.groupedStudents.sumOf {
@@ -157,7 +157,7 @@ fun TeacherStudentsScreen(
                 CompactRosterSummary(
                     totalStudents = totalStudents,
                     sectionCount = totalSections,
-                    needsGuardian = needsGuardian
+                    needsPrimaryGuardian = needsPrimaryGuardian
                 )
             }
 
@@ -379,7 +379,7 @@ fun TeacherStudentsScreen(
 private fun CompactRosterSummary(
     totalStudents: Int,
     sectionCount: Int,
-    needsGuardian: Int
+    needsPrimaryGuardian: Int
 ) {
     Row(
         modifier = Modifier
@@ -404,8 +404,8 @@ private fun CompactRosterSummary(
         )
 
         RosterSummaryPill(
-            value = needsGuardian.toString(),
-            label = "Needs guardian",
+            value = needsPrimaryGuardian.toString(),
+            label = "Needs primary",
             modifier = Modifier.weight(1f)
         )
     }
@@ -546,7 +546,7 @@ private fun GradeAccordion(
     val readyCount =
         sections.sumOf { section ->
             section.students.count {
-                it.guardianUids.isNotEmpty()
+                hasPrimaryGuardian(it)
             }
         }
 
@@ -641,7 +641,7 @@ private fun GradeAccordion(
 
                             if (needsCount > 0) {
                                 append(
-                                    " · $needsCount need guardian"
+                                    " · $needsCount need primary"
                                 )
                             } else if (studentCount > 0) {
                                 append(
@@ -742,7 +742,7 @@ private fun SectionAccordion(
 ) {
     val readyCount =
         students.count {
-            it.guardianUids.isNotEmpty()
+            hasPrimaryGuardian(it)
         }
 
     val needsCount =
@@ -822,12 +822,12 @@ private fun SectionAccordion(
                             )
 
                             append(
-                                " · $readyCount ready"
+                                " · $readyCount primary ready"
                             )
 
                             if (needsCount > 0) {
                                 append(
-                                    " · $needsCount need guardian"
+                                    " · $needsCount need primary"
                                 )
                             }
                         },
@@ -923,6 +923,8 @@ private fun CompactStudentRow(
 ) {
     val guardianCount =
         student.guardianUids.size
+    val hasPrimary =
+        hasPrimaryGuardian(student)
 
     Row(
         modifier = Modifier
@@ -966,26 +968,27 @@ private fun CompactStudentRow(
                     Alignment.CenterVertically
             ) {
                 GuardianStatusDot(
-                    ready =
-                        guardianCount > 0
+                    ready = hasPrimary
                 )
 
                 Spacer(Modifier.width(5.dp))
 
                 Text(
-                    text =
-                        if (guardianCount > 0) {
-                            "$guardianCount guardian${if (guardianCount == 1) "" else "s"}"
-                        } else {
-                            "Needs guardian"
-                        },
+                    text = when {
+                        hasPrimary ->
+                            "$guardianCount guardian${if (guardianCount == 1) "" else "s"} · primary ready"
+                        guardianCount > 0 ->
+                            "Primary needed · $guardianCount secondary"
+                        else ->
+                            "Needs primary guardian"
+                    },
                     maxLines = 1,
                     overflow =
                         TextOverflow.Ellipsis,
                     style =
                         MaterialTheme.typography.labelSmall,
                     color =
-                        if (guardianCount > 0) {
+                        if (hasPrimary) {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         } else {
                             MaterialTheme.colorScheme.error
@@ -1031,7 +1034,7 @@ private fun CompactStudentRow(
                     if (guardianCount > 0) {
                         "Manage"
                     } else {
-                        "Register"
+                        "Register primary"
                     },
                 style =
                     MaterialTheme.typography.labelMedium,
@@ -1041,6 +1044,13 @@ private fun CompactStudentRow(
         }
     }
 }
+
+private fun hasPrimaryGuardian(
+    student: Student
+): Boolean =
+    student.guardians.values.any {
+        it.isPrimary
+    }
 
 @Composable
 private fun StudentAvatar(
@@ -1396,7 +1406,7 @@ private fun AddStudentSheetContent(
         Spacer(Modifier.height(Spacing.xs))
 
         Text(
-            "Create the roster record first. PickupPass will continue directly to parent / guardian registration after a successful save.",
+            "Create the roster record first. PickupPass will continue directly to primary guardian registration after a successful save.",
             style =
                 MaterialTheme.typography.bodyMedium,
             color =

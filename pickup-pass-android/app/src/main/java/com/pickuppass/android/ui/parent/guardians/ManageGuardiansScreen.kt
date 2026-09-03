@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PersonAddAlt1
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -54,7 +55,9 @@ private enum class GuardianAddMode {
 fun ManageGuardiansScreen(
     studentId: String,
     viewModel: ManageGuardiansViewModel = hiltViewModel(),
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    canRegisterPrimary: Boolean = false,
+    onRegisterPrimary: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -69,6 +72,17 @@ fun ManageGuardiansScreen(
     var addMode by remember {
         mutableStateOf(GuardianAddMode.PERMANENT)
     }
+
+    val primaryGuardian =
+        uiState.guardians.firstOrNull {
+            it.entry.isPrimary
+        }
+    val additionalGuardians =
+        uiState.guardians.filterNot {
+            it.entry.isPrimary
+        }
+    val hasPrimaryGuardian =
+        primaryGuardian != null
 
     LaunchedEffect(studentId) {
         viewModel.load(studentId)
@@ -116,8 +130,8 @@ fun ManageGuardiansScreen(
 
             item {
                 SectionHeading(
-                    title = "Authorized people",
-                    detail = "Primary guardians stay protected. Backup and one-day permissions can be adjusted here."
+                    title = "Primary guardian",
+                    detail = "The primary guardian is the accountable guardian of record. Only school staff can register this role."
                 )
             }
 
@@ -125,31 +139,65 @@ fun ManageGuardiansScreen(
                 item {
                     GuardiansLoadingCard()
                 }
-            } else if (uiState.guardians.isEmpty()) {
-                item {
-                    EmptyGuardiansCard()
-                }
-            } else {
-                items(
-                    items = uiState.guardians,
-                    key = { it.uid }
-                ) { row ->
+            } else if (primaryGuardian != null) {
+                item(key = "primary-${primaryGuardian.uid}") {
                     GuardianRowCard(
-                        row = row,
-                        onRemoveClick = {
-                            confirmRemoveRow = row
-                        },
-                        onScheduleClick = {
-                            scheduleRow = row
-                        },
-                        scheduleEnabled =
-                            uiState.guardianSchedulesEnabled,
+                        row = primaryGuardian,
+                        onRemoveClick = {},
+                        onScheduleClick = {},
+                        scheduleEnabled = false,
                         modifier = Modifier.animateItemPlacement(
                             animationSpec = spring(
                                 stiffness = Spring.StiffnessMediumLow
                             )
                         )
                     )
+                }
+            } else {
+                item {
+                    MissingPrimaryGuardianCard(
+                        canRegisterPrimary = canRegisterPrimary,
+                        onRegisterPrimary = onRegisterPrimary
+                    )
+                }
+            }
+
+            item {
+                SectionHeading(
+                    title = "Backup & temporary guardians",
+                    detail = "Backup and one-day access can be adjusted without changing the protected primary guardian."
+                )
+            }
+
+            if (!uiState.isLoading) {
+                if (additionalGuardians.isEmpty()) {
+                    item {
+                        NoAdditionalGuardiansCard(
+                            hasPrimaryGuardian = hasPrimaryGuardian
+                        )
+                    }
+                } else {
+                    items(
+                        items = additionalGuardians,
+                        key = { it.uid }
+                    ) { row ->
+                        GuardianRowCard(
+                            row = row,
+                            onRemoveClick = {
+                                confirmRemoveRow = row
+                            },
+                            onScheduleClick = {
+                                scheduleRow = row
+                            },
+                            scheduleEnabled =
+                                uiState.guardianSchedulesEnabled,
+                            modifier = Modifier.animateItemPlacement(
+                                animationSpec = spring(
+                                    stiffness = Spring.StiffnessMediumLow
+                                )
+                            )
+                        )
+                    }
                 }
             }
 
@@ -158,53 +206,28 @@ fun ManageGuardiansScreen(
 
                 SectionHeading(
                     title = "Add pickup access",
-                    detail = "Choose permanent backup access or a one-day authorization. Pickup still requires staff verification."
-                )
-            }
-
-            item {
-                AddModePicker(
-                    mode = addMode,
-                    oneDayEnabled =
-                        uiState.temporaryGuardiansEnabled,
-                    onModeChange = { addMode = it }
-                )
-            }
-
-            item {
-                when (addMode) {
-                    GuardianAddMode.PERMANENT -> {
-                        AddGuardianForm(
-                            isSubmitting =
-                                uiState.isSubmitting,
-                            formError =
-                                uiState.formError,
-                            formSuccess =
-                                uiState.formSuccess,
-                            formIsWarning =
-                                uiState.formIsWarning,
-                            onSubmit = {
-                                    lastName,
-                                    firstName,
-                                    mi,
-                                    suffix,
-                                    email,
-                                    relationship ->
-                                viewModel.addGuardian(
-                                    lastName,
-                                    firstName,
-                                    mi,
-                                    suffix,
-                                    email,
-                                    relationship
-                                )
-                            }
-                        )
+                    detail = if (hasPrimaryGuardian) {
+                        "Add a backup guardian or one-day authorization. These roles never replace the primary guardian."
+                    } else {
+                        "Register the primary guardian first. Backup and one-day authorization stays locked until a primary guardian is on record."
                     }
+                )
+            }
 
-                    GuardianAddMode.ONE_DAY -> {
-                        if (uiState.temporaryGuardiansEnabled) {
-                            TemporaryGuardianForm(
+            if (hasPrimaryGuardian) {
+                item {
+                    AddModePicker(
+                        mode = addMode,
+                        oneDayEnabled =
+                            uiState.temporaryGuardiansEnabled,
+                        onModeChange = { addMode = it }
+                    )
+                }
+
+                item {
+                    when (addMode) {
+                        GuardianAddMode.PERMANENT -> {
+                            AddGuardianForm(
                                 isSubmitting =
                                     uiState.isSubmitting,
                                 formError =
@@ -219,23 +242,61 @@ fun ManageGuardiansScreen(
                                         mi,
                                         suffix,
                                         email,
-                                        relationship,
-                                        validDate ->
-                                    viewModel.addTemporaryGuardian(
+                                        relationship ->
+                                    viewModel.addGuardian(
                                         lastName,
                                         firstName,
                                         mi,
                                         suffix,
                                         email,
-                                        relationship,
-                                        validDate
+                                        relationship
                                     )
                                 }
                             )
-                        } else {
-                            FeatureUnavailableCard()
+                        }
+
+                        GuardianAddMode.ONE_DAY -> {
+                            if (uiState.temporaryGuardiansEnabled) {
+                                TemporaryGuardianForm(
+                                    isSubmitting =
+                                        uiState.isSubmitting,
+                                    formError =
+                                        uiState.formError,
+                                    formSuccess =
+                                        uiState.formSuccess,
+                                    formIsWarning =
+                                        uiState.formIsWarning,
+                                    onSubmit = {
+                                            lastName,
+                                            firstName,
+                                            mi,
+                                            suffix,
+                                            email,
+                                            relationship,
+                                            validDate ->
+                                        viewModel.addTemporaryGuardian(
+                                            lastName,
+                                            firstName,
+                                            mi,
+                                            suffix,
+                                            email,
+                                            relationship,
+                                            validDate
+                                        )
+                                    }
+                                )
+                            } else {
+                                FeatureUnavailableCard()
+                            }
                         }
                     }
+                }
+            } else {
+                item {
+                    PrimaryRequiredCard(
+                        canRegisterPrimary = canRegisterPrimary,
+                        onRegisterPrimary = onRegisterPrimary
+                    )
                 }
             }
 
@@ -491,28 +552,148 @@ private fun GuardiansLoadingCard() {
 }
 
 @Composable
-private fun EmptyGuardiansCard() {
+private fun MissingPrimaryGuardianCard(
+    canRegisterPrimary: Boolean,
+    onRegisterPrimary: (() -> Unit)?
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor =
+                MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 1.dp
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(44.dp),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.primary
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Filled.PersonAddAlt1,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(Spacing.md))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "No primary guardian registered",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+
+                Spacer(Modifier.height(2.dp))
+
+                Text(
+                    text = if (canRegisterPrimary) {
+                        "Register the student's accountable guardian before adding backup or one-day pickup access."
+                    } else {
+                        "The school must register the student's accountable primary guardian before additional pickup access can be added."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+
+                if (canRegisterPrimary && onRegisterPrimary != null) {
+                    Spacer(Modifier.height(Spacing.sm))
+                    Button(
+                        onClick = onRegisterPrimary,
+                        modifier = Modifier.heightIn(min = 44.dp)
+                    ) {
+                        Text("Register primary guardian")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoAdditionalGuardiansCard(
+    hasPrimaryGuardian: Boolean
+) {
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large
     ) {
         Column(
-            modifier = Modifier.padding(Spacing.lg)
+            modifier = Modifier.padding(Spacing.md)
         ) {
             Text(
-                text = "No guardians on record",
-                style = MaterialTheme.typography.titleMedium,
+                text = if (hasPrimaryGuardian) {
+                    "No backup or one-day guardians"
+                } else {
+                    "Additional access unavailable"
+                },
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
 
             Spacer(Modifier.height(Spacing.xs))
 
             Text(
-                text = "Add an authorized pickup person below. Primary guardians may also be managed by the school.",
+                text = if (hasPrimaryGuardian) {
+                    "Only the primary guardian is currently authorized. Add backup access below when another person needs pickup permission."
+                } else {
+                    "Register a primary guardian before adding another authorized pickup person."
+                },
                 style = MaterialTheme.typography.bodySmall,
-                color =
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun PrimaryRequiredCard(
+    canRegisterPrimary: Boolean,
+    onRegisterPrimary: (() -> Unit)?
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.md)
+        ) {
+            Text(
+                text = "Primary guardian required",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.ExtraBold
+            )
+
+            Spacer(Modifier.height(Spacing.xs))
+
+            Text(
+                text = "Backup and one-day pickup permissions are secondary authorizations and cannot be created until the student has a primary guardian.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (canRegisterPrimary && onRegisterPrimary != null) {
+                Spacer(Modifier.height(Spacing.sm))
+                OutlinedButton(
+                    onClick = onRegisterPrimary,
+                    modifier = Modifier.heightIn(min = 44.dp)
+                ) {
+                    Text("Register primary guardian")
+                }
+            }
         }
     }
 }
@@ -561,9 +742,9 @@ private fun GuardianRowCard(
                         text =
                             row.profile?.displayName
                                 ?.ifBlank {
-                                    "Pending guardian"
+                                    "Guardian identity unavailable"
                                 }
-                                ?: "Pending guardian",
+                                ?: "Guardian identity unavailable",
                         style =
                             MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
@@ -796,7 +977,7 @@ private fun AddModePicker(
                 )
             },
             label = {
-                Text("Permanent backup")
+                Text("Backup guardian")
             }
         )
 
