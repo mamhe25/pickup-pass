@@ -73,7 +73,7 @@ Document ID = the Firebase Auth UID.
 | Field | Type | Notes |
 |---|---|---|
 | `relationship` | string | free text, e.g. `"parent/guardian"`, `"grandparent"` |
-| `isPrimary` | boolean | set once at creation (via teacher onboarding); can't be changed via the parent-facing API |
+| `isPrimary` | boolean | *(optional on legacy records)* current records set this at guardian creation. If absent on a historical first `guardianUids` relationship, the application preserves that guardian as the legacy primary; explicit `false` is never promoted. |
 | `addedBy` | string | uid of whoever added this guardian |
 | `addedAt` | timestamp | |
 

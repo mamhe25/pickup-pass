@@ -438,7 +438,35 @@ async function load() {
 
 function guardianUids() {
   const guardians = student?.guardians || {};
-  return [...new Set([...(student?.guardianUids || []), ...Object.keys(guardians)])];
+  return [...new Set([
+    ...(student?.guardianUids || []),
+    ...Object.keys(guardians)
+  ])].filter((uid) => typeof uid === "string" && uid.trim());
+}
+
+function primaryGuardianUid() {
+  const guardians = student?.guardians || {};
+  const linkedUids = (student?.guardianUids || [])
+    .filter((uid) => typeof uid === "string" && uid.trim());
+
+  const explicitPrimary = linkedUids.find(
+    (uid) => guardians[uid]?.isPrimary === true
+  );
+  if (explicitPrimary) return explicitPrimary;
+
+  const legacyUid = linkedUids[0] || "";
+  if (!legacyUid) return "";
+
+  const entry = guardians[legacyUid];
+  if (
+    entry &&
+    Object.prototype.hasOwnProperty.call(entry, "isPrimary") &&
+    entry.isPrimary === false
+  ) {
+    return "";
+  }
+
+  return legacyUid;
 }
 
 function applyEntitlements() {
@@ -453,12 +481,18 @@ function applyEntitlements() {
 function renderGuardians() {
   const guardians = student?.guardians || {};
   const uids = guardianUids();
+  const primaryUid = primaryGuardianUid();
 
   const rows = uids.map((uid) => {
-    const entry = guardians[uid] || {};
+    const storedEntry = guardians[uid] || {};
+    const entry = {
+      ...storedEntry,
+      isPrimary: uid === primaryUid
+    };
     return { uid, entry, profile: profiles[uid] || {} };
-  }).sort((a, b) => Number(b.entry.isPrimary) - Number(a.entry.isPrimary));
-
+  }).sort(
+    (a, b) => Number(b.entry.isPrimary) - Number(a.entry.isPrimary)
+  );
   const primaryRows = rows.filter((row) => row.entry.isPrimary);
   const additionalRows = rows.filter((row) => !row.entry.isPrimary);
   const temporary = additionalRows.filter((row) => isTemporary(row.entry)).length;

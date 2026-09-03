@@ -365,9 +365,33 @@ async function getStudentsForSections(sections) {
   return results;
 }
 
+function primaryGuardianUid(student) {
+  const guardians = student?.guardians || {};
+  const linkedUids = (student?.guardianUids || [])
+    .filter((uid) => typeof uid === "string" && uid.trim());
+
+  const explicitPrimary = linkedUids.find(
+    (uid) => guardians[uid]?.isPrimary === true
+  );
+  if (explicitPrimary) return explicitPrimary;
+
+  const legacyUid = linkedUids[0] || "";
+  if (!legacyUid) return "";
+
+  const entry = guardians[legacyUid];
+  if (
+    entry &&
+    Object.prototype.hasOwnProperty.call(entry, "isPrimary") &&
+    entry.isPrimary === false
+  ) {
+    return "";
+  }
+
+  return legacyUid;
+}
+
 function hasPrimaryGuardian(student) {
-  return Object.values(student?.guardians || {})
-    .some((entry) => entry?.isPrimary === true);
+  return Boolean(primaryGuardianUid(student));
 }
 
 function updateMetrics() {

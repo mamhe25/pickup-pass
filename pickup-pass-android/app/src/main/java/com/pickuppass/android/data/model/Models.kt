@@ -23,7 +23,7 @@ data class Student(
 
 data class GuardianEntry(
     val relationship: String = "",
-    val isPrimary: Boolean = false,
+    val isPrimary: Boolean? = null,
     val addedBy: String = "",
     val authorizationType: String = "permanent",
     val validDate: String = "",
@@ -33,6 +33,28 @@ data class GuardianEntry(
     val scheduleStartDate: String = "",
     val scheduleEndDate: String = "",
 )
+
+
+/**
+ * Resolves current and historical primary-guardian state for Android reads.
+ *
+ * A nullable isPrimary preserves the Firestore distinction between a legacy
+ * missing field and an explicit modern false value.
+ */
+fun Student.primaryGuardianUidCompat(): String? {
+    val linkedUids = guardianUids.filter { it.isNotBlank() }
+
+    linkedUids
+        .firstOrNull { uid -> guardians[uid]?.isPrimary == true }
+        ?.let { return it }
+
+    val firstLinked = linkedUids.firstOrNull() ?: return null
+    return if (guardians[firstLinked]?.isPrimary == false) {
+        null
+    } else {
+        firstLinked
+    }
+}
 
 /** Firestore: notifications/{notificationId} */
 data class NotificationItem(

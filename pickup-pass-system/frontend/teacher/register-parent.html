@@ -181,6 +181,30 @@ const primaryExistsCard = document.getElementById("primaryExistsCard");
 const manageGuardiansLink = document.getElementById("manageGuardiansLink");
 manageGuardiansLink.href = `./manage-guardians.html?studentId=${encodeURIComponent(studentId)}`;
 let studentReady = false;
+function primaryGuardianUid(student) {
+  const guardians = student?.guardians || {};
+  const linkedUids = (student?.guardianUids || [])
+    .filter((uid) => typeof uid === "string" && uid.trim());
+
+  const explicitPrimary = linkedUids.find(
+    (uid) => guardians[uid]?.isPrimary === true
+  );
+  if (explicitPrimary) return explicitPrimary;
+
+  const legacyUid = linkedUids[0] || "";
+  if (!legacyUid) return "";
+
+  const entry = guardians[legacyUid];
+  if (
+    entry &&
+    Object.prototype.hasOwnProperty.call(entry, "isPrimary") &&
+    entry.isPrimary === false
+  ) {
+    return "";
+  }
+
+  return legacyUid;
+}
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) return;
@@ -199,8 +223,7 @@ onAuthStateChanged(auth, async (user) => {
     if (student.section) metaParts.push(`Section ${student.section}`);
     studentMeta.textContent = metaParts.join(" · ") || "Student record loaded";
 
-    const guardianEntries = Object.values(student.guardians || {});
-    const hasPrimary = guardianEntries.some((entry) => entry?.isPrimary === true);
+    const hasPrimary = Boolean(primaryGuardianUid(student));
     primaryExistsCard.classList.toggle("hidden", !hasPrimary);
 
     if (hasPrimary) {

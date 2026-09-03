@@ -7,6 +7,7 @@ import com.google.cloud.firestore.Firestore;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.GuardianProvisioningService;
 import com.pickuppass.service.AuditService;
+import com.pickuppass.util.GuardianRelationshipResolver;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -142,17 +143,9 @@ public class TeacherOnboardingController {
         return false;
     }
 
-    @SuppressWarnings("unchecked")
     private boolean hasPrimaryGuardian(DocumentSnapshot studentDoc) {
-        Map<String, Object> guardians = (Map<String, Object>) studentDoc.get("guardians");
-        if (guardians == null || guardians.isEmpty()) return false;
-        for (Object value : guardians.values()) {
-            if (!(value instanceof Map<?, ?> entry)) continue;
-            if (Boolean.TRUE.equals(entry.get("isPrimary"))) return true;
-        }
-        return false;
+        return GuardianRelationshipResolver.hasPrimaryGuardian(studentDoc);
     }
-
     private static String safe(String value) {
         return value == null ? "" : value.trim();
     }

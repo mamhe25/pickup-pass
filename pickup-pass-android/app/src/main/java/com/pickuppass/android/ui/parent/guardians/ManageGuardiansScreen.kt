@@ -75,11 +75,11 @@ fun ManageGuardiansScreen(
 
     val primaryGuardian =
         uiState.guardians.firstOrNull {
-            it.entry.isPrimary
+            it.entry.isPrimary == true
         }
     val additionalGuardians =
         uiState.guardians.filterNot {
-            it.entry.isPrimary
+            it.entry.isPrimary == true
         }
     val hasPrimaryGuardian =
         primaryGuardian != null
@@ -382,7 +382,7 @@ private fun GuardianHero(
     guardians: List<GuardianRow>
 ) {
     val primaryCount =
-        guardians.count { it.entry.isPrimary }
+        guardians.count { it.entry.isPrimary == true }
 
     val oneDayCount =
         guardians.count {
@@ -767,7 +767,7 @@ private fun GuardianRowCard(
                 }
 
                 GuardianTypeBadge(
-                    primary = row.entry.isPrimary,
+                    primary = row.entry.isPrimary == true,
                     temporary = temporary
                 )
             }
@@ -794,7 +794,7 @@ private fun GuardianRowCard(
                 )
             }
 
-            if (!row.entry.isPrimary) {
+            if (row.entry.isPrimary != true) {
                 Spacer(Modifier.height(Spacing.sm))
 
                 Row(

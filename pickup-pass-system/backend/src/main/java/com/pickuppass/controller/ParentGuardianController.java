@@ -9,6 +9,7 @@ import com.pickuppass.service.GuardianProvisioningService;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.SubscriptionFeatureService;
 import com.pickuppass.service.GuardianAuthorizationService;
+import com.pickuppass.util.GuardianRelationshipResolver;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import jakarta.validation.constraints.NotBlank;
@@ -105,25 +106,48 @@ public class ParentGuardianController {
             }
         }
 
+        String primaryGuardianUid =
+                GuardianRelationshipResolver.resolvePrimaryUid(studentSnap);
         List<Map<String, Object>> profiles = new ArrayList<>();
         for (String uid : guardianUids) {
             if (uid == null || uid.isBlank()) continue;
-            DocumentSnapshot user = firestore.collection("users").document(uid).get().get();
-            if (!user.exists() || !actor.getSchoolId().equals(user.getString("schoolId"))) continue;
-
-            String displayName = safe(user.getString("displayName"));
-            String email = safe(user.getString("email"));
-            if (displayName.isBlank()) displayName = email;
 
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("uid", uid);
+            item.put("isPrimary", uid.equals(primaryGuardianUid));
+
+            String displayName = "";
+            String photoUrl = "";
+            boolean identityAvailable = false;
+
+            DocumentSnapshot user =
+                    firestore.collection("users").document(uid).get().get();
+            if (user.exists()) {
+                String profileSchoolId = safe(user.getString("schoolId"));
+                boolean linkedLegacyProfile =
+                        storedGuardianUids != null
+                                && storedGuardianUids.contains(uid)
+                                && profileSchoolId.isBlank();
+                boolean sameSchoolProfile =
+                        actor.getSchoolId().equals(profileSchoolId);
+
+                if (sameSchoolProfile || linkedLegacyProfile) {
+                    displayName = safe(user.getString("displayName"));
+                    String email = safe(user.getString("email"));
+                    if (displayName.isBlank()) displayName = email;
+                    photoUrl = safe(user.getString("photoUrl"));
+                    identityAvailable =
+                            !displayName.isBlank() || !photoUrl.isBlank();
+                }
+            }
+
             item.put("displayName", displayName);
-            item.put("photoUrl", safe(user.getString("photoUrl")));
+            item.put("photoUrl", photoUrl);
+            item.put("identityAvailable", identityAvailable);
             profiles.add(item);
         }
         return ResponseEntity.ok(Map.of("guardians", profiles));
     }
-
     @PostMapping("/add-guardian")
     @PreAuthorize("hasAnyRole('parent', 'teacher', 'school_admin')")
     @SuppressWarnings("unchecked")
@@ -415,18 +439,29 @@ public class ParentGuardianController {
                 parent,
                 "Temporary guardians cannot manage other guardians");
 
-        Map<String, Object> guardians = (Map<String, Object>) studentSnap.get("guardians");
+        Map<String, Object> guardians =
+                (Map<String, Object>) studentSnap.get("guardians");
         Map<String, Object> target = guardians != null
-                ? (Map<String, Object>) guardians.get(req.getGuardianUid()) : null;
+                ? (Map<String, Object>) guardians.get(req.getGuardianUid())
+                : null;
 
-        if (target == null) {
-            throw new NotFoundException("That guardian is not linked to this student");
-        }
-        if (Boolean.TRUE.equals(target.get("isPrimary"))) {
+        String primaryGuardianUid =
+                GuardianRelationshipResolver.resolvePrimaryUid(studentSnap);
+        if (primaryGuardianUid != null
+                && primaryGuardianUid.equals(req.getGuardianUid())) {
             return ResponseEntity.status(400).body(
-                    Map.of("error", "The primary guardian can't be removed here — contact the school office"));
+                    Map.of(
+                            "error",
+                            "The primary guardian can't be removed here — contact the school office"));
         }
 
+        boolean linkedInGuardianUids =
+                guardianUids != null
+                        && guardianUids.contains(req.getGuardianUid());
+        if (target == null && !linkedInGuardianUids) {
+            throw new NotFoundException(
+                    "That guardian is not linked to this student");
+        }
         studentRef.update(
                 "guardianUids", FieldValue.arrayRemove(req.getGuardianUid()),
                 "guardians." + req.getGuardianUid(), FieldValue.delete()
@@ -487,17 +522,9 @@ public class ParentGuardianController {
         if (decision.temporary()) throw new ForbiddenException(temporaryGuardianMessage);
     }
 
-    @SuppressWarnings("unchecked")
     private boolean hasPrimaryGuardian(DocumentSnapshot studentSnap) {
-        Map<String, Object> guardians = (Map<String, Object>) studentSnap.get("guardians");
-        if (guardians == null || guardians.isEmpty()) return false;
-        for (Object value : guardians.values()) {
-            if (!(value instanceof Map<?, ?> entry)) continue;
-            if (Boolean.TRUE.equals(entry.get("isPrimary"))) return true;
-        }
-        return false;
+        return GuardianRelationshipResolver.hasPrimaryGuardian(studentSnap);
     }
-
     private static String safe(String value) {
         return value == null ? "" : value.trim();
     }

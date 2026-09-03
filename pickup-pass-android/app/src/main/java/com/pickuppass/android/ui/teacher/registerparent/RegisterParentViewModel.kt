@@ -2,6 +2,7 @@ package com.pickuppass.android.ui.teacher.registerparent
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pickuppass.android.data.model.primaryGuardianUidCompat
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.StudentRepository
 import com.pickuppass.android.data.repository.TeacherRepository
@@ -35,7 +36,7 @@ class RegisterParentViewModel @Inject constructor(
                 if (student != null) {
                     _uiState.value = _uiState.value.copy(
                         studentLabel = "${student.fullName} · Grade ${student.grade.ifBlank { "-" }}",
-                        hasPrimaryGuardian = student.guardians.values.any { it.isPrimary },
+                        hasPrimaryGuardian = student.primaryGuardianUidCompat() != null,
                         error = null
                     )
                 }

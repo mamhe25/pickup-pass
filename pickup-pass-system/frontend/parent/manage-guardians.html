@@ -466,6 +466,31 @@ async function load() {
   render();
 }
 
+function primaryGuardianUid() {
+  const guardians = student?.guardians || {};
+  const linkedUids = (student?.guardianUids || [])
+    .filter((uid) => typeof uid === "string" && uid.trim());
+
+  const explicitPrimary = linkedUids.find(
+    (uid) => guardians[uid]?.isPrimary === true
+  );
+  if (explicitPrimary) return explicitPrimary;
+
+  const legacyUid = linkedUids[0] || "";
+  if (!legacyUid) return "";
+
+  const entry = guardians[legacyUid];
+  if (
+    entry &&
+    Object.prototype.hasOwnProperty.call(entry, "isPrimary") &&
+    entry.isPrimary === false
+  ) {
+    return "";
+  }
+
+  return legacyUid;
+}
+
 function render() {
   const guardians =
     student.guardians || {};
@@ -477,13 +502,19 @@ function render() {
     ])
   ];
 
+  const primaryUid = primaryGuardianUid();
   const records =
-    uids.map((uid) => ({
-      uid,
-      entry: guardians[uid] || {},
-      profile: profiles[uid] || {}
-    }));
-
+    uids.map((uid) => {
+      const storedEntry = guardians[uid] || {};
+      return {
+        uid,
+        entry: {
+          ...storedEntry,
+          isPrimary: uid === primaryUid
+        },
+        profile: profiles[uid] || {}
+      };
+    });
   setCounts(records);
 
   ui.guardianList.innerHTML =

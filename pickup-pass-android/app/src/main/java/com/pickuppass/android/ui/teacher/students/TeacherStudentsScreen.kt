@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.Student
+import com.pickuppass.android.data.model.primaryGuardianUidCompat
 import com.pickuppass.android.ui.common.BrandedTitle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
@@ -1048,10 +1049,7 @@ private fun CompactStudentRow(
 private fun hasPrimaryGuardian(
     student: Student
 ): Boolean =
-    student.guardians.values.any {
-        it.isPrimary
-    }
-
+    student.primaryGuardianUidCompat() != null
 @Composable
 private fun StudentAvatar(
     student: Student

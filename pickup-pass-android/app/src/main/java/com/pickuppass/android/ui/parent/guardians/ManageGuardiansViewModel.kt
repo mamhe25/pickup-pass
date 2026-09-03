@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pickuppass.android.data.model.GuardianEntry
 import com.pickuppass.android.data.model.UserProfile
+import com.pickuppass.android.data.model.primaryGuardianUidCompat
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.GuardianRepository
 import com.pickuppass.android.data.repository.StudentRepository
@@ -71,10 +72,25 @@ class ManageGuardiansViewModel @Inject constructor(
                 is ApiResult.Failure ->
                     "Guardian identity details could not be loaded. Pickup permissions are still shown, but names and photos may be unavailable."
             }
-            val rows = student.guardians.map { (uid, entry) ->
-                GuardianRow(uid, entry, profileMap[uid])
-            }.sortedByDescending { it.entry.isPrimary }
+            val primaryUid = student.primaryGuardianUidCompat()
+            val linkedGuardianUids =
+                (student.guardianUids + student.guardians.keys)
+                    .filter { it.isNotBlank() }
+                    .distinct()
 
+            val rows = linkedGuardianUids.map { uid ->
+                val storedEntry =
+                    student.guardians[uid] ?: GuardianEntry()
+                val normalizedEntry =
+                    storedEntry.copy(isPrimary = uid == primaryUid)
+                GuardianRow(
+                    uid = uid,
+                    entry = normalizedEntry,
+                    profile = profileMap[uid]
+                )
+            }.sortedByDescending {
+                it.entry.isPrimary == true
+            }
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 studentName = "${student.fullName} · Grade ${student.grade}",
