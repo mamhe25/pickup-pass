@@ -81,13 +81,20 @@ fun ScannerScreen(
         if (signedOut) onSignOut()
     }
 
+    val screenTitle = when (uiState) {
+        is ScannerUiState.Verifying -> "Verifying Pass"
+        is ScannerUiState.Verified -> "Verify Release"
+        is ScannerUiState.Approved -> "Release Complete"
+        else -> "Dismissal Scanner"
+    }
+
     Scaffold(
         containerColor = Gray900,
         topBar = {
             TopAppBar(
                 title = {
                     BrandedTitle(
-                        "Dismissal Scanner",
+                        screenTitle,
                         school,
                         titleColor = Color.White,
                         subtitleColor = Gray400
@@ -97,70 +104,72 @@ fun ScannerScreen(
                     containerColor = Gray900
                 ),
                 actions = {
-                    IconButton(onClick = onGoToStudents) {
-                        Icon(
-                            Icons.Filled.People,
-                            contentDescription = "Students",
-                            tint = Color.White
-                        )
-                    }
-                    IconButton(onClick = onGoToExitLogs) {
-                        Icon(
-                            Icons.Filled.History,
-                            contentDescription = "Dismissal History",
-                            tint = Color.White
-                        )
-                    }
+                    if (uiState is ScannerUiState.Scanning) {
+                        IconButton(onClick = onGoToStudents) {
+                            Icon(
+                                Icons.Filled.People,
+                                contentDescription = "Students",
+                                tint = Color.White
+                            )
+                        }
+                        IconButton(onClick = onGoToExitLogs) {
+                            Icon(
+                                Icons.Filled.History,
+                                contentDescription = "Dismissal History",
+                                tint = Color.White
+                            )
+                        }
 
-                    var menuExpanded by remember { mutableStateOf(false) }
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(
-                            Icons.Filled.MoreVert,
-                            contentDescription = "More",
-                            tint = Color.White
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Notifications") },
-                            leadingIcon = {
-                                Icon(Icons.Filled.Notifications, contentDescription = null)
-                            },
-                            onClick = {
-                                menuExpanded = false
-                                onGoToNotifications()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Pickup Operations") },
-                            leadingIcon = {
-                                Icon(Icons.Filled.Settings, contentDescription = null)
-                            },
-                            onClick = {
-                                menuExpanded = false
-                                onGoToOperations()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Send Announcement") },
-                            leadingIcon = {
-                                Icon(Icons.Filled.Campaign, contentDescription = null)
-                            },
-                            onClick = {
-                                menuExpanded = false
-                                onGoToBroadcast()
-                            }
-                        )
-                    }
-                    IconButton(onClick = viewModel::signOut) {
-                        Icon(
-                            Icons.Filled.Logout,
-                            contentDescription = "Sign out",
-                            tint = Color.White
-                        )
+                        var menuExpanded by remember { mutableStateOf(false) }
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(
+                                Icons.Filled.MoreVert,
+                                contentDescription = "More",
+                                tint = Color.White
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Notifications") },
+                                leadingIcon = {
+                                    Icon(Icons.Filled.Notifications, contentDescription = null)
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onGoToNotifications()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Pickup Operations") },
+                                leadingIcon = {
+                                    Icon(Icons.Filled.Settings, contentDescription = null)
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onGoToOperations()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Send Announcement") },
+                                leadingIcon = {
+                                    Icon(Icons.Filled.Campaign, contentDescription = null)
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onGoToBroadcast()
+                                }
+                            )
+                        }
+                        IconButton(onClick = viewModel::signOut) {
+                            Icon(
+                                Icons.Filled.Logout,
+                                contentDescription = "Sign out",
+                                tint = Color.White
+                            )
+                        }
                     }
                 }
             )
@@ -215,51 +224,98 @@ private fun ScanAndVerifyContent(
             gateError == null &&
             (pickupGates.isEmpty() || selectedPickupGate != null)
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        QrScannerView(
-            paused = uiState !is ScannerUiState.Scanning || !gateReady,
-            onQrDetected = viewModel::onQrCodeScanned
-        )
+    when (uiState) {
+        is ScannerUiState.Scanning -> {
+            Box(modifier = Modifier.fillMaxSize()) {
+                QrScannerView(
+                    paused = !gateReady,
+                    onQrDetected = viewModel::onQrCodeScanned
+                )
 
-        ScannerTopChrome(
-            gates = pickupGates,
-            selected = selectedPickupGate,
-            loading = gateLoading,
-            error = gateError,
-            onSelect = viewModel::selectPickupGate,
-            onRetry = viewModel::loadPickupGates,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
+                ScannerTopChrome(
+                    gates = pickupGates,
+                    selected = selectedPickupGate,
+                    loading = gateLoading,
+                    error = gateError,
+                    onSelect = viewModel::selectPickupGate,
+                    onRetry = viewModel::loadPickupGates,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
 
-        when (uiState) {
-            is ScannerUiState.Scanning -> {
                 ScanningOverlay(
                     gateReady = gateReady,
                     selectedGateLabel = selectedPickupGate?.displayName.orEmpty(),
                     hasConfiguredGates = pickupGates.isNotEmpty()
                 )
             }
+        }
 
-            is ScannerUiState.Verifying -> RequestOverlay("Verifying pass…")
+        is ScannerUiState.Verifying -> {
+            VerificationProgressContent()
+        }
 
-            is ScannerUiState.Verified -> {
-                VerifiedPanel(
-                    state = uiState,
-                    viewModel = viewModel
+        is ScannerUiState.Verified -> {
+            VerifiedReviewContent(
+                state = uiState,
+                selectedPickupGate = selectedPickupGate,
+                viewModel = viewModel
+            )
+            if (uiState.isApproving) {
+                RequestOverlay("Recording release…")
+            }
+        }
+
+        is ScannerUiState.Error -> {
+            ErrorPanel(
+                message = uiState.message,
+                onDismiss = viewModel::resetToScanning
+            )
+        }
+
+        is ScannerUiState.Approved -> Unit
+    }
+}
+
+@Composable
+private fun VerificationProgressContent() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Gray900),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.md, vertical = Spacing.lg),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = Gray800,
+            shadowElevation = 8.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(Spacing.md),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(28.dp),
+                    strokeWidth = 3.dp,
+                    color = MaterialTheme.colorScheme.secondary
                 )
-                if (uiState.isApproving) {
-                    RequestOverlay("Approving release…")
+                Spacer(Modifier.width(Spacing.md))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Checking pickup pass",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = "Confirming pass validity and guardian authorization…",
+                        color = Gray300,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
-
-            is ScannerUiState.Error -> {
-                ErrorPanel(
-                    message = uiState.message,
-                    onDismiss = viewModel::resetToScanning
-                )
-            }
-
-            is ScannerUiState.Approved -> Unit
         }
     }
 }
@@ -560,95 +616,91 @@ private fun RequestOverlay(message: String) {
 }
 
 @Composable
-private fun BoxScope.VerifiedPanel(
+private fun VerifiedReviewContent(
     state: ScannerUiState.Verified,
+    selectedPickupGate: PickupGateItem?,
     viewModel: ScannerViewModel
 ) {
     var showGuardianPhoto by remember(state.guardian.photoUrl) {
         mutableStateOf(false)
     }
 
-    Surface(
+    Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .align(Alignment.BottomCenter),
-        color = Gray800,
-        shape = MaterialTheme.shapes.extraLarge,
-        shadowElevation = 18.dp
+            .fillMaxSize()
+            .background(Gray900)
+            .navigationBarsPadding()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        Column(
+        VerificationHeader(selectedPickupGate)
+        Spacer(Modifier.height(10.dp))
+
+        GuardianIdentityCard(
+            state = state,
+            onPhotoClick = { showGuardianPhoto = true }
+        )
+
+        Spacer(Modifier.height(8.dp))
+        StudentIdentityCard(state)
+
+        if (!state.guardianPhotoReady) {
+            Spacer(Modifier.height(8.dp))
+            MissingPhotoNotice()
+        }
+
+        Spacer(Modifier.weight(1f))
+
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .padding(top = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            VerifyHeader()
-            Spacer(Modifier.height(10.dp))
-
-            GuardianIdentityCard(
-                state = state,
-                onPhotoClick = { showGuardianPhoto = true }
-            )
-
-            Spacer(Modifier.height(8.dp))
-            StudentIdentityCard(state)
-
-            if (!state.guardianPhotoReady) {
-                Spacer(Modifier.height(8.dp))
-                MissingPhotoNotice()
+            OutlinedButton(
+                onClick = viewModel::resetToScanning,
+                enabled = !state.isApproving,
+                modifier = Modifier
+                    .weight(0.38f)
+                    .heightIn(min = 48.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Gray300
+                )
+            ) {
+                Text(
+                    "Cancel",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
             }
 
-            Spacer(Modifier.height(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Button(
+                onClick = viewModel::approveRelease,
+                enabled = state.guardianPhotoReady && !state.isApproving,
+                modifier = Modifier
+                    .weight(0.62f)
+                    .heightIn(min = 48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary
+                )
             ) {
-                OutlinedButton(
-                    onClick = viewModel::resetToScanning,
-                    enabled = !state.isApproving,
-                    modifier = Modifier
-                        .weight(0.38f)
-                        .heightIn(min = 48.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Gray300
-                    )
-                ) {
-                    Text(
-                        "Cancel",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Button(
-                    onClick = viewModel::approveRelease,
-                    enabled = state.guardianPhotoReady && !state.isApproving,
-                    modifier = Modifier
-                        .weight(0.62f)
-                        .heightIn(min = 48.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondary,
-                        contentColor = MaterialTheme.colorScheme.onSecondary
-                    )
-                ) {
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(7.dp))
-                    Text(
-                        text = if (state.guardianPhotoReady) {
-                            "Release student"
-                        } else {
-                            "Release blocked"
-                        },
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        maxLines = 1
-                    )
-                }
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    text = if (state.guardianPhotoReady) {
+                        "Release student"
+                    } else {
+                        "Release blocked"
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1
+                )
             }
         }
     }
@@ -663,44 +715,68 @@ private fun BoxScope.VerifiedPanel(
 }
 
 @Composable
-private fun VerifyHeader() {
-    Row(
+private fun VerificationHeader(selectedPickupGate: PickupGateItem?) {
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+        shape = MaterialTheme.shapes.large,
+        color = Color.White.copy(alpha = 0.055f),
+        tonalElevation = 0.dp
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "Verify guardian",
-                color = Color.White,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.ExtraBold
-            )
-            Text(
-                text = "Match the photo with the person present.",
-                color = Gray300,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f)
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(Modifier.width(5.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Confirm guardian",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = "Match the photo to the person present.",
+                        color = Gray300,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            text = "QR VERIFIED",
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+            }
+
+            selectedPickupGate?.let { gate ->
+                Spacer(Modifier.height(7.dp))
                 Text(
-                    text = "QR VERIFIED",
-                    color = MaterialTheme.colorScheme.secondary,
+                    text = "Release at ${gate.displayName}",
+                    color = Gray400,
                     style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.ExtraBold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -1033,26 +1109,121 @@ private fun GuardianPhotoPreviewDialog(
     }
 }
 
+private data class ScanErrorPresentation(
+    val eyebrow: String,
+    val title: String,
+    val detail: String,
+    val guidance: String
+)
+
+private fun scanErrorPresentation(message: String): ScanErrorPresentation {
+    val normalized = message.lowercase()
+    return when {
+        normalized.contains("already been dismissed today") -> {
+            ScanErrorPresentation(
+                eyebrow = "RELEASE ALREADY RECORDED",
+                title = "Student already released",
+                detail = "This student has already been dismissed today. No additional release is allowed.",
+                guidance = "Check Dismissal History if you need to confirm the earlier release."
+            )
+        }
+
+        normalized.contains("already used") ||
+            normalized.contains("superseded") ||
+            normalized.contains("replaced") -> {
+            ScanErrorPresentation(
+                eyebrow = "PASS NO LONGER ACTIVE",
+                title = "Pass already used",
+                detail = "This pickup pass has already been used or replaced by a newer pass.",
+                guidance = "If the student was already released, do not release them again. Otherwise ask for the latest active pass."
+            )
+        }
+
+        normalized.contains("expired") ||
+            normalized.contains("dismissal window") -> {
+            ScanErrorPresentation(
+                eyebrow = "PASS EXPIRED",
+                title = "Pickup pass expired",
+                detail = "This pass is outside its allowed pickup window and can no longer be used.",
+                guidance = "Ask the guardian to present a current active pickup pass."
+            )
+        }
+
+        normalized.contains("does not belong to this school") -> {
+            ScanErrorPresentation(
+                eyebrow = "WRONG SCHOOL",
+                title = "Pass not valid here",
+                detail = "This pickup pass belongs to a different school.",
+                guidance = "Confirm the student and school before scanning another pass."
+            )
+        }
+
+        normalized.contains("unknown or revoked") ||
+            normalized.contains("revoked token") -> {
+            ScanErrorPresentation(
+                eyebrow = "PASS REVOKED",
+                title = "Pass is no longer valid",
+                detail = "This pickup pass has been revoked and cannot authorize a release.",
+                guidance = "Ask the guardian to present a new active pass."
+            )
+        }
+
+        normalized.contains("guardian") &&
+            (normalized.contains("not authorized") ||
+                normalized.contains("suspended") ||
+                normalized.contains("revoked")) -> {
+            ScanErrorPresentation(
+                eyebrow = "GUARDIAN NOT AUTHORIZED",
+                title = "Release blocked",
+                detail = message,
+                guidance = "Do not release the student. Follow the school's identity-verification process."
+            )
+        }
+
+        normalized.contains("timeout") ||
+            normalized.contains("network") ||
+            normalized.contains("reachable") ||
+            normalized.contains("could not verify qr code") -> {
+            ScanErrorPresentation(
+                eyebrow = "VERIFICATION UNAVAILABLE",
+                title = "Could not verify pass",
+                detail = "PickupPass could not confirm this pass right now.",
+                guidance = "Check connectivity and try again. Keep the student with staff until verification succeeds."
+            )
+        }
+
+        else -> {
+            ScanErrorPresentation(
+                eyebrow = "PASS NOT VERIFIED",
+                title = "Release blocked",
+                detail = message,
+                guidance = "Do not release the student until the pass and guardian are verified."
+            )
+        }
+    }
+}
+
 @Composable
 private fun ErrorPanel(
     message: String,
     onDismiss: () -> Unit
 ) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            dismissOnClickOutside = false,
-            usePlatformDefaultWidth = false
-        )
+    val presentation = remember(message) { scanErrorPresentation(message) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Gray900),
+        contentAlignment = Alignment.TopCenter
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = Spacing.md),
+                .padding(horizontal = Spacing.md, vertical = Spacing.lg),
             shape = MaterialTheme.shapes.extraLarge,
-            color = Gray900,
+            color = Gray800,
             tonalElevation = 0.dp,
-            shadowElevation = 24.dp
+            shadowElevation = 12.dp
         ) {
             Column(modifier = Modifier.padding(Spacing.lg)) {
                 Row(
@@ -1060,7 +1231,7 @@ private fun ErrorPanel(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
-                        modifier = Modifier.size(48.dp),
+                        modifier = Modifier.size(46.dp),
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.error.copy(alpha = 0.14f)
                     ) {
@@ -1069,20 +1240,20 @@ private fun ErrorPanel(
                                 Icons.Filled.Security,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(25.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
                     Spacer(Modifier.width(Spacing.md))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "PASS NOT VERIFIED",
+                            text = presentation.eyebrow,
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.ExtraBold
                         )
                         Text(
-                            text = "Release blocked",
+                            text = presentation.title,
                             color = Color.White,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold
@@ -1091,36 +1262,36 @@ private fun ErrorPanel(
                 }
 
                 Spacer(Modifier.height(Spacing.md))
+                Text(
+                    text = presentation.detail,
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Spacer(Modifier.height(Spacing.sm))
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.10f)
+                    color = Color.White.copy(alpha = 0.055f)
                 ) {
-                    Text(
-                        text = message,
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(Spacing.md)
-                    )
-                }
-
-                Spacer(Modifier.height(Spacing.sm))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        Icons.Filled.VerifiedUser,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "Do not release the student until identity is verified.",
-                        color = Gray300,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.History,
+                            contentDescription = null,
+                            tint = Gray300,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = presentation.guidance,
+                            color = Gray300,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(Spacing.md))
@@ -1135,7 +1306,7 @@ private fun ErrorPanel(
                     )
                 ) {
                     Text(
-                        "Scan again",
+                        "Back to scanner",
                         fontWeight = FontWeight.ExtraBold
                     )
                 }
