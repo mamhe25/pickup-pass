@@ -438,6 +438,15 @@ fun PickupPassNavHost(
                                 studentId
                             )
                     )
+                },
+                onManageGuardians = {
+                        studentId ->
+                    navController.navigate(
+                        Screen.TeacherManageGuardians
+                            .createRoute(
+                                studentId
+                            )
+                    )
                 }
             )
         }
@@ -465,6 +474,37 @@ fun PickupPassNavHost(
                     .orEmpty()
 
             RegisterParentScreen(
+                studentId = studentId,
+                onBack = {
+                    navController
+                        .popBackStack()
+                }
+            )
+        }
+
+        composable(
+            route =
+                Screen.TeacherManageGuardians.route,
+            arguments =
+                listOf(
+                    navArgument(
+                        "studentId"
+                    ) {
+                        type =
+                            NavType.StringType
+                    }
+                )
+        ) {
+                backStackEntry ->
+            val studentId =
+                backStackEntry
+                    .arguments
+                    ?.getString(
+                        "studentId"
+                    )
+                    .orEmpty()
+
+            ManageGuardiansScreen(
                 studentId = studentId,
                 onBack = {
                     navController

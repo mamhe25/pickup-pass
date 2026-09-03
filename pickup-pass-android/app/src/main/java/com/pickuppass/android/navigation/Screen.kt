@@ -63,6 +63,16 @@ sealed class Screen(
             "teacher/register-parent/$studentId"
     }
 
+    data object TeacherManageGuardians :
+        Screen(
+            "teacher/guardians/{studentId}"
+        ) {
+        fun createRoute(
+            studentId: String
+        ) =
+            "teacher/guardians/$studentId"
+    }
+
     data object TeacherExitLogs :
         Screen("teacher/exit-logs")
 

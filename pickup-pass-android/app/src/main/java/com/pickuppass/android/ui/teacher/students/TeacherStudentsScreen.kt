@@ -44,7 +44,8 @@ fun TeacherStudentsScreen(
     viewModel: TeacherStudentsViewModel = hiltViewModel(),
     onBack: () -> Unit,
     onGoToExitLogs: () -> Unit,
-    onRegisterParent: (studentId: String) -> Unit
+    onRegisterParent: (studentId: String) -> Unit,
+    onManageGuardians: (studentId: String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -323,7 +324,9 @@ fun TeacherStudentsScreen(
                                                     }
                                                 },
                                                 onRegisterParent =
-                                                    onRegisterParent
+                                                    onRegisterParent,
+                                                onManageGuardians =
+                                                    onManageGuardians
                                             )
                                         }
                                     }
@@ -532,7 +535,8 @@ private fun GradeAccordion(
         sectionKey: String,
         isExpanded: Boolean
     ) -> Unit,
-    onRegisterParent: (String) -> Unit
+    onRegisterParent: (String) -> Unit,
+    onManageGuardians: (String) -> Unit
 ) {
     val studentCount =
         sections.sumOf {
@@ -716,7 +720,9 @@ private fun GradeAccordion(
                             )
                         },
                         onRegisterParent =
-                            onRegisterParent
+                            onRegisterParent,
+                        onManageGuardians =
+                            onManageGuardians
                     )
                 }
             }
@@ -731,7 +737,8 @@ private fun SectionAccordion(
     expanded: Boolean,
     searchActive: Boolean,
     onToggle: () -> Unit,
-    onRegisterParent: (String) -> Unit
+    onRegisterParent: (String) -> Unit,
+    onManageGuardians: (String) -> Unit
 ) {
     val readyCount =
         students.count {
@@ -877,6 +884,11 @@ private fun SectionAccordion(
                                     onRegisterParent(
                                         student.id
                                     )
+                                },
+                                onManageGuardians = {
+                                    onManageGuardians(
+                                        student.id
+                                    )
                                 }
                             )
 
@@ -906,7 +918,8 @@ private fun SectionAccordion(
 @Composable
 private fun CompactStudentRow(
     student: Student,
-    onRegisterParent: () -> Unit
+    onRegisterParent: () -> Unit,
+    onManageGuardians: () -> Unit
 ) {
     val guardianCount =
         student.guardianUids.size
@@ -999,7 +1012,13 @@ private fun CompactStudentRow(
         }
 
         TextButton(
-            onClick = onRegisterParent,
+            onClick = {
+                if (guardianCount > 0) {
+                    onManageGuardians()
+                } else {
+                    onRegisterParent()
+                }
+            },
             contentPadding =
                 PaddingValues(
                     horizontal = 8.dp
@@ -1010,7 +1029,7 @@ private fun CompactStudentRow(
             Text(
                 text =
                     if (guardianCount > 0) {
-                        "Add guardian"
+                        "Manage"
                     } else {
                         "Register"
                     },
