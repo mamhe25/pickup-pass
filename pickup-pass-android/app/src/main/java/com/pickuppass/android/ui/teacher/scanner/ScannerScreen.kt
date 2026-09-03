@@ -2,9 +2,15 @@ package com.pickuppass.android.ui.teacher.scanner
 
 import android.Manifest
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
@@ -278,43 +284,82 @@ private fun ScanAndVerifyContent(
 
 @Composable
 private fun VerificationProgressContent() {
+    val scanTransition = rememberInfiniteTransition(label = "pickupPassScan")
+    val scanProgress by scanTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 720),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "scanProgress"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Gray900),
-        contentAlignment = Alignment.TopCenter
+            .background(Gray900)
+            .padding(horizontal = Spacing.md, vertical = Spacing.lg),
+        contentAlignment = Alignment.Center
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = Spacing.md, vertical = Spacing.lg),
+                .widthIn(max = 460.dp),
             shape = MaterialTheme.shapes.extraLarge,
             color = Gray800,
-            shadowElevation = 8.dp
+            tonalElevation = 0.dp,
+            shadowElevation = 14.dp
         ) {
-            Row(
-                modifier = Modifier.padding(Spacing.md),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.padding(horizontal = Spacing.lg, vertical = 22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(28.dp),
-                    strokeWidth = 3.dp,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                Spacer(Modifier.width(Spacing.md))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Checking pickup pass",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold
+                Box(
+                    modifier = Modifier
+                        .size(76.dp)
+                        .clip(MaterialTheme.shapes.large)
+                        .background(Color.White.copy(alpha = 0.045f))
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.48f),
+                            shape = MaterialTheme.shapes.large
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.Security,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.80f),
+                        modifier = Modifier.size(30.dp)
                     )
-                    Text(
-                        text = "Confirming pass validity and guardian authorization…",
-                        color = Gray300,
-                        style = MaterialTheme.typography.bodySmall
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .offset(y = (8f + (52f * scanProgress)).dp)
+                            .width(56.dp)
+                            .height(2.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.secondary)
                     )
                 }
+
+                Spacer(Modifier.height(Spacing.md))
+                Text(
+                    text = "Checking pickup pass",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Verifying pass and guardian authorization…",
+                    color = Gray300,
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
@@ -1246,13 +1291,14 @@ private fun ErrorPanel(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Gray900),
-        contentAlignment = Alignment.TopCenter
+            .background(Gray900)
+            .padding(horizontal = Spacing.md, vertical = Spacing.lg),
+        contentAlignment = Alignment.Center
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = Spacing.md, vertical = Spacing.lg),
+                .widthIn(max = 560.dp),
             shape = MaterialTheme.shapes.extraLarge,
             color = Gray800,
             tonalElevation = 0.dp,
