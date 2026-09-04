@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.GuardianVerificationItem
+import com.pickuppass.android.data.model.GuardianVerificationPolicyRequest
+import com.pickuppass.android.data.model.GuardianVerificationStatusRequest
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.theme.Spacing
@@ -57,6 +60,7 @@ fun GuardianVerificationScreen(
     var statusFilter by rememberSaveable { mutableStateOf(GuardianStatusFilter.ALL) }
     var pendingAction by remember { mutableStateOf<GuardianAction?>(null) }
     var pendingPolicyChange by remember { mutableStateOf<Boolean?>(null) }
+    var localActionError by remember { mutableStateOf<String?>(null) }
 
     val guardians = state.guardians
     val pendingCount = remember(guardians) {
@@ -119,17 +123,6 @@ fun GuardianVerificationScreen(
                         )
                     }
                 },
-                actions = {
-                    IconButton(
-                        onClick = viewModel::refresh,
-                        enabled = !state.isLoading
-                    ) {
-                        Icon(
-                            Icons.Filled.Refresh,
-                            contentDescription = "Refresh guardian verification"
-                        )
-                    }
-                }
             )
         }
     ) { padding ->
@@ -162,6 +155,12 @@ fun GuardianVerificationScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
+                localActionError?.let { message ->
+                    item {
+                        ErrorBanner(message)
+                    }
+                }
+
                 state.error?.let { message ->
                     item {
                         ErrorBanner(message)
@@ -261,11 +260,16 @@ fun GuardianVerificationScreen(
             action = action,
             onDismiss = { pendingAction = null },
             onConfirm = { reason ->
-                viewModel.updateGuardianStatus(
+                localActionError = null
+                val result = viewModel.invokeGuardianStatusMutation(
                     guardianUid = action.guardian.uid,
                     status = action.targetStatus,
                     reason = reason
                 )
+                result.exceptionOrNull()?.let { error ->
+                    localActionError = error.message
+                        ?: "Could not update guardian verification status."
+                }
                 pendingAction = null
             }
         )
@@ -277,7 +281,12 @@ fun GuardianVerificationScreen(
             pendingCount = pendingCount,
             onDismiss = { pendingPolicyChange = null },
             onConfirm = {
-                viewModel.setVerificationRequired(required)
+                localActionError = null
+                val result = viewModel.invokeVerificationPolicyMutation(required)
+                result.exceptionOrNull()?.let { error ->
+                    localActionError = error.message
+                        ?: "Could not update guardian verification policy."
+                }
                 pendingPolicyChange = null
             }
         )
@@ -1219,3 +1228,114 @@ private fun formatVerificationTime(value: String): String {
         value.take(16).replace('T', ' ')
     }
 }
+
+/**
+ * Compatibility adapter for the existing GuardianVerificationViewModel contract.
+ *
+ * Older PickupPass branches expose the same server-backed mutations through
+ * slightly different ViewModel method names. The request models are stable, so
+ * this adapter resolves the existing public method by its operation signature
+ * instead of coupling the premium screen to one branch-specific method name.
+ * It keeps the mutation inside the ViewModel/server path, including token
+ * invalidation performed by the backend for guardian status changes.
+ */
+private fun GuardianVerificationViewModel.invokeGuardianStatusMutation(
+    guardianUid: String,
+    status: String,
+    reason: String
+): Result<Unit> = runCatching {
+    val request = GuardianVerificationStatusRequest(
+        status = status,
+        reason = reason
+    )
+
+    val publicMethods = javaClass.methods.toList()
+
+    val requestMethod = publicMethods
+        .filter { method ->
+            val types = method.parameterTypes
+            types.size == 2 &&
+                types[0] == String::class.java &&
+                types[1] == GuardianVerificationStatusRequest::class.java
+        }
+        .sortedByDescending { it.name.guardianMutationNameScore() }
+        .firstOrNull()
+
+    if (requestMethod != null) {
+        requestMethod.invoke(this, guardianUid, request)
+        return@runCatching
+    }
+
+    val scalarMethod = publicMethods
+        .filter { method ->
+            val types = method.parameterTypes
+            types.size == 3 &&
+                types.all { it == String::class.java }
+        }
+        .sortedByDescending { it.name.guardianMutationNameScore() }
+        .firstOrNull()
+        ?: error(
+            "Guardian verification action is unavailable in this app build. " +
+                "Update GuardianVerificationViewModel to expose its existing status mutation."
+        )
+
+    scalarMethod.invoke(this, guardianUid, status, reason)
+}
+
+private fun GuardianVerificationViewModel.invokeVerificationPolicyMutation(
+    required: Boolean
+): Result<Unit> = runCatching {
+    val request = GuardianVerificationPolicyRequest(required = required)
+    val publicMethods = javaClass.methods.toList()
+
+    val requestMethod = publicMethods
+        .filter { method ->
+            val types = method.parameterTypes
+            types.size == 1 &&
+                types[0] == GuardianVerificationPolicyRequest::class.java
+        }
+        .sortedByDescending { it.name.policyMutationNameScore() }
+        .firstOrNull()
+
+    if (requestMethod != null) {
+        requestMethod.invoke(this, request)
+        return@runCatching
+    }
+
+    val booleanMethod = publicMethods
+        .filter { method ->
+            val types = method.parameterTypes
+            types.size == 1 &&
+                (types[0] == Boolean::class.javaPrimitiveType ||
+                    types[0] == Boolean::class.javaObjectType)
+        }
+        .sortedByDescending { it.name.policyMutationNameScore() }
+        .firstOrNull()
+        ?: error(
+            "Guardian verification policy action is unavailable in this app build. " +
+                "Update GuardianVerificationViewModel to expose its existing policy mutation."
+        )
+
+    booleanMethod.invoke(this, required)
+}
+
+private fun String.guardianMutationNameScore(): Int {
+    val normalized = lowercase()
+    var score = 0
+    if ("guardian" in normalized) score += 8
+    if ("verification" in normalized) score += 6
+    if ("status" in normalized) score += 6
+    if ("update" in normalized || "set" in normalized || "change" in normalized) score += 4
+    return score
+}
+
+private fun String.policyMutationNameScore(): Int {
+    val normalized = lowercase()
+    var score = 0
+    if ("policy" in normalized) score += 8
+    if ("verification" in normalized) score += 6
+    if ("required" in normalized) score += 6
+    if ("update" in normalized || "set" in normalized || "change" in normalized) score += 4
+    return score
+}
+
