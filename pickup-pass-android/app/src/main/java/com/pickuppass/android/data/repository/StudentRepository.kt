@@ -1,6 +1,7 @@
 package com.pickuppass.android.data.repository
 
 import com.google.firebase.firestore.FirebaseFirestore
+import com.pickuppass.android.data.model.PickupPolicyInfo
 import com.pickuppass.android.data.model.SchoolInfo
 import com.pickuppass.android.data.model.Student
 import com.pickuppass.android.data.model.UserProfile
@@ -42,9 +43,36 @@ class StudentRepository @Inject constructor(
         doc.toObject(UserProfile::class.java)?.also { it.uid = doc.id }
     }
 
-    /** Used to show which school a signed-in parent/staff member belongs to (name + logo). */
+    /**
+     * Used to show which school a signed-in parent/staff member belongs to.
+     *
+     * School documents contain backend-managed metadata (for example
+     * createdAt/logoUpdatedAt) that Android does not need. Read only the
+     * fields consumed by the app instead of mapping the whole Firestore
+     * document into SchoolInfo, which avoids CustomClassMapper warnings and
+     * keeps the Android model intentionally decoupled from server metadata.
+     */
     suspend fun getSchool(schoolId: String): Result<SchoolInfo?> = runCatching {
         val doc = firestore.collection("schools").document(schoolId).get().await()
-        doc.toObject(SchoolInfo::class.java)?.also { it.id = doc.id }
+        if (!doc.exists()) {
+            return@runCatching null
+        }
+
+        val pickupPolicy = (doc.get("pickupPolicy") as? Map<*, *>)?.let { policy ->
+            PickupPolicyInfo(
+                mode = policy["mode"] as? String ?: "unrestricted",
+                earliestPickupTime = policy["earliestPickupTime"] as? String ?: "",
+                latestPickupTime = policy["latestPickupTime"] as? String ?: "",
+                allowManualOverride = policy["allowManualOverride"] as? Boolean ?: true
+            )
+        }
+
+        SchoolInfo(
+            id = doc.id,
+            schoolName = doc.getString("schoolName").orEmpty(),
+            status = doc.getString("status").orEmpty(),
+            logoUrl = doc.getString("logoUrl"),
+            pickupPolicy = pickupPolicy
+        )
     }
 }
