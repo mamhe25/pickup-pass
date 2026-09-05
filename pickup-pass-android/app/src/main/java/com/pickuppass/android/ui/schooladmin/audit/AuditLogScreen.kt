@@ -7,7 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.FactCheck
+import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -97,7 +97,7 @@ fun AuditLogScreen(
                         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .38f)
                     ) {
                         Row(Modifier.fillMaxWidth().padding(Spacing.md), verticalAlignment = Alignment.Top) {
-                            Icon(Icons.Filled.FactCheck, null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.AutoMirrored.Filled.FactCheck, null, tint = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.width(Spacing.sm))
                             Column {
                                 Text("Trace privileged actions", fontWeight = FontWeight.Bold)
@@ -161,7 +161,7 @@ fun AuditLogScreen(
                                 Modifier.fillMaxWidth().padding(Spacing.xl),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Icon(Icons.Filled.FactCheck, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(Icons.AutoMirrored.Filled.FactCheck, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(Modifier.height(Spacing.sm))
                                 Text(
                                     if (state.events.isEmpty()) "No audit events yet" else "No matching events",

@@ -7,7 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.FactCheck
+import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
@@ -93,7 +93,7 @@ fun LaunchReadinessScreen(
                         Text("${(progress * 100).toInt()}%", style = MaterialTheme.typography.labelMedium)
                     }
                     Spacer(Modifier.height(Spacing.xs))
-                    LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
+                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
                 }
 
                 when {
@@ -207,7 +207,7 @@ fun LaunchReadinessScreen(
     if (confirmReview) {
         AlertDialog(
             onDismissRequest = { if (!state.saving) confirmReview = false },
-            icon = { Icon(Icons.Filled.FactCheck, null) },
+            icon = { Icon(Icons.AutoMirrored.Filled.FactCheck, null) },
             title = { Text("Request platform launch review?") },
             text = {
                 Text(

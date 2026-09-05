@@ -9,7 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -348,7 +348,7 @@ private fun InvoiceCard(
                 }
                 if (invoice.receiptAvailable) {
                     OutlinedButton(onClick = onReceipt, enabled = !busy) {
-                        Icon(Icons.Filled.ReceiptLong, null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.AutoMirrored.Filled.ReceiptLong, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(Spacing.xs))
                         Text("Receipt")
                     }

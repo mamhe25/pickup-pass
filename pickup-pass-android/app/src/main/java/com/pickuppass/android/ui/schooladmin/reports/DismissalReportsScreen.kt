@@ -238,7 +238,7 @@ fun DismissalReportsScreen(
                                                 Text(count.toString(), fontWeight = FontWeight.Bold)
                                             }
                                             LinearProgressIndicator(
-                                                progress = count.toFloat() / max.toFloat(),
+                                                progress = { count.toFloat() / max.toFloat() },
                                                 modifier = Modifier.fillMaxWidth()
                                             )
                                         }

@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.FactCheck
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -87,7 +90,7 @@ fun SchoolBrandingScreen(
                 },
                 actions = {
                     IconButton(onClick = { confirmSignOut = true }) {
-                        Icon(Icons.Filled.Logout, contentDescription = "Sign out")
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sign out")
                     }
                 }
             )
@@ -243,11 +246,11 @@ fun SchoolBrandingScreen(
                 item { SectionLabel("School administration") }
                 item {
                     GroupedActionList {
-                        NavListItem(Icons.Filled.FactCheck, "Launch readiness", "Production setup and on-site checks", onGoToLaunchReadiness)
+                        NavListItem(Icons.AutoMirrored.Filled.FactCheck, "Launch readiness", "Production setup and on-site checks", onGoToLaunchReadiness)
                         HorizontalDivider()
-                        NavListItem(Icons.Filled.FactCheck, "Audit log", "Administrative activity trail", onGoToAuditLog)
+                        NavListItem(Icons.AutoMirrored.Filled.FactCheck, "Audit log", "Administrative activity trail", onGoToAuditLog)
                         HorizontalDivider()
-                        NavListItem(Icons.Filled.ReceiptLong, "Subscription & billing", "Invoices, GCash and receipts", onGoToBilling)
+                        NavListItem(Icons.AutoMirrored.Filled.ReceiptLong, "Subscription & billing", "Invoices, GCash and receipts", onGoToBilling)
                         HorizontalDivider()
                         NavListItem(Icons.Filled.Download, "Data backup & export", "Tenant data portability export", onGoToDataExport)
                     }
