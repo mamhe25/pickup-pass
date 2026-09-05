@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,6 +47,10 @@ import coil.request.ImageRequest
 import com.pickuppass.android.ui.theme.Amber500
 import com.pickuppass.android.ui.theme.Amber900
 import com.pickuppass.android.ui.theme.Spacing
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+private const val SMART_IMAGE_MAX_DIMENSION_PX = 1024
 
 @Composable
 fun PrimaryButton(
@@ -174,8 +179,8 @@ fun SuccessBanner(
 
 /**
  * Renders either a Firestore data:image/...;base64 URI or a regular HTTP(S)
- * URL. This is the single image abstraction for profile photos and school
- * branding so callers do not need to know the storage representation.
+ * URL. Base64 decoding is kept off the main thread so loading school logos
+ * and guardian photos cannot stall Compose frames during startup or scrolling.
  */
 @Composable
 fun SmartImage(
@@ -187,10 +192,18 @@ fun SmartImage(
     if (model.isNullOrBlank()) return
 
     if (model.startsWith("data:")) {
-        val bitmap = remember(model) { decodeDataUri(model) }
-        if (bitmap != null) {
+        val bitmap by produceState<Bitmap?>(
+            initialValue = null,
+            key1 = model
+        ) {
+            value = withContext(Dispatchers.Default) {
+                decodeDataUri(model)
+            }
+        }
+
+        bitmap?.let {
             Image(
-                bitmap = bitmap.asImageBitmap(),
+                bitmap = it.asImageBitmap(),
                 contentDescription = contentDescription,
                 contentScale = contentScale,
                 modifier = modifier
@@ -213,11 +226,43 @@ private fun decodeDataUri(dataUri: String): Bitmap? {
     return try {
         val base64Part = dataUri.substringAfter(",", "")
         if (base64Part.isEmpty()) return null
+
         val bytes = Base64.decode(base64Part, Base64.DEFAULT)
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = calculateSampleSize(
+                width = bounds.outWidth,
+                height = bounds.outHeight,
+                maxDimension = SMART_IMAGE_MAX_DIMENSION_PX
+            )
+        }
+
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
     } catch (_: Exception) {
         null
     }
+}
+
+private fun calculateSampleSize(
+    width: Int,
+    height: Int,
+    maxDimension: Int
+): Int {
+    if (width <= 0 || height <= 0) return 1
+
+    var sampleSize = 1
+    while (
+        width / sampleSize > maxDimension ||
+        height / sampleSize > maxDimension
+    ) {
+        sampleSize *= 2
+    }
+    return sampleSize
 }
 
 @Composable
