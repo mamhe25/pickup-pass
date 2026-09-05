@@ -8,8 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.FactCheck
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
@@ -90,14 +91,28 @@ fun SchoolBrandingScreen(
                 },
                 actions = {
                     IconButton(onClick = { confirmSignOut = true }) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sign out")
+                        Icon(
+                            Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = "Sign out"
+                        )
                     }
                 }
             )
         }
     ) { padding ->
-        BoxWithConstraints(
-            Modifier
+        if (uiState.isLoading) {
+            Box(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+            ) {
+                FullScreenLoading()
+            }
+            return@Scaffold
+        }
+
+        Box(
+            modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
         ) {
@@ -107,9 +122,9 @@ fun SchoolBrandingScreen(
                     .widthIn(max = 860.dp)
                     .align(Alignment.TopCenter),
                 contentPadding = PaddingValues(Spacing.md),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
-                item {
+                item(key = "school_identity") {
                     SchoolIdentityCard(
                         schoolName = uiState.schoolName,
                         logoUrl = uiState.logoUrl,
@@ -120,20 +135,25 @@ fun SchoolBrandingScreen(
                     )
                 }
 
-                uiState.error?.let { item { ErrorBanner(it) } }
-                uiState.successMessage?.let { item { SuccessBanner(it) } }
-
-                item {
-                    Text(
-                        "Daily dismissal",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                uiState.error?.let { message ->
+                    item(key = "school_admin_error") {
+                        ErrorBanner(message)
+                    }
                 }
 
-                item {
+                uiState.successMessage?.let { message ->
+                    item(key = "school_admin_success") {
+                        SuccessBanner(message)
+                    }
+                }
+
+                item(key = "daily_header") {
+                    SectionLabel("Daily dismissal")
+                }
+
+                item(key = "daily_primary_1") {
                     Row(
-                        Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         PrimaryActionCard(
@@ -153,9 +173,9 @@ fun SchoolBrandingScreen(
                     }
                 }
 
-                item {
+                item(key = "daily_primary_2") {
                     Row(
-                        Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         PrimaryActionCard(
@@ -179,89 +199,174 @@ fun SchoolBrandingScreen(
                     }
                 }
 
-                item { SectionLabel("Dismissal operations") }
-                item {
-                    GroupedActionList {
-                        NavListItem(
-                            Icons.Filled.History,
-                            "Dismissal history",
-                            "Review completed student releases",
-                            onGoToExitLogs
-                        )
-                        if (uiState.features["advanced_reporting"] != false) {
-                            HorizontalDivider()
-                            NavListItem(
-                                Icons.Filled.Assessment,
-                                "Dismissal reports & export",
-                                "Analyze date ranges and export CSV",
-                                onGoToDismissalReports
-                            )
-                        }
-                        HorizontalDivider()
-                        NavListItem(
-                            Icons.Filled.Schedule,
-                            "Pickup policy",
-                            "Configure QR availability and fallback rules",
-                            onGoToPickupPolicy
+                item(key = "dismissal_header") {
+                    SectionLabel("Dismissal operations")
+                }
+                item(key = "dismissal_history") {
+                    AdminNavCard(
+                        Icons.Filled.History,
+                        "Dismissal history",
+                        "Review completed student releases",
+                        onGoToExitLogs
+                    )
+                }
+                if (uiState.features["advanced_reporting"] != false) {
+                    item(key = "dismissal_reports") {
+                        AdminNavCard(
+                            Icons.Filled.Assessment,
+                            "Dismissal reports & export",
+                            "Analyze date ranges and export CSV",
+                            onGoToDismissalReports
                         )
                     }
                 }
+                item(key = "pickup_policy") {
+                    AdminNavCard(
+                        Icons.Filled.Schedule,
+                        "Pickup policy",
+                        "Configure QR availability and fallback rules",
+                        onGoToPickupPolicy
+                    )
+                }
 
-                item { SectionLabel("Students & guardians") }
-                item {
-                    GroupedActionList {
-                        NavListItem(Icons.Filled.Groups, "Manage students", "Student records and guardians", onGoToStudents)
-                        HorizontalDivider()
-                        NavListItem(Icons.Filled.Class, "School year & sections", "Academic structure used across PickupPass", onGoToAcademicStructure)
-                        if (uiState.features["bulk_student_import"] != false) {
-                            HorizontalDivider()
-                            NavListItem(Icons.Filled.UploadFile, "Bulk import students", "Validate and import roster files", onGoToBulkStudentImport)
-                        }
-                        HorizontalDivider()
-                        NavListItem(Icons.Filled.PersonOff, "Student lifecycle", "Status history and year-end promotion", onGoToStudentLifecycle)
-                        if (uiState.features["guardian_verification"] != false) {
-                            HorizontalDivider()
-                            NavListItem(Icons.Filled.VerifiedUser, "Guardian verification", "Identity assurance and pickup access", onGoToGuardianVerification)
-                        }
+                item(key = "students_header") {
+                    SectionLabel("Students & guardians")
+                }
+                item(key = "manage_students") {
+                    AdminNavCard(
+                        Icons.Filled.Groups,
+                        "Manage students",
+                        "Student records and guardians",
+                        onGoToStudents
+                    )
+                }
+                item(key = "academic_structure") {
+                    AdminNavCard(
+                        Icons.Filled.Class,
+                        "School year & sections",
+                        "Academic structure used across PickupPass",
+                        onGoToAcademicStructure
+                    )
+                }
+                if (uiState.features["bulk_student_import"] != false) {
+                    item(key = "bulk_import") {
+                        AdminNavCard(
+                            Icons.Filled.UploadFile,
+                            "Bulk import students",
+                            "Validate and import roster files",
+                            onGoToBulkStudentImport
+                        )
+                    }
+                }
+                item(key = "student_lifecycle") {
+                    AdminNavCard(
+                        Icons.Filled.PersonOff,
+                        "Student lifecycle",
+                        "Status history and year-end promotion",
+                        onGoToStudentLifecycle
+                    )
+                }
+                if (uiState.features["guardian_verification"] != false) {
+                    item(key = "guardian_verification") {
+                        AdminNavCard(
+                            Icons.Filled.VerifiedUser,
+                            "Guardian verification",
+                            "Identity assurance and pickup access",
+                            onGoToGuardianVerification
+                        )
                     }
                 }
 
-                item { SectionLabel("Staff & locations") }
-                item {
-                    GroupedActionList {
-                        NavListItem(Icons.Filled.PersonAdd, "Invite a teacher", "Create a school staff account", onGoToInviteTeacher)
-                        HorizontalDivider()
-                        NavListItem(Icons.Filled.Class, "Teacher sections", "Assign roster and broadcast scope", onGoToManageSections)
-                        HorizontalDivider()
-                        NavListItem(Icons.Filled.AdminPanelSettings, "Teacher accounts", "Access status and session security", onGoToStaffManagement)
-                        HorizontalDivider()
-                        NavListItem(Icons.Filled.LocationOn, "Campuses & pickup gates", "Configure dismissal release locations", onGoToCampusGates)
-                        if (uiState.features["staff_gate_restrictions"] != false) {
-                            HorizontalDivider()
-                            NavListItem(Icons.Filled.Security, "Staff pickup gates", "Limit scanner access by gate", onGoToStaffPickupGates)
-                        }
+                item(key = "staff_header") {
+                    SectionLabel("Staff & locations")
+                }
+                item(key = "invite_teacher") {
+                    AdminNavCard(
+                        Icons.Filled.PersonAdd,
+                        "Invite a teacher",
+                        "Create a school staff account",
+                        onGoToInviteTeacher
+                    )
+                }
+                item(key = "teacher_sections") {
+                    AdminNavCard(
+                        Icons.Filled.Class,
+                        "Teacher sections",
+                        "Assign roster and broadcast scope",
+                        onGoToManageSections
+                    )
+                }
+                item(key = "teacher_accounts") {
+                    AdminNavCard(
+                        Icons.Filled.AdminPanelSettings,
+                        "Teacher accounts",
+                        "Access status and session security",
+                        onGoToStaffManagement
+                    )
+                }
+                item(key = "campus_gates") {
+                    AdminNavCard(
+                        Icons.Filled.LocationOn,
+                        "Campuses & pickup gates",
+                        "Configure dismissal release locations",
+                        onGoToCampusGates
+                    )
+                }
+                if (uiState.features["staff_gate_restrictions"] != false) {
+                    item(key = "staff_gates") {
+                        AdminNavCard(
+                            Icons.Filled.Security,
+                            "Staff pickup gates",
+                            "Limit scanner access by gate",
+                            onGoToStaffPickupGates
+                        )
                     }
                 }
 
-                item { SectionLabel("School administration") }
-                item {
-                    GroupedActionList {
-                        NavListItem(Icons.AutoMirrored.Filled.FactCheck, "Launch readiness", "Production setup and on-site checks", onGoToLaunchReadiness)
-                        HorizontalDivider()
-                        NavListItem(Icons.AutoMirrored.Filled.FactCheck, "Audit log", "Administrative activity trail", onGoToAuditLog)
-                        HorizontalDivider()
-                        NavListItem(Icons.AutoMirrored.Filled.ReceiptLong, "Subscription & billing", "Invoices, GCash and receipts", onGoToBilling)
-                        HorizontalDivider()
-                        NavListItem(Icons.Filled.Download, "Data backup & export", "Tenant data portability export", onGoToDataExport)
-                    }
+                item(key = "administration_header") {
+                    SectionLabel("School administration")
+                }
+                item(key = "launch_readiness") {
+                    AdminNavCard(
+                        Icons.AutoMirrored.Filled.FactCheck,
+                        "Launch readiness",
+                        "Production setup and on-site checks",
+                        onGoToLaunchReadiness
+                    )
+                }
+                item(key = "audit_log") {
+                    AdminNavCard(
+                        Icons.AutoMirrored.Filled.FactCheck,
+                        "Audit log",
+                        "Administrative activity trail",
+                        onGoToAuditLog
+                    )
+                }
+                item(key = "billing") {
+                    AdminNavCard(
+                        Icons.AutoMirrored.Filled.ReceiptLong,
+                        "Subscription & billing",
+                        "Invoices, GCash and receipts",
+                        onGoToBilling
+                    )
+                }
+                item(key = "data_export") {
+                    AdminNavCard(
+                        Icons.Filled.Download,
+                        "Data backup & export",
+                        "Tenant data portability export",
+                        onGoToDataExport
+                    )
                 }
 
-                item {
+                item(key = "footer") {
                     Text(
                         "PickupPass school administration",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.sm)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = Spacing.md)
                     )
                 }
             }
@@ -272,16 +377,26 @@ fun SchoolBrandingScreen(
         AlertDialog(
             onDismissRequest = { confirmSignOut = false },
             title = { Text("Sign out of PickupPass?") },
-            text = { Text("This device will stop receiving notifications for this account until you sign in again.") },
+            text = {
+                Text(
+                    "This device will stop receiving notifications for this account until you sign in again."
+                )
+            },
             confirmButton = {
                 Button(
                     onClick = {
                         confirmSignOut = false
                         viewModel.signOut()
                     }
-                ) { Text("Sign out") }
+                ) {
+                    Text("Sign out")
+                }
             },
-            dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") } }
+            dismissButton = {
+                TextButton(onClick = { confirmSignOut = false }) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 }
@@ -297,7 +412,9 @@ private fun SchoolIdentityCard(
 ) {
     ElevatedCard(Modifier.fillMaxWidth()) {
         Row(
-            Modifier.fillMaxWidth().padding(Spacing.md),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -313,7 +430,9 @@ private fun SchoolIdentityCard(
                         model = logoUrl,
                         contentDescription = "School logo",
                         contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize().padding(Spacing.xs)
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(Spacing.xs)
                     )
                 } else {
                     Icon(
@@ -322,9 +441,12 @@ private fun SchoolIdentityCard(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
                 if (uploading) {
                     Box(
-                        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = .42f)),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = .42f)),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(Modifier.size(28.dp))
@@ -344,8 +466,16 @@ private fun SchoolIdentityCard(
                 )
                 Spacer(Modifier.height(Spacing.xs))
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    AssistChip(onClick = {}, enabled = false, label = { Text(plan.pretty()) })
-                    AssistChip(onClick = {}, enabled = false, label = { Text(subscriptionStatus.pretty()) })
+                    AssistChip(
+                        onClick = {},
+                        enabled = false,
+                        label = { Text(plan.pretty()) }
+                    )
+                    AssistChip(
+                        onClick = {},
+                        enabled = false,
+                        label = { Text(subscriptionStatus.pretty()) }
+                    )
                 }
                 TextButton(
                     onClick = onChooseLogo,
@@ -378,7 +508,7 @@ private fun PrimaryActionCard(
         modifier = modifier.clickable(onClick = onClick)
     ) {
         Column(Modifier.padding(Spacing.md)) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(Spacing.sm))
             Text(title, fontWeight = FontWeight.Bold)
             Text(
@@ -393,59 +523,67 @@ private fun PrimaryActionCard(
 @Composable
 private fun SectionLabel(text: String) {
     Text(
-        text,
+        text = text,
         style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(top = Spacing.sm)
     )
 }
 
 @Composable
-private fun GroupedActionList(content: @Composable ColumnScope.() -> Unit) {
-    Surface(
-        shape = MaterialTheme.shapes.large,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(content = content)
-    }
-}
-
-@Composable
-private fun NavListItem(
+private fun AdminNavCard(
     icon: ImageVector,
     label: String,
     description: String,
     onClick: () -> Unit
 ) {
-    ListItem(
-        headlineContent = { Text(label, fontWeight = FontWeight.SemiBold) },
-        supportingContent = {
-            Text(
-                description,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        },
-        leadingContent = {
-            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(9.dp).size(20.dp)
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        ListItem(
+            headlineContent = {
+                Text(label, fontWeight = FontWeight.SemiBold)
+            },
+            supportingContent = {
+                Text(
+                    description,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-            }
-        },
-        trailingContent = {
-            Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            leadingContent = {
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .padding(9.dp)
+                            .size(20.dp)
+                    )
+                }
+            },
+            trailingContent = {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            colors = ListItemDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.surface
             )
-        },
-        modifier = Modifier.clickable(onClick = onClick)
-    )
+        )
+    }
 }
 
 private fun String.pretty(): String =
-    replace('_', ' ').replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+    replace('_', ' ')
+        .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
