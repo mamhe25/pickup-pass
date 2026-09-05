@@ -2,8 +2,6 @@ package com.pickuppass.android.ui.parent.students
 
 import android.Manifest
 import android.os.Build
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,17 +12,22 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,10 +41,7 @@ import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.theme.Spacing
 
-@OptIn(
-    ExperimentalMaterial3Api::class,
-    ExperimentalPermissionsApi::class
-)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun StudentsScreen(
     viewModel: StudentsViewModel = hiltViewModel(),
@@ -51,17 +51,17 @@ fun StudentsScreen(
     onManageGuardians: (studentId: String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var notificationNudgeDismissed by rememberSaveable { mutableStateOf(false) }
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        val notificationPermission =
+    val notificationPermission =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             rememberPermissionState(Manifest.permission.POST_NOTIFICATIONS)
-
-        LaunchedEffect(Unit) {
-            if (!notificationPermission.status.isGranted) {
-                notificationPermission.launchPermissionRequest()
-            }
+        } else {
+            null
         }
-    }
+
+    val notificationsGranted =
+        notificationPermission == null || notificationPermission.status.isGranted
 
     Scaffold(
         topBar = {
@@ -79,11 +79,8 @@ fun StudentsScreen(
                                 if (uiState.unreadNotificationCount > 0) {
                                     Badge {
                                         Text(
-                                            if (uiState.unreadNotificationCount > 9) {
-                                                "9+"
-                                            } else {
-                                                uiState.unreadNotificationCount.toString()
-                                            }
+                                            if (uiState.unreadNotificationCount > 9) "9+"
+                                            else uiState.unreadNotificationCount.toString()
                                         )
                                     }
                                 }
@@ -96,12 +93,10 @@ fun StudentsScreen(
                         }
                     }
 
-                    IconButton(onClick = onOpenProfile) {
-                        Icon(
-                            Icons.Filled.AccountCircle,
-                            contentDescription = "My profile"
-                        )
-                    }
+                    ParentProfileButton(
+                        displayName = uiState.parentDisplayName,
+                        onClick = onOpenProfile
+                    )
                 }
             )
         }
@@ -111,34 +106,32 @@ fun StudentsScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            val phase = when {
-                uiState.isLoading -> "loading"
-                uiState.error != null -> "error"
-                uiState.students.isEmpty() -> "empty"
-                else -> "list"
-            }
+            when {
+                uiState.isLoading -> FullScreenLoading()
 
-            Crossfade(
-                targetState = phase,
-                animationSpec = tween(220),
-                label = "studentsPhase"
-            ) { state ->
-                when (state) {
-                    "loading" -> FullScreenLoading()
+                uiState.error != null -> ParentErrorState(
+                    message = uiState.error ?: "Couldn't load your students",
+                    onRetry = viewModel::load
+                )
 
-                    "error" -> ParentErrorState(
-                        message = uiState.error ?: "Couldn't load your students",
-                        onRetry = viewModel::load
-                    )
+                uiState.students.isEmpty() -> EmptyState(
+                    schoolName = uiState.school?.schoolName.orEmpty()
+                )
 
-                    "empty" -> EmptyState()
-
-                    else -> StudentsContent(
-                        students = uiState.students,
-                        onGetPass = onGetPass,
-                        onManageGuardians = onManageGuardians
-                    )
-                }
+                else -> StudentsContent(
+                    students = uiState.students,
+                    parentDisplayName = uiState.parentDisplayName,
+                    showNotificationNudge =
+                        !notificationsGranted && !notificationNudgeDismissed,
+                    onEnableNotifications = {
+                        notificationPermission?.launchPermissionRequest()
+                    },
+                    onDismissNotificationNudge = {
+                        notificationNudgeDismissed = true
+                    },
+                    onGetPass = onGetPass,
+                    onManageGuardians = onManageGuardians
+                )
             }
         }
     }
@@ -147,66 +140,77 @@ fun StudentsScreen(
 @Composable
 private fun StudentsContent(
     students: List<Student>,
+    parentDisplayName: String,
+    showNotificationNudge: Boolean,
+    onEnableNotifications: () -> Unit,
+    onDismissNotificationNudge: () -> Unit,
     onGetPass: (String) -> Unit,
     onManageGuardians: (String) -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = Spacing.md,
-            top = Spacing.sm,
-            end = Spacing.md,
-            bottom = Spacing.xl
-        ),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md)
-    ) {
-        item {
-            ParentOverviewHero(studentCount = students.size)
-        }
+    val activeCount = students.count {
+        it.status.equals("active", ignoreCase = true)
+    }
 
-        item {
-            Column {
-                Text(
-                    text = "Linked students",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold
-                )
-
-                Spacer(Modifier.height(Spacing.xs))
-
-                Text(
-                    text = "Generate a secure pickup pass for the child being collected, or review who is authorized to pick them up.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxHeight()
+                .widthIn(max = 780.dp)
+                .align(Alignment.TopCenter),
+            contentPadding = PaddingValues(
+                start = Spacing.md,
+                top = Spacing.sm,
+                end = Spacing.md,
+                bottom = Spacing.xl
+            ),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
+            item(key = "overview") {
+                ParentOverviewHero(
+                    parentDisplayName = parentDisplayName,
+                    studentCount = students.size,
+                    activeCount = activeCount
                 )
             }
-        }
 
-        items(
-            items = students,
-            key = { it.id }
-        ) { student ->
-            StudentCard(
-                student = student,
-                onGetPass = { onGetPass(student.id) },
-                onManageGuardians = {
-                    onManageGuardians(student.id)
+            if (showNotificationNudge) {
+                item(key = "notification_permission") {
+                    NotificationPermissionCard(
+                        onEnable = onEnableNotifications,
+                        onDismiss = onDismissNotificationNudge
+                    )
                 }
-            )
-        }
+            }
 
-        item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-            ) {
-                Text(
-                    text = "PickupPass never releases a student from this screen. A pass must still be verified by authorized school staff before dismissal is approved.",
-                    modifier = Modifier.padding(Spacing.md),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            item(key = "students_header") {
+                Column {
+                    Text(
+                        "Linked students",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Spacer(Modifier.height(Spacing.xs))
+                    Text(
+                        "Choose the student being collected. Pickup passes are generated individually and still require school verification.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            items(
+                items = students,
+                key = { "student-${it.id}" }
+            ) { student ->
+                StudentCard(
+                    student = student,
+                    onGetPass = { onGetPass(student.id) },
+                    onManageGuardians = { onManageGuardians(student.id) }
                 )
+            }
+
+            item(key = "security_note") {
+                SecurityNotice()
             }
         }
     }
@@ -214,77 +218,148 @@ private fun StudentsContent(
 
 @Composable
 private fun ParentOverviewHero(
-    studentCount: Int
+    parentDisplayName: String,
+    studentCount: Int,
+    activeCount: Int
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(Spacing.lg)
+        ) {
+            Text(
+                "FAMILY PICKUP",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                if (parentDisplayName.isBlank()) {
+                    "Safe pickup starts here."
+                } else {
+                    "Welcome, ${parentDisplayName.firstName()}."
+                },
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                "Generate a secure pass for the right student and keep authorized pickup contacts up to date.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
+            )
+            Spacer(Modifier.height(Spacing.lg))
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                HeroMetric(
+                    value = studentCount.toString(),
+                    label = if (studentCount == 1) "Linked student" else "Linked students",
+                    modifier = Modifier.weight(1f)
+                )
+                HeroMetric(
+                    value = activeCount.toString(),
+                    label = "Pass eligible",
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeroMetric(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+        )
+    ) {
+        Column(Modifier.padding(Spacing.md)) {
+            Text(
+                value,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun NotificationPermissionCard(
+    onEnable: () -> Unit,
+    onDismiss: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
-        shadowElevation = 6.dp
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(Spacing.lg),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = "FAMILY PICKUP",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.72f)
-                )
+        Column(Modifier.padding(Spacing.md)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface
+                ) {
+                    Icon(
+                        Icons.Filled.NotificationsActive,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
 
-                Spacer(Modifier.height(Spacing.xs))
+                Spacer(Modifier.width(Spacing.sm))
 
-                Text(
-                    text = "Everything you need for a safe handoff.",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold
-                )
-
-                Spacer(Modifier.height(Spacing.sm))
-
-                Text(
-                    text = "Your linked students and authorized pickup actions stay together in one place.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.78f)
-                )
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Stay updated on dismissal",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "Allow notifications for school announcements and pickup updates.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
-            Spacer(Modifier.width(Spacing.md))
+            Spacer(Modifier.height(Spacing.sm))
 
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.12f),
-                border = BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.18f)
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .size(78.dp)
-                        .padding(Spacing.sm),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = studentCount.toString(),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-
-                    Text(
-                        text = if (studentCount == 1) "student" else "students",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.72f)
-                    )
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                FilledTonalButton(onClick = onEnable) {
+                    Text("Enable notifications")
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Not now")
                 }
             }
         }
@@ -298,6 +373,10 @@ private fun StudentCard(
     onManageGuardians: () -> Unit
 ) {
     val isActive = student.status.equals("active", ignoreCase = true)
+    val guardianCount = student.guardianUids
+        .filter { it.isNotBlank() }
+        .distinct()
+        .size
 
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -305,49 +384,39 @@ private fun StudentCard(
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 2.dp
-        )
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(Spacing.md)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        Column(Modifier.padding(Spacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 StudentAvatar(student)
-
                 Spacer(Modifier.width(Spacing.md))
 
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
+                Column(Modifier.weight(1f)) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.Top
                     ) {
                         Text(
-                            text = student.fullName.ifBlank {
-                                "Unnamed student"
-                            },
+                            student.fullName.ifBlank { "Unnamed student" },
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.ExtraBold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
-
                         Spacer(Modifier.width(Spacing.sm))
-
                         StudentStatusChip(
                             status = student.status,
                             active = isActive
                         )
                     }
 
-                    Spacer(Modifier.height(3.dp))
+                    Spacer(Modifier.height(Spacing.xs))
 
                     Text(
-                        text = "Grade ${student.grade.ifBlank { "—" }} · Section ${student.section.ifBlank { "—" }}",
+                        "Grade ${student.grade.ifBlank { "—" }}  ·  ${
+                            student.section.ifBlank { "Section —" }
+                        }",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -355,7 +424,16 @@ private fun StudentCard(
                     if (student.studentNumber.isNotBlank()) {
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "Student no. ${student.studentNumber}",
+                            "Student no. ${student.studentNumber}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (student.academicYearName.isNotBlank()) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            student.academicYearName,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -363,15 +441,39 @@ private fun StudentCard(
                 }
             }
 
+            Spacer(Modifier.height(Spacing.md))
+            HorizontalDivider()
+            Spacer(Modifier.height(Spacing.md))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.Group,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(Spacing.xs))
+                Text(
+                    when (guardianCount) {
+                        0 -> "No linked pickup contacts"
+                        1 -> "1 linked pickup contact"
+                        else -> "$guardianCount linked pickup contacts"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             if (!isActive) {
                 Spacer(Modifier.height(Spacing.md))
-
                 Surface(
                     shape = MaterialTheme.shapes.medium,
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Text(
-                        text = "Pickup passes are unavailable while this student is ${student.status.ifBlank { "inactive" }}.",
+                        "Pickup passes are unavailable while this student is ${
+                            student.status.ifBlank { "inactive" }.lowercase()
+                        }.",
                         modifier = Modifier.padding(
                             horizontal = Spacing.md,
                             vertical = Spacing.sm
@@ -385,15 +487,17 @@ private fun StudentCard(
             Spacer(Modifier.height(Spacing.md))
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-                verticalAlignment = Alignment.CenterVertically
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
                 Button(
                     onClick = onGetPass,
                     enabled = isActive,
-                    modifier = Modifier.heightIn(min = 44.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp),
                     contentPadding = PaddingValues(
-                        horizontal = 14.dp,
+                        horizontal = 12.dp,
                         vertical = 10.dp
                     )
                 ) {
@@ -402,25 +506,27 @@ private fun StudentCard(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
-
                     Spacer(Modifier.width(6.dp))
-
-                    Text("Pickup pass")
+                    Text("Pickup pass", maxLines = 1)
                 }
 
-                TextButton(
+                OutlinedButton(
                     onClick = onManageGuardians,
-                    modifier = Modifier.heightIn(min = 44.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp),
+                    contentPadding = PaddingValues(
+                        horizontal = 12.dp,
+                        vertical = 10.dp
+                    )
                 ) {
                     Icon(
                         Icons.Filled.Group,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
-
                     Spacer(Modifier.width(6.dp))
-
-                    Text("Guardians")
+                    Text("Guardians", maxLines = 1)
                 }
             }
         }
@@ -428,9 +534,7 @@ private fun StudentCard(
 }
 
 @Composable
-private fun StudentAvatar(
-    student: Student
-) {
+private fun StudentAvatar(student: Student) {
     val initials = student.fullName
         .trim()
         .split(Regex("\\s+"))
@@ -442,7 +546,7 @@ private fun StudentAvatar(
 
     Box(
         modifier = Modifier
-            .size(64.dp)
+            .size(68.dp)
             .clip(CircleShape),
         contentAlignment = Alignment.Center
     ) {
@@ -450,11 +554,9 @@ private fun StudentAvatar(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.primaryContainer
         ) {
-            Box(
-                contentAlignment = Alignment.Center
-            ) {
+            Box(contentAlignment = Alignment.Center) {
                 Text(
-                    text = initials,
+                    initials,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold
@@ -487,16 +589,12 @@ private fun StudentStatusChip(
         }
     ) {
         Text(
-            text = if (active) {
+            if (active) {
                 "Active"
             } else {
-                status.ifBlank { "Inactive" }
-                    .replaceFirstChar { it.uppercase() }
+                status.ifBlank { "Inactive" }.replaceFirstChar { it.uppercase() }
             },
-            modifier = Modifier.padding(
-                horizontal = 10.dp,
-                vertical = 5.dp
-            ),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = if (active) {
@@ -505,6 +603,76 @@ private fun StudentStatusChip(
                 MaterialTheme.colorScheme.onSurfaceVariant
             }
         )
+    }
+}
+
+@Composable
+private fun SecurityNotice() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+    ) {
+        Row(
+            Modifier.padding(Spacing.md),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                Icons.Filled.Security,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Column {
+                Text(
+                    "School verification is always required",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Generating a pass does not release a student. Authorized school staff must verify and approve every pickup.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParentProfileButton(
+    displayName: String,
+    onClick: () -> Unit
+) {
+    val initial = displayName.trim()
+        .firstOrNull()
+        ?.uppercaseChar()
+        ?.toString()
+
+    IconButton(onClick = onClick) {
+        if (initial == null) {
+            Icon(
+                Icons.Filled.AccountCircle,
+                contentDescription = "My profile"
+            )
+        } else {
+            Surface(
+                modifier = Modifier.size(32.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        initial,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -521,9 +689,7 @@ private fun ParentErrorState(
         verticalArrangement = Arrangement.Center
     ) {
         ErrorBanner(message)
-
         Spacer(Modifier.height(Spacing.md))
-
         OutlinedButton(
             onClick = onRetry,
             modifier = Modifier.heightIn(min = 44.dp)
@@ -534,7 +700,7 @@ private fun ParentErrorState(
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(schoolName: String) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -543,18 +709,16 @@ private fun EmptyState() {
         verticalArrangement = Arrangement.Center
     ) {
         Surface(
-            modifier = Modifier.size(76.dp),
+            modifier = Modifier.size(80.dp),
             shape = CircleShape,
             color = MaterialTheme.colorScheme.primaryContainer
         ) {
-            Box(
-                contentAlignment = Alignment.Center
-            ) {
+            Box(contentAlignment = Alignment.Center) {
                 Icon(
                     Icons.Filled.Groups,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(38.dp)
+                    modifier = Modifier.size(40.dp)
                 )
             }
         }
@@ -562,19 +726,45 @@ private fun EmptyState() {
         Spacer(Modifier.height(Spacing.md))
 
         Text(
-            text = "No linked students yet",
+            "No linked students yet",
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.ExtraBold,
             textAlign = TextAlign.Center
         )
 
         Spacer(Modifier.height(Spacing.xs))
 
         Text(
-            text = "Contact your school office to be added as an authorized pickup contact for a student.",
+            if (schoolName.isBlank()) {
+                "Contact your school office to be added as an authorized pickup contact for a student."
+            } else {
+                "Contact $schoolName to be added as an authorized pickup contact for a student."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
+
+        Spacer(Modifier.height(Spacing.md))
+
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+        ) {
+            Text(
+                "For security, parents cannot link themselves to a student from the app.",
+                modifier = Modifier.padding(Spacing.md),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
+
+private fun String.firstName(): String =
+    trim()
+        .split(Regex("\\s+"))
+        .firstOrNull()
+        .orEmpty()
+        .ifBlank { this }

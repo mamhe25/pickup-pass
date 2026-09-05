@@ -8,6 +8,7 @@ import com.pickuppass.android.data.repository.AuthRepository
 import com.pickuppass.android.data.repository.NotificationRepository
 import com.pickuppass.android.data.repository.StudentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -32,39 +33,72 @@ class StudentsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(StudentsUiState())
     val uiState: StateFlow<StudentsUiState> = _uiState
 
+    private var loadInProgress = false
+
     init {
         load()
     }
 
     fun load() {
+        if (loadInProgress) return
+        loadInProgress = true
+
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            try {
+                _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
-            val session = authRepository.currentSession()
-            if (session == null || session.schoolId == null) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = "Session expired — please sign in again")
-                return@launch
-            }
-
-            // Branding fetch failure shouldn't block the actual student list —
-            // it's cosmetic, so just leave `school` null on failure.
-            studentRepository.getSchool(session.schoolId).onSuccess { school ->
-                _uiState.value = _uiState.value.copy(school = school)
-            }
-
-            // Same reasoning: a failed unread-count fetch just leaves the
-            // badge showing 0 rather than blocking the whole screen.
-            notificationRepository.getUnreadCount(session.uid).onSuccess { count ->
-                _uiState.value = _uiState.value.copy(unreadNotificationCount = count)
-            }
-
-            studentRepository.getMyStudents(session.uid, session.schoolId)
-                .onSuccess { students ->
-                    _uiState.value = _uiState.value.copy(isLoading = false, students = students)
+                val session = authRepository.currentSession()
+                if (session == null || session.schoolId == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Session expired — please sign in again"
+                    )
+                    return@launch
                 }
-                .onFailure {
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = "Couldn't load your students")
+
+                // Independent reads run concurrently so parent home does not
+                // wait for branding, notifications and identity sequentially.
+                val schoolDeferred = async {
+                    studentRepository.getSchool(session.schoolId)
                 }
+                val unreadDeferred = async {
+                    notificationRepository.getUnreadCount(session.uid)
+                }
+                val profileDeferred = async {
+                    studentRepository.getUserProfile(session.uid)
+                }
+                val studentsDeferred = async {
+                    studentRepository.getMyStudents(session.uid, session.schoolId)
+                }
+
+                val studentsResult = studentsDeferred.await()
+                val school = schoolDeferred.await().getOrNull()
+                val unread = unreadDeferred.await().getOrNull() ?: 0
+                val profile = profileDeferred.await().getOrNull()
+
+                studentsResult
+                    .onSuccess { students ->
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            students = students.sortedBy { it.fullName.lowercase() },
+                            school = school,
+                            unreadNotificationCount = unread,
+                            parentDisplayName = profile?.displayName.orEmpty(),
+                            error = null
+                        )
+                    }
+                    .onFailure {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            school = school,
+                            unreadNotificationCount = unread,
+                            parentDisplayName = profile?.displayName.orEmpty(),
+                            error = "Couldn't load your students"
+                        )
+                    }
+            } finally {
+                loadInProgress = false
+            }
         }
     }
 
