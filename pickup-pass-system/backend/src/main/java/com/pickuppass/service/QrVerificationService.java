@@ -53,7 +53,7 @@ public class QrVerificationService {
             return QrVerificationResult.fail("Staff account is not assigned to a school");
         }
         if (!looksLikeCompactJwt(qrToken)) {
-            return QrVerificationResult.fail("Not a PickupPass QR code");
+            return QrVerificationResult.fail("Invalid QR code - not a PickupPass QR code");
         }
 
         DecodedJWT decoded;
