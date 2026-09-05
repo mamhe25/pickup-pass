@@ -1,9 +1,12 @@
 package com.pickuppass.android.ui.schooladmin.pickuppolicy
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -15,6 +18,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,10 +32,19 @@ fun PickupPolicyScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Pickup Policy") },
+                title = {
+                    Column {
+                        Text("Pickup Policy", fontWeight = FontWeight.ExtraBold)
+                        Text(
+                            "Release rules & fallback controls",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -42,120 +55,194 @@ fun PickupPolicyScreen(
             return@Scaffold
         }
 
-        Column(
-            modifier = Modifier.padding(padding).fillMaxSize().padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+        BoxWithConstraints(
+            modifier = Modifier.padding(padding).fillMaxSize()
         ) {
-            Text(
-                "QR pickup behavior",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                "Unrestricted keeps the original PickupPass flow: an authorized parent can present a currently valid QR without joining a queue or checking in first.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(
-                            selected = !state.restrictedToTimeWindow,
-                            onClick = { viewModel.setRestricted(false) }
-                        )
-                        Column(Modifier.padding(start = Spacing.xs)) {
-                            Text("Unrestricted", fontWeight = FontWeight.Medium)
-                            Text(
-                                "Any valid QR can be scanned until that QR expires or is used.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    HorizontalDivider()
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(
-                            selected = state.restrictedToTimeWindow,
-                            onClick = { viewModel.setRestricted(true) }
-                        )
-                        Column(Modifier.padding(start = Spacing.xs)) {
-                            Text("School pickup time window", fontWeight = FontWeight.Medium)
-                            Text(
-                                "Valid QR codes are accepted only during the configured hours.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    if (state.restrictedToTimeWindow) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                            OutlinedTextField(
-                                value = state.startTime,
-                                onValueChange = viewModel::setStartTime,
-                                label = { Text("Start") },
-                                placeholder = { Text("14:00") },
-                                leadingIcon = { Icon(Icons.Filled.Schedule, contentDescription = null) },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f)
-                            )
-                            OutlinedTextField(
-                                value = state.endTime,
-                                onValueChange = viewModel::setEndTime,
-                                label = { Text("End") },
-                                placeholder = { Text("18:00") },
-                                leadingIcon = { Icon(Icons.Filled.Schedule, contentDescription = null) },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        Text(
-                            "Times use 24-hour HH:mm format in ${state.timeZone}.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(Spacing.md),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Allow manual pickup override", fontWeight = FontWeight.Medium)
-                        Text(
-                            "School admins can document an exception if a phone or scanner cannot be used.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(checked = state.allowManualOverride, onCheckedChange = viewModel::setManualOverride)
-                }
-            }
-
-            state.error?.let { ErrorBanner(it) }
-            state.successMessage?.let {
-                Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            Button(
-                onClick = viewModel::save,
-                enabled = !state.isSaving,
-                modifier = Modifier.fillMaxWidth().height(52.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = 760.dp)
+                    .align(Alignment.TopCenter)
+                    .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
-                if (state.isSaving) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(Spacing.sm))
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .5f),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(Spacing.md),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Icon(Icons.Filled.Security, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(Spacing.sm))
+                        Column {
+                            Text("School-wide dismissal rule", fontWeight = FontWeight.Bold)
+                            Text(
+                                "These settings apply to QR approvals at dismissal. Changes should match the school's written pickup procedure.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
-                Text(if (state.isSaving) "Saving..." else "Save Pickup Policy")
+
+                SectionTitle("QR pickup availability", "Choose when a valid PickupPass QR may be approved.")
+
+                PolicyOption(
+                    selected = !state.restrictedToTimeWindow,
+                    title = "Unrestricted",
+                    description = "Authorized guardians may use a currently valid QR until it expires or is consumed.",
+                    onClick = { viewModel.setRestricted(false) }
+                )
+
+                PolicyOption(
+                    selected = state.restrictedToTimeWindow,
+                    title = "School pickup time window",
+                    description = "Valid QR codes are accepted only inside the configured dismissal hours.",
+                    onClick = { viewModel.setRestricted(true) }
+                )
+
+                if (state.restrictedToTimeWindow) {
+                    ElevatedCard(Modifier.fillMaxWidth()) {
+                        Column(
+                            Modifier.padding(Spacing.md),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                        ) {
+                            Text("Dismissal window", fontWeight = FontWeight.SemiBold)
+                            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                                OutlinedTextField(
+                                    value = state.startTime,
+                                    onValueChange = viewModel::setStartTime,
+                                    label = { Text("Starts") },
+                                    placeholder = { Text("14:00") },
+                                    leadingIcon = { Icon(Icons.Filled.Schedule, null) },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                OutlinedTextField(
+                                    value = state.endTime,
+                                    onValueChange = viewModel::setEndTime,
+                                    label = { Text("Ends") },
+                                    placeholder = { Text("18:00") },
+                                    leadingIcon = { Icon(Icons.Filled.Schedule, null) },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            Text(
+                                "24-hour HH:mm format · ${state.timeZone}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                SectionTitle("Administrative fallback", "Control whether school admins may document an exception.")
+
+                OutlinedCard(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(Spacing.md),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.VerifiedUser,
+                            contentDescription = null,
+                            tint = if (state.allowManualOverride) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(Spacing.sm))
+                        Column(Modifier.weight(1f)) {
+                            Text("Allow manual pickup override", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                if (state.allowManualOverride)
+                                    "School admins may use the audited Manual Release flow when normal QR pickup cannot be completed."
+                                else
+                                    "Manual Release is disabled; staff must complete pickup through the normal QR flow.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = state.allowManualOverride,
+                            onCheckedChange = viewModel::setManualOverride,
+                            enabled = !state.isSaving
+                        )
+                    }
+                }
+
+                state.error?.let { ErrorBanner(it) }
+                state.successMessage?.let { SuccessBanner(it) }
+
+                Spacer(Modifier.weight(1f))
+
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = Spacing.md),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = viewModel::save,
+                        enabled = !state.isSaving,
+                        modifier = Modifier.widthIn(min = 180.dp, max = 320.dp).height(52.dp)
+                    ) {
+                        if (state.isSaving) {
+                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(Spacing.sm))
+                            Text("Saving…")
+                        } else {
+                            Text("Save pickup policy")
+                        }
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun PolicyOption(
+    selected: Boolean,
+    title: String,
+    description: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        border = androidx.compose.foundation.BorderStroke(
+            if (selected) 2.dp else 1.dp,
+            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+        ),
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .26f)
+        else MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+    ) {
+        Row(
+            Modifier.padding(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(selected = selected, onClick = onClick)
+            Spacer(Modifier.width(Spacing.xs))
+            Column {
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(title: String, subtitle: String) {
+    Column {
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(
+            subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

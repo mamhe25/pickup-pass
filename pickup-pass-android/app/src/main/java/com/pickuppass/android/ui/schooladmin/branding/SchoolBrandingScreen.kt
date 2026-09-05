@@ -2,51 +2,30 @@ package com.pickuppass.android.ui.schooladmin.branding
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Campaign
-import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material.icons.filled.FactCheck
-import androidx.compose.material.icons.filled.AdminPanelSettings
-import androidx.compose.material.icons.filled.Class
-import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.PersonOff
-import androidx.compose.material.icons.filled.QrCode2
-import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.UploadFile
-import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.VerifiedUser
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.ReceiptLong
-import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.SmartImage
+import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,6 +58,7 @@ fun SchoolBrandingScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val signedOut by viewModel.signedOut.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var confirmSignOut by remember { mutableStateOf(false) }
 
     LaunchedEffect(signedOut) {
         if (signedOut) onSignedOut()
@@ -91,175 +71,318 @@ fun SchoolBrandingScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("School Admin") },
+                title = {
+                    Column {
+                        Text("School Admin", fontWeight = FontWeight.ExtraBold)
+                        if (uiState.schoolName.isNotBlank()) {
+                            Text(
+                                uiState.schoolName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                },
                 actions = {
-                    IconButton(onClick = { viewModel.signOut() }) {
+                    IconButton(onClick = { confirmSignOut = true }) {
                         Icon(Icons.Filled.Logout, contentDescription = "Sign out")
                     }
                 }
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
+        BoxWithConstraints(
+            Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(Spacing.lg),
         ) {
-            // --- Branding: logo picker ---
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                if (uiState.schoolName.isNotBlank()) {
-                    Text(uiState.schoolName, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "${uiState.plan.replaceFirstChar { it.uppercase() }} · ${uiState.subscriptionStatus.replace('_', ' ')}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = 860.dp)
+                    .align(Alignment.TopCenter),
+                contentPadding = PaddingValues(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+            ) {
+                item {
+                    SchoolIdentityCard(
+                        schoolName = uiState.schoolName,
+                        logoUrl = uiState.logoUrl,
+                        plan = uiState.plan,
+                        subscriptionStatus = uiState.subscriptionStatus,
+                        uploading = uiState.isUploading,
+                        onChooseLogo = { pickImage.launch("image/*") }
                     )
-                    Spacer(Modifier.height(Spacing.xs))
                 }
-                Text(
-                    "This logo is shown to parents and staff so it's always clear which school they're signed into.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(bottom = Spacing.lg)
-                )
 
-                Box(
-                    modifier = Modifier
-                        .size(140.dp)
-                        .clip(MaterialTheme.shapes.large)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { pickImage.launch("image/*") },
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Cross-fade between the placeholder and the actual logo so a
-                    // newly uploaded school image eases in rather than snapping.
-                    Crossfade(
-                        targetState = uiState.logoUrl != null,
-                        animationSpec = tween(300),
-                        label = "logoPhase"
-                    ) { hasLogo ->
-                        if (hasLogo) {
-                            SmartImage(
-                                model = uiState.logoUrl,
-                                contentDescription = "School logo",
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(Spacing.sm)
+                uiState.error?.let { item { ErrorBanner(it) } }
+                uiState.successMessage?.let { item { SuccessBanner(it) } }
+
+                item {
+                    Text(
+                        "Daily dismissal",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                item {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        PrimaryActionCard(
+                            icon = Icons.Filled.QrCode2,
+                            title = "Scanner",
+                            subtitle = "Verify & release",
+                            modifier = Modifier.weight(1f),
+                            onClick = onGoToScanner
+                        )
+                        PrimaryActionCard(
+                            icon = Icons.Filled.Dashboard,
+                            title = "Live dashboard",
+                            subtitle = "Today's progress",
+                            modifier = Modifier.weight(1f),
+                            onClick = onGoToDismissalDashboard
+                        )
+                    }
+                }
+
+                item {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        PrimaryActionCard(
+                            icon = Icons.Filled.Campaign,
+                            title = "Announcement",
+                            subtitle = "Notify school",
+                            modifier = Modifier.weight(1f),
+                            onClick = onGoToBroadcast
+                        )
+                        if (uiState.features["manual_override"] != false) {
+                            PrimaryActionCard(
+                                icon = Icons.Filled.WarningAmber,
+                                title = "Manual release",
+                                subtitle = "Audited fallback",
+                                modifier = Modifier.weight(1f),
+                                onClick = onGoToManualPickup
                             )
                         } else {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Filled.Image, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(
-                                    "No logo yet",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = Spacing.xs)
-                                )
-                            }
-                        }
-                    }
-
-                    if (uiState.isUploading) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary)
+                            Spacer(Modifier.weight(1f))
                         }
                     }
                 }
 
-                TextButton(onClick = { pickImage.launch("image/*") }, modifier = Modifier.padding(top = Spacing.sm)) {
-                    Text(if (uiState.logoUrl != null) "Change Logo" else "Choose Logo Image")
+                item { SectionLabel("Dismissal operations") }
+                item {
+                    GroupedActionList {
+                        NavListItem(
+                            Icons.Filled.History,
+                            "Dismissal history",
+                            "Review completed student releases",
+                            onGoToExitLogs
+                        )
+                        if (uiState.features["advanced_reporting"] != false) {
+                            HorizontalDivider()
+                            NavListItem(
+                                Icons.Filled.Assessment,
+                                "Dismissal reports & export",
+                                "Analyze date ranges and export CSV",
+                                onGoToDismissalReports
+                            )
+                        }
+                        HorizontalDivider()
+                        NavListItem(
+                            Icons.Filled.Schedule,
+                            "Pickup policy",
+                            "Configure QR availability and fallback rules",
+                            onGoToPickupPolicy
+                        )
+                    }
                 }
 
+                item { SectionLabel("Students & guardians") }
+                item {
+                    GroupedActionList {
+                        NavListItem(Icons.Filled.Groups, "Manage students", "Student records and guardians", onGoToStudents)
+                        HorizontalDivider()
+                        NavListItem(Icons.Filled.Class, "School year & sections", "Academic structure used across PickupPass", onGoToAcademicStructure)
+                        if (uiState.features["bulk_student_import"] != false) {
+                            HorizontalDivider()
+                            NavListItem(Icons.Filled.UploadFile, "Bulk import students", "Validate and import roster files", onGoToBulkStudentImport)
+                        }
+                        HorizontalDivider()
+                        NavListItem(Icons.Filled.PersonOff, "Student lifecycle", "Status history and year-end promotion", onGoToStudentLifecycle)
+                        if (uiState.features["guardian_verification"] != false) {
+                            HorizontalDivider()
+                            NavListItem(Icons.Filled.VerifiedUser, "Guardian verification", "Identity assurance and pickup access", onGoToGuardianVerification)
+                        }
+                    }
+                }
+
+                item { SectionLabel("Staff & locations") }
+                item {
+                    GroupedActionList {
+                        NavListItem(Icons.Filled.PersonAdd, "Invite a teacher", "Create a school staff account", onGoToInviteTeacher)
+                        HorizontalDivider()
+                        NavListItem(Icons.Filled.Class, "Teacher sections", "Assign roster and broadcast scope", onGoToManageSections)
+                        HorizontalDivider()
+                        NavListItem(Icons.Filled.AdminPanelSettings, "Teacher accounts", "Access status and session security", onGoToStaffManagement)
+                        HorizontalDivider()
+                        NavListItem(Icons.Filled.LocationOn, "Campuses & pickup gates", "Configure dismissal release locations", onGoToCampusGates)
+                        if (uiState.features["staff_gate_restrictions"] != false) {
+                            HorizontalDivider()
+                            NavListItem(Icons.Filled.Security, "Staff pickup gates", "Limit scanner access by gate", onGoToStaffPickupGates)
+                        }
+                    }
+                }
+
+                item { SectionLabel("School administration") }
+                item {
+                    GroupedActionList {
+                        NavListItem(Icons.Filled.FactCheck, "Launch readiness", "Production setup and on-site checks", onGoToLaunchReadiness)
+                        HorizontalDivider()
+                        NavListItem(Icons.Filled.FactCheck, "Audit log", "Administrative activity trail", onGoToAuditLog)
+                        HorizontalDivider()
+                        NavListItem(Icons.Filled.ReceiptLong, "Subscription & billing", "Invoices, GCash and receipts", onGoToBilling)
+                        HorizontalDivider()
+                        NavListItem(Icons.Filled.Download, "Data backup & export", "Tenant data portability export", onGoToDataExport)
+                    }
+                }
+
+                item {
+                    Text(
+                        "PickupPass school administration",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.sm)
+                    )
+                }
+            }
+        }
+    }
+
+    if (confirmSignOut) {
+        AlertDialog(
+            onDismissRequest = { confirmSignOut = false },
+            title = { Text("Sign out of PickupPass?") },
+            text = { Text("This device will stop receiving notifications for this account until you sign in again.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        confirmSignOut = false
+                        viewModel.signOut()
+                    }
+                ) { Text("Sign out") }
+            },
+            dismissButton = { TextButton(onClick = { confirmSignOut = false }) { Text("Cancel") } }
+        )
+    }
+}
+
+@Composable
+private fun SchoolIdentityCard(
+    schoolName: String,
+    logoUrl: String?,
+    plan: String,
+    subscriptionStatus: String,
+    uploading: Boolean,
+    onChooseLogo: () -> Unit
+) {
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().padding(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(84.dp)
+                    .clip(MaterialTheme.shapes.large)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable(enabled = !uploading, onClick = onChooseLogo),
+                contentAlignment = Alignment.Center
+            ) {
+                if (logoUrl != null) {
+                    SmartImage(
+                        model = logoUrl,
+                        contentDescription = "School logo",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize().padding(Spacing.xs)
+                    )
+                } else {
+                    Icon(
+                        Icons.Filled.Image,
+                        contentDescription = "Choose school logo",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (uploading) {
+                    Box(
+                        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = .42f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(Modifier.size(28.dp))
+                    }
+                }
+            }
+
+            Spacer(Modifier.width(Spacing.md))
+
+            Column(Modifier.weight(1f)) {
                 Text(
-                    "PNG, JPEG, or WebP · under 2MB · square logos with a transparent background look best. It's automatically resized on upload.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = Spacing.xs, bottom = Spacing.sm)
+                    schoolName.ifBlank { "Your school" },
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
-
-                uiState.successMessage?.let {
-                    Text(it, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(Spacing.xs))
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    AssistChip(onClick = {}, enabled = false, label = { Text(plan.pretty()) })
+                    AssistChip(onClick = {}, enabled = false, label = { Text(subscriptionStatus.pretty()) })
                 }
-                uiState.error?.let {
-                    Spacer(Modifier.height(Spacing.sm))
-                    ErrorBanner(it)
+                TextButton(
+                    onClick = onChooseLogo,
+                    enabled = !uploading,
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text(if (logoUrl == null) "Add school logo" else "Change school logo")
                 }
+                Text(
+                    "PNG, JPEG or WebP · under 2 MB",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
+        }
+    }
+}
 
-            Spacer(Modifier.height(Spacing.xl))
-
-            // --- Primary daily action: gets real visual weight, everything
-            // else here is either occasional (invite a teacher, assign
-            // sections) or a different kind of action entirely
-            // (broadcasting), not a same-weight peer of "run the scanner." ---
-            PrimaryActionButton(
-                icon = Icons.Filled.QrCode2,
-                label = "Go to Dismissal Scanner",
-                onClick = onGoToScanner
+@Composable
+private fun PrimaryActionCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .55f),
+        modifier = modifier.clickable(onClick = onClick)
+    ) {
+        Column(Modifier.padding(Spacing.md)) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(Spacing.sm))
+            Text(title, fontWeight = FontWeight.Bold)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-
-            Spacer(Modifier.height(Spacing.lg))
-            SectionLabel("Dismissal Operations")
-            GroupedActionList {
-                NavListItem(Icons.Filled.Dashboard, "Live Dismissal Dashboard", onGoToDismissalDashboard)
-                NavListItem(Icons.Filled.History, "Dismissal History", onGoToExitLogs)
-                if (uiState.features["advanced_reporting"] != false) {
-                    NavListItem(Icons.Filled.Assessment, "Dismissal Reports & Export", onGoToDismissalReports)
-                }
-                if (uiState.features["manual_override"] != false) {
-                    NavListItem(Icons.Filled.WarningAmber, "Manual Pickup Override", onGoToManualPickup)
-                }
-            }
-
-            Spacer(Modifier.height(Spacing.lg))
-            SectionLabel("Manage")
-            GroupedActionList {
-                NavListItem(Icons.Filled.Groups, "Manage Students", onGoToStudents)
-                NavListItem(Icons.Filled.Class, "School Year & Sections", onGoToAcademicStructure)
-                if (uiState.features["bulk_student_import"] != false) {
-                    NavListItem(Icons.Filled.UploadFile, "Bulk Import Students", onGoToBulkStudentImport)
-                }
-                NavListItem(Icons.Filled.PersonOff, "Student Lifecycle & Promotion", onGoToStudentLifecycle)
-                if (uiState.features["guardian_verification"] != false) {
-                    NavListItem(Icons.Filled.VerifiedUser, "Guardian Verification", onGoToGuardianVerification)
-                }
-                NavListItem(Icons.Filled.Schedule, "Pickup Policy", onGoToPickupPolicy)
-                NavListItem(Icons.Filled.LocationOn, "Campuses & Pickup Gates", onGoToCampusGates)
-                if (uiState.features["staff_gate_restrictions"] != false) {
-                    NavListItem(Icons.Filled.LocationOn, "Staff Pickup Gates", onGoToStaffPickupGates)
-                }
-            }
-
-            Spacer(Modifier.height(Spacing.lg))
-            SectionLabel("Administration")
-            GroupedActionList {
-                NavListItem(Icons.Filled.PersonAdd, "Invite a Teacher", onGoToInviteTeacher)
-                NavListItem(Icons.Filled.Class, "Teacher Sections", onGoToManageSections)
-                NavListItem(Icons.Filled.AdminPanelSettings, "Teacher Accounts", onGoToStaffManagement)
-                NavListItem(Icons.Filled.FactCheck, "Launch Readiness", onGoToLaunchReadiness)
-                NavListItem(Icons.Filled.FactCheck, "Audit Log", onGoToAuditLog)
-                NavListItem(Icons.Filled.ReceiptLong, "Subscription & Billing", onGoToBilling)
-                NavListItem(Icons.Filled.Download, "Data Backup & Export", onGoToDataExport)
-            }
-
-            Spacer(Modifier.height(Spacing.lg))
-            PrimaryActionButton(
-                icon = Icons.Filled.Campaign,
-                label = "Send Announcement",
-                onClick = onGoToBroadcast,
-                containerColor = MaterialTheme.colorScheme.secondary
-            )
-            Spacer(Modifier.height(Spacing.md))
         }
     }
 }
@@ -267,20 +390,17 @@ fun SchoolBrandingScreen(
 @Composable
 private fun SectionLabel(text: String) {
     Text(
-        text.uppercase(),
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.xs)
+        text,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold
     )
 }
 
-/** Visually groups related nav items inside one bordered surface, rather than leaving the grouping implied only by a text header above a run of identical buttons. */
 @Composable
 private fun GroupedActionList(content: @Composable ColumnScope.() -> Unit) {
     Surface(
-        shape = MaterialTheme.shapes.medium,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
-        color = MaterialTheme.colorScheme.surface,
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(content = content)
@@ -288,32 +408,41 @@ private fun GroupedActionList(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun NavListItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+private fun NavListItem(
+    icon: ImageVector,
+    label: String,
+    description: String,
+    onClick: () -> Unit
+) {
     ListItem(
-        headlineContent = { Text(label, style = MaterialTheme.typography.bodyLarge) },
-        leadingContent = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        headlineContent = { Text(label, fontWeight = FontWeight.SemiBold) },
+        supportingContent = {
+            Text(
+                description,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
+        leadingContent = {
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(9.dp).size(20.dp)
+                )
+            }
+        },
+        trailingContent = {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
         modifier = Modifier.clickable(onClick = onClick)
     )
 }
 
-@Composable
-private fun PrimaryActionButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    onClick: () -> Unit,
-    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary
-) {
-    Button(
-        onClick = onClick,
-        shape = MaterialTheme.shapes.small,
-        colors = ButtonDefaults.buttonColors(containerColor = containerColor),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(Spacing.sm))
-        Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-    }
-}
+private fun String.pretty(): String =
+    replace('_', ' ').replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }

@@ -11,19 +11,22 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.BroadcastHistoryItem
 import com.pickuppass.android.ui.common.ErrorBanner
-import com.pickuppass.android.ui.common.PrimaryButton
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
 import java.time.Instant
@@ -39,11 +42,11 @@ fun SchoolBroadcastScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-
     var title by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
     var scheduleMode by remember { mutableStateOf(false) }
     var scheduledDateTime by remember { mutableStateOf<ZonedDateTime?>(null) }
+    var confirmDelivery by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.schedulingEnabled) {
         if (!uiState.schedulingEnabled) scheduleMode = false
@@ -65,9 +68,7 @@ fun SchoolBroadcastScreen(
                 TimePickerDialog(
                     context,
                     { _, hour, minute ->
-                        scheduledDateTime = ZonedDateTime.of(
-                            year, month + 1, day, hour, minute, 0, 0, ZoneId.systemDefault()
-                        )
+                        scheduledDateTime = ZonedDateTime.of(year, month + 1, day, hour, minute, 0, 0, ZoneId.systemDefault())
                         viewModel.clearMessage()
                     },
                     initial.hour,
@@ -78,144 +79,237 @@ fun SchoolBroadcastScreen(
             initial.year,
             initial.monthValue - 1,
             initial.dayOfMonth
-        ).apply {
-            datePicker.minDate = System.currentTimeMillis()
-        }.show()
+        ).apply { datePicker.minDate = System.currentTimeMillis() }.show()
     }
+
+    val audienceCount = (if (uiState.includeTeachers) 1 else 0) + (if (uiState.includeParents) 1 else 0)
+    val formReady = title.isNotBlank() &&
+        body.isNotBlank() &&
+        title.length <= 120 &&
+        body.length <= 2000 &&
+        audienceCount > 0 &&
+        (!scheduleMode || scheduledDateTime != null)
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Announcements") },
+                title = {
+                    Column {
+                        Text("Announcements", fontWeight = FontWeight.ExtraBold)
+                        Text(
+                            "School-wide communication",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back") }
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
                 },
                 actions = {
-                    IconButton(onClick = viewModel::refreshHistory) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh history")
+                    IconButton(onClick = viewModel::refreshHistory, enabled = !uiState.isLoadingHistory) {
+                        Icon(Icons.Filled.Refresh, "Refresh history")
                     }
                 }
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
-        ) {
-            item {
-                Text(
-                    if (uiState.schedulingEnabled) "Send immediately or schedule an announcement. Recipients receive it as a push notification and in their notification inbox." else "Send an announcement now. Scheduled announcements are not enabled for this school plan.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            item {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it; viewModel.clearMessage() },
-                    label = { Text("Title") },
-                    supportingText = { Text("${title.length}/120") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = body,
-                    onValueChange = { body = it; viewModel.clearMessage() },
-                    label = { Text("Message") },
-                    supportingText = { Text("${body.length}/2000") },
-                    minLines = 4,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            item {
-                Text("SEND TO", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(Modifier.padding(vertical = Spacing.xs)) {
-                        AudienceRow("Teachers", uiState.includeTeachers) { viewModel.setIncludeTeachers(it) }
-                        AudienceRow("Guardians", uiState.includeParents) { viewModel.setIncludeParents(it) }
-                    }
-                }
-            }
-
-            item {
-                Text("DELIVERY", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = !scheduleMode, onClick = { scheduleMode = false; viewModel.clearMessage() })
-                    Text("Send now", Modifier.clickable { scheduleMode = false; viewModel.clearMessage() })
-                    if (uiState.schedulingEnabled) {
-                        Spacer(Modifier.width(Spacing.md))
-                        RadioButton(selected = scheduleMode, onClick = { scheduleMode = true; viewModel.clearMessage() })
-                        Text("Schedule", Modifier.clickable { scheduleMode = true; viewModel.clearMessage() })
-                    }
-                }
-            }
-
-            if (scheduleMode) {
+        BoxWithConstraints(Modifier.padding(padding).fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxHeight().widthIn(max = 820.dp).align(Alignment.TopCenter),
+                contentPadding = PaddingValues(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+            ) {
                 item {
-                    OutlinedButton(onClick = ::chooseScheduleTime, modifier = Modifier.fillMaxWidth()) {
-                        Text(scheduledDateTime?.let(::formatLocalDateTime) ?: "Choose date and time")
+                    Surface(
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .4f)
+                    ) {
+                        Row(Modifier.fillMaxWidth().padding(Spacing.md), verticalAlignment = Alignment.Top) {
+                            Icon(Icons.Filled.Campaign, null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(Spacing.sm))
+                            Column {
+                                Text("Reach your school community", fontWeight = FontWeight.Bold)
+                                Text(
+                                    if (uiState.schedulingEnabled)
+                                        "Send immediately or schedule a push notification and inbox announcement."
+                                    else
+                                        "Send an immediate push notification and inbox announcement. Scheduling is unavailable on this plan.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
-            }
 
-            item {
-                AnimatedVisibility(visible = uiState.error != null, enter = fadeIn() + expandVertically()) {
-                    uiState.error?.let { ErrorBanner(it, modifier = Modifier.padding(bottom = Spacing.sm)) }
+                item {
+                    ElevatedCard(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                            Text("Compose announcement", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+                            OutlinedTextField(
+                                value = title,
+                                onValueChange = { title = it.take(120); viewModel.clearMessage() },
+                                label = { Text("Title") },
+                                supportingText = { Text("${title.length}/120") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            OutlinedTextField(
+                                value = body,
+                                onValueChange = { body = it.take(2000); viewModel.clearMessage() },
+                                label = { Text("Message") },
+                                supportingText = { Text("${body.length}/2000") },
+                                minLines = 5,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Text("Audience", fontWeight = FontWeight.SemiBold)
+                            Surface(
+                                shape = MaterialTheme.shapes.medium,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column {
+                                    AudienceRow("Teachers", uiState.includeTeachers) { viewModel.setIncludeTeachers(it) }
+                                    HorizontalDivider()
+                                    AudienceRow("Guardians", uiState.includeParents) { viewModel.setIncludeParents(it) }
+                                }
+                            }
+
+                            Text("Delivery", fontWeight = FontWeight.SemiBold)
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                            ) {
+                                DeliveryOption(
+                                    title = "Send now",
+                                    subtitle = "Immediate delivery",
+                                    selected = !scheduleMode,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { scheduleMode = false; viewModel.clearMessage() }
+                                )
+                                if (uiState.schedulingEnabled) {
+                                    DeliveryOption(
+                                        title = "Schedule",
+                                        subtitle = scheduledDateTime?.let(::formatLocalDateTime) ?: "Choose later",
+                                        selected = scheduleMode,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { scheduleMode = true; viewModel.clearMessage() }
+                                    )
+                                }
+                            }
+
+                            if (scheduleMode) {
+                                OutlinedButton(onClick = ::chooseScheduleTime, modifier = Modifier.fillMaxWidth()) {
+                                    Icon(Icons.Filled.Schedule, null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(Spacing.xs))
+                                    Text(scheduledDateTime?.let(::formatLocalDateTime) ?: "Choose date and time")
+                                }
+                            }
+
+                            AnimatedVisibility(uiState.error != null, enter = fadeIn() + expandVertically()) {
+                                uiState.error?.let { ErrorBanner(it) }
+                            }
+                            AnimatedVisibility(uiState.successMessage != null, enter = fadeIn() + expandVertically()) {
+                                uiState.successMessage?.let { SuccessBanner(it) }
+                            }
+
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                Button(
+                                    onClick = { confirmDelivery = true },
+                                    enabled = formReady && !uiState.isSubmitting,
+                                    modifier = Modifier.widthIn(min = 190.dp, max = 340.dp).height(52.dp)
+                                ) {
+                                    if (uiState.isSubmitting) {
+                                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        Spacer(Modifier.width(Spacing.xs))
+                                    }
+                                    Text(if (scheduleMode) "Review schedule" else "Review & send")
+                                }
+                            }
+                        }
+                    }
                 }
-                AnimatedVisibility(visible = uiState.successMessage != null, enter = fadeIn() + expandVertically()) {
-                    uiState.successMessage?.let { SuccessBanner(it, modifier = Modifier.padding(bottom = Spacing.sm)) }
+
+                item {
+                    Column {
+                        Text("Recent announcements", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Scheduled announcements can be cancelled until sending begins.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (uiState.isLoadingHistory) {
+                        Spacer(Modifier.height(Spacing.sm))
+                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                    }
                 }
-                PrimaryButton(
-                    text = if (scheduleMode) "Schedule Announcement" else "Send Announcement",
-                    loading = uiState.isSubmitting,
+
+                if (!uiState.isLoadingHistory && uiState.history.isEmpty()) {
+                    item {
+                        OutlinedCard(Modifier.fillMaxWidth()) {
+                            Text(
+                                "No announcements yet.",
+                                modifier = Modifier.fillMaxWidth().padding(Spacing.xl),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                items(uiState.history, key = { it.id }) { item ->
+                    BroadcastHistoryCard(
+                        item = item,
+                        isCancelling = uiState.cancellingId == item.id,
+                        onCancel = { viewModel.cancel(item.id) }
+                    )
+                }
+            }
+        }
+    }
+
+    if (confirmDelivery) {
+        AlertDialog(
+            onDismissRequest = { if (!uiState.isSubmitting) confirmDelivery = false },
+            icon = { Icon(Icons.Filled.Campaign, null) },
+            title = { Text(if (scheduleMode) "Schedule announcement?" else "Send announcement now?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text(title, fontWeight = FontWeight.Bold)
+                    Text(body, maxLines = 5, overflow = TextOverflow.Ellipsis)
+                    HorizontalDivider()
+                    Text(
+                        "Audience: ${buildList { if (uiState.includeTeachers) add("Teachers"); if (uiState.includeParents) add("Guardians") }.joinToString()}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        if (scheduleMode) "Delivery: ${scheduledDateTime?.let(::formatLocalDateTime)}"
+                        else "Delivery: Immediately",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = !uiState.isSubmitting,
                     onClick = {
+                        confirmDelivery = false
                         if (scheduleMode) {
                             viewModel.schedule(title, body, scheduledDateTime?.toInstant()?.toString())
                         } else {
                             viewModel.send(title, body)
                         }
                     }
-                )
-            }
-
-            item {
-                Spacer(Modifier.height(Spacing.md))
-                Text("RECENT ANNOUNCEMENTS", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "Scheduled announcements can be cancelled until the server starts sending them.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (uiState.isLoadingHistory) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm))
-                }
-            }
-
-            if (!uiState.isLoadingHistory && uiState.history.isEmpty()) {
-                item {
-                    Text("No announcements yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-
-            items(uiState.history, key = { it.id }) { item ->
-                BroadcastHistoryCard(
-                    item = item,
-                    isCancelling = uiState.cancellingId == item.id,
-                    onCancel = { viewModel.cancel(item.id) }
-                )
-            }
-        }
+                ) { Text(if (scheduleMode) "Schedule" else "Send now") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelivery = false }) { Text("Cancel") } }
+        )
     }
 }
 
@@ -223,13 +317,35 @@ fun SchoolBroadcastScreen(
 private fun AudienceRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onChange(!checked) }
-            .padding(horizontal = Spacing.md, vertical = Spacing.xs)
+        modifier = Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(horizontal = Spacing.md, vertical = Spacing.xs)
     ) {
         Checkbox(checked = checked, onCheckedChange = onChange)
         Text(label, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+@Composable
+private fun DeliveryOption(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(
+            if (selected) 2.dp else 1.dp,
+            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+        ),
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .25f)
+        else MaterialTheme.colorScheme.surface,
+        modifier = modifier.clickable(onClick = onClick)
+    ) {
+        Column(Modifier.padding(Spacing.sm)) {
+            Text(title, fontWeight = FontWeight.Bold)
+            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -239,22 +355,27 @@ private fun BroadcastHistoryCard(
     isCancelling: Boolean,
     onCancel: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(item.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    item.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
                 AssistChip(onClick = {}, enabled = false, label = { Text(item.status.ifBlank { "unknown" }.uppercase()) })
             }
-            Text(item.body, style = MaterialTheme.typography.bodyMedium)
+            Text(item.body, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
             Text(
                 "Audience: ${item.audience.joinToString { if (it == "parent") "Guardians" else "Teachers" }}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             when (item.status) {
-                "scheduled" -> item.scheduledAt?.let {
-                    Text("Scheduled: ${formatInstant(it)}", style = MaterialTheme.typography.bodySmall)
-                }
+                "scheduled" -> item.scheduledAt?.let { Text("Scheduled: ${formatInstant(it)}", style = MaterialTheme.typography.bodySmall) }
                 "sent" -> Text(
                     "Sent${item.sentAt?.let { " ${formatInstant(it)}" } ?: ""} · ${item.recipientCount} recipient${if (item.recipientCount == 1) "" else "s"}",
                     style = MaterialTheme.typography.bodySmall

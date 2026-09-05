@@ -9,21 +9,24 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.StudentLifecycleItem
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
 
-private val statuses =
-    listOf("active", "inactive", "transferred", "graduated", "archived")
+private val statuses = listOf("active", "inactive", "transferred", "graduated", "archived")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,193 +35,141 @@ fun StudentLifecycleScreen(
     onBack: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var statusStudent by remember {
-        mutableStateOf<StudentLifecycleItem?>(null)
-    }
+    var statusStudent by remember { mutableStateOf<StudentLifecycleItem?>(null) }
     var showPromotion by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Student Lifecycle") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                title = {
+                    Column {
+                        Text("Student Lifecycle", fontWeight = FontWeight.ExtraBold)
+                        Text(
+                            "Status, retention & promotion",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+                },
                 actions = {
-                    TextButton(onClick = { showPromotion = true }) {
+                    FilledTonalButton(
+                        onClick = { showPromotion = true },
+                        enabled = !state.isWorking
+                    ) {
+                        Icon(Icons.Filled.School, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(Spacing.xs))
                         Text("Promote")
                     }
                 }
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md)
-        ) {
-            item {
-                Text(
-                    "Keep historical records instead of deleting students. " +
-                        "Only Active students can generate or use pickup QR passes.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            item {
-                OutlinedTextField(
-                    value = state.search,
-                    onValueChange = viewModel::setSearch,
-                    label = { Text("Search student or LRN") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-            }
-
-            item {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement =
-                        Arrangement.spacedBy(Spacing.xs)
-                ) {
-                    FilterChip(
-                        selected = state.filter == "all",
-                        onClick = { viewModel.setFilter("all") },
-                        label = {
-                            Text("All (${state.students.size})")
-                        }
-                    )
-
-                    statuses.forEach { status ->
-                        FilterChip(
-                            selected = state.filter == status,
-                            onClick = {
-                                viewModel.setFilter(status)
-                            },
-                            label = {
-                                Text(
-                                    "${status.replaceFirstChar { it.uppercase() }} " +
-                                        "(${state.counts[status] ?: 0})"
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-
-            if (state.isLoading) {
-                item {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-            }
-
-            state.error?.let {
-                item { ErrorBanner(it) }
-            }
-
-            state.success?.let { message ->
+        BoxWithConstraints(Modifier.padding(padding).fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxHeight().widthIn(max = 820.dp).align(Alignment.TopCenter),
+                contentPadding = PaddingValues(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+            ) {
                 item {
                     Surface(
-                        color =
-                            MaterialTheme.colorScheme.secondaryContainer,
-                        shape = MaterialTheme.shapes.medium
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .38f)
                     ) {
-                        Text(
-                            message,
-                            modifier = Modifier.padding(Spacing.md)
-                        )
+                        Column(Modifier.padding(Spacing.md)) {
+                            Text("Preserve student history", fontWeight = FontWeight.Bold)
+                            Text(
+                                "Use lifecycle statuses instead of deleting records. Only Active students can use PickupPass QR pickup.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
-            }
 
-            if (!state.isLoading && state.visibleStudents.isEmpty()) {
                 item {
-                    Text(
-                        "No students match this filter.",
-                        color =
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        SmallMetric("Total", state.students.size, Modifier.weight(1f))
+                        SmallMetric("Active", state.counts["active"] ?: 0, Modifier.weight(1f))
+                        SmallMetric("Archived", state.counts["archived"] ?: 0, Modifier.weight(1f))
+                    }
+                }
+
+                item {
+                    OutlinedTextField(
+                        value = state.search,
+                        onValueChange = viewModel::setSearch,
+                        label = { Text("Search students") },
+                        placeholder = { Text("Name or student number") },
+                        leadingIcon = { Icon(Icons.Filled.Search, null) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
-            }
 
-            items(
-                state.visibleStudents,
-                key = { it.studentId }
-            ) { student ->
-                Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    border = BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.outlineVariant
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            statusStudent = student
-                        }
-                ) {
+                item {
                     Row(
-                        Modifier.padding(Spacing.md),
-                        verticalAlignment = Alignment.CenterVertically
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
                     ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                student.fullName,
-                                fontWeight = FontWeight.SemiBold
+                        FilterChip(
+                            selected = state.filter == "all",
+                            onClick = { viewModel.setFilter("all") },
+                            label = { Text("All (${state.students.size})") }
+                        )
+                        statuses.forEach { status ->
+                            FilterChip(
+                                selected = state.filter == status,
+                                onClick = { viewModel.setFilter(status) },
+                                label = {
+                                    Text("${status.pretty()} (${state.counts[status] ?: 0})")
+                                }
                             )
+                        }
+                    }
+                }
 
-                            Text(
-                                "${student.grade} · ${student.section}" +
-                                    if (student.studentNumber.isNotBlank()) {
-                                        " · ${student.studentNumber}"
-                                    } else {
-                                        ""
-                                    },
-                                style =
-                                    MaterialTheme.typography.bodySmall,
-                                color =
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                if (state.isLoading) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(Spacing.xl), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                }
 
-                            if (student.academicYearName.isNotBlank()) {
+                state.error?.let { item { ErrorBanner(it) } }
+                state.success?.let { item { SuccessBanner(it) } }
+
+                if (!state.isLoading && state.visibleStudents.isEmpty()) {
+                    item {
+                        OutlinedCard(Modifier.fillMaxWidth()) {
+                            Column(
+                                Modifier.fillMaxWidth().padding(Spacing.xl),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(Icons.Filled.ManageAccounts, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.height(Spacing.sm))
+                                Text("No matching students", fontWeight = FontWeight.Bold)
                                 Text(
-                                    student.academicYearName,
-                                    style =
-                                        MaterialTheme.typography.labelSmall
+                                    "Try another search or lifecycle filter.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
-
-                        AssistChip(
-                            onClick = {
-                                statusStudent = student
-                            },
-                            label = {
-                                Text(
-                                    student.status.replaceFirstChar {
-                                        it.uppercase()
-                                    }
-                                )
-                            }
-                        )
                     }
+                }
+
+                items(state.visibleStudents, key = { it.studentId }) { student ->
+                    StudentLifecycleCard(
+                        student = student,
+                        enabled = !state.isWorking,
+                        onClick = { statusStudent = student }
+                    )
                 }
             }
         }
@@ -228,15 +179,9 @@ fun StudentLifecycleScreen(
         StatusDialog(
             student = student,
             busy = state.isWorking,
-            onDismiss = {
-                statusStudent = null
-            },
+            onDismiss = { statusStudent = null },
             onSave = { status, reason ->
-                viewModel.updateStatus(
-                    student.studentId,
-                    status,
-                    reason
-                )
+                viewModel.updateStatus(student.studentId, status, reason)
                 statusStudent = null
             }
         )
@@ -245,16 +190,66 @@ fun StudentLifecycleScreen(
     if (showPromotion) {
         PromotionDialog(
             state = state,
-            onDismiss = {
-                showPromotion = false
-            },
-            onSelectYear =
-                viewModel::selectTargetAcademicYear,
-            onPreview =
-                viewModel::previewPromotion,
-            onExecute =
-                viewModel::executePromotion
+            onDismiss = { if (!state.isWorking) showPromotion = false },
+            onSelectYear = viewModel::selectTargetAcademicYear,
+            onPreview = viewModel::previewPromotion,
+            onExecute = viewModel::executePromotion
         )
+    }
+}
+
+@Composable
+private fun StudentLifecycleCard(
+    student: StudentLifecycleItem,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick)
+    ) {
+        Row(Modifier.padding(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Text(
+                    student.fullName.trim().take(1).uppercase().ifBlank { "S" },
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            Spacer(Modifier.width(Spacing.sm))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    student.fullName,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    buildString {
+                        if (student.studentNumber.isNotBlank()) append("#${student.studentNumber} · ")
+                        append("Grade ${student.grade} → ${student.section}")
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (student.academicYearName.isNotBlank()) {
+                    Text(student.academicYearName, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+            Spacer(Modifier.width(Spacing.sm))
+            Column(horizontalAlignment = Alignment.End) {
+                AssistChip(
+                    onClick = onClick,
+                    enabled = enabled,
+                    label = { Text(student.status.pretty()) }
+                )
+                Text("Manage", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            }
+        }
     }
 }
 
@@ -266,73 +261,36 @@ private fun StatusDialog(
     onDismiss: () -> Unit,
     onSave: (String, String) -> Unit
 ) {
-    var selected by remember(student.studentId) {
-        mutableStateOf(student.status)
-    }
-    var reason by remember(student.studentId) {
-        mutableStateOf("")
-    }
+    var selected by remember(student.studentId) { mutableStateOf(student.status) }
+    var reason by remember(student.studentId) { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text("Change student status")
-        },
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Change student status") },
         text = {
-            Column(
-                verticalArrangement =
-                    Arrangement.spacedBy(Spacing.sm)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Text(student.fullName, fontWeight = FontWeight.Bold)
                 Text(
-                    student.fullName,
-                    fontWeight = FontWeight.SemiBold
+                    "Current: ${student.status.pretty()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = {
-                        expanded = !expanded
-                    }
-                ) {
+                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
                     OutlinedTextField(
-                        value =
-                            selected.replaceFirstChar {
-                                it.uppercase()
-                            },
+                        value = selected.pretty(),
                         onValueChange = {},
                         readOnly = true,
-                        label = {
-                            Text("Status")
-                        },
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults
-                                .TrailingIcon(expanded)
-                        },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth()
+                        label = { Text("New status") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
                     )
-
-                    ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = {
-                            expanded = false
-                        }
-                    ) {
+                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                         statuses.forEach { status ->
                             DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        status.replaceFirstChar {
-                                            it.uppercase()
-                                        }
-                                    )
-                                },
-                                onClick = {
-                                    selected = status
-                                    expanded = false
-                                }
+                                text = { Text(status.pretty()) },
+                                onClick = { selected = status; expanded = false }
                             )
                         }
                     }
@@ -340,45 +298,38 @@ private fun StatusDialog(
 
                 OutlinedTextField(
                     value = reason,
-                    onValueChange = {
-                        reason = it
-                    },
-                    label = {
-                        Text("Reason / note (optional)")
-                    },
+                    onValueChange = { reason = it },
+                    label = { Text("Reason / administrative note") },
+                    supportingText = { Text("Recommended for transferred, inactive, graduated, or archived records.") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2
                 )
 
-                if (selected != "active") {
-                    Text(
-                        "Changing to $selected immediately " +
-                            "invalidates unused pickup QR passes.",
-                        style =
-                            MaterialTheme.typography.bodySmall,
-                        color =
-                            MaterialTheme.colorScheme.error
-                    )
+                if (selected != "active" && selected != student.status) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text(
+                            "Unused pickup QR passes will be invalidated immediately.",
+                            modifier = Modifier.padding(Spacing.sm),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
             Button(
-                onClick = {
-                    onSave(selected, reason)
-                },
-                enabled =
-                    !busy &&
-                        selected != student.status
+                onClick = { onSave(selected, reason) },
+                enabled = !busy && selected != student.status
             ) {
-                Text("Save")
+                if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text("Confirm status")
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") } }
     )
 }
 
@@ -392,151 +343,88 @@ private fun PromotionDialog(
     onExecute: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-
-    val targetYear =
-        state.academicYears.firstOrNull {
-            it.id == state.targetAcademicYearId
-        }
+    val targetYear = state.academicYears.firstOrNull { it.id == state.targetAcademicYearId }
+    val preview = state.promotionPreview
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = {
-            Icon(
-                Icons.Filled.School,
-                contentDescription = null
-            )
-        },
-        title = {
-            Text("End-of-year promotion")
-        },
+        icon = { Icon(Icons.Filled.School, null) },
+        title = { Text("End-of-year promotion") },
         text = {
-            Column(
-                verticalArrangement =
-                    Arrangement.spacedBy(Spacing.sm)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Text(
-                    "PickupPass previews all changes before " +
-                        "writing anything. Students are matched " +
-                        "to the next grade with the same section name."
+                    "Preview is mandatory. PickupPass will not write promotion changes while unresolved section mappings remain.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = {
-                        expanded = !expanded
-                    }
-                ) {
+                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
                     OutlinedTextField(
-                        value =
-                            targetYear?.name.orEmpty(),
+                        value = targetYear?.name.orEmpty(),
                         onValueChange = {},
                         readOnly = true,
-                        label = {
-                            Text("Target school year")
-                        },
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults
-                                .TrailingIcon(expanded)
-                        },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth()
+                        label = { Text("Target school year") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
                     )
-
-                    ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = {
-                            expanded = false
-                        }
-                    ) {
+                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                         state.academicYears
-                            .filter {
-                                it.id !=
-                                    state.currentAcademicYearId &&
-                                    it.status == "active"
-                            }
+                            .filter { it.id != state.currentAcademicYearId && it.status == "active" }
                             .forEach { year ->
                                 DropdownMenuItem(
-                                    text = {
-                                        Text(year.name)
-                                    },
-                                    onClick = {
-                                        onSelectYear(year.id)
-                                        expanded = false
-                                    }
+                                    text = { Text(year.name) },
+                                    onClick = { onSelectYear(year.id); expanded = false }
                                 )
                             }
                     }
                 }
 
-                state.promotionPreview?.let { preview ->
+                preview?.let {
                     HorizontalDivider()
-
-                    Text(
-                        "Ready: ${preview.readyCount}",
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Text(
-                        "Needs mapping: ${preview.unresolvedCount}"
-                    )
-
-                    if (preview.unresolvedCount > 0) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        SmallMetric("Ready", it.readyCount, Modifier.weight(1f))
+                        SmallMetric("Needs mapping", it.unresolvedCount, Modifier.weight(1f))
+                    }
+                    if (it.unresolvedCount > 0) {
                         Text(
-                            "Create matching active sections in " +
-                                "the target year before promotion. " +
-                                "No data will be changed while " +
-                                "unresolved students remain.",
-                            style =
-                                MaterialTheme.typography.bodySmall,
-                            color =
-                                MaterialTheme.colorScheme.error
+                            "Create matching active sections before promotion. No data will be changed.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
                         )
-
-                        preview.unresolved
-                            .take(5)
-                            .forEach {
-                                Text(
-                                    "• ${it.fullName}: ${it.reason}",
-                                    style =
-                                        MaterialTheme.typography.bodySmall
-                                )
-                            }
+                        it.unresolved.take(5).forEach { row ->
+                            Text("• ${row.fullName}: ${row.reason}", style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }
         },
         confirmButton = {
-            val preview = state.promotionPreview
-
-            if (
-                preview != null &&
-                preview.unresolvedCount == 0 &&
-                preview.dryRun
-            ) {
-                Button(
-                    onClick = onExecute,
-                    enabled =
-                        !state.isWorking &&
-                            preview.readyCount > 0
-                ) {
+            if (preview != null && preview.unresolvedCount == 0 && preview.dryRun) {
+                Button(onClick = onExecute, enabled = !state.isWorking && preview.readyCount > 0) {
                     Text("Confirm promotion")
                 }
             } else {
                 Button(
                     onClick = onPreview,
-                    enabled =
-                        !state.isWorking &&
-                            state.targetAcademicYearId.isNotBlank()
+                    enabled = !state.isWorking && state.targetAcademicYearId.isNotBlank()
                 ) {
-                    Text("Preview")
+                    Text(if (state.isWorking) "Working…" else "Preview changes")
                 }
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
-            }
-        }
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !state.isWorking) { Text("Close") } }
     )
 }
+
+@Composable
+private fun SmallMetric(label: String, value: Int, modifier: Modifier = Modifier) {
+    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant, modifier = modifier) {
+        Column(Modifier.padding(Spacing.sm)) {
+            Text(value.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+private fun String.pretty(): String =
+    replace('_', ' ').replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
