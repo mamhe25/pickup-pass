@@ -125,18 +125,38 @@ interface PickupPassApi {
         @retrofit2.http.Query("businessDate") businessDate: String? = null
     ): Response<DismissalDashboardResponse>
 
-
     @GET("academic-structure")
     suspend fun getAcademicStructure(): Response<AcademicStructureResponse>
 
     @POST("school-admin/academic-years")
     suspend fun createAcademicYear(@Body body: CreateAcademicYearRequest): Response<Map<String, Any?>>
 
+    @PUT("school-admin/academic-years/{id}")
+    suspend fun updateAcademicYear(
+        @Path("id") id: String,
+        @Body body: UpdateAcademicYearRequest
+    ): Response<Map<String, Any?>>
+
     @PUT("school-admin/academic-years/{id}/current")
     suspend fun setCurrentAcademicYear(@Path("id") id: String): Response<Map<String, Any?>>
 
+    @PUT("school-admin/academic-years/{id}/status")
+    suspend fun setAcademicYearStatus(
+        @Path("id") id: String,
+        @Body body: AcademicYearStatusRequest
+    ): Response<Map<String, Any?>>
+
+    @retrofit2.http.DELETE("school-admin/academic-years/{id}")
+    suspend fun deleteAcademicYear(@Path("id") id: String): Response<Map<String, Any?>>
+
     @POST("school-admin/grade-sections")
     suspend fun createGradeSection(@Body body: CreateGradeSectionRequest): Response<Map<String, Any?>>
+
+    @PUT("school-admin/grade-sections/{id}")
+    suspend fun updateGradeSection(
+        @Path("id") id: String,
+        @Body body: UpdateGradeSectionRequest
+    ): Response<Map<String, Any?>>
 
     @PUT("school-admin/grade-sections/{id}/status")
     suspend fun setGradeSectionStatus(
@@ -144,6 +164,8 @@ interface PickupPassApi {
         @Body body: GradeSectionStatusRequest
     ): Response<Map<String, Any?>>
 
+    @retrofit2.http.DELETE("school-admin/grade-sections/{id}")
+    suspend fun deleteGradeSection(@Path("id") id: String): Response<Map<String, Any?>>
 
     @GET("school-admin/students/lifecycle")
     suspend fun listStudentLifecycle(
@@ -158,7 +180,6 @@ interface PickupPassApi {
 
     @POST("school-admin/students/promote")
     suspend fun promoteStudents(@Body body: PromotionRequest): Response<PromotionResponse>
-
 
     @GET("school-admin/reports/dismissals/summary")
     suspend fun getDismissalReportSummary(
@@ -239,8 +260,6 @@ interface PickupPassApi {
         @Body body: UpdateStaffPickupGatesRequest
     ): Response<Map<String, Any?>>
 
-
-
     // ---- Phase 3: master-admin SaaS console ----
     @GET("master-admin/schools")
     suspend fun listMasterSchools(): Response<MasterSchoolListResponse>
@@ -286,7 +305,6 @@ interface PickupPassApi {
         @Path("incidentId") incidentId: String,
         @Body body: MasterObservabilityIncidentStatusRequest
     ): Response<Map<String, String>>
-
 
     // ---- Phase 3: master-admin security center ----
     @GET("master-admin/security/overview")
@@ -429,8 +447,6 @@ interface PickupPassApi {
         @Path("jobId") jobId: String
     ): Response<MasterRecoveryJobItem>
 
-
-
     // ---- Phase 3: startup onboarding + launch readiness ----
     @GET("school-admin/launch-readiness")
     suspend fun getSchoolLaunchReadiness(): Response<LaunchReadinessResponse>
@@ -462,5 +478,4 @@ interface PickupPassApi {
 
     @GET("tenant/entitlements")
     suspend fun getTenantEntitlements(): Response<TenantEntitlementsResponse>
-
 }
