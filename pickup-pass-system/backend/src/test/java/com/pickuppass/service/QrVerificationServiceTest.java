@@ -31,7 +31,7 @@ class QrVerificationServiceTest {
         QrVerificationResult result = service.verify(signedToken("school-1", "student-1", "guardian-1", "nonce-1") + "tampered", "school-1");
 
         assertFalse(result.isValid());
-        assertTrue(result.getMessage().contains("Invalid, tampered, or expired"));
+        assertTrue(result.getMessage().contains("Invalid or tampered PickupPass QR code"));
         verifyNoInteractions(firestore);
     }
 
