@@ -263,3 +263,102 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+
+/* =============================================================================
+   PickupPass selected brand identity — teal / gold luggage mark
+   ============================================================================= */
+
+:root {
+  --pp-brand-teal: #003B45;
+  --pp-brand-gold: #D69513;
+  --pp-brand-gold-soft: #F5C451;
+}
+
+.pp-brandmark__badge {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  flex: 0 0 42px !important;
+  display: inline-block !important;
+  border-radius: 0 !important;
+  background: url("../assets/brand/pickuppass-mark.png") center / contain no-repeat !important;
+  box-shadow: none !important;
+  color: transparent !important;
+}
+
+.pp-brandmark__badge svg,
+.landing-brand__mark svg {
+  display: none !important;
+}
+
+.landing-brand__mark {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  flex: 0 0 42px !important;
+  display: inline-block !important;
+  border-radius: 0 !important;
+  background: url("../assets/brand/pickuppass-mark.png") center / contain no-repeat !important;
+  box-shadow: none !important;
+  color: transparent !important;
+}
+
+.pp-brandmark__name,
+.landing-brand__name {
+  font-weight: 800 !important;
+  background: linear-gradient(
+    90deg,
+    var(--pp-brand-teal) 0 58%,
+    var(--pp-brand-gold) 58% 100%
+  ) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+}
+
+.landing-brand--footer .landing-brand__name,
+.pp-auth-story .text-xl.font-extrabold {
+  background: linear-gradient(
+    90deg,
+    #ECFDF5 0 58%,
+    var(--pp-brand-gold-soft) 58% 100%
+  ) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+}
+
+:root[data-theme="dark"] .pp-brandmark__name {
+  background: linear-gradient(
+    90deg,
+    #DDFBF5 0 58%,
+    var(--pp-brand-gold-soft) 58% 100%
+  ) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .pp-brandmark__name {
+    background: linear-gradient(
+      90deg,
+      #DDFBF5 0 58%,
+      var(--pp-brand-gold-soft) 58% 100%
+    ) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    color: transparent !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .pp-brandmark__badge,
+  .landing-brand__mark {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    flex-basis: 38px !important;
+  }
+}
