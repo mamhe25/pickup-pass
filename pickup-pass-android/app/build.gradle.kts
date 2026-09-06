@@ -1,3 +1,30 @@
+import java.util.Properties
+
+val localProperties = Properties().apply {
+    val localPropertiesFile =
+        rootProject.file("local.properties")
+
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile
+            .inputStream()
+            .use { load(it) }
+    }
+}
+
+val debugApiBaseUrl =
+    localProperties
+        .getProperty(
+            "pickuppass.debugApiBaseUrl",
+            "https://pickup-pass-backend-445244473897.asia-southeast1.run.app/api/"
+        )
+        .trim()
+        .let {
+            if (it.endsWith("/")) {
+                it
+            } else {
+                "$it/"
+            }
+        }
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -57,7 +84,7 @@ android {
             buildConfigField(
                 "String",
                 "API_BASE_URL",
-                "\"http://192.168.1.17:8080/api/\""
+                "\"$debugApiBaseUrl\""
             )
 
             isMinifyEnabled = false
