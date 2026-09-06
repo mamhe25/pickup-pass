@@ -1,24 +1,19 @@
 package com.pickuppass.android.ui.teacher.students
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.Student
+import com.pickuppass.android.data.model.TeacherSection
 import com.pickuppass.android.data.model.primaryGuardianUidCompat
 import com.pickuppass.android.ui.common.BrandedTitle
 import com.pickuppass.android.ui.common.ErrorBanner
@@ -49,60 +45,27 @@ fun TeacherStudentsScreen(
     onManageGuardians: (studentId: String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showAddSheet by remember { mutableStateOf(false) }
 
-    var showAddSheet by remember {
-        mutableStateOf(false)
-    }
+    val addSheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
 
-    val expandedGrades =
-        remember {
-            mutableStateMapOf<String, Boolean>()
-        }
-
-    val expandedSections =
-        remember {
-            mutableStateMapOf<String, Boolean>()
-        }
-
-    val addSheetState =
-        rememberModalBottomSheetState(
-            skipPartiallyExpanded = true
-        )
-
-    LaunchedEffect(
-        uiState.justCreatedStudentId
-    ) {
-        uiState.justCreatedStudentId?.let {
-                studentId ->
+    LaunchedEffect(uiState.justCreatedStudentId) {
+        uiState.justCreatedStudentId?.let { studentId ->
             showAddSheet = false
             viewModel.consumeJustCreatedStudentId()
             onRegisterParent(studentId)
         }
     }
 
-    val totalStudents =
-        uiState.allStudents.size
-
-    val studentsWithPrimaryGuardian =
-        uiState.allStudents.count {
-            hasPrimaryGuardian(it)
-        }
-
-    val needsPrimaryGuardian =
-        totalStudents - studentsWithPrimaryGuardian
-
-    val totalSections =
-        uiState.groupedStudents.sumOf {
-            it.sections.size
-        }
-
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     BrandedTitle(
-                        "Students",
-                        uiState.school
+                        title = "Students",
+                        school = uiState.school
                     )
                 },
                 navigationIcon = {
@@ -114,13 +77,10 @@ fun TeacherStudentsScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = onGoToExitLogs
-                    ) {
+                    IconButton(onClick = onGoToExitLogs) {
                         Icon(
                             Icons.Filled.History,
-                            contentDescription =
-                                "Dismissal History"
+                            contentDescription = "Dismissal history"
                         )
                     }
                 }
@@ -130,10 +90,12 @@ fun TeacherStudentsScreen(
             if (
                 !uiState.isLoading &&
                 uiState.error == null &&
-                !uiState.hasNoAssignedSections
+                !uiState.hasNoAssignedSections &&
+                uiState.availableSections.isNotEmpty()
             ) {
-                SmallFloatingActionButton(
+                FloatingActionButton(
                     onClick = {
+                        viewModel.clearFormFeedback()
                         showAddSheet = true
                     }
                 ) {
@@ -145,195 +107,36 @@ fun TeacherStudentsScreen(
             }
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            if (
-                !uiState.isLoading &&
-                uiState.error == null &&
-                !uiState.hasNoAssignedSections
-            ) {
-                CompactRosterSummary(
-                    totalStudents = totalStudents,
-                    sectionCount = totalSections,
-                    needsPrimaryGuardian = needsPrimaryGuardian
-                )
-            }
+            when {
+                uiState.isLoading ->
+                    FullScreenLoading()
 
-            val canSearch =
-                !uiState.isLoading &&
-                    uiState.error == null &&
-                    !uiState.hasNoAssignedSections &&
-                    uiState.allStudents.isNotEmpty()
+                uiState.error != null ->
+                    RosterErrorState(
+                        message = uiState.error ?: "Couldn't load students",
+                        onRetry = viewModel::load
+                    )
 
-            if (canSearch) {
-                CompactSearchBar(
-                    searchTerm =
-                        uiState.searchTerm,
-                    sectionCount =
-                        totalSections,
-                    onSearchChange =
-                        viewModel::onSearchChange
-                )
-            }
+                uiState.hasNoAssignedSections ->
+                    NoSectionsAssignedState()
 
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
-                val contentPhase =
-                    when {
-                        uiState.isLoading ->
-                            "loading"
-
-                        uiState.error != null ->
-                            "error"
-
-                        uiState.hasNoAssignedSections ->
-                            "noSections"
-
-                        uiState.allStudents.isEmpty() ->
-                            "emptyRoster"
-
-                        uiState.groupedStudents.isEmpty() ->
-                            "noResults"
-
-                        else ->
-                            "list"
-                    }
-
-                Crossfade(
-                    targetState = contentPhase,
-                    animationSpec = tween(180),
-                    label = "rosterPhase"
-                ) { phase ->
-                    when (phase) {
-                        "loading" ->
-                            FullScreenLoading()
-
-                        "error" ->
-                            RosterErrorState(
-                                message =
-                                    uiState.error
-                                        ?: "Couldn't load students",
-                                onRetry =
-                                    viewModel::load
-                            )
-
-                        "noSections" ->
-                            NoSectionsAssignedState()
-
-                        "emptyRoster" ->
-                            EmptyRoster(
-                                onAdd = {
-                                    showAddSheet = true
-                                }
-                            )
-
-                        "noResults" ->
-                            NoSearchResultsState(
-                                searchTerm =
-                                    uiState.searchTerm,
-                                onClear = {
-                                    viewModel
-                                        .onSearchChange("")
-                                }
-                            )
-
-                        else ->
-                            LazyColumn(
-                                contentPadding =
-                                    PaddingValues(
-                                        start =
-                                            Spacing.md,
-                                        end =
-                                            Spacing.md,
-                                        top = 2.dp,
-                                        bottom = 88.dp
-                                    ),
-                                verticalArrangement =
-                                    Arrangement.spacedBy(
-                                        7.dp
-                                    )
-                            ) {
-                                uiState.groupedStudents
-                                    .forEachIndexed {
-                                            gradeIndex,
-                                            gradeGroup ->
-
-                                        val gradeKey =
-                                            gradeGroup.grade
-
-                                        val forceExpanded =
-                                            uiState.searchTerm
-                                                .isNotBlank()
-
-                                        val gradeExpanded =
-                                            if (forceExpanded) {
-                                                true
-                                            } else {
-                                                expandedGrades[
-                                                    gradeKey
-                                                ] == true
-                                            }
-
-                                        item(
-                                            key =
-                                                "grade-$gradeKey"
-                                        ) {
-                                            GradeAccordion(
-                                                grade =
-                                                    gradeGroup.grade,
-                                                sections =
-                                                    gradeGroup.sections.map {
-                                                        SectionDisplay(
-                                                            section =
-                                                                it.section,
-                                                            students =
-                                                                it.students
-                                                        )
-                                                    },
-                                                expanded =
-                                                    gradeExpanded,
-                                                searchActive =
-                                                    forceExpanded,
-                                                expandedSections =
-                                                    expandedSections,
-                                                onGradeToggle = {
-                                                    if (
-                                                        !forceExpanded
-                                                    ) {
-                                                        expandedGrades[
-                                                            gradeKey
-                                                        ] =
-                                                            !gradeExpanded
-                                                    }
-                                                },
-                                                onSectionToggle = {
-                                                        sectionKey,
-                                                        isExpanded ->
-                                                    if (
-                                                        !forceExpanded
-                                                    ) {
-                                                        expandedSections[
-                                                            sectionKey
-                                                        ] =
-                                                            !isExpanded
-                                                    }
-                                                },
-                                                onRegisterParent =
-                                                    onRegisterParent,
-                                                onManageGuardians =
-                                                    onManageGuardians
-                                            )
-                                        }
-                                    }
-                            }
-                    }
-                }
+                else ->
+                    TeacherRosterContent(
+                        uiState = uiState,
+                        onSearchChange = viewModel::onSearchChange,
+                        onSectionFilterChange = viewModel::onSectionFilterChange,
+                        onRegisterParent = onRegisterParent,
+                        onManageGuardians = onManageGuardians,
+                        onAddStudent = {
+                            viewModel.clearFormFeedback()
+                            showAddSheet = true
+                        }
+                    )
             }
         }
     }
@@ -343,764 +146,613 @@ fun TeacherStudentsScreen(
             onDismissRequest = {
                 if (!uiState.isSubmitting) {
                     showAddSheet = false
+                    viewModel.clearFormFeedback()
                 }
             },
             sheetState = addSheetState
         ) {
             AddStudentSheetContent(
-                isSubmitting =
-                    uiState.isSubmitting,
-                formError =
-                    uiState.formError,
+                sections = uiState.availableSections,
+                isSubmitting = uiState.isSubmitting,
+                formError = uiState.formError,
                 onCancel = {
-                    showAddSheet = false
+                    if (!uiState.isSubmitting) {
+                        showAddSheet = false
+                        viewModel.clearFormFeedback()
+                    }
                 },
-                onSubmit = {
-                        lastName,
-                        firstName,
-                        mi,
-                        suffix,
-                        grade,
-                        section ->
-                    viewModel.addStudent(
-                        lastName,
-                        firstName,
-                        mi,
-                        suffix,
-                        grade,
-                        section
-                    )
-                }
+                onSubmit = viewModel::addStudent
             )
         }
     }
 }
 
 @Composable
-private fun CompactRosterSummary(
-    totalStudents: Int,
-    sectionCount: Int,
-    needsPrimaryGuardian: Int
+private fun TeacherRosterContent(
+    uiState: TeacherStudentsUiState,
+    onSearchChange: (String) -> Unit,
+    onSectionFilterChange: (TeacherSection?) -> Unit,
+    onRegisterParent: (String) -> Unit,
+    onManageGuardians: (String) -> Unit,
+    onAddStudent: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                horizontal = Spacing.md,
-                vertical = 4.dp
+    val totalStudents = uiState.allStudents.size
+    val guardianReady = uiState.allStudents.count(::hasPrimaryGuardian)
+    val needsPrimary = totalStudents - guardianReady
+
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxHeight()
+                .widthIn(max = 860.dp)
+                .align(Alignment.TopCenter),
+            contentPadding = PaddingValues(
+                start = Spacing.md,
+                top = Spacing.sm,
+                end = Spacing.md,
+                bottom = 96.dp
             ),
-        horizontalArrangement =
-            Arrangement.spacedBy(6.dp)
-    ) {
-        RosterSummaryPill(
-            value = totalStudents.toString(),
-            label = "Students",
-            modifier = Modifier.weight(1f)
-        )
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
+            item(key = "hero") {
+                RosterHero(
+                    totalStudents = totalStudents,
+                    sectionCount = uiState.availableSections.size,
+                    needsPrimaryGuardian = needsPrimary
+                )
+            }
 
-        RosterSummaryPill(
-            value = sectionCount.toString(),
-            label = "Sections",
-            modifier = Modifier.weight(1f)
-        )
+            uiState.placementError?.let { message ->
+                item(key = "placement_warning") {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(Spacing.md),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(
+                                Icons.Filled.WarningAmber,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(Modifier.width(Spacing.sm))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "Section setup needs attention",
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    message,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
-        RosterSummaryPill(
-            value = needsPrimaryGuardian.toString(),
-            label = "Needs primary",
-            modifier = Modifier.weight(1f)
-        )
+            item(key = "search") {
+                SearchCard(
+                    searchTerm = uiState.searchTerm,
+                    onSearchChange = onSearchChange
+                )
+            }
+
+            if (uiState.availableSections.size > 1) {
+                item(key = "section_filter") {
+                    SectionFilter(
+                        sections = uiState.availableSections,
+                        selected = uiState.selectedSectionFilter,
+                        onSelect = onSectionFilterChange
+                    )
+                }
+            }
+
+            item(key = "roster_heading") {
+                SectionHeading(
+                    title = "Roster",
+                    detail = when {
+                        uiState.searchTerm.isNotBlank() ->
+                            "${uiState.filteredStudents.size} matching student${
+                                if (uiState.filteredStudents.size == 1) "" else "s"
+                            }"
+
+                        uiState.selectedSectionFilter != null ->
+                            "${uiState.filteredStudents.size} student${
+                                if (uiState.filteredStudents.size == 1) "" else "s"
+                            } in ${uiState.selectedSectionFilter.displayLabel()}"
+
+                        else ->
+                            "$totalStudents active student${
+                                if (totalStudents == 1) "" else "s"
+                            }"
+                    }
+                )
+            }
+
+            when {
+                uiState.allStudents.isEmpty() -> {
+                    item(key = "empty_roster") {
+                        EmptyRoster(onAdd = onAddStudent)
+                    }
+                }
+
+                uiState.filteredStudents.isEmpty() -> {
+                    item(key = "empty_filter") {
+                        NoSearchResultsState(
+                            searchTerm = uiState.searchTerm,
+                            section = uiState.selectedSectionFilter,
+                            onClear = {
+                                onSearchChange("")
+                                onSectionFilterChange(null)
+                            }
+                        )
+                    }
+                }
+
+                else -> {
+                    var lastGroup: String? = null
+                    uiState.filteredStudents.forEach { student ->
+                        val group = "${student.grade}||${student.section}"
+
+                        if (group != lastGroup) {
+                            item(key = "header-$group") {
+                                RosterGroupHeader(
+                                    grade = student.grade,
+                                    section = student.section,
+                                    studentCount = uiState.filteredStudents.count {
+                                        it.grade == student.grade &&
+                                            it.section == student.section
+                                    }
+                                )
+                            }
+                            lastGroup = group
+                        }
+
+                        item(key = "student-${student.id}") {
+                            StudentRosterCard(
+                                student = student,
+                                onRegisterParent = {
+                                    onRegisterParent(student.id)
+                                },
+                                onManageGuardians = {
+                                    onManageGuardians(student.id)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            item(key = "security_note") {
+                RosterSecurityNote()
+            }
+        }
     }
 }
 
 @Composable
-private fun RosterSummaryPill(
+private fun RosterHero(
+    totalStudents: Int,
+    sectionCount: Int,
+    needsPrimaryGuardian: Int
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(Modifier.padding(Spacing.lg)) {
+            Text(
+                "DISMISSAL ROSTER",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Spacer(Modifier.height(Spacing.xs))
+
+            Text(
+                "Know who is ready for pickup.",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+
+            Spacer(Modifier.height(Spacing.xs))
+
+            Text(
+                "Student records stay scoped to your assigned sections. Guardian readiness is visible before dismissal starts.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
+            )
+
+            Spacer(Modifier.height(Spacing.lg))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                HeroMetric(
+                    value = totalStudents.toString(),
+                    label = "Students",
+                    modifier = Modifier.weight(1f)
+                )
+                HeroMetric(
+                    value = sectionCount.toString(),
+                    label = "Sections",
+                    modifier = Modifier.weight(1f)
+                )
+                HeroMetric(
+                    value = needsPrimaryGuardian.toString(),
+                    label = "Need guardian",
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeroMetric(
     value: String,
     label: String,
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
+        )
+    ) {
+        Column(Modifier.padding(Spacing.sm)) {
+            Text(
+                value,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchCard(
+    searchTerm: String,
+    onSearchChange: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = searchTerm,
+        onValueChange = onSearchChange,
+        placeholder = { Text("Search by student name") },
+        leadingIcon = {
+            Icon(
+                Icons.Filled.Search,
+                contentDescription = null
+            )
+        },
+        singleLine = true,
         shape = CircleShape,
-        color =
-            MaterialTheme.colorScheme.surfaceVariant
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SectionFilter(
+    sections: List<TeacherSection>,
+    selected: TeacherSection?,
+    onSelect: (TeacherSection?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selected?.displayLabel() ?: "All assigned sections",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Section filter") },
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor()
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("All assigned sections") },
+                onClick = {
+                    onSelect(null)
+                    expanded = false
+                }
+            )
+
+            sections.forEach { section ->
+                DropdownMenuItem(
+                    text = { Text(section.displayLabel()) },
+                    onClick = {
+                        onSelect(section)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeading(
+    title: String,
+    detail: String
+) {
+    Column {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.ExtraBold
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            detail,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun RosterGroupHeader(
+    grade: String,
+    section: String,
+    studentCount: Int
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
     ) {
         Row(
             modifier = Modifier.padding(
-                horizontal = 8.dp,
-                vertical = 6.dp
-            ),
-            horizontalArrangement =
-                Arrangement.Center,
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
-            Text(
-                text = value,
-                style =
-                    MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.ExtraBold,
-                color =
-                    MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(Modifier.width(4.dp))
-
-            Text(
-                text = label,
-                maxLines = 1,
-                overflow =
-                    TextOverflow.Ellipsis,
-                style =
-                    MaterialTheme.typography.labelSmall,
-                color =
-                    MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun CompactSearchBar(
-    searchTerm: String,
-    sectionCount: Int,
-    onSearchChange: (String) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
                 horizontal = Spacing.md,
-                vertical = 5.dp
+                vertical = Spacing.sm
             ),
-        verticalAlignment =
-            Alignment.CenterVertically
-    ) {
-        OutlinedTextField(
-            value = searchTerm,
-            onValueChange = onSearchChange,
-            placeholder = {
-                Text("Search student")
-            },
-            leadingIcon = {
-                Icon(
-                    Icons.Filled.Search,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(34.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        gradeBadge(grade),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(Spacing.sm))
+
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Grade ${grade.ifBlank { "—" }} · ${section.ifBlank { "Unassigned section" }}",
+                    fontWeight = FontWeight.Bold
                 )
-            },
-            singleLine = true,
-            shape = CircleShape,
-            modifier = Modifier
-                .weight(1f)
-                .heightIn(min = 48.dp)
-        )
-
-        Spacer(Modifier.width(8.dp))
-
-        Surface(
-            shape = CircleShape,
-            color =
-                MaterialTheme.colorScheme.primaryContainer
-        ) {
-            Text(
-                text =
-                    "$sectionCount section${if (sectionCount == 1) "" else "s"}",
-                modifier = Modifier.padding(
-                    horizontal = 10.dp,
-                    vertical = 7.dp
-                ),
-                style =
-                    MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color =
-                    MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
-    }
-}
-
-private data class SectionDisplay(
-    val section: String,
-    val students: List<Student>
-)
-
-@Composable
-private fun GradeAccordion(
-    grade: String,
-    sections: List<SectionDisplay>,
-    expanded: Boolean,
-    searchActive: Boolean,
-    expandedSections: Map<String, Boolean>,
-    onGradeToggle: () -> Unit,
-    onSectionToggle: (
-        sectionKey: String,
-        isExpanded: Boolean
-    ) -> Unit,
-    onRegisterParent: (String) -> Unit,
-    onManageGuardians: (String) -> Unit
-) {
-    val studentCount =
-        sections.sumOf {
-            it.students.size
-        }
-
-    val readyCount =
-        sections.sumOf { section ->
-            section.students.count {
-                hasPrimaryGuardian(it)
-            }
-        }
-
-    val needsCount =
-        studentCount - readyCount
-
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor =
-                    MaterialTheme.colorScheme.surface
-            ),
-        elevation =
-            CardDefaults.elevatedCardElevation(
-                defaultElevation = 1.dp
-            )
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(
-                    enabled = !searchActive,
-                    onClick = onGradeToggle
-                ),
-            color =
-                MaterialTheme.colorScheme.primary,
-            contentColor =
-                MaterialTheme.colorScheme.onPrimary
-        ) {
-            Row(
-                modifier = Modifier.padding(
-                    horizontal = 12.dp,
-                    vertical = 10.dp
-                ),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                Surface(
-                    modifier = Modifier.size(38.dp),
-                    shape = CircleShape,
-                    color =
-                        MaterialTheme.colorScheme.onPrimary
-                            .copy(alpha = 0.14f)
-                ) {
-                    Box(
-                        contentAlignment =
-                            Alignment.Center
-                    ) {
-                        Text(
-                            text = gradeBadge(grade),
-                            style =
-                                MaterialTheme.typography.labelLarge,
-                            fontWeight =
-                                FontWeight.ExtraBold,
-                            color =
-                                MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                }
-
-                Spacer(Modifier.width(10.dp))
-
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text =
-                            "Grade ${grade.ifBlank { "—" }}",
-                        maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis,
-                        style =
-                            MaterialTheme.typography.titleSmall,
-                        fontWeight =
-                            FontWeight.ExtraBold
-                    )
-
-                    Spacer(Modifier.height(1.dp))
-
-                    Text(
-                        text = buildString {
-                            append(
-                                "${sections.size} section${if (sections.size == 1) "" else "s"}"
-                            )
-                            append(
-                                " · $studentCount student${if (studentCount == 1) "" else "s"}"
-                            )
-
-                            if (needsCount > 0) {
-                                append(
-                                    " · $needsCount need primary"
-                                )
-                            } else if (studentCount > 0) {
-                                append(
-                                    " · all ready"
-                                )
-                            }
-                        },
-                        maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis,
-                        style =
-                            MaterialTheme.typography.labelSmall,
-                        color =
-                            MaterialTheme.colorScheme.onPrimary
-                                .copy(alpha = 0.76f)
-                    )
-                }
-
-                if (!searchActive) {
-                    Icon(
-                        imageVector =
-                            if (expanded) {
-                                Icons.Filled.ExpandLess
-                            } else {
-                                Icons.Filled.ExpandMore
-                            },
-                        contentDescription =
-                            if (expanded) {
-                                "Collapse grade"
-                            } else {
-                                "Expand grade"
-                            }
-                    )
-                }
-            }
-        }
-
-        AnimatedVisibility(
-            visible = expanded
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(7.dp),
-                verticalArrangement =
-                    Arrangement.spacedBy(6.dp)
-            ) {
-                sections.forEach {
-                        sectionGroup ->
-
-                    val sectionKey =
-                        "$grade|${sectionGroup.section}"
-
-                    val sectionExpanded =
-                        if (searchActive) {
-                            true
-                        } else {
-                            expandedSections[
-                                sectionKey
-                            ] == true
-                        }
-
-                    SectionAccordion(
-                        section =
-                            sectionGroup.section,
-                        students =
-                            sectionGroup.students,
-                        expanded =
-                            sectionExpanded,
-                        searchActive =
-                            searchActive,
-                        onToggle = {
-                            onSectionToggle(
-                                sectionKey,
-                                sectionExpanded
-                            )
-                        },
-                        onRegisterParent =
-                            onRegisterParent,
-                        onManageGuardians =
-                            onManageGuardians
-                    )
-                }
+                Text(
+                    "$studentCount student${if (studentCount == 1) "" else "s"}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SectionAccordion(
-    section: String,
-    students: List<Student>,
-    expanded: Boolean,
-    searchActive: Boolean,
-    onToggle: () -> Unit,
-    onRegisterParent: (String) -> Unit,
-    onManageGuardians: (String) -> Unit
-) {
-    val readyCount =
-        students.count {
-            hasPrimaryGuardian(it)
-        }
-
-    val needsCount =
-        students.size - readyCount
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(),
-        shape = MaterialTheme.shapes.medium,
-        color =
-            MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(
-                        enabled = !searchActive,
-                        onClick = onToggle
-                    )
-                    .padding(
-                        horizontal = 11.dp,
-                        vertical = 8.dp
-                    ),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                Surface(
-                    modifier = Modifier.size(30.dp),
-                    shape = CircleShape,
-                    color =
-                        MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Box(
-                        contentAlignment =
-                            Alignment.Center
-                    ) {
-                        Text(
-                            text =
-                                sectionInitial(section),
-                            style =
-                                MaterialTheme.typography.labelMedium,
-                            fontWeight =
-                                FontWeight.ExtraBold,
-                            color =
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-                }
-
-                Spacer(Modifier.width(9.dp))
-
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text =
-                            "Section ${section.ifBlank { "—" }}",
-                        maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis,
-                        style =
-                            MaterialTheme.typography.bodyMedium,
-                        fontWeight =
-                            FontWeight.ExtraBold,
-                        color =
-                            MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Spacer(Modifier.height(1.dp))
-
-                    Text(
-                        text = buildString {
-                            append(
-                                "${students.size} student${if (students.size == 1) "" else "s"}"
-                            )
-
-                            append(
-                                " · $readyCount primary ready"
-                            )
-
-                            if (needsCount > 0) {
-                                append(
-                                    " · $needsCount need primary"
-                                )
-                            }
-                        },
-                        maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis,
-                        style =
-                            MaterialTheme.typography.labelSmall,
-                        color =
-                            if (needsCount > 0) {
-                                MaterialTheme.colorScheme.error
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                    )
-                }
-
-                if (!searchActive) {
-                    Icon(
-                        imageVector =
-                            if (expanded) {
-                                Icons.Filled.ExpandLess
-                            } else {
-                                Icons.Filled.ExpandMore
-                            },
-                        contentDescription =
-                            if (expanded) {
-                                "Collapse section"
-                            } else {
-                                "Expand section"
-                            },
-                        tint =
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            AnimatedVisibility(
-                visible = expanded
-            ) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color =
-                        MaterialTheme.colorScheme.surface
-                ) {
-                    Column {
-                        students.forEachIndexed {
-                                index,
-                                student ->
-
-                            CompactStudentRow(
-                                student = student,
-                                onRegisterParent = {
-                                    onRegisterParent(
-                                        student.id
-                                    )
-                                },
-                                onManageGuardians = {
-                                    onManageGuardians(
-                                        student.id
-                                    )
-                                }
-                            )
-
-                            if (
-                                index != students.lastIndex
-                            ) {
-                                HorizontalDivider(
-                                    modifier =
-                                        Modifier.padding(
-                                            start = 58.dp
-                                        ),
-                                    color =
-                                        MaterialTheme.colorScheme.outlineVariant
-                                            .copy(
-                                                alpha = 0.65f
-                                            )
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CompactStudentRow(
+private fun StudentRosterCard(
     student: Student,
     onRegisterParent: () -> Unit,
     onManageGuardians: () -> Unit
 ) {
-    val guardianCount =
-        student.guardianUids.size
-    val hasPrimary =
-        hasPrimaryGuardian(student)
+    val hasPrimary = hasPrimaryGuardian(student)
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                start = 11.dp,
-                top = 7.dp,
-                end = 8.dp,
-                bottom = 7.dp
-            ),
-        verticalAlignment =
-            Alignment.CenterVertically
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
     ) {
-        StudentAvatar(
-            student = student
-        )
+        Column(Modifier.padding(Spacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StudentAvatar(student)
 
-        Spacer(Modifier.width(9.dp))
+                Spacer(Modifier.width(Spacing.md))
 
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
-            Text(
-                text =
-                    student.fullName.ifBlank {
-                        "Unnamed student"
-                    },
-                maxLines = 1,
-                overflow =
-                    TextOverflow.Ellipsis,
-                style =
-                    MaterialTheme.typography.bodyMedium,
-                fontWeight =
-                    FontWeight.Bold
-            )
-
-            Spacer(Modifier.height(1.dp))
-
-            Row(
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                GuardianStatusDot(
-                    ready = hasPrimary
-                )
-
-                Spacer(Modifier.width(5.dp))
-
-                Text(
-                    text = when {
-                        hasPrimary ->
-                            "$guardianCount guardian${if (guardianCount == 1) "" else "s"} · primary ready"
-                        guardianCount > 0 ->
-                            "Primary needed · $guardianCount secondary"
-                        else ->
-                            "Needs primary guardian"
-                    },
-                    maxLines = 1,
-                    overflow =
-                        TextOverflow.Ellipsis,
-                    style =
-                        MaterialTheme.typography.labelSmall,
-                    color =
-                        if (hasPrimary) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.error
-                        }
-                )
-
-                if (
-                    student.studentNumber
-                        .isNotBlank()
-                ) {
+                Column(Modifier.weight(1f)) {
                     Text(
-                        text =
-                            " · ${student.studentNumber}",
-                        maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis,
-                        style =
-                            MaterialTheme.typography.labelSmall,
-                        color =
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                        student.fullName.ifBlank { "Unnamed student" },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
+
+                    Spacer(Modifier.height(2.dp))
+
+                    Text(
+                        "Grade ${student.grade.ifBlank { "—" }} · ${
+                            student.section.ifBlank { "Section —" }
+                        }",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    if (student.studentNumber.isNotBlank()) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "Student no. ${student.studentNumber}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                GuardianReadinessBadge(hasPrimary = hasPrimary)
+            }
+
+            Spacer(Modifier.height(Spacing.md))
+
+            if (hasPrimary) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(Spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.Security,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(Spacing.xs))
+                        Text(
+                            "Primary guardian registered. Review backup or temporary pickup access when needed.",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.58f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(Spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.WarningAmber,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(Spacing.xs))
+                        Text(
+                            "Primary guardian required before backup or one-day pickup access can be added.",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
                 }
             }
-        }
 
-        TextButton(
-            onClick = {
-                if (guardianCount > 0) {
-                    onManageGuardians()
+            Spacer(Modifier.height(Spacing.sm))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                if (!hasPrimary) {
+                    FilledTonalButton(
+                        onClick = onRegisterParent,
+                        modifier = Modifier.heightIn(min = 44.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.PersonAdd,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Register primary")
+                    }
                 } else {
-                    onRegisterParent()
+                    OutlinedButton(
+                        onClick = onManageGuardians,
+                        modifier = Modifier.heightIn(min = 44.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.Group,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Manage guardians")
+                    }
                 }
-            },
-            contentPadding =
-                PaddingValues(
-                    horizontal = 8.dp
-                ),
-            modifier =
-                Modifier.heightIn(min = 44.dp)
-        ) {
-            Text(
-                text =
-                    if (guardianCount > 0) {
-                        "Manage"
-                    } else {
-                        "Register primary"
-                    },
-                style =
-                    MaterialTheme.typography.labelMedium,
-                fontWeight =
-                    FontWeight.Bold
-            )
+            }
         }
     }
 }
 
-private fun hasPrimaryGuardian(
-    student: Student
-): Boolean =
-    student.primaryGuardianUidCompat() != null
 @Composable
-private fun StudentAvatar(
-    student: Student
-) {
+private fun StudentAvatar(student: Student) {
+    val initials = studentInitials(student.fullName)
+
     Box(
-        modifier = Modifier.size(38.dp),
-        contentAlignment =
-            Alignment.Center
+        modifier = Modifier.size(58.dp),
+        contentAlignment = Alignment.Center
     ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
             shape = CircleShape,
-            color =
-                MaterialTheme.colorScheme.primaryContainer
+            color = MaterialTheme.colorScheme.primaryContainer
         ) {
-            Box(
-                contentAlignment =
-                    Alignment.Center
-            ) {
+            Box(contentAlignment = Alignment.Center) {
                 Text(
-                    text =
-                        studentInitials(
-                            student.fullName
-                        ),
-                    style =
-                        MaterialTheme.typography.labelLarge,
-                    fontWeight =
-                        FontWeight.ExtraBold,
-                    color =
-                        MaterialTheme.colorScheme.onPrimaryContainer
+                    initials,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
         }
 
-        if (
-            !student.photoUrl
-                .isNullOrBlank()
-        ) {
+        if (!student.photoUrl.isNullOrBlank()) {
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 shape = CircleShape
             ) {
                 SmartImage(
-                    model =
-                        student.photoUrl,
-                    contentDescription =
-                        "${student.fullName} photo",
-                    modifier =
-                        Modifier.fillMaxSize(),
-                    contentScale =
-                        ContentScale.Crop
+                    model = student.photoUrl,
+                    contentDescription = "${student.fullName} profile photo",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
                 )
             }
         }
@@ -1108,92 +760,78 @@ private fun StudentAvatar(
 }
 
 @Composable
-private fun GuardianStatusDot(
-    ready: Boolean
-) {
+private fun GuardianReadinessBadge(hasPrimary: Boolean) {
     Surface(
-        modifier = Modifier.size(7.dp),
         shape = CircleShape,
-        color =
-            if (ready) {
-                MaterialTheme.colorScheme.secondary
+        color = if (hasPrimary) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.errorContainer
+        }
+    ) {
+        Text(
+            if (hasPrimary) "Guardian ready" else "Needs guardian",
+            modifier = Modifier.padding(
+                horizontal = 9.dp,
+                vertical = 5.dp
+            ),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = if (hasPrimary) {
+                MaterialTheme.colorScheme.onPrimaryContainer
             } else {
-                MaterialTheme.colorScheme.error
+                MaterialTheme.colorScheme.onErrorContainer
             }
-    ) {}
+        )
+    }
 }
 
 @Composable
-private fun EmptyRoster(
-    onAdd: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(Spacing.xl),
-        horizontalAlignment =
-            Alignment.CenterHorizontally,
-        verticalArrangement =
-            Arrangement.Center
+private fun EmptyRoster(onAdd: () -> Unit) {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge
     ) {
-        Surface(
-            modifier = Modifier.size(58.dp),
-            shape = CircleShape,
-            color =
-                MaterialTheme.colorScheme.primaryContainer
-        ) {
-            Box(
-                contentAlignment =
-                    Alignment.Center
-            ) {
-                Icon(
-                    Icons.Filled.People,
-                    contentDescription = null,
-                    tint =
-                        MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier =
-                        Modifier.size(27.dp)
-                )
-            }
-        }
-
-        Spacer(Modifier.height(Spacing.md))
-
-        Text(
-            "No students yet",
-            style =
-                MaterialTheme.typography.titleLarge,
-            fontWeight =
-                FontWeight.ExtraBold
-        )
-
-        Spacer(Modifier.height(Spacing.xs))
-
-        Text(
-            "Add the first student to begin building this dismissal roster.",
-            style =
-                MaterialTheme.typography.bodyMedium,
-            color =
-                MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign =
-                TextAlign.Center
-        )
-
-        Spacer(Modifier.height(Spacing.lg))
-
-        Button(
-            onClick = onAdd,
-            modifier =
-                Modifier.heightIn(min = 44.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.xl),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
-                Icons.Filled.Add,
-                contentDescription = null
+                Icons.Filled.Group,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(38.dp)
             )
 
-            Spacer(Modifier.width(Spacing.sm))
+            Spacer(Modifier.height(Spacing.md))
 
-            Text("Add student")
+            Text(
+                "No students yet",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold
+            )
+
+            Spacer(Modifier.height(Spacing.xs))
+
+            Text(
+                "Add the first student to this roster, then register their primary guardian.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(Spacing.md))
+
+            Button(
+                onClick = onAdd,
+                modifier = Modifier.heightIn(min = 44.dp)
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null)
+                Spacer(Modifier.width(Spacing.xs))
+                Text("Add student")
+            }
         }
     }
 }
@@ -1201,59 +839,60 @@ private fun EmptyRoster(
 @Composable
 private fun NoSearchResultsState(
     searchTerm: String,
+    section: TeacherSection?,
     onClear: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(Spacing.xl),
-        horizontalAlignment =
-            Alignment.CenterHorizontally,
-        verticalArrangement =
-            Arrangement.Center
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge
     ) {
-        Icon(
-            Icons.Filled.Search,
-            contentDescription = null,
-            modifier = Modifier.size(32.dp),
-            tint =
-                MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(Modifier.height(Spacing.md))
-
-        Text(
-            "No students found",
-            style =
-                MaterialTheme.typography.titleLarge,
-            fontWeight =
-                FontWeight.ExtraBold
-        )
-
-        Spacer(Modifier.height(Spacing.xs))
-
-        Text(
-            if (searchTerm.isBlank()) {
-                "Try another search."
-            } else {
-                "No roster matches “$searchTerm”."
-            },
-            style =
-                MaterialTheme.typography.bodyMedium,
-            color =
-                MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign =
-                TextAlign.Center
-        )
-
-        Spacer(Modifier.height(Spacing.md))
-
-        OutlinedButton(
-            onClick = onClear,
-            modifier =
-                Modifier.heightIn(min = 44.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.xl),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Clear search")
+            Icon(
+                Icons.Filled.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(32.dp)
+            )
+
+            Spacer(Modifier.height(Spacing.md))
+
+            Text(
+                "No students found",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold
+            )
+
+            Spacer(Modifier.height(Spacing.xs))
+
+            Text(
+                when {
+                    searchTerm.isNotBlank() && section != null ->
+                        "No student matches “$searchTerm” in ${section.displayLabel()}."
+
+                    searchTerm.isNotBlank() ->
+                        "No student matches “$searchTerm”."
+
+                    section != null ->
+                        "No active students are currently in ${section.displayLabel()}."
+
+                    else ->
+                        "Try another filter."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(Spacing.md))
+
+            OutlinedButton(onClick = onClear) {
+                Text("Clear filters")
+            }
         }
     }
 }
@@ -1264,28 +903,20 @@ private fun NoSectionsAssignedState() {
         modifier = Modifier
             .fillMaxSize()
             .padding(Spacing.xl),
-        horizontalAlignment =
-            Alignment.CenterHorizontally,
-        verticalArrangement =
-            Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Surface(
-            modifier = Modifier.size(58.dp),
+            modifier = Modifier.size(64.dp),
             shape = CircleShape,
-            color =
-                MaterialTheme.colorScheme.surfaceVariant
+            color = MaterialTheme.colorScheme.surfaceVariant
         ) {
-            Box(
-                contentAlignment =
-                    Alignment.Center
-            ) {
+            Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    Icons.Filled.People,
+                    Icons.Filled.Group,
                     contentDescription = null,
-                    tint =
-                        MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier =
-                        Modifier.size(27.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(30.dp)
                 )
             }
         }
@@ -1294,22 +925,17 @@ private fun NoSectionsAssignedState() {
 
         Text(
             "No sections assigned yet",
-            style =
-                MaterialTheme.typography.titleLarge,
-            fontWeight =
-                FontWeight.ExtraBold
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.ExtraBold
         )
 
         Spacer(Modifier.height(Spacing.xs))
 
         Text(
-            "Ask your school admin to assign your grade and section. Your roster remains scoped to those assignments.",
-            style =
-                MaterialTheme.typography.bodyMedium,
-            color =
-                MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign =
-                TextAlign.Center
+            "Ask your school admin to assign your grade and section. Your roster remains strictly scoped to those assignments.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -1323,19 +949,14 @@ private fun RosterErrorState(
         modifier = Modifier
             .fillMaxSize()
             .padding(Spacing.lg),
-        horizontalAlignment =
-            Alignment.CenterHorizontally,
-        verticalArrangement =
-            Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         ErrorBanner(message)
-
         Spacer(Modifier.height(Spacing.md))
-
         OutlinedButton(
             onClick = onRetry,
-            modifier =
-                Modifier.heightIn(min = 44.dp)
+            modifier = Modifier.heightIn(min = 44.dp)
         ) {
             Text("Try again")
         }
@@ -1343,7 +964,36 @@ private fun RosterErrorState(
 }
 
 @Composable
+private fun RosterSecurityNote() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f)
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.md),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                Icons.Filled.Security,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(19.dp)
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Text(
+                "Roster access does not authorize release. Every pickup must still pass the normal QR and guardian verification workflow.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun AddStudentSheetContent(
+    sections: List<TeacherSection>,
     isSubmitting: Boolean,
     formError: String?,
     onCancel: () -> Unit,
@@ -1352,40 +1002,21 @@ private fun AddStudentSheetContent(
         firstName: String,
         middleInitial: String,
         suffix: String,
-        grade: String,
-        section: String
+        placement: TeacherSection
     ) -> Unit
 ) {
-    var lastName by remember {
-        mutableStateOf("")
+    var lastName by remember { mutableStateOf("") }
+    var firstName by remember { mutableStateOf("") }
+    var middleInitial by remember { mutableStateOf("") }
+    var suffix by remember { mutableStateOf("") }
+    var placement by remember(sections) {
+        mutableStateOf(sections.firstOrNull())
     }
-
-    var firstName by remember {
-        mutableStateOf("")
-    }
-
-    var middleInitial by remember {
-        mutableStateOf("")
-    }
-
-    var suffix by remember {
-        mutableStateOf("")
-    }
-
-    var grade by remember {
-        mutableStateOf("")
-    }
-
-    var section by remember {
-        mutableStateOf("")
-    }
+    var placementExpanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .verticalScroll(
-                rememberScrollState()
-            )
             .imePadding()
             .padding(
                 start = Spacing.lg,
@@ -1395,121 +1026,110 @@ private fun AddStudentSheetContent(
     ) {
         Text(
             "Add student",
-            style =
-                MaterialTheme.typography.headlineSmall,
-            fontWeight =
-                FontWeight.ExtraBold
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.ExtraBold
         )
 
         Spacer(Modifier.height(Spacing.xs))
 
         Text(
             "Create the roster record first. PickupPass will continue directly to primary guardian registration after a successful save.",
-            style =
-                MaterialTheme.typography.bodyMedium,
-            color =
-                MaterialTheme.colorScheme.onSurfaceVariant
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(Modifier.height(Spacing.md))
 
         OutlinedTextField(
             value = lastName,
-            onValueChange = {
-                lastName = it
-            },
-            label = {
-                Text("Last name")
-            },
+            onValueChange = { lastName = it },
+            label = { Text("Last name") },
             singleLine = true,
-            modifier =
-                Modifier.fillMaxWidth()
+            enabled = !isSubmitting,
+            modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(Modifier.height(Spacing.sm))
 
         OutlinedTextField(
             value = firstName,
-            onValueChange = {
-                firstName = it
-            },
-            label = {
-                Text("First name")
-            },
+            onValueChange = { firstName = it },
+            label = { Text("First name") },
             singleLine = true,
-            modifier =
-                Modifier.fillMaxWidth()
+            enabled = !isSubmitting,
+            modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(Modifier.height(Spacing.sm))
 
         Row(
-            horizontalArrangement =
-                Arrangement.spacedBy(
-                    Spacing.sm
-                )
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
             OutlinedTextField(
                 value = middleInitial,
-                onValueChange = {
-                    middleInitial = it
-                },
-                label = {
-                    Text("M.I.")
-                },
+                onValueChange = { middleInitial = it.take(2) },
+                label = { Text("M.I.") },
                 singleLine = true,
-                modifier =
-                    Modifier.weight(1f)
+                enabled = !isSubmitting,
+                modifier = Modifier.weight(1f)
             )
 
             OutlinedTextField(
                 value = suffix,
-                onValueChange = {
-                    suffix = it
-                },
-                label = {
-                    Text("Suffix")
-                },
+                onValueChange = { suffix = it },
+                label = { Text("Suffix") },
                 singleLine = true,
-                modifier =
-                    Modifier.weight(2f)
+                enabled = !isSubmitting,
+                modifier = Modifier.weight(2f)
             )
         }
 
         Spacer(Modifier.height(Spacing.sm))
 
-        Row(
-            horizontalArrangement =
-                Arrangement.spacedBy(
-                    Spacing.sm
-                )
+        ExposedDropdownMenuBox(
+            expanded = placementExpanded,
+            onExpandedChange = {
+                if (!isSubmitting) {
+                    placementExpanded = it
+                }
+            }
         ) {
             OutlinedTextField(
-                value = grade,
-                onValueChange = {
-                    grade = it
+                value = placement?.displayLabel().orEmpty(),
+                onValueChange = {},
+                readOnly = true,
+                enabled = !isSubmitting,
+                label = { Text("Grade & section") },
+                placeholder = { Text("Choose configured section") },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(placementExpanded)
                 },
-                label = {
-                    Text("Grade")
-                },
-                singleLine = true,
-                modifier =
-                    Modifier.weight(1f)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor()
             )
 
-            OutlinedTextField(
-                value = section,
-                onValueChange = {
-                    section = it
-                },
-                label = {
-                    Text("Section")
-                },
-                singleLine = true,
-                modifier =
-                    Modifier.weight(1f)
-            )
+            ExposedDropdownMenu(
+                expanded = placementExpanded,
+                onDismissRequest = { placementExpanded = false }
+            ) {
+                sections.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.displayLabel()) },
+                        onClick = {
+                            placement = option
+                            placementExpanded = false
+                        }
+                    )
+                }
+            }
         }
+
+        Text(
+            "Only sections currently available to this staff account can be selected.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
         formError?.let { message ->
             Spacer(Modifier.height(Spacing.sm))
@@ -1520,16 +1140,12 @@ private fun AddStudentSheetContent(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement =
-                Arrangement.End,
-            verticalAlignment =
-                Alignment.CenterVertically
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             TextButton(
                 onClick = onCancel,
-                enabled = !isSubmitting,
-                modifier =
-                    Modifier.heightIn(min = 44.dp)
+                enabled = !isSubmitting
             ) {
                 Text("Cancel")
             }
@@ -1538,101 +1154,61 @@ private fun AddStudentSheetContent(
 
             Button(
                 onClick = {
-                    onSubmit(
-                        lastName.trim(),
-                        firstName.trim(),
-                        middleInitial.trim(),
-                        suffix.trim(),
-                        grade.trim(),
-                        section.trim()
-                    )
+                    placement?.let {
+                        onSubmit(
+                            lastName.trim(),
+                            firstName.trim(),
+                            middleInitial.trim(),
+                            suffix.trim(),
+                            it
+                        )
+                    }
                 },
-                enabled = !isSubmitting,
-                modifier =
-                    Modifier.heightIn(min = 46.dp)
+                enabled = !isSubmitting &&
+                    lastName.isNotBlank() &&
+                    firstName.isNotBlank() &&
+                    placement != null
             ) {
                 if (isSubmitting) {
                     CircularProgressIndicator(
-                        modifier =
-                            Modifier.size(18.dp),
+                        modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
-                        color =
-                            MaterialTheme.colorScheme.onPrimary
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
-
                     Spacer(Modifier.width(Spacing.sm))
                 }
 
-                Text(
-                    if (isSubmitting) {
-                        "Adding…"
-                    } else {
-                        "Add student"
-                    }
-                )
+                Text(if (isSubmitting) "Adding…" else "Add student")
             }
         }
     }
 }
 
-private fun studentInitials(
-    fullName: String
-): String {
-    val parts =
-        fullName
-            .replace(",", " ")
-            .trim()
-            .split(Regex("\\s+"))
-            .filter {
-                it.isNotBlank()
-            }
+private fun hasPrimaryGuardian(student: Student): Boolean =
+    student.primaryGuardianUidCompat() != null
 
-    if (parts.isEmpty()) {
-        return "S"
-    }
+private fun TeacherSection.displayLabel(): String =
+    "Grade ${grade.ifBlank { "—" }} · ${section.ifBlank { "Section —" }}"
 
-    val first =
-        parts.first()
-            .firstOrNull()
-            ?.uppercaseChar()
-            ?.toString()
-            .orEmpty()
-
-    val second =
-        parts
-            .drop(1)
-            .firstOrNull()
-            ?.firstOrNull()
-            ?.uppercaseChar()
-            ?.toString()
-            .orEmpty()
-
-    return (first + second)
-        .ifBlank { "S" }
-}
-
-private fun gradeBadge(
-    grade: String
-): String {
-    val compact =
-        grade
-            .trim()
-            .replace(
-                Regex("(?i)^grade\\s*"),
-                ""
-            )
-            .take(3)
-
-    return compact.ifBlank { "G" }
-}
-
-private fun sectionInitial(
-    section: String
-): String =
-    section
+private fun studentInitials(fullName: String): String {
+    val parts = fullName
+        .replace(",", " ")
         .trim()
-        .firstOrNull()
-        ?.uppercaseChar()
-        ?.toString()
-        .orEmpty()
+        .split(Regex("\\s+"))
+        .filter { it.isNotBlank() }
+
+    if (parts.isEmpty()) return "S"
+
+    return parts
+        .take(2)
+        .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+        .joinToString("")
         .ifBlank { "S" }
+}
+
+private fun gradeBadge(grade: String): String =
+    grade
+        .trim()
+        .replace(Regex("(?i)^grade\\s*"), "")
+        .take(3)
+        .ifBlank { "G" }
