@@ -113,6 +113,13 @@ fun ScannerScreen(
                 ),
                 actions = {
                     if (uiState is ScannerUiState.Scanning) {
+                        IconButton(onClick = onGoToProfile) {
+                            Icon(
+                                Icons.Filled.AccountCircle,
+                                contentDescription = "My profile",
+                                tint = Color.White
+                            )
+                        }
                         IconButton(onClick = onGoToStudents) {
                             Icon(
                                 Icons.Filled.People,
@@ -140,17 +147,6 @@ fun ScannerScreen(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false }
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("My profile") },
-                                leadingIcon = {
-                                    Icon(Icons.Filled.AccountCircle, contentDescription = null)
-                                },
-                                onClick = {
-                                    menuExpanded = false
-                                    onGoToProfile()
-                                }
-                            )
-                            HorizontalDivider()
                             DropdownMenuItem(
                                 text = { Text("Notifications") },
                                 leadingIcon = {
