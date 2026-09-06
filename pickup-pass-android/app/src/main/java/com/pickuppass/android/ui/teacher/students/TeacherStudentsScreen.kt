@@ -1,6 +1,8 @@
 package com.pickuppass.android.ui.teacher.students
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +15,7 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
@@ -27,8 +30,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.Student
-import com.pickuppass.android.data.model.TeacherSection
+import com.pickuppass.android.data.model.AcademicPlacementOption
 import com.pickuppass.android.data.model.primaryGuardianUidCompat
+import com.pickuppass.android.data.repository.UserRole
 import com.pickuppass.android.ui.common.BrandedTitle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
@@ -91,7 +95,7 @@ fun TeacherStudentsScreen(
                 !uiState.isLoading &&
                 uiState.error == null &&
                 !uiState.hasNoAssignedSections &&
-                uiState.availableSections.isNotEmpty()
+                uiState.availablePlacements.isNotEmpty()
             ) {
                 FloatingActionButton(
                     onClick = {
@@ -129,7 +133,7 @@ fun TeacherStudentsScreen(
                     TeacherRosterContent(
                         uiState = uiState,
                         onSearchChange = viewModel::onSearchChange,
-                        onSectionFilterChange = viewModel::onSectionFilterChange,
+                        onPlacementFilterChange = viewModel::onPlacementFilterChange,
                         onRegisterParent = onRegisterParent,
                         onManageGuardians = onManageGuardians,
                         onAddStudent = {
@@ -152,7 +156,8 @@ fun TeacherStudentsScreen(
             sheetState = addSheetState
         ) {
             AddStudentSheetContent(
-                sections = uiState.availableSections,
+                sections = uiState.availablePlacements,
+                isTeacherAccount = uiState.role == UserRole.Teacher,
                 isSubmitting = uiState.isSubmitting,
                 formError = uiState.formError,
                 onCancel = {
@@ -171,7 +176,7 @@ fun TeacherStudentsScreen(
 private fun TeacherRosterContent(
     uiState: TeacherStudentsUiState,
     onSearchChange: (String) -> Unit,
-    onSectionFilterChange: (TeacherSection?) -> Unit,
+    onPlacementFilterChange: (AcademicPlacementOption?) -> Unit,
     onRegisterParent: (String) -> Unit,
     onManageGuardians: (String) -> Unit,
     onAddStudent: () -> Unit
@@ -197,7 +202,7 @@ private fun TeacherRosterContent(
             item(key = "hero") {
                 RosterHero(
                     totalStudents = totalStudents,
-                    sectionCount = uiState.availableSections.size,
+                    sectionCount = uiState.availablePlacements.size,
                     needsPrimaryGuardian = needsPrimary
                 )
             }
@@ -242,12 +247,12 @@ private fun TeacherRosterContent(
                 )
             }
 
-            if (uiState.availableSections.size > 1) {
+            if (uiState.availablePlacements.size > 1) {
                 item(key = "section_filter") {
                     SectionFilter(
-                        sections = uiState.availableSections,
-                        selected = uiState.selectedSectionFilter,
-                        onSelect = onSectionFilterChange
+                        sections = uiState.availablePlacements,
+                        selected = uiState.selectedPlacementFilter,
+                        onSelect = onPlacementFilterChange
                     )
                 }
             }
@@ -261,10 +266,10 @@ private fun TeacherRosterContent(
                                 if (uiState.filteredStudents.size == 1) "" else "s"
                             }"
 
-                        uiState.selectedSectionFilter != null ->
+                        uiState.selectedPlacementFilter != null ->
                             "${uiState.filteredStudents.size} student${
                                 if (uiState.filteredStudents.size == 1) "" else "s"
-                            } in ${uiState.selectedSectionFilter.displayLabel()}"
+                            } in ${uiState.selectedPlacementFilter.displayLabel()}"
 
                         else ->
                             "$totalStudents active student${
@@ -285,10 +290,10 @@ private fun TeacherRosterContent(
                     item(key = "empty_filter") {
                         NoSearchResultsState(
                             searchTerm = uiState.searchTerm,
-                            section = uiState.selectedSectionFilter,
+                            section = uiState.selectedPlacementFilter,
                             onClear = {
                                 onSearchChange("")
-                                onSectionFilterChange(null)
+                                onPlacementFilterChange(null)
                             }
                         )
                     }
@@ -456,9 +461,9 @@ private fun SearchCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SectionFilter(
-    sections: List<TeacherSection>,
-    selected: TeacherSection?,
-    onSelect: (TeacherSection?) -> Unit
+    sections: List<AcademicPlacementOption>,
+    selected: AcademicPlacementOption?,
+    onSelect: (AcademicPlacementOption?) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -839,7 +844,7 @@ private fun EmptyRoster(onAdd: () -> Unit) {
 @Composable
 private fun NoSearchResultsState(
     searchTerm: String,
-    section: TeacherSection?,
+    section: AcademicPlacementOption?,
     onClear: () -> Unit
 ) {
     OutlinedCard(
@@ -993,7 +998,8 @@ private fun RosterSecurityNote() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddStudentSheetContent(
-    sections: List<TeacherSection>,
+    sections: List<AcademicPlacementOption>,
+    isTeacherAccount: Boolean,
     isSubmitting: Boolean,
     formError: String?,
     onCancel: () -> Unit,
@@ -1002,7 +1008,7 @@ private fun AddStudentSheetContent(
         firstName: String,
         middleInitial: String,
         suffix: String,
-        placement: TeacherSection
+        placement: AcademicPlacementOption
     ) -> Unit
 ) {
     var lastName by remember { mutableStateOf("") }
@@ -1010,133 +1016,315 @@ private fun AddStudentSheetContent(
     var middleInitial by remember { mutableStateOf("") }
     var suffix by remember { mutableStateOf("") }
     var placement by remember(sections) {
-        mutableStateOf(sections.firstOrNull())
+        mutableStateOf(sections.singleOrNull())
     }
     var placementExpanded by remember { mutableStateOf(false) }
+
+    val currentYearName = sections
+        .firstOrNull()
+        ?.academicYearName
+        .orEmpty()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .imePadding()
+            .verticalScroll(rememberScrollState())
             .padding(
                 start = Spacing.lg,
                 end = Spacing.lg,
                 bottom = Spacing.xl
-            )
+            ),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
-        Text(
-            "Add student",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.ExtraBold
-        )
-
-        Spacer(Modifier.height(Spacing.xs))
-
-        Text(
-            "Create the roster record first. PickupPass will continue directly to primary guardian registration after a successful save.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(Modifier.height(Spacing.md))
-
-        OutlinedTextField(
-            value = lastName,
-            onValueChange = { lastName = it },
-            label = { Text("Last name") },
-            singleLine = true,
-            enabled = !isSubmitting,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(Modifier.height(Spacing.sm))
-
-        OutlinedTextField(
-            value = firstName,
-            onValueChange = { firstName = it },
-            label = { Text("First name") },
-            singleLine = true,
-            enabled = !isSubmitting,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(Modifier.height(Spacing.sm))
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
-        ) {
-            OutlinedTextField(
-                value = middleInitial,
-                onValueChange = { middleInitial = it.take(2) },
-                label = { Text("M.I.") },
-                singleLine = true,
-                enabled = !isSubmitting,
-                modifier = Modifier.weight(1f)
-            )
-
-            OutlinedTextField(
-                value = suffix,
-                onValueChange = { suffix = it },
-                label = { Text("Suffix") },
-                singleLine = true,
-                enabled = !isSubmitting,
-                modifier = Modifier.weight(2f)
-            )
-        }
-
-        Spacer(Modifier.height(Spacing.sm))
-
-        ExposedDropdownMenuBox(
-            expanded = placementExpanded,
-            onExpandedChange = {
-                if (!isSubmitting) {
-                    placementExpanded = it
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(
+                modifier = Modifier.size(52.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Filled.PersonAdd,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(26.dp)
+                    )
                 }
             }
-        ) {
-            OutlinedTextField(
-                value = placement?.displayLabel().orEmpty(),
-                onValueChange = {},
-                readOnly = true,
-                enabled = !isSubmitting,
-                label = { Text("Grade & section") },
-                placeholder = { Text("Choose configured section") },
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(placementExpanded)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor()
-            )
 
-            ExposedDropdownMenu(
-                expanded = placementExpanded,
-                onDismissRequest = { placementExpanded = false }
+            Spacer(Modifier.width(Spacing.md))
+
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Register student",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    "Create the roster record, then continue to primary guardian registration.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.62f)
+        ) {
+            Row(
+                modifier = Modifier.padding(Spacing.md),
+                verticalAlignment = Alignment.Top
             ) {
-                sections.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.displayLabel()) },
-                        onClick = {
-                            placement = option
-                            placementExpanded = false
-                        }
+                Icon(
+                    Icons.Filled.School,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(21.dp)
+                )
+                Spacer(Modifier.width(Spacing.sm))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "School-controlled placement",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Text(
+                        when {
+                            currentYearName.isBlank() && isTeacherAccount ->
+                                "Only grade and section combinations configured by the school administrator and assigned to your teacher account are available."
+
+                            currentYearName.isBlank() ->
+                                "Only grade and section combinations configured in School Year & Sections are available."
+
+                            isTeacherAccount ->
+                                "Only active classes from $currentYearName that are assigned to your teacher account are available."
+
+                            else ->
+                                "Only active classes from $currentYearName are available."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f)
                     )
                 }
             }
         }
 
-        Text(
-            "Only sections currently available to this staff account can be selected.",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        OutlinedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge
+        ) {
+            Column(
+                modifier = Modifier.padding(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                Text(
+                    "Grade & section",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold
+                )
 
-        formError?.let { message ->
-            Spacer(Modifier.height(Spacing.sm))
-            ErrorBanner(message)
+                Text(
+                    when {
+                        sections.isEmpty() ->
+                            "No valid class is available for new student registration."
+
+                        sections.size == 1 && isTeacherAccount ->
+                            "Your only current assigned class is selected automatically."
+
+                        sections.size == 1 ->
+                            "The only current class is selected automatically."
+
+                        isTeacherAccount ->
+                            "Choose from the current classes assigned to your teacher account."
+
+                        else ->
+                            "Choose the student's current grade and section from the school setup."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (sections.size == 1 && placement != null) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.58f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(Spacing.md),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(38.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surface
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Filled.School,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(Spacing.sm))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    placement?.displayLabel().orEmpty(),
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                if (currentYearName.isNotBlank()) {
+                                    Text(
+                                        currentYearName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    ExposedDropdownMenuBox(
+                        expanded = placementExpanded,
+                        onExpandedChange = {
+                            if (!isSubmitting && sections.isNotEmpty()) {
+                                placementExpanded = it
+                            }
+                        }
+                    ) {
+                        OutlinedTextField(
+                            value = placement?.displayLabel().orEmpty(),
+                            onValueChange = {},
+                            readOnly = true,
+                            enabled = !isSubmitting && sections.isNotEmpty(),
+                            label = { Text("Assigned class") },
+                            placeholder = { Text("Select grade & section") },
+                            supportingText = {
+                                Text(
+                                    if (sections.isEmpty()) {
+                                        "Ask the school administrator to configure and assign a current class."
+                                    } else {
+                                        sections.size.toString() +
+                                            " current class" +
+                                            (if (sections.size == 1) "" else "es") +
+                                            " available"
+                                    }
+                                )
+                            },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(
+                                    expanded = placementExpanded
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor()
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = placementExpanded,
+                            onDismissRequest = { placementExpanded = false }
+                        ) {
+                            sections.forEach { option ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(
+                                                option.displayLabel(),
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            if (option.academicYearName.isNotBlank()) {
+                                                Text(
+                                                    option.academicYearName,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        placement = option
+                                        placementExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
-        Spacer(Modifier.height(Spacing.lg))
+        OutlinedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge
+        ) {
+            Column(
+                modifier = Modifier.padding(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                Text(
+                    "Student identity",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold
+                )
+
+                Text(
+                    "Use the student's official school record name. PickupPass stores the display name in last-name-first format.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedTextField(
+                    value = lastName,
+                    onValueChange = { lastName = it.take(80) },
+                    label = { Text("Last name") },
+                    singleLine = true,
+                    enabled = !isSubmitting,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = firstName,
+                    onValueChange = { firstName = it.take(80) },
+                    label = { Text("First name") },
+                    singleLine = true,
+                    enabled = !isSubmitting,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    OutlinedTextField(
+                        value = middleInitial,
+                        onValueChange = { middleInitial = it.take(2) },
+                        label = { Text("M.I.") },
+                        singleLine = true,
+                        enabled = !isSubmitting,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    OutlinedTextField(
+                        value = suffix,
+                        onValueChange = { suffix = it.take(20) },
+                        label = { Text("Suffix") },
+                        placeholder = { Text("Jr., III") },
+                        singleLine = true,
+                        enabled = !isSubmitting,
+                        modifier = Modifier.weight(2f)
+                    )
+                }
+            }
+        }
+
+        formError?.let { message ->
+            ErrorBanner(message)
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1167,7 +1355,8 @@ private fun AddStudentSheetContent(
                 enabled = !isSubmitting &&
                     lastName.isNotBlank() &&
                     firstName.isNotBlank() &&
-                    placement != null
+                    placement != null,
+                modifier = Modifier.heightIn(min = 48.dp)
             ) {
                 if (isSubmitting) {
                     CircularProgressIndicator(
@@ -1178,7 +1367,10 @@ private fun AddStudentSheetContent(
                     Spacer(Modifier.width(Spacing.sm))
                 }
 
-                Text(if (isSubmitting) "Adding…" else "Add student")
+                Text(
+                    if (isSubmitting) "Registering…" else "Register student",
+                    fontWeight = FontWeight.ExtraBold
+                )
             }
         }
     }
@@ -1187,8 +1379,7 @@ private fun AddStudentSheetContent(
 private fun hasPrimaryGuardian(student: Student): Boolean =
     student.primaryGuardianUidCompat() != null
 
-private fun TeacherSection.displayLabel(): String =
-    "Grade ${grade.ifBlank { "—" }} · ${section.ifBlank { "Section —" }}"
+private fun AcademicPlacementOption.displayLabel(): String = displayName
 
 private fun studentInitials(fullName: String): String {
     val parts = fullName

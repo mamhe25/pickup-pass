@@ -45,8 +45,16 @@ class ManageSectionsViewModel @Inject constructor(
             }
             val teachers = (teachersResult as ApiResult.Success).data
             val available = when (structureResult) {
-                is ApiResult.Success -> structureResult.data.gradeSections.filter { it.active &&
-                    (structureResult.data.currentAcademicYear == null || it.academicYearId == structureResult.data.currentAcademicYear.id) }
+                is ApiResult.Success -> {
+                    val currentYearId = structureResult.data.currentAcademicYear?.id
+                    if (currentYearId.isNullOrBlank()) {
+                        emptyList()
+                    } else {
+                        structureResult.data.gradeSections.filter {
+                            it.active && it.academicYearId == currentYearId
+                        }
+                    }
+                }
                 is ApiResult.Failure -> emptyList()
             }
             _uiState.value = _uiState.value.copy(isLoading = false, teachers = teachers, availableSections = available)

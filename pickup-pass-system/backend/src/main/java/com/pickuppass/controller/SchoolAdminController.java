@@ -20,8 +20,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /** Everything a school_admin can do for their own school: branding, staff invites, and section assignment. */
 @RestController
@@ -80,23 +83,37 @@ public class SchoolAdminController {
             return ResponseEntity.badRequest().body(Map.of("error", "lastName and firstName are required"));
         }
 
+        List<Map<String, String>> assignedSections;
+        try {
+            assignedSections = validateNewAssignments(
+                    schoolAdmin.getSchoolId(),
+                    req.getAssignedSections());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+
         tenantUsageService.reserve(schoolAdmin.getSchoolId(), TenantUsageService.STAFF, 1);
         StaffProvisioningService.StaffCreationResult result;
         try {
             result = staffProvisioningService.createStaffAccount(
                     req.getEmail(), req.getLastName(), req.getFirstName(),
-                    req.getMiddleInitial(), req.getSuffix(), "teacher", schoolAdmin.getSchoolId());
+                    req.getMiddleInitial(), req.getSuffix(), "teacher",
+                    schoolAdmin.getSchoolId(), assignedSections);
         } catch (Exception e) {
             tenantUsageService.release(schoolAdmin.getSchoolId(), TenantUsageService.STAFF, 1);
             throw e;
         }
 
         auditService.record(schoolAdmin, "staff.invited", "user", result.getUid(),
-                Map.of("role", "teacher", "email", req.getEmail()));
+                Map.of(
+                        "role", "teacher",
+                        "email", req.getEmail(),
+                        "assignedSections", assignedSections));
         return ResponseEntity.ok(Map.of(
                 "uid", result.getUid(),
                 "role", "teacher",
-                "emailSent", result.isEmailSent()
+                "emailSent", result.isEmailSent(),
+                "assignedSections", assignedSections
         ));
     }
 
@@ -142,29 +159,42 @@ public class SchoolAdminController {
             throw new NotFoundException("Teacher not found in your school");
         }
 
-        List<QueryDocumentSnapshot> configuredSections = firestore.collection("gradeSections")
-                .whereEqualTo("schoolId", schoolAdmin.getSchoolId()).get().get().getDocuments();
+        List<QueryDocumentSnapshot> currentSections =
+                currentActiveGradeSections(schoolAdmin.getSchoolId());
+        Set<String> existingKeys = existingAssignmentKeys(
+                teacherDoc.get("assignedSections"));
+        Set<String> seen = new HashSet<>();
 
         List<Map<String, String>> sections = new ArrayList<>();
         for (SectionEntry s : req.getSections()) {
-            if (s.getGrade() == null || s.getGrade().isBlank() || s.getSection() == null || s.getSection().isBlank()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Each section needs both a grade and a section"));
+            if (s.getGrade() == null || s.getGrade().isBlank()
+                    || s.getSection() == null || s.getSection().isBlank()) {
+                return ResponseEntity.badRequest().body(
+                        Map.of("error", "Each section needs both a grade and a section"));
             }
+
             String grade = s.getGrade().trim();
             String section = s.getSection().trim();
+            String key = sectionKey(grade, section);
 
-            // Once the school has a structured academic setup, assignments can
-            // only point at active configured sections. Older schools with no
-            // structure keep the legacy free-text behavior until they migrate.
-            if (!configuredSections.isEmpty()) {
-                boolean valid = configuredSections.stream().anyMatch(doc ->
-                        !Boolean.FALSE.equals(doc.getBoolean("active"))
-                                && grade.equalsIgnoreCase(doc.getString("gradeLevel"))
-                                && section.equalsIgnoreCase(doc.getString("sectionName")));
-                if (!valid) {
-                    return ResponseEntity.badRequest().body(Map.of("error", "Teacher assignments must use an active configured grade/section"));
-                }
+            if (!seen.add(key)) {
+                continue;
             }
+
+            boolean validCurrent = matchesConfiguredSection(
+                    currentSections,
+                    grade,
+                    section);
+
+            // Existing legacy assignments may remain until the admin removes
+            // them, but a client cannot introduce a new assignment outside the
+            // active current-year structure.
+            if (!validCurrent && !existingKeys.contains(key)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error",
+                        "New teacher assignments must use an active grade/section from the current academic year"));
+            }
+
             sections.add(Map.of("grade", grade, "section", section));
         }
 
@@ -224,12 +254,127 @@ public class SchoolAdminController {
         return ResponseEntity.ok(Map.of("uid", uid, "status", "sessions_revoked"));
     }
 
+    private List<Map<String, String>> validateNewAssignments(
+            String schoolId,
+            List<SectionEntry> requested) throws Exception {
+
+        if (requested == null || requested.isEmpty()) {
+            // Kept optional for compatibility with existing web/admin clients.
+            // The Android production invite flow always requires at least one.
+            return List.of();
+        }
+
+        List<QueryDocumentSnapshot> currentSections =
+                currentActiveGradeSections(schoolId);
+        if (currentSections.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Set a current academic year with at least one active grade/section before assigning a teacher");
+        }
+
+        List<Map<String, String>> normalized = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+
+        for (SectionEntry entry : requested) {
+            String grade = entry == null ? "" : safe(entry.getGrade());
+            String section = entry == null ? "" : safe(entry.getSection());
+
+            if (grade.isBlank() || section.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Each teacher assignment needs both a grade and a section");
+            }
+
+            if (!matchesConfiguredSection(currentSections, grade, section)) {
+                throw new IllegalArgumentException(
+                        "Teacher assignments must use an active grade/section from the current academic year");
+            }
+
+            if (seen.add(sectionKey(grade, section))) {
+                normalized.add(Map.of(
+                        "grade", grade,
+                        "section", section));
+            }
+        }
+
+        return normalized;
+    }
+
+    private List<QueryDocumentSnapshot> currentActiveGradeSections(
+            String schoolId) throws Exception {
+
+        String currentYearId = "";
+        for (QueryDocumentSnapshot year : firestore.collection("academicYears")
+                .whereEqualTo("schoolId", schoolId)
+                .get().get().getDocuments()) {
+            if (Boolean.TRUE.equals(year.getBoolean("isCurrent"))
+                    && !"archived".equalsIgnoreCase(safe(year.getString("status")))) {
+                currentYearId = year.getId();
+                break;
+            }
+        }
+
+        if (currentYearId.isBlank()) {
+            return List.of();
+        }
+
+        List<QueryDocumentSnapshot> result = new ArrayList<>();
+        for (QueryDocumentSnapshot section : firestore.collection("gradeSections")
+                .whereEqualTo("schoolId", schoolId)
+                .get().get().getDocuments()) {
+            if (currentYearId.equals(safe(section.getString("academicYearId")))
+                    && !Boolean.FALSE.equals(section.getBoolean("active"))) {
+                result.add(section);
+            }
+        }
+        return result;
+    }
+
+    private boolean matchesConfiguredSection(
+            List<QueryDocumentSnapshot> configured,
+            String grade,
+            String section) {
+        return configured.stream().anyMatch(doc ->
+                grade.equalsIgnoreCase(safe(doc.getString("gradeLevel")))
+                        && section.equalsIgnoreCase(safe(doc.getString("sectionName"))));
+    }
+
+    private Set<String> existingAssignmentKeys(Object raw) {
+        Set<String> result = new HashSet<>();
+        if (!(raw instanceof List<?> list)) {
+            return result;
+        }
+
+        for (Object item : list) {
+            if (!(item instanceof Map<?, ?> map)) {
+                continue;
+            }
+            String grade = safeObject(map.get("grade"));
+            String section = safeObject(map.get("section"));
+            if (!grade.isBlank() && !section.isBlank()) {
+                result.add(sectionKey(grade, section));
+            }
+        }
+        return result;
+    }
+
+    private static String sectionKey(String grade, String section) {
+        return safe(grade).toLowerCase(Locale.ROOT) + "||" + safe(section).toLowerCase(Locale.ROOT);
+    }
+
+    private static String safe(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private static String safeObject(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
+    }
+
     public static class InviteTeacherRequest {
         @NotBlank private String email;
         @NotBlank private String lastName;
         @NotBlank private String firstName;
         private String middleInitial;
         private String suffix;
+        private List<SectionEntry> assignedSections = new ArrayList<>();
 
         public String getEmail() { return email; }
         public void setEmail(String email) { this.email = email; }
@@ -241,6 +386,10 @@ public class SchoolAdminController {
         public void setMiddleInitial(String v) { this.middleInitial = v; }
         public String getSuffix() { return suffix; }
         public void setSuffix(String v) { this.suffix = v; }
+        public List<SectionEntry> getAssignedSections() { return assignedSections; }
+        public void setAssignedSections(List<SectionEntry> v) {
+            this.assignedSections = v == null ? new ArrayList<>() : v;
+        }
     }
 
     public static class StaffStatusRequest {

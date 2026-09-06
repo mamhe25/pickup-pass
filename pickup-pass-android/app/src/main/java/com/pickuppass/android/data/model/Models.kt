@@ -208,7 +208,9 @@ data class CreateStudentRequest(
     val middleInitial: String? = null,
     val suffix: String? = null,
     val grade: String,
-    val section: String
+    val section: String,
+    val gradeSectionId: String,
+    val academicYearId: String
 )
 
 data class CreateStudentResponse(
@@ -222,7 +224,8 @@ data class InviteTeacherRequest(
     val lastName: String,
     val firstName: String,
     val middleInitial: String? = null,
-    val suffix: String? = null
+    val suffix: String? = null,
+    val assignedSections: List<TeacherSection> = emptyList()
 )
 
 data class InviteTeacherResponse(

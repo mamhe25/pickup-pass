@@ -2,9 +2,14 @@ package com.pickuppass.android.ui.teacher.students
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pickuppass.android.data.model.AcademicPlacementOption
+import com.pickuppass.android.data.model.AcademicStructureResponse
 import com.pickuppass.android.data.model.SchoolInfo
 import com.pickuppass.android.data.model.Student
 import com.pickuppass.android.data.model.TeacherSection
+import com.pickuppass.android.data.model.currentPlacementOptions
+import com.pickuppass.android.data.model.currentPlacementOptionsFor
+import com.pickuppass.android.data.model.placementKey
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.AuthRepository
 import com.pickuppass.android.data.repository.StudentRepository
@@ -12,11 +17,12 @@ import com.pickuppass.android.data.repository.TeacherOperationsRepository
 import com.pickuppass.android.data.repository.TeacherRepository
 import com.pickuppass.android.data.repository.UserRole
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 data class TeacherStudentsUiState(
     val isLoading: Boolean = true,
@@ -26,8 +32,8 @@ data class TeacherStudentsUiState(
     val placementError: String? = null,
     val role: UserRole = UserRole.Unknown,
     val hasNoAssignedSections: Boolean = false,
-    val availableSections: List<TeacherSection> = emptyList(),
-    val selectedSectionFilter: TeacherSection? = null,
+    val availablePlacements: List<AcademicPlacementOption> = emptyList(),
+    val selectedPlacementFilter: AcademicPlacementOption? = null,
     val searchTerm: String = "",
     val isSubmitting: Boolean = false,
     val formError: String? = null,
@@ -35,17 +41,17 @@ data class TeacherStudentsUiState(
 ) {
     val filteredStudents: List<Student>
         get() {
-            val sectionFiltered = selectedSectionFilter?.let { selected ->
+            val placementFiltered = selectedPlacementFilter?.let { selected ->
                 allStudents.filter {
-                    it.grade.equals(selected.grade, ignoreCase = true) &&
-                        it.section.equals(selected.section, ignoreCase = true)
+                    placementKey(it.grade, it.section) ==
+                        placementKey(selected.grade, selected.section)
                 }
             } ?: allStudents
 
             val searched = if (searchTerm.isBlank()) {
-                sectionFiltered
+                placementFiltered
             } else {
-                sectionFiltered.filter {
+                placementFiltered.filter {
                     it.fullName.contains(searchTerm, ignoreCase = true) ||
                         it.studentNumber.contains(searchTerm, ignoreCase = true)
                 }
@@ -59,21 +65,6 @@ data class TeacherStudentsUiState(
                 )
             )
         }
-
-    companion object {
-        private fun gradeSortKey(grade: String): String {
-            val numeric = Regex("\\d+")
-                .find(grade)
-                ?.value
-                ?.toIntOrNull()
-
-            return if (numeric != null) {
-                "%05d".format(numeric)
-            } else {
-                "99999-${grade.lowercase()}"
-            }
-        }
-    }
 }
 
 @HiltViewModel
@@ -107,7 +98,8 @@ class TeacherStudentsViewModel @Inject constructor(
                 )
 
                 val session = authRepository.currentSession()
-                if (session?.schoolId == null) {
+                val schoolId = session?.schoolId
+                if (session == null || schoolId.isNullOrBlank()) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = "Session expired — please sign in again"
@@ -116,150 +108,201 @@ class TeacherStudentsViewModel @Inject constructor(
                 }
 
                 val schoolDeferred = async {
-                    studentRepository.getSchool(session.schoolId)
+                    studentRepository.getSchool(schoolId)
                 }
-
-                if (session.role == UserRole.Teacher) {
-                    val sectionsResult =
-                        teacherRepository.getMyAssignedSections(session.uid)
-
-                    val assignedSections = sectionsResult
-                        .getOrElse {
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                role = session.role,
-                                error = "Couldn't load your assigned sections"
-                            )
-                            return@launch
-                        }
-                        .normalizedSections()
-
-                    if (assignedSections.isEmpty()) {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            role = session.role,
-                            school = schoolDeferred.await().getOrNull(),
-                            hasNoAssignedSections = true,
-                            allStudents = emptyList(),
-                            availableSections = emptyList()
-                        )
-                        return@launch
-                    }
-
-                    val studentsResult = teacherRepository.getStudentsForSections(
-                        session.schoolId,
-                        assignedSections
-                    )
-
-                    studentsResult
-                        .onSuccess { students ->
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                role = session.role,
-                                school = schoolDeferred.await().getOrNull(),
-                                allStudents = students,
-                                availableSections = assignedSections,
-                                selectedSectionFilter =
-                                    _uiState.value.selectedSectionFilter
-                                        ?.takeIf { selected ->
-                                            assignedSections.any {
-                                                it.samePlacement(selected)
-                                            }
-                                        },
-                                error = null
-                            )
-                        }
-                        .onFailure {
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                role = session.role,
-                                school = schoolDeferred.await().getOrNull(),
-                                error = "Couldn't load students"
-                            )
-                        }
-
-                    return@launch
-                }
-
                 val structureDeferred = async {
                     teacherOperationsRepository.getAcademicStructure()
                 }
-                val studentsDeferred = async {
-                    teacherRepository.getSchoolStudents(session.schoolId)
+
+                if (session.role == UserRole.Teacher) {
+                    loadTeacherRoster(
+                        uid = session.uid,
+                        schoolId = schoolId,
+                        schoolDeferred = schoolDeferred,
+                        structureDeferred = structureDeferred
+                    )
+                    return@launch
                 }
 
-                val structureResult = structureDeferred.await()
-                val availableSections = when (structureResult) {
-                    is ApiResult.Success -> {
-                        val currentYearId =
-                            structureResult.data.currentAcademicYear?.id
-
-                        structureResult.data.gradeSections
-                            .filter { section ->
-                                section.active &&
-                                    (
-                                        currentYearId.isNullOrBlank() ||
-                                            section.academicYearId == currentYearId
-                                        )
-                            }
-                            .map {
-                                TeacherSection(
-                                    grade = it.gradeLevel,
-                                    section = it.sectionName
-                                )
-                            }
-                            .normalizedSections()
-                    }
-
-                    is ApiResult.Failure ->
-                        emptyList()
-                }
-
-                val placementError = when {
-                    structureResult is ApiResult.Failure ->
-                        "The configured academic structure could not be loaded. Existing roster data is available, but adding a student is disabled."
-
-                    availableSections.isEmpty() ->
-                        "No active grade sections are configured for the current academic year. Configure School Year & Sections before adding students."
-
-                    else -> null
-                }
-
-                val studentsResult = studentsDeferred.await()
-                val school = schoolDeferred.await().getOrNull()
-
-                studentsResult
-                    .onSuccess { students ->
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            role = session.role,
-                            school = school,
-                            allStudents = students,
-                            availableSections = availableSections,
-                            selectedSectionFilter =
-                                _uiState.value.selectedSectionFilter
-                                    ?.takeIf { selected ->
-                                        availableSections.any {
-                                            it.samePlacement(selected)
-                                        }
-                                    },
-                            placementError = placementError,
-                            error = null
-                        )
-                    }
-                    .onFailure {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            role = session.role,
-                            school = school,
-                            placementError = placementError,
-                            error = "Couldn't load students"
-                        )
-                    }
+                loadSchoolAdminRoster(
+                    schoolId = schoolId,
+                    schoolDeferred = schoolDeferred,
+                    structureDeferred = structureDeferred,
+                    role = session.role
+                )
             } finally {
                 loadInProgress = false
             }
         }
+    }
+
+    private suspend fun loadTeacherRoster(
+        uid: String,
+        schoolId: String,
+        schoolDeferred: Deferred<Result<SchoolInfo>>,
+        structureDeferred: Deferred<ApiResult<AcademicStructureResponse>>
+    ) {
+        val sectionsResult = teacherRepository.getMyAssignedSections(uid)
+        val assignedSections = sectionsResult
+            .getOrElse {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    role = UserRole.Teacher,
+                    school = schoolDeferred.await().getOrNull(),
+                    error = "Couldn't load your assigned sections"
+                )
+                return
+            }
+            .normalizedSections()
+
+        if (assignedSections.isEmpty()) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                role = UserRole.Teacher,
+                school = schoolDeferred.await().getOrNull(),
+                hasNoAssignedSections = true,
+                allStudents = emptyList(),
+                availablePlacements = emptyList(),
+                selectedPlacementFilter = null
+            )
+            return
+        }
+
+        val studentsDeferred = viewModelScope.async {
+            teacherRepository.getStudentsForSections(
+                schoolId = schoolId,
+                sections = assignedSections
+            )
+        }
+
+        val structureResult = structureDeferred.await()
+        val structure = (structureResult as? ApiResult.Success)?.data
+        val availablePlacements = structure
+            ?.currentPlacementOptionsFor(assignedSections)
+            .orEmpty()
+        val currentYear = structure?.currentAcademicYear
+        val currentConfiguredCount = structure?.currentPlacementOptions()?.size ?: 0
+
+        val legacyAssignmentCount = assignedSections.count { assigned ->
+            availablePlacements.none {
+                placementKey(it.grade, it.section) ==
+                    placementKey(assigned.grade, assigned.section)
+            }
+        }
+
+        val placementError = when {
+            structureResult is ApiResult.Failure ->
+                "School Year & Sections could not be loaded. Existing roster records remain visible, but adding students is disabled."
+
+            currentYear == null ->
+                "Your school has no current academic year. Ask the school administrator to set one before adding students."
+
+            currentConfiguredCount == 0 ->
+                "No active grade and section is configured for " +
+                    currentYear.name.ifBlank { "the current school year" } + "."
+
+            availablePlacements.isEmpty() ->
+                "Your assigned sections are not part of the current school-year setup. Ask the school administrator to update your assignments."
+
+            legacyAssignmentCount > 0 ->
+                legacyAssignmentCount.toString() + " older assignment" +
+                    (if (legacyAssignmentCount == 1) " is" else "s are") +
+                    " kept for existing roster access but cannot be used for new students."
+
+            else -> null
+        }
+
+        val studentsResult = studentsDeferred.await()
+        val school = schoolDeferred.await().getOrNull()
+
+        studentsResult
+            .onSuccess { students ->
+                val previousFilter = _uiState.value.selectedPlacementFilter
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    role = UserRole.Teacher,
+                    school = school,
+                    allStudents = students,
+                    availablePlacements = availablePlacements,
+                    selectedPlacementFilter = previousFilter?.takeIf { selected ->
+                        availablePlacements.any {
+                            it.gradeSectionId == selected.gradeSectionId
+                        }
+                    },
+                    placementError = placementError,
+                    error = null
+                )
+            }
+            .onFailure {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    role = UserRole.Teacher,
+                    school = school,
+                    availablePlacements = availablePlacements,
+                    placementError = placementError,
+                    error = "Couldn't load students"
+                )
+            }
+    }
+
+    private suspend fun loadSchoolAdminRoster(
+        schoolId: String,
+        schoolDeferred: Deferred<Result<SchoolInfo>>,
+        structureDeferred: Deferred<ApiResult<AcademicStructureResponse>>,
+        role: UserRole
+    ) {
+        val studentsDeferred = viewModelScope.async {
+            teacherRepository.getSchoolStudents(schoolId)
+        }
+
+        val structureResult = structureDeferred.await()
+        val structure = (structureResult as? ApiResult.Success)?.data
+        val availablePlacements = structure?.currentPlacementOptions().orEmpty()
+
+        val placementError = when {
+            structureResult is ApiResult.Failure ->
+                "School Year & Sections could not be loaded. Existing roster data is available, but adding a student is disabled."
+
+            structure?.currentAcademicYear == null ->
+                "Set a current academic year in School Year & Sections before adding students."
+
+            availablePlacements.isEmpty() ->
+                "No active grade and section is configured for the current academic year."
+
+            else -> null
+        }
+
+        val studentsResult = studentsDeferred.await()
+        val school = schoolDeferred.await().getOrNull()
+
+        studentsResult
+            .onSuccess { students ->
+                val previousFilter = _uiState.value.selectedPlacementFilter
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    role = role,
+                    school = school,
+                    allStudents = students,
+                    availablePlacements = availablePlacements,
+                    selectedPlacementFilter = previousFilter?.takeIf { selected ->
+                        availablePlacements.any {
+                            it.gradeSectionId == selected.gradeSectionId
+                        }
+                    },
+                    placementError = placementError,
+                    error = null
+                )
+            }
+            .onFailure {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    role = role,
+                    school = school,
+                    availablePlacements = availablePlacements,
+                    placementError = placementError,
+                    error = "Couldn't load students"
+                )
+            }
     }
 
     fun onSearchChange(term: String) {
@@ -268,9 +311,9 @@ class TeacherStudentsViewModel @Inject constructor(
         )
     }
 
-    fun onSectionFilterChange(section: TeacherSection?) {
+    fun onPlacementFilterChange(placement: AcademicPlacementOption?) {
         _uiState.value = _uiState.value.copy(
-            selectedSectionFilter = section
+            selectedPlacementFilter = placement
         )
     }
 
@@ -279,7 +322,7 @@ class TeacherStudentsViewModel @Inject constructor(
         firstName: String,
         middleInitial: String,
         suffix: String,
-        placement: TeacherSection
+        placement: AcademicPlacementOption
     ) {
         if (_uiState.value.isSubmitting) return
 
@@ -290,17 +333,16 @@ class TeacherStudentsViewModel @Inject constructor(
             return
         }
 
-        val allowedPlacement = _uiState.value.availableSections.any {
-            it.samePlacement(placement)
-        }
-        if (!allowedPlacement) {
+        val allowedPlacement = _uiState.value.availablePlacements
+            .firstOrNull { it.gradeSectionId == placement.gradeSectionId }
+
+        if (allowedPlacement == null) {
             _uiState.value = _uiState.value.copy(
-                formError = "Choose a grade and section currently available to your account"
+                formError = "Choose a current grade and section available to this account"
             )
             return
         }
 
-        // Synchronous busy state prevents duplicate student creation on fast taps.
         _uiState.value = _uiState.value.copy(
             isSubmitting = true,
             formError = null
@@ -313,8 +355,10 @@ class TeacherStudentsViewModel @Inject constructor(
                     firstName = firstName.trim(),
                     middleInitial = middleInitial.trim(),
                     suffix = suffix.trim(),
-                    grade = placement.grade.trim(),
-                    section = placement.section.trim()
+                    grade = allowedPlacement.grade,
+                    section = allowedPlacement.section,
+                    gradeSectionId = allowedPlacement.gradeSectionId,
+                    academicYearId = allowedPlacement.academicYearId
                 )
             ) {
                 is ApiResult.Success -> {
@@ -336,31 +380,22 @@ class TeacherStudentsViewModel @Inject constructor(
     }
 
     fun clearFormFeedback() {
-        _uiState.value = _uiState.value.copy(
-            formError = null
-        )
+        _uiState.value = _uiState.value.copy(formError = null)
     }
 
     fun consumeJustCreatedStudentId() {
-        _uiState.value = _uiState.value.copy(
-            justCreatedStudentId = null
-        )
+        _uiState.value = _uiState.value.copy(justCreatedStudentId = null)
     }
 }
 
 private fun List<TeacherSection>.normalizedSections(): List<TeacherSection> =
-    distinctBy {
-        "${it.grade.trim().lowercase()}||${it.section.trim().lowercase()}"
-    }.sortedWith(
-        compareBy<TeacherSection>(
-            { gradeSortKey(it.grade) },
-            { it.section.lowercase() }
+    distinctBy { placementKey(it.grade, it.section) }
+        .sortedWith(
+            compareBy<TeacherSection>(
+                { gradeSortKey(it.grade) },
+                { it.section.lowercase() }
+            )
         )
-    )
-
-private fun TeacherSection.samePlacement(other: TeacherSection): Boolean =
-    grade.equals(other.grade, ignoreCase = true) &&
-        section.equals(other.section, ignoreCase = true)
 
 private fun gradeSortKey(grade: String): String {
     val numeric = Regex("\\d+")
@@ -371,6 +406,6 @@ private fun gradeSortKey(grade: String): String {
     return if (numeric != null) {
         "%05d".format(numeric)
     } else {
-        "99999-${grade.lowercase()}"
+        "99999-" + grade.lowercase()
     }
 }

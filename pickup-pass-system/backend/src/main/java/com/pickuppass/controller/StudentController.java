@@ -72,6 +72,14 @@ public class StudentController {
         // it is the source of truth; otherwise we resolve a legacy grade/section
         // pair against the current configured structure when one exists.
         AcademicPlacement placement = resolveAcademicPlacement(staff.getSchoolId(), req);
+
+        if ("teacher".equals(staff.getRole())
+                && !teacherHasAssignment(staff.getUid(), staff.getSchoolId(), placement)) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "error",
+                    "You can only register students in your current assigned grade and section"));
+        }
+
         student.put("grade", placement.grade());
         student.put("section", placement.section());
         if (!placement.gradeSectionId().isBlank()) student.put("gradeSectionId", placement.gradeSectionId());
@@ -88,7 +96,18 @@ public class StudentController {
             tenantUsageService.release(staff.getSchoolId(), TenantUsageService.STUDENTS, 1);
             throw e;
         }
-        auditService.record(staff, "student.created", "student", studentRef.getId(), Map.of("fullName", fullName));
+        auditService.record(
+                staff,
+                "student.created",
+                "student",
+                studentRef.getId(),
+                Map.of(
+                        "fullName", fullName,
+                        "grade", placement.grade(),
+                        "section", placement.section(),
+                        "gradeSectionId", placement.gradeSectionId(),
+                        "academicYearId", placement.academicYearId()
+                ));
 
         return ResponseEntity.ok(Map.of(
                 "studentId", studentRef.getId(),
@@ -124,42 +143,118 @@ public class StudentController {
         public void setAcademicYearId(String v) { this.academicYearId = v; }
     }
 
-    private AcademicPlacement resolveAcademicPlacement(String schoolId, CreateStudentRequest req) throws Exception {
-        String requestedId = req.getGradeSectionId() == null ? "" : req.getGradeSectionId().trim();
+    private AcademicPlacement resolveAcademicPlacement(
+            String schoolId,
+            CreateStudentRequest req) throws Exception {
+
+        String currentYearId = currentAcademicYearId(schoolId);
+        if (currentYearId.isBlank()) {
+            throw new IllegalArgumentException(
+                    "The school administrator must set a current academic year before adding students");
+        }
+
+        String requestedId = safe(req.getGradeSectionId());
         if (!requestedId.isBlank()) {
-            DocumentSnapshot sectionDoc = firestore.collection("gradeSections").document(requestedId).get().get();
-            if (!sectionDoc.exists() || !schoolId.equals(sectionDoc.getString("schoolId"))
-                    || Boolean.FALSE.equals(sectionDoc.getBoolean("active"))) {
-                throw new IllegalArgumentException("Selected grade/section is not active in your school");
+            DocumentSnapshot sectionDoc = firestore.collection("gradeSections")
+                    .document(requestedId).get().get();
+
+            if (!sectionDoc.exists()
+                    || !schoolId.equals(sectionDoc.getString("schoolId"))
+                    || Boolean.FALSE.equals(sectionDoc.getBoolean("active"))
+                    || !currentYearId.equals(safe(sectionDoc.getString("academicYearId")))) {
+                throw new IllegalArgumentException(
+                        "Selected grade/section is not active in the current academic year");
             }
+
+            String requestedYearId = safe(req.getAcademicYearId());
+            if (!requestedYearId.isBlank()
+                    && !currentYearId.equals(requestedYearId)) {
+                throw new IllegalArgumentException(
+                        "Selected grade/section does not belong to the current academic year");
+            }
+
             return new AcademicPlacement(
                     safe(sectionDoc.getString("gradeLevel")),
                     safe(sectionDoc.getString("sectionName")),
                     sectionDoc.getId(),
-                    safe(sectionDoc.getString("academicYearId")));
+                    currentYearId);
         }
 
-        // Backwards-compatible path for older Android clients. Once a school has
-        // structured sections, the free-text values must match one active section.
+        // Compatibility path for older clients: grade/section text is accepted
+        // only when it resolves to an active section in the current academic
+        // year. Arbitrary free-text placement is no longer permitted.
         String grade = safe(req.getGrade());
         String section = safe(req.getSection());
-        List<QueryDocumentSnapshot> configured = firestore.collection("gradeSections")
-                .whereEqualTo("schoolId", schoolId).get().get().getDocuments();
-        if (!configured.isEmpty()) {
-            for (QueryDocumentSnapshot doc : configured) {
-                if (!Boolean.FALSE.equals(doc.getBoolean("active"))
-                        && grade.equalsIgnoreCase(safe(doc.getString("gradeLevel")))
-                        && section.equalsIgnoreCase(safe(doc.getString("sectionName")))) {
-                    return new AcademicPlacement(
-                            safe(doc.getString("gradeLevel")),
-                            safe(doc.getString("sectionName")),
-                            doc.getId(),
-                            safe(doc.getString("academicYearId")));
-                }
+
+        for (QueryDocumentSnapshot doc : firestore.collection("gradeSections")
+                .whereEqualTo("schoolId", schoolId)
+                .get().get().getDocuments()) {
+            if (currentYearId.equals(safe(doc.getString("academicYearId")))
+                    && !Boolean.FALSE.equals(doc.getBoolean("active"))
+                    && grade.equalsIgnoreCase(safe(doc.getString("gradeLevel")))
+                    && section.equalsIgnoreCase(safe(doc.getString("sectionName")))) {
+                return new AcademicPlacement(
+                        safe(doc.getString("gradeLevel")),
+                        safe(doc.getString("sectionName")),
+                        doc.getId(),
+                        currentYearId);
             }
-            throw new IllegalArgumentException("Choose a grade/section configured by your school admin");
         }
-        return new AcademicPlacement(grade, section, "", safe(req.getAcademicYearId()));
+
+        throw new IllegalArgumentException(
+                "Choose a grade/section configured by your school admin for the current academic year");
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean teacherHasAssignment(
+            String uid,
+            String schoolId,
+            AcademicPlacement placement) throws Exception {
+
+        DocumentSnapshot teacherDoc = firestore.collection("users")
+                .document(uid).get().get();
+
+        if (!teacherDoc.exists()
+                || !schoolId.equals(teacherDoc.getString("schoolId"))
+                || !"teacher".equals(teacherDoc.getString("role"))) {
+            return false;
+        }
+
+        Object raw = teacherDoc.get("assignedSections");
+        if (!(raw instanceof List<?> list) || list.isEmpty()) {
+            return false;
+        }
+
+        for (Object item : list) {
+            if (!(item instanceof Map<?, ?> section)) {
+                continue;
+            }
+
+            String grade = safeObject(section.get("grade"));
+            String name = safeObject(section.get("section"));
+            if (placement.grade().equalsIgnoreCase(grade)
+                    && placement.section().equalsIgnoreCase(name)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private String currentAcademicYearId(String schoolId) throws Exception {
+        for (QueryDocumentSnapshot year : firestore.collection("academicYears")
+                .whereEqualTo("schoolId", schoolId)
+                .get().get().getDocuments()) {
+            if (Boolean.TRUE.equals(year.getBoolean("isCurrent"))
+                    && !"archived".equalsIgnoreCase(safe(year.getString("status")))) {
+                return year.getId();
+            }
+        }
+        return "";
+    }
+
+    private static String safeObject(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
     }
 
     private static String safe(String value) { return value == null ? "" : value.trim(); }

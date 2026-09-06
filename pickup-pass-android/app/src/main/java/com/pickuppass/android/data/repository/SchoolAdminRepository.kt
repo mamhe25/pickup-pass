@@ -19,7 +19,8 @@ class SchoolAdminRepository @Inject constructor(
         lastName: String,
         firstName: String,
         middleInitial: String,
-        suffix: String
+        suffix: String,
+        assignedSections: List<TeacherSection>
     ): ApiResult<InviteTeacherResponse> {
         return try {
             val response = api.inviteTeacher(
@@ -28,14 +29,17 @@ class SchoolAdminRepository @Inject constructor(
                     lastName = lastName,
                     firstName = firstName,
                     middleInitial = middleInitial.ifBlank { null },
-                    suffix = suffix.ifBlank { null }
+                    suffix = suffix.ifBlank { null },
+                    assignedSections = assignedSections
                 )
             )
             val body = response.body()
             if (response.isSuccessful && body?.uid != null) {
                 ApiResult.Success(body)
             } else {
-                ApiResult.Failure(body?.error ?: "Could not invite teacher")
+                ApiResult.Failure(
+                    body?.error ?: apiError(response, "Could not invite teacher")
+                )
             }
         } catch (e: Exception) {
             ApiResult.Failure(e.message ?: "Network error")
@@ -62,7 +66,9 @@ class SchoolAdminRepository @Inject constructor(
             if (response.isSuccessful) {
                 ApiResult.Success(Unit)
             } else {
-                ApiResult.Failure("Could not save sections")
+                ApiResult.Failure(
+                    apiError(response, "Could not save sections")
+                )
             }
         } catch (e: Exception) {
             ApiResult.Failure(e.message ?: "Network error")

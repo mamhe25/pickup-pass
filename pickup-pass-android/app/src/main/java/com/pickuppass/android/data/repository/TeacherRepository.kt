@@ -101,7 +101,9 @@ class TeacherRepository @Inject constructor(
         middleInitial: String,
         suffix: String,
         grade: String,
-        section: String
+        section: String,
+        gradeSectionId: String,
+        academicYearId: String
     ): ApiResult<String> {
         return try {
             val response = api.createStudent(
@@ -111,7 +113,9 @@ class TeacherRepository @Inject constructor(
                     middleInitial = middleInitial.ifBlank { null },
                     suffix = suffix.ifBlank { null },
                     grade = grade,
-                    section = section
+                    section = section,
+                    gradeSectionId = gradeSectionId,
+                    academicYearId = academicYearId
                 )
             )
             val body = response.body()
