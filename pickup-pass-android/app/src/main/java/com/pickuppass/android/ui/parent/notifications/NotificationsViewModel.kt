@@ -13,7 +13,9 @@ import javax.inject.Inject
 
 data class NotificationsUiState(
     val isLoading: Boolean = true,
+    val isUpdating: Boolean = false,
     val error: String? = null,
+    val message: String? = null,
     val notifications: List<NotificationItem> = emptyList(),
 ) {
     val hasUnread: Boolean get() = notifications.any { !it.read }
@@ -28,56 +30,113 @@ class NotificationsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(NotificationsUiState())
     val uiState: StateFlow<NotificationsUiState> = _uiState
 
+    private var loadInProgress = false
+
     init {
         load()
     }
 
     fun load() {
+        if (loadInProgress) return
+        loadInProgress = true
+
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            try {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = _uiState.value.notifications.isEmpty(),
+                    error = null
+                )
 
-            val uid = authRepository.currentUid()
-            if (uid == null) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = "Session expired — please sign in again")
-                return@launch
+                val uid = authRepository.currentUid()
+                if (uid == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Session expired — please sign in again"
+                    )
+                    return@launch
+                }
+
+                notificationRepository.getMyNotifications(uid)
+                    .onSuccess { notifications ->
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            notifications = notifications,
+                            error = null
+                        )
+                    }
+                    .onFailure {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = "Couldn't load notifications"
+                        )
+                    }
+            } finally {
+                loadInProgress = false
             }
-
-            notificationRepository.getMyNotifications(uid)
-                .onSuccess { notifications ->
-                    _uiState.value = _uiState.value.copy(isLoading = false, notifications = notifications)
-                }
-                .onFailure {
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = "Couldn't load notifications")
-                }
         }
     }
 
     fun markAsRead(notification: NotificationItem) {
-        if (notification.read) return
+        if (notification.read || _uiState.value.isUpdating) return
 
-        // Optimistic update so tapping feels instant; reconciled by load()
-        // on the next real fetch if the write ever actually fails.
+        val previous = _uiState.value.notifications
         _uiState.value = _uiState.value.copy(
-            notifications = _uiState.value.notifications.map {
+            isUpdating = true,
+            error = null,
+            message = null,
+            notifications = previous.map {
                 if (it.id == notification.id) it.copy(read = true) else it
             }
         )
 
         viewModelScope.launch {
             notificationRepository.markAsRead(notification.id)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(isUpdating = false)
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(
+                        isUpdating = false,
+                        notifications = previous,
+                        error = "Couldn't mark that notification as read"
+                    )
+                }
         }
     }
 
     fun markAllAsRead() {
-        val unreadIds = _uiState.value.notifications.filter { !it.read }.map { it.id }
+        if (_uiState.value.isUpdating) return
+
+        val previous = _uiState.value.notifications
+        val unreadIds = previous.filter { !it.read }.map { it.id }
         if (unreadIds.isEmpty()) return
 
         _uiState.value = _uiState.value.copy(
-            notifications = _uiState.value.notifications.map { it.copy(read = true) }
+            isUpdating = true,
+            error = null,
+            message = null,
+            notifications = previous.map { it.copy(read = true) }
         )
 
         viewModelScope.launch {
             notificationRepository.markAllAsRead(unreadIds)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        isUpdating = false,
+                        message = "All notifications marked as read"
+                    )
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(
+                        isUpdating = false,
+                        notifications = previous,
+                        error = "Couldn't mark all notifications as read"
+                    )
+                }
         }
+    }
+
+    fun clearFeedback() {
+        _uiState.value = _uiState.value.copy(error = null, message = null)
     }
 }

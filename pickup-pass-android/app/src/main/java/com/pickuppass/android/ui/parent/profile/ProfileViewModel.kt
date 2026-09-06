@@ -41,38 +41,71 @@ class ProfileViewModel @Inject constructor(
         load()
     }
 
-    private fun load() {
+    fun load() {
         viewModelScope.launch {
-            val uid = authRepository.currentUid() ?: return@launch
-            studentRepository.getUserProfile(uid).onSuccess { profile ->
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+
+            val uid = authRepository.currentUid()
+            if (uid == null) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    displayName = profile?.displayName.orEmpty(),
-                    email = profile?.email.orEmpty(),
-                    photoUrl = profile?.photoUrl
+                    error = "Session expired — please sign in again"
                 )
-            }.onFailure {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = "Couldn't load your profile")
-            }
-        }
-    }
-
-    fun onImagePicked(context: android.content.Context, uri: Uri) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isUploading = true, error = null, uploadSuccessMessage = null)
-
-            val session = authRepository.currentSession()
-            if (session == null || session.schoolId == null) {
-                _uiState.value = _uiState.value.copy(isUploading = false, error = "Session expired")
                 return@launch
             }
 
-            profileRepository.uploadAvatar(context, session.uid, session.schoolId, uri)
+            studentRepository.getUserProfile(uid)
+                .onSuccess { profile ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        displayName = profile?.displayName.orEmpty(),
+                        email = profile?.email.orEmpty(),
+                        photoUrl = profile?.photoUrl,
+                        error = null
+                    )
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Couldn't load your profile"
+                    )
+                }
+        }
+    }
+
+    fun onImagePicked(
+        context: android.content.Context,
+        uri: Uri
+    ) {
+        if (_uiState.value.isUploading) return
+
+        _uiState.value = _uiState.value.copy(
+            isUploading = true,
+            error = null,
+            uploadSuccessMessage = null
+        )
+
+        viewModelScope.launch {
+            val session = authRepository.currentSession()
+            if (session == null || session.schoolId == null) {
+                _uiState.value = _uiState.value.copy(
+                    isUploading = false,
+                    error = "Session expired — please sign in again"
+                )
+                return@launch
+            }
+
+            profileRepository.uploadAvatar(
+                context,
+                session.uid,
+                session.schoolId,
+                uri
+            )
                 .onSuccess { url ->
                     _uiState.value = _uiState.value.copy(
                         isUploading = false,
                         photoUrl = url,
-                        uploadSuccessMessage = "Photo updated"
+                        uploadSuccessMessage = "Verification photo updated"
                     )
                 }
                 .onFailure {
@@ -82,6 +115,13 @@ class ProfileViewModel @Inject constructor(
                     )
                 }
         }
+    }
+
+    fun clearFeedback() {
+        _uiState.value = _uiState.value.copy(
+            error = null,
+            uploadSuccessMessage = null
+        )
     }
 
     fun signOut() {

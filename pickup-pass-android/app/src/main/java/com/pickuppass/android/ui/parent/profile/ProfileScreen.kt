@@ -2,8 +2,6 @@ package com.pickuppass.android.ui.parent.profile
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,9 +10,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Devices
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.*
@@ -27,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
@@ -46,9 +46,8 @@ fun ProfileScreen(
     val signedOut by viewModel.signedOut.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    var showSignOutConfirmation by remember {
-        mutableStateOf(false)
-    }
+    var showSignOutConfirmation by remember { mutableStateOf(false) }
+    var showPhotoViewer by remember { mutableStateOf(false) }
 
     val pickImage = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
@@ -59,15 +58,22 @@ fun ProfileScreen(
     }
 
     LaunchedEffect(signedOut) {
-        if (signedOut) {
-            onSignedOut()
-        }
+        if (signedOut) onSignedOut()
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("My Profile") },
+                title = {
+                    Column {
+                        Text("My Profile", fontWeight = FontWeight.ExtraBold)
+                        Text(
+                            "Pickup identity & security",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -79,23 +85,23 @@ fun ProfileScreen(
             )
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(
-                    start = Spacing.md,
-                    top = Spacing.sm,
-                    end = Spacing.md,
-                    bottom = Spacing.xl
-                ),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .widthIn(max = 620.dp),
+                    .fillMaxHeight()
+                    .widthIn(max = 660.dp)
+                    .align(Alignment.TopCenter)
+                    .verticalScroll(rememberScrollState())
+                    .padding(
+                        start = Spacing.md,
+                        top = Spacing.sm,
+                        end = Spacing.md,
+                        bottom = Spacing.xl
+                    ),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 ProfileHero(
@@ -109,18 +115,19 @@ fun ProfileScreen(
                     isUploading = uiState.isUploading,
                     onChoosePhoto = {
                         if (!uiState.isUploading) {
+                            viewModel.clearFeedback()
                             pickImage.launch("image/*")
+                        }
+                    },
+                    onViewPhoto = {
+                        if (!uiState.photoUrl.isNullOrBlank()) {
+                            showPhotoViewer = true
                         }
                     }
                 )
 
-                uiState.uploadSuccessMessage?.let { message ->
-                    SuccessBanner(message)
-                }
-
-                uiState.error?.let { message ->
-                    ErrorBanner(message)
-                }
+                uiState.uploadSuccessMessage?.let { SuccessBanner(it) }
+                uiState.error?.let { ErrorBanner(it) }
 
                 AccountDetailsCard(
                     displayName = uiState.displayName,
@@ -128,18 +135,14 @@ fun ProfileScreen(
                     isLoading = uiState.isLoading
                 )
 
-                SecurityCard(
-                    onOpenDevices = onOpenDevices
-                )
+                SecurityCard(onOpenDevices = onOpenDevices)
 
                 SignOutCard(
-                    onSignOut = {
-                        showSignOutConfirmation = true
-                    }
+                    onSignOut = { showSignOutConfirmation = true }
                 )
 
                 Text(
-                    text = "Your pickup identity photo is shown only as part of the authorized verification workflow. Student release still requires a valid PickupPass and staff confirmation.",
+                    "Your verification photo is used only as part of the authorized pickup workflow. A valid PickupPass and school confirmation are still required.",
                     modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -151,39 +154,40 @@ fun ProfileScreen(
 
     if (showSignOutConfirmation) {
         AlertDialog(
-            onDismissRequest = {
-                showSignOutConfirmation = false
-            },
-            title = {
-                Text("Sign out of PickupPass?")
-            },
+            onDismissRequest = { showSignOutConfirmation = false },
+            title = { Text("Sign out of PickupPass?") },
             text = {
                 Text(
                     "You'll need to sign in again before viewing students, pickup passes, or guardian settings on this device."
                 )
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         showSignOutConfirmation = false
                         viewModel.signOut()
-                    }
-                ) {
-                    Text(
-                        "Sign out",
-                        color = MaterialTheme.colorScheme.error
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
                     )
+                ) {
+                    Text("Sign out")
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        showSignOutConfirmation = false
-                    }
-                ) {
+                TextButton(onClick = { showSignOutConfirmation = false }) {
                     Text("Cancel")
                 }
             }
+        )
+    }
+
+    if (showPhotoViewer) {
+        ProfilePhotoDialog(
+            photoUrl = uiState.photoUrl,
+            displayName = uiState.displayName,
+            onDismiss = { showPhotoViewer = false }
         )
     }
 }
@@ -193,48 +197,43 @@ private fun ProfileHero(
     displayName: String,
     email: String
 ) {
-    Surface(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
-        shadowElevation = 6.dp
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(Spacing.lg)
-        ) {
+        Column(Modifier.padding(Spacing.lg)) {
             Text(
-                text = "PICKUP IDENTITY",
+                "PICKUP IDENTITY",
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.68f)
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
             )
-
             Spacer(Modifier.height(Spacing.xs))
-
             Text(
-                text = displayName.ifBlank { "Your family profile" },
+                displayName.ifBlank { "Your family profile" },
                 style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-
             Spacer(Modifier.height(Spacing.xs))
-
             Text(
-                text = "Keep your identity photo current so school staff can confidently verify who is present at pickup.",
+                "Keep your identity photo current so school staff can confidently verify who is present at pickup.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.78f)
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
             )
 
             if (email.isNotBlank()) {
                 Spacer(Modifier.height(Spacing.md))
-
                 Surface(
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.10f)
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
                 ) {
                     Text(
-                        text = email,
+                        email,
                         modifier = Modifier.padding(
                             horizontal = 12.dp,
                             vertical = 7.dp
@@ -253,7 +252,8 @@ private fun IdentityPhotoCard(
     photoUrl: String?,
     displayName: String,
     isUploading: Boolean,
-    onChoosePhoto: () -> Unit
+    onChoosePhoto: () -> Unit,
+    onViewPhoto: () -> Unit
 ) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -261,9 +261,7 @@ private fun IdentityPhotoCard(
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 2.dp
-        )
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -272,15 +270,13 @@ private fun IdentityPhotoCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Verification photo",
+                "Verification photo",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.ExtraBold
             )
-
             Spacer(Modifier.height(Spacing.xs))
-
             Text(
-                text = "Use a clear, recent photo of your face. Avoid sunglasses, masks, or group photos.",
+                "Use a clear, recent photo of your face. Avoid sunglasses, masks, or group photos.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -290,42 +286,40 @@ private fun IdentityPhotoCard(
 
             Box(
                 modifier = Modifier
-                    .size(148.dp)
+                    .size(150.dp)
                     .clip(CircleShape)
                     .clickable(
                         enabled = !isUploading,
-                        onClick = onChoosePhoto
+                        onClick = if (photoUrl.isNullOrBlank()) {
+                            onChoosePhoto
+                        } else {
+                            onViewPhoto
+                        }
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Crossfade(
-                    targetState = !photoUrl.isNullOrBlank(),
-                    animationSpec = tween(260),
-                    label = "profileAvatarPhase"
-                ) { hasPhoto ->
-                    if (hasPhoto) {
-                        SmartImage(
-                            model = photoUrl,
-                            contentDescription = "${displayName.ifBlank { "Guardian" }} profile photo",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Surface(
+                if (!photoUrl.isNullOrBlank()) {
+                    SmartImage(
+                        model = photoUrl,
+                        contentDescription = "${displayName.ifBlank { "Guardian" }} profile photo",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Box(
                             modifier = Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.primaryContainer
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Filled.Person,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(54.dp)
-                                )
-                            }
+                            Icon(
+                                Icons.Filled.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(54.dp)
+                            )
                         }
                     }
                 }
@@ -348,6 +342,15 @@ private fun IdentityPhotoCard(
                 }
             }
 
+            if (!photoUrl.isNullOrBlank()) {
+                Spacer(Modifier.height(Spacing.xs))
+                Text(
+                    "Tap photo to view",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             Spacer(Modifier.height(Spacing.md))
 
             Button(
@@ -365,9 +368,7 @@ private fun IdentityPhotoCard(
                         strokeWidth = 2.dp,
                         color = MaterialTheme.colorScheme.onPrimary
                     )
-
                     Spacer(Modifier.width(Spacing.sm))
-
                     Text("Saving photo…")
                 } else {
                     Icon(
@@ -375,16 +376,8 @@ private fun IdentityPhotoCard(
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
-
                     Spacer(Modifier.width(Spacing.sm))
-
-                    Text(
-                        if (!photoUrl.isNullOrBlank()) {
-                            "Change photo"
-                        } else {
-                            "Add photo"
-                        }
-                    )
+                    Text(if (photoUrl.isNullOrBlank()) "Add photo" else "Change photo")
                 }
             }
         }
@@ -401,30 +394,23 @@ private fun AccountDetailsCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge
     ) {
-        Column(
-            modifier = Modifier.padding(Spacing.lg)
-        ) {
+        Column(Modifier.padding(Spacing.lg)) {
             Text(
-                text = "Account details",
+                "Account details",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.ExtraBold
             )
-
             Spacer(Modifier.height(Spacing.md))
 
             if (isLoading) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
                         strokeWidth = 2.dp
                     )
-
                     Spacer(Modifier.width(Spacing.sm))
-
                     Text(
-                        text = "Loading account details…",
+                        "Loading account details…",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -455,16 +441,14 @@ private fun ProfileDetailRow(
 ) {
     Column {
         Text(
-            text = label.uppercase(),
+            label.uppercase(),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-
         Spacer(Modifier.height(2.dp))
-
         Text(
-            text = value,
+            value,
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.SemiBold
         )
@@ -502,19 +486,15 @@ private fun SecurityCard(
 
             Spacer(Modifier.width(Spacing.md))
 
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            Column(Modifier.weight(1f)) {
                 Text(
-                    text = "Account security",
+                    "Account security",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-
                 Spacer(Modifier.height(2.dp))
-
                 Text(
-                    text = "Review devices that have used this PickupPass account and revoke sessions you no longer trust.",
+                    "Review devices that have used this PickupPass account and revoke sessions you no longer trust.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -532,9 +512,7 @@ private fun SecurityCard(
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )
-
                 Spacer(Modifier.width(6.dp))
-
                 Text("Devices")
             }
         }
@@ -558,20 +536,16 @@ private fun SignOutCard(
             modifier = Modifier.padding(Spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            Column(Modifier.weight(1f)) {
                 Text(
-                    text = "Using a shared device?",
+                    "Using a shared device?",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
-
                 Spacer(Modifier.height(2.dp))
-
                 Text(
-                    text = "Sign out when you're finished so another person can't access your family pickup information.",
+                    "Sign out when you're finished so another person can't access your family pickup information.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.82f)
                 )
@@ -584,17 +558,65 @@ private fun SignOutCard(
                 modifier = Modifier.heightIn(min = 44.dp)
             ) {
                 Icon(
-                    Icons.Filled.Logout,
+                    Icons.AutoMirrored.Filled.Logout,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(18.dp)
                 )
-
                 Spacer(Modifier.width(6.dp))
+                Text("Sign out", color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
 
-                Text(
-                    "Sign out",
-                    color = MaterialTheme.colorScheme.error
+@Composable
+private fun ProfilePhotoDialog(
+    photoUrl: String?,
+    displayName: String,
+    onDismiss: () -> Unit
+) {
+    if (photoUrl.isNullOrBlank()) return
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier.padding(Spacing.md)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            displayName.ifBlank { "Verification photo" },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            "Pickup identity",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Filled.Close, contentDescription = "Close")
+                    }
+                }
+
+                Spacer(Modifier.height(Spacing.sm))
+
+                SmartImage(
+                    model = photoUrl,
+                    contentDescription = "Verification photo",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 520.dp)
                 )
             }
         }

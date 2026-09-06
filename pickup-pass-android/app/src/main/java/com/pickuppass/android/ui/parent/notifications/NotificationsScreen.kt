@@ -1,7 +1,5 @@
 package com.pickuppass.android.ui.parent.notifications
 
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -29,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.NotificationItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -60,7 +59,16 @@ fun NotificationsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Notifications") },
+                title = {
+                    Column {
+                        Text("Notifications", fontWeight = FontWeight.ExtraBold)
+                        Text(
+                            "$unreadCount unread",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -72,83 +80,95 @@ fun NotificationsScreen(
             )
         }
     ) { padding ->
-        val phase = when {
-            uiState.isLoading -> "loading"
-            uiState.error != null -> "error"
-            else -> "content"
-        }
-
-        Crossfade(
-            targetState = phase,
-            animationSpec = tween(220),
-            label = "notificationPhase"
-        ) { state ->
-            when (state) {
-                "loading" -> Box(
-                    modifier = Modifier
-                        .padding(padding)
-                        .fillMaxSize()
-                ) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+        ) {
+            when {
+                uiState.isLoading && uiState.notifications.isEmpty() ->
                     FullScreenLoading()
-                }
 
-                "error" -> NotificationErrorState(
-                    modifier = Modifier
-                        .padding(padding)
-                        .fillMaxSize(),
-                    message = uiState.error ?: "Couldn't load notifications",
-                    onRetry = viewModel::load
-                )
+                uiState.error != null && uiState.notifications.isEmpty() ->
+                    NotificationErrorState(
+                        message = uiState.error ?: "Couldn't load notifications",
+                        onRetry = viewModel::load
+                    )
 
-                else -> LazyColumn(
-                    modifier = Modifier
-                        .padding(padding)
-                        .fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        start = Spacing.md,
-                        top = Spacing.sm,
-                        end = Spacing.md,
-                        bottom = Spacing.xl
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
-                ) {
-                    item {
-                        NotificationsHero(
-                            unreadCount = unreadCount,
-                            totalCount = uiState.notifications.size,
-                            hasUnread = uiState.hasUnread,
-                            onMarkAllRead = viewModel::markAllAsRead
-                        )
-                    }
-
-                    item {
-                        NotificationFilterBar(
-                            filter = filter,
-                            unreadCount = unreadCount,
-                            onFilterChange = { filter = it }
-                        )
-                    }
-
-                    if (visibleNotifications.isEmpty()) {
-                        item {
-                            NotificationEmptyState(
-                                unreadOnly = filter == NotificationFilter.UNREAD
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .widthIn(max = 760.dp)
+                            .align(Alignment.TopCenter),
+                        contentPadding = PaddingValues(
+                            start = Spacing.md,
+                            top = Spacing.sm,
+                            end = Spacing.md,
+                            bottom = Spacing.xl
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        item(key = "hero") {
+                            NotificationsHero(
+                                unreadCount = unreadCount,
+                                totalCount = uiState.notifications.size,
+                                hasUnread = uiState.hasUnread,
+                                isUpdating = uiState.isUpdating,
+                                onMarkAllRead = viewModel::markAllAsRead
                             )
                         }
-                    } else {
-                        items(
-                            items = visibleNotifications,
-                            key = { it.id }
-                        ) { notification ->
-                            NotificationCard(
-                                notification = notification,
-                                onClick = { viewModel.markAsRead(notification) }
+
+                        uiState.error?.let { message ->
+                            item(key = "error") { ErrorBanner(message) }
+                        }
+
+                        uiState.message?.let { message ->
+                            item(key = "success") { SuccessBanner(message) }
+                        }
+
+                        item(key = "filters") {
+                            NotificationFilterBar(
+                                filter = filter,
+                                unreadCount = unreadCount,
+                                onFilterChange = { filter = it }
                             )
+                        }
+
+                        if (visibleNotifications.isEmpty()) {
+                            item(key = "empty") {
+                                NotificationEmptyState(
+                                    unreadOnly = filter == NotificationFilter.UNREAD
+                                )
+                            }
+                        } else {
+                            items(
+                                items = visibleNotifications,
+                                key = { "notification-${it.id}" }
+                            ) { notification ->
+                                NotificationCard(
+                                    notification = notification,
+                                    updating = uiState.isUpdating,
+                                    onClick = {
+                                        viewModel.markAsRead(notification)
+                                    }
+                                )
+                            }
+                        }
+
+                        if (uiState.notifications.isNotEmpty()) {
+                            item(key = "safety") {
+                                NotificationSafetyNote()
+                            }
                         }
                     }
 
-                    if (uiState.notifications.isNotEmpty()) {
-                        item { NotificationSafetyNote() }
+                    if (uiState.isUpdating) {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.TopCenter)
+                        )
                     }
                 }
             }
@@ -161,41 +181,49 @@ private fun NotificationsHero(
     unreadCount: Int,
     totalCount: Int,
     hasUnread: Boolean,
+    isUpdating: Boolean,
     onMarkAllRead: () -> Unit
 ) {
-    Surface(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
-        shadowElevation = 6.dp
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(Spacing.lg)) {
+        Column(Modifier.padding(Spacing.lg)) {
             Text(
-                text = "FAMILY UPDATES",
+                "FAMILY UPDATES",
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.68f)
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
             )
 
             Spacer(Modifier.height(Spacing.xs))
 
             Text(
-                text = when {
-                    unreadCount > 0 -> "$unreadCount update${if (unreadCount == 1) "" else "s"} need your attention"
-                    totalCount > 0 -> "You're all caught up"
-                    else -> "Important pickup updates live here"
+                when {
+                    unreadCount > 0 ->
+                        "$unreadCount update${if (unreadCount == 1) "" else "s"} need your attention"
+
+                    totalCount > 0 ->
+                        "You're all caught up"
+
+                    else ->
+                        "Important pickup updates live here"
                 },
                 style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
 
             Spacer(Modifier.height(Spacing.xs))
 
             Text(
-                text = "Pickup confirmations, school announcements, and safety-related messages stay together in one place.",
+                "Pickup confirmations, school announcements, and safety-related messages stay together in one place.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.78f)
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
             )
 
             Spacer(Modifier.height(Spacing.md))
@@ -207,10 +235,13 @@ private fun NotificationsHero(
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.11f)
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        modifier = Modifier.padding(
+                            horizontal = 12.dp,
+                            vertical = 7.dp
+                        ),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
@@ -218,16 +249,16 @@ private fun NotificationsHero(
                                 .size(8.dp)
                                 .background(
                                     if (unreadCount > 0) {
-                                        MaterialTheme.colorScheme.onPrimary
+                                        MaterialTheme.colorScheme.primary
                                     } else {
-                                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.45f)
+                                        MaterialTheme.colorScheme.onSurfaceVariant
                                     },
                                     CircleShape
                                 )
                         )
                         Spacer(Modifier.width(7.dp))
                         Text(
-                            text = "$unreadCount unread · $totalCount total",
+                            "$unreadCount unread · $totalCount total",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -237,9 +268,7 @@ private fun NotificationsHero(
                 if (hasUnread) {
                     TextButton(
                         onClick = onMarkAllRead,
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
+                        enabled = !isUpdating,
                         modifier = Modifier.heightIn(min = 44.dp)
                     ) {
                         Text("Mark all read")
@@ -258,8 +287,7 @@ private fun NotificationFilterBar(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-        verticalAlignment = Alignment.CenterVertically
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         FilterChip(
             selected = filter == NotificationFilter.ALL,
@@ -280,6 +308,7 @@ private fun NotificationFilterBar(
 @Composable
 private fun NotificationCard(
     notification: NotificationItem,
+    updating: Boolean,
     onClick: () -> Unit
 ) {
     val unread = !notification.read
@@ -288,17 +317,20 @@ private fun NotificationCard(
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = unread, onClick = onClick),
+            .clickable(
+                enabled = unread && !updating,
+                onClick = onClick
+            ),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.elevatedCardColors(
             containerColor = if (unread) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.40f)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.36f)
             } else {
                 MaterialTheme.colorScheme.surface
             }
         ),
         elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = if (unread) 3.dp else 1.dp
+            defaultElevation = if (unread) 2.dp else 1.dp
         )
     ) {
         Row(
@@ -316,7 +348,7 @@ private fun NotificationCard(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = presentation.icon,
+                        presentation.icon,
                         contentDescription = null,
                         tint = if (unread) {
                             MaterialTheme.colorScheme.onPrimaryContainer
@@ -330,23 +362,26 @@ private fun NotificationCard(
 
             Spacer(Modifier.width(Spacing.md))
 
-            Column(modifier = Modifier.weight(1f)) {
+            Column(Modifier.weight(1f)) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.Top
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(Modifier.weight(1f)) {
                         Text(
-                            text = notification.title.ifBlank { presentation.label },
+                            notification.title.ifBlank { presentation.label },
                             style = MaterialTheme.typography.titleSmall,
-                            fontWeight = if (unread) FontWeight.ExtraBold else FontWeight.SemiBold
+                            fontWeight = if (unread) {
+                                FontWeight.ExtraBold
+                            } else {
+                                FontWeight.SemiBold
+                            }
                         )
 
                         Spacer(Modifier.height(2.dp))
 
                         Text(
-                            text = presentation.label,
+                            presentation.label,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
@@ -359,7 +394,10 @@ private fun NotificationCard(
                             modifier = Modifier
                                 .padding(top = 5.dp)
                                 .size(9.dp)
-                                .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                .background(
+                                    MaterialTheme.colorScheme.primary,
+                                    CircleShape
+                                )
                         )
                     }
                 }
@@ -367,7 +405,7 @@ private fun NotificationCard(
                 if (notification.body.isNotBlank()) {
                     Spacer(Modifier.height(Spacing.xs))
                     Text(
-                        text = notification.body,
+                        notification.body,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -379,7 +417,7 @@ private fun NotificationCard(
                 ) {
                     Spacer(Modifier.height(Spacing.xs))
                     Text(
-                        text = "From ${notification.senderName}",
+                        "From ${notification.senderName}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold
@@ -389,7 +427,7 @@ private fun NotificationCard(
                 notification.createdAtMillis?.let { millis ->
                     Spacer(Modifier.height(Spacing.sm))
                     Text(
-                        text = formatNotificationTime(millis),
+                        formatNotificationTime(millis),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f)
                     )
@@ -398,7 +436,7 @@ private fun NotificationCard(
                 if (unread) {
                     Spacer(Modifier.height(Spacing.sm))
                     Text(
-                        text = "Tap to mark as read",
+                        "Tap to mark as read",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -418,15 +456,32 @@ private fun notificationPresentation(type: String): NotificationPresentation {
 
     return when {
         normalized == "broadcast" || "announcement" in normalized ->
-            NotificationPresentation("School announcement", Icons.Filled.Campaign)
+            NotificationPresentation(
+                "School announcement",
+                Icons.Filled.Campaign
+            )
 
-        "release" in normalized || "pickup" in normalized || "dismiss" in normalized ->
-            NotificationPresentation("Pickup update", Icons.Filled.CheckCircle)
+        "release" in normalized ||
+            "pickup" in normalized ||
+            "dismiss" in normalized ->
+            NotificationPresentation(
+                "Pickup update",
+                Icons.Filled.CheckCircle
+            )
 
-        "guardian" in normalized || "security" in normalized || "verification" in normalized ->
-            NotificationPresentation("Safety update", Icons.Filled.VerifiedUser)
+        "guardian" in normalized ||
+            "security" in normalized ||
+            "verification" in normalized ->
+            NotificationPresentation(
+                "Safety update",
+                Icons.Filled.VerifiedUser
+            )
 
-        else -> NotificationPresentation("PickupPass update", Icons.Filled.Notifications)
+        else ->
+            NotificationPresentation(
+                "PickupPass update",
+                Icons.Filled.Notifications
+            )
     }
 }
 
@@ -439,7 +494,10 @@ private fun NotificationEmptyState(unreadOnly: Boolean) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = Spacing.lg, vertical = 34.dp),
+                .padding(
+                    horizontal = Spacing.lg,
+                    vertical = 34.dp
+                ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Surface(
@@ -460,7 +518,7 @@ private fun NotificationEmptyState(unreadOnly: Boolean) {
             Spacer(Modifier.height(Spacing.md))
 
             Text(
-                text = if (unreadOnly) "You're all caught up" else "No notifications yet",
+                if (unreadOnly) "You're all caught up" else "No notifications yet",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.ExtraBold,
                 textAlign = TextAlign.Center
@@ -469,7 +527,7 @@ private fun NotificationEmptyState(unreadOnly: Boolean) {
             Spacer(Modifier.height(Spacing.xs))
 
             Text(
-                text = if (unreadOnly) {
+                if (unreadOnly) {
                     "There are no unread family updates right now."
                 } else {
                     "Pickup confirmations and school announcements will appear here."
@@ -484,12 +542,13 @@ private fun NotificationEmptyState(unreadOnly: Boolean) {
 
 @Composable
 private fun NotificationErrorState(
-    modifier: Modifier,
     message: String,
     onRetry: () -> Unit
 ) {
     Column(
-        modifier = modifier.padding(Spacing.lg),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(Spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -523,7 +582,7 @@ private fun NotificationSafetyNote() {
             )
             Spacer(Modifier.width(Spacing.sm))
             Text(
-                text = "Notification messages are informational. Student release still requires the normal PickupPass verification workflow.",
+                "Notification messages are informational. Student release still requires the normal PickupPass verification workflow.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -543,6 +602,6 @@ private fun formatNotificationTime(millis: Long): String {
     return if (sameDay) {
         SimpleDateFormat("'Today,' h:mm a", Locale.getDefault()).format(date)
     } else {
-        SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(date)
+        SimpleDateFormat("MMM d, yyyy · h:mm a", Locale.getDefault()).format(date)
     }
 }

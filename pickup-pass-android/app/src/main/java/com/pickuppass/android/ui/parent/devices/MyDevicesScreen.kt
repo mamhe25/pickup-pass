@@ -1,7 +1,5 @@
 package com.pickuppass.android.ui.parent.devices
 
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,23 +37,28 @@ fun MyDevicesScreen(
     var confirmDevice by remember {
         mutableStateOf<DeviceSessionItem?>(null)
     }
-
     var confirmOthers by remember {
         mutableStateOf(false)
     }
 
-    val activeCount =
-        state.devices.count { it.active }
-
-    val otherActiveCount =
-        state.devices.count {
-            it.active && !it.current
-        }
+    val activeCount = state.devices.count { it.active }
+    val otherActiveCount = state.devices.count {
+        it.active && !it.current
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Devices & Sessions") },
+                title = {
+                    Column {
+                        Text("Devices & Sessions", fontWeight = FontWeight.ExtraBold)
+                        Text(
+                            "$activeCount active",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -67,7 +70,9 @@ fun MyDevicesScreen(
                 actions = {
                     IconButton(
                         onClick = viewModel::refresh,
-                        enabled = !state.loading
+                        enabled = !state.refreshing &&
+                            state.busyDeviceId == null &&
+                            !state.revokingOthers
                     ) {
                         Icon(
                             Icons.Filled.Refresh,
@@ -78,112 +83,101 @@ fun MyDevicesScreen(
             )
         }
     ) { padding ->
-        val phase = when {
-            state.loading && state.devices.isEmpty() ->
-                "loading"
-
-            state.error != null &&
-                state.devices.isEmpty() ->
-                "error"
-
-            else ->
-                "content"
-        }
-
-        Crossfade(
-            targetState = phase,
-            animationSpec = tween(220),
-            label = "deviceSessionPhase"
-        ) { current ->
-            when (current) {
-                "loading" -> Box(
-                    modifier = Modifier
-                        .padding(padding)
-                        .fillMaxSize()
-                ) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+        ) {
+            when {
+                state.initialLoading && state.devices.isEmpty() ->
                     FullScreenLoading()
-                }
 
-                "error" -> DeviceErrorState(
-                    modifier = Modifier
-                        .padding(padding)
-                        .fillMaxSize(),
-                    message =
-                        state.error
-                            ?: "Couldn't load device sessions",
-                    onRetry = viewModel::refresh
-                )
+                state.error != null && state.devices.isEmpty() ->
+                    DeviceErrorState(
+                        message = state.error ?: "Couldn't load device sessions",
+                        onRetry = viewModel::refresh
+                    )
 
-                else -> LazyColumn(
-                    modifier = Modifier
-                        .padding(padding)
-                        .fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        start = Spacing.md,
-                        top = Spacing.sm,
-                        end = Spacing.md,
-                        bottom = Spacing.xl
-                    ),
-                    verticalArrangement =
-                        Arrangement.spacedBy(Spacing.md)
-                ) {
-                    item {
-                        DeviceSecurityHero(
-                            activeCount = activeCount,
-                            otherActiveCount =
-                                otherActiveCount,
-                            totalCount =
-                                state.devices.size,
-                            canRevokeOthers =
-                                otherActiveCount > 0 &&
-                                    !state.loading,
-                            onRevokeOthers = {
-                                confirmOthers = true
-                            }
-                        )
-                    }
-
-                    state.error?.let { message ->
-                        item {
-                            ErrorBanner(message)
-                        }
-                    }
-
-                    state.message?.let { message ->
-                        item {
-                            SuccessBanner(message)
-                        }
-                    }
-
-                    item {
-                        SectionHeading(
-                            title = "Signed-in devices",
-                            detail =
-                                "Review where your account has been used. Current and revoked sessions are kept visible so unfamiliar activity is easier to spot."
-                        )
-                    }
-
-                    if (state.devices.isEmpty()) {
-                        item {
-                            EmptyDevicesState()
-                        }
-                    } else {
-                        items(
-                            items = state.devices,
-                            key = { it.deviceId }
-                        ) { device ->
-                            DeviceSessionCard(
-                                device = device,
-                                busy = state.loading,
-                                onRevoke = {
-                                    confirmDevice = device
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .widthIn(max = 760.dp)
+                            .align(Alignment.TopCenter),
+                        contentPadding = PaddingValues(
+                            start = Spacing.md,
+                            top = Spacing.sm,
+                            end = Spacing.md,
+                            bottom = Spacing.xl
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                    ) {
+                        item(key = "hero") {
+                            DeviceSecurityHero(
+                                activeCount = activeCount,
+                                otherActiveCount = otherActiveCount,
+                                totalCount = state.devices.size,
+                                canRevokeOthers =
+                                    otherActiveCount > 0 &&
+                                        !state.revokingOthers &&
+                                        state.busyDeviceId == null,
+                                revokingOthers = state.revokingOthers,
+                                onRevokeOthers = {
+                                    viewModel.clearFeedback()
+                                    confirmOthers = true
                                 }
                             )
                         }
+
+                        state.error?.let { message ->
+                            item(key = "error") { ErrorBanner(message) }
+                        }
+
+                        state.message?.let { message ->
+                            item(key = "message") { SuccessBanner(message) }
+                        }
+
+                        item(key = "heading") {
+                            SectionHeading(
+                                title = "Signed-in devices",
+                                detail = "Review where your account has been used. Revoked sessions remain visible so unfamiliar activity is easier to recognize."
+                            )
+                        }
+
+                        if (state.devices.isEmpty()) {
+                            item(key = "empty") {
+                                EmptyDevicesState()
+                            }
+                        } else {
+                            items(
+                                items = state.devices,
+                                key = { "device-${it.deviceId}" }
+                            ) { device ->
+                                DeviceSessionCard(
+                                    device = device,
+                                    busy = state.busyDeviceId == device.deviceId,
+                                    actionsDisabled =
+                                        state.busyDeviceId != null ||
+                                            state.revokingOthers,
+                                    onRevoke = {
+                                        viewModel.clearFeedback()
+                                        confirmDevice = device
+                                    }
+                                )
+                            }
+                        }
+
+                        item(key = "security_note") {
+                            DeviceSecurityNote()
+                        }
                     }
 
-                    item {
-                        DeviceSecurityNote()
+                    if (state.refreshing) {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.TopCenter)
+                        )
                     }
                 }
             }
@@ -193,7 +187,7 @@ fun MyDevicesScreen(
     confirmDevice?.let { device ->
         AlertDialog(
             onDismissRequest = {
-                if (!state.loading) {
+                if (state.busyDeviceId == null) {
                     confirmDevice = null
                 }
             },
@@ -201,8 +195,7 @@ fun MyDevicesScreen(
                 Icon(
                     Icons.Filled.WarningAmber,
                     contentDescription = null,
-                    tint =
-                        MaterialTheme.colorScheme.error
+                    tint = MaterialTheme.colorScheme.error
                 )
             },
             title = {
@@ -215,38 +208,46 @@ fun MyDevicesScreen(
                 )
             },
             text = {
-                Text(
-                    if (device.current) {
-                        "You will be signed out here and returned to the login screen. Your other active sessions are not affected."
-                    } else {
-                        "This device will immediately lose authenticated PickupPass access. You can sign in again later if the device is trusted."
-                    }
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text(
+                        if (device.current) {
+                            "You will be signed out here and returned to the login screen. Other active sessions are not affected."
+                        } else {
+                            "This device will immediately lose authenticated PickupPass access. You can sign in again later if the device is trusted."
+                        }
+                    )
+                    state.error?.let { ErrorBanner(it) }
+                }
             },
             confirmButton = {
                 Button(
-                    enabled = !state.loading,
+                    enabled = state.busyDeviceId == null,
                     onClick = {
-                        confirmDevice = null
                         viewModel.revoke(device)
+                        if (!device.current) {
+                            confirmDevice = null
+                        }
                     },
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor =
-                                MaterialTheme.colorScheme.error,
-                            contentColor =
-                                MaterialTheme.colorScheme.onError
-                        )
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
                 ) {
+                    if (state.busyDeviceId == device.deviceId) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onError
+                        )
+                        Spacer(Modifier.width(Spacing.xs))
+                    }
                     Text("Sign out device")
                 }
             },
             dismissButton = {
                 TextButton(
-                    enabled = !state.loading,
-                    onClick = {
-                        confirmDevice = null
-                    }
+                    enabled = state.busyDeviceId == null,
+                    onClick = { confirmDevice = null }
                 ) {
                     Text("Cancel")
                 }
@@ -257,7 +258,7 @@ fun MyDevicesScreen(
     if (confirmOthers) {
         AlertDialog(
             onDismissRequest = {
-                if (!state.loading) {
+                if (!state.revokingOthers) {
                     confirmOthers = false
                 }
             },
@@ -267,31 +268,38 @@ fun MyDevicesScreen(
                     contentDescription = null
                 )
             },
-            title = {
-                Text("Sign out other devices?")
-            },
+            title = { Text("Sign out other devices?") },
             text = {
-                Text(
-                    "Every other active PickupPass session will be revoked. This device stays signed in."
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text(
+                        "Every other active PickupPass session will be revoked. This device stays signed in."
+                    )
+                    state.error?.let { ErrorBanner(it) }
+                }
             },
             confirmButton = {
                 Button(
-                    enabled = !state.loading,
+                    enabled = !state.revokingOthers,
                     onClick = {
-                        confirmOthers = false
                         viewModel.revokeOthers()
+                        confirmOthers = false
                     }
                 ) {
+                    if (state.revokingOthers) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(Modifier.width(Spacing.xs))
+                    }
                     Text("Sign out others")
                 }
             },
             dismissButton = {
                 TextButton(
-                    enabled = !state.loading,
-                    onClick = {
-                        confirmOthers = false
-                    }
+                    enabled = !state.revokingOthers,
+                    onClick = { confirmOthers = false }
                 ) {
                     Text("Cancel")
                 }
@@ -306,33 +314,29 @@ private fun DeviceSecurityHero(
     otherActiveCount: Int,
     totalCount: Int,
     canRevokeOthers: Boolean,
+    revokingOthers: Boolean,
     onRevokeOthers: () -> Unit
 ) {
-    Surface(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.primary,
-        contentColor =
-            MaterialTheme.colorScheme.onPrimary,
-        shadowElevation = 6.dp
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(Spacing.lg)
-        ) {
+        Column(Modifier.padding(Spacing.lg)) {
             Text(
-                text = "ACCOUNT SECURITY",
-                style =
-                    MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color =
-                    MaterialTheme.colorScheme.onPrimary
-                        .copy(alpha = 0.68f)
+                "ACCOUNT SECURITY",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
             )
 
             Spacer(Modifier.height(Spacing.xs))
 
             Text(
-                text = when {
+                when {
                     otherActiveCount > 0 ->
                         "Your account is active on ${otherActiveCount + 1} devices"
 
@@ -342,73 +346,56 @@ private fun DeviceSecurityHero(
                     else ->
                         "Review your PickupPass sessions"
                 },
-                style =
-                    MaterialTheme.typography
-                        .headlineSmall,
-                fontWeight = FontWeight.ExtraBold
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
 
             Spacer(Modifier.height(Spacing.xs))
 
             Text(
-                text =
-                    "If a phone or browser is lost, shared, or unfamiliar, revoke it here without changing your password.",
-                style =
-                    MaterialTheme.typography.bodyMedium,
-                color =
-                    MaterialTheme.colorScheme.onPrimary
-                        .copy(alpha = 0.78f)
+                "If a phone or browser is lost, shared, or unfamiliar, revoke it here without changing your password.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
             )
 
             Spacer(Modifier.height(Spacing.md))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.spacedBy(Spacing.sm)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
                 HeroMetric(
-                    value = activeCount.toString(),
-                    label = "Active",
-                    modifier = Modifier.weight(1f)
+                    activeCount.toString(),
+                    "Active",
+                    Modifier.weight(1f)
                 )
-
                 HeroMetric(
-                    value = otherActiveCount.toString(),
-                    label = "Other",
-                    modifier = Modifier.weight(1f)
+                    otherActiveCount.toString(),
+                    "Other",
+                    Modifier.weight(1f)
                 )
-
                 HeroMetric(
-                    value = totalCount.toString(),
-                    label = "Recorded",
-                    modifier = Modifier.weight(1f)
+                    totalCount.toString(),
+                    "Recorded",
+                    Modifier.weight(1f)
                 )
             }
 
-            if (canRevokeOthers) {
+            if (canRevokeOthers || revokingOthers) {
                 Spacer(Modifier.height(Spacing.md))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement =
-                        Arrangement.End
+                FilledTonalButton(
+                    onClick = onRevokeOthers,
+                    enabled = canRevokeOthers
                 ) {
-                    OutlinedButton(
-                        onClick = onRevokeOthers,
-                        modifier =
-                            Modifier.heightIn(min = 44.dp),
-                        colors =
-                            ButtonDefaults
-                                .outlinedButtonColors(
-                                    contentColor =
-                                        MaterialTheme
-                                            .colorScheme
-                                            .onPrimary
-                                )
-                    ) {
-                        Text("Sign out other devices")
+                    if (revokingOthers) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(Spacing.xs))
                     }
+                    Text("Sign out other devices")
                 }
             }
         }
@@ -424,32 +411,25 @@ private fun HeroMetric(
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        color =
-            MaterialTheme.colorScheme.onPrimary
-                .copy(alpha = 0.10f)
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
     ) {
         Column(
             modifier = Modifier.padding(
                 horizontal = Spacing.sm,
                 vertical = Spacing.md
             ),
-            horizontalAlignment =
-                Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = value,
-                style =
-                    MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold
+                value,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
             )
-
             Text(
-                text = label,
-                style =
-                    MaterialTheme.typography.labelSmall,
-                color =
-                    MaterialTheme.colorScheme.onPrimary
-                        .copy(alpha = 0.70f)
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -462,19 +442,15 @@ private fun SectionHeading(
 ) {
     Column {
         Text(
-            text = title,
+            title,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.ExtraBold
         )
-
         Spacer(Modifier.height(Spacing.xs))
-
         Text(
-            text = detail,
+            detail,
             style = MaterialTheme.typography.bodyMedium,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -483,135 +459,82 @@ private fun SectionHeading(
 private fun DeviceSessionCard(
     device: DeviceSessionItem,
     busy: Boolean,
+    actionsDisabled: Boolean,
     onRevoke: () -> Unit
 ) {
-    val title =
-        device.deviceName.ifBlank {
-            "Unknown device"
-        }
+    val title = device.deviceName.ifBlank { "Unknown device" }
 
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor =
-                    if (device.current &&
-                        device.active
-                    ) {
-                        MaterialTheme.colorScheme
-                            .primaryContainer
-                            .copy(alpha = 0.34f)
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    }
-            ),
-        elevation =
-            CardDefaults.elevatedCardElevation(
-                defaultElevation =
-                    if (device.current &&
-                        device.active
-                    ) 3.dp else 1.dp
-            )
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = if (device.current && device.active) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.32f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = if (device.current && device.active) 2.dp else 1.dp
+        )
     ) {
-        Column(
-            modifier = Modifier.padding(Spacing.md)
-        ) {
-            Row(
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
+        Column(Modifier.padding(Spacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     modifier = Modifier.size(48.dp),
                     shape = CircleShape,
-                    color =
-                        if (device.active) {
-                            MaterialTheme.colorScheme
-                                .primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme
-                                .surfaceVariant
-                        }
+                    color = if (device.active) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    }
                 ) {
-                    Box(
-                        contentAlignment =
-                            Alignment.Center
-                    ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Filled.PhoneAndroid,
                             contentDescription = null,
-                            tint =
-                                if (device.active) {
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onPrimaryContainer
-                                } else {
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                                }
+                            tint = if (device.active) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
                         )
                     }
                 }
 
                 Spacer(Modifier.width(Spacing.md))
 
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
+                Column(Modifier.weight(1f)) {
                     Text(
-                        text = title,
+                        title,
                         maxLines = 1,
-                        overflow =
-                            TextOverflow.Ellipsis,
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium,
-                        fontWeight =
-                            FontWeight.ExtraBold
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold
                     )
 
                     Spacer(Modifier.height(3.dp))
 
                     Row(
-                        horizontalArrangement =
-                            Arrangement.spacedBy(
-                                Spacing.xs
-                            ),
-                        verticalAlignment =
-                            Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        SessionStatusBadge(
-                            active = device.active
-                        )
+                        SessionStatusBadge(active = device.active)
 
                         if (device.current) {
                             Surface(
                                 shape = CircleShape,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .primaryContainer
+                                color = MaterialTheme.colorScheme.primaryContainer
                             ) {
                                 Text(
-                                    text = "This device",
-                                    modifier =
-                                        Modifier.padding(
-                                            horizontal =
-                                                9.dp,
-                                            vertical =
-                                                4.dp
-                                        ),
-                                    style =
-                                        MaterialTheme
-                                            .typography
-                                            .labelSmall,
-                                    fontWeight =
-                                        FontWeight.Bold,
-                                    color =
-                                        MaterialTheme
-                                            .colorScheme
-                                            .onPrimaryContainer
+                                    "This device",
+                                    modifier = Modifier.padding(
+                                        horizontal = 9.dp,
+                                        vertical = 4.dp
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             }
                         }
@@ -622,32 +545,21 @@ private fun DeviceSessionCard(
             Spacer(Modifier.height(Spacing.md))
 
             DeviceMetadata(
-                label = "App version",
-                value =
-                    device.clientVersion
-                        .ifBlank { "—" }
+                "App version",
+                device.clientVersion.ifBlank { "—" }
             )
-
             DeviceMetadata(
-                label = "Last seen",
-                value =
-                    device.lastSeenAt
-                        ?: "Not available"
+                "Last seen",
+                device.lastSeenAt ?: "Not available"
             )
 
             device.createdAt?.let {
-                DeviceMetadata(
-                    label = "First registered",
-                    value = it
-                )
+                DeviceMetadata("First registered", it)
             }
 
             if (!device.active) {
                 device.revokedAt?.let {
-                    DeviceMetadata(
-                        label = "Signed out",
-                        value = it
-                    )
+                    DeviceMetadata("Signed out", it)
                 }
             }
 
@@ -656,26 +568,28 @@ private fun DeviceSessionCard(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement =
-                        Arrangement.End
+                    horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(
                         onClick = onRevoke,
-                        enabled = !busy,
-                        modifier =
-                            Modifier.heightIn(
-                                min = 44.dp
-                            )
+                        enabled = !actionsDisabled,
+                        modifier = Modifier.heightIn(min = 44.dp)
                     ) {
+                        if (busy) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(Modifier.width(Spacing.xs))
+                        }
                         Text(
                             if (device.current) {
                                 "Sign out this device"
                             } else {
                                 "Sign out device"
                             },
-                            color =
-                                MaterialTheme
-                                    .colorScheme.error
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
@@ -685,42 +599,28 @@ private fun DeviceSessionCard(
 }
 
 @Composable
-private fun SessionStatusBadge(
-    active: Boolean
-) {
+private fun SessionStatusBadge(active: Boolean) {
     Surface(
         shape = CircleShape,
-        color =
-            if (active) {
-                MaterialTheme.colorScheme
-                    .secondaryContainer
-            } else {
-                MaterialTheme.colorScheme
-                    .surfaceVariant
-            }
+        color = if (active) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        }
     ) {
         Text(
-            text =
-                if (active) {
-                    "Active"
-                } else {
-                    "Signed out"
-                },
+            if (active) "Active" else "Signed out",
             modifier = Modifier.padding(
                 horizontal = 9.dp,
                 vertical = 4.dp
             ),
-            style =
-                MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color =
-                if (active) {
-                    MaterialTheme.colorScheme
-                        .onSecondaryContainer
-                } else {
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
-                }
+            color = if (active) {
+                MaterialTheme.colorScheme.onSecondaryContainer
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
         )
     }
 }
@@ -734,33 +634,21 @@ private fun DeviceMetadata(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 3.dp),
-        horizontalArrangement =
-            Arrangement.SpaceBetween,
-        verticalAlignment =
-            Alignment.Top
+        verticalAlignment = Alignment.Top
     ) {
         Text(
-            text = label,
-            style =
-                MaterialTheme.typography.bodySmall,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(Modifier.width(Spacing.md))
 
         Text(
-            text = value,
+            value,
             modifier = Modifier.weight(1f),
-            style =
-                MaterialTheme.typography.bodySmall,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurface,
-            textAlign =
-                androidx.compose.ui.text.style
-                    .TextAlign.End
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End
         )
     }
 }
@@ -778,29 +666,19 @@ private fun EmptyDevicesState() {
                     horizontal = Spacing.lg,
                     vertical = 34.dp
                 ),
-            horizontalAlignment =
-                Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Surface(
                 modifier = Modifier.size(64.dp),
                 shape = CircleShape,
-                color =
-                    MaterialTheme.colorScheme
-                        .primaryContainer
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
-                Box(
-                    contentAlignment =
-                        Alignment.Center
-                ) {
+                Box(contentAlignment = Alignment.Center) {
                     Icon(
                         Icons.Filled.Devices,
                         contentDescription = null,
-                        tint =
-                            MaterialTheme
-                                .colorScheme
-                                .onPrimaryContainer,
-                        modifier =
-                            Modifier.size(30.dp)
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(30.dp)
                     )
                 }
             }
@@ -808,24 +686,17 @@ private fun EmptyDevicesState() {
             Spacer(Modifier.height(Spacing.md))
 
             Text(
-                text = "No device sessions recorded",
-                style =
-                    MaterialTheme.typography
-                        .titleLarge,
+                "No device sessions recorded",
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.ExtraBold
             )
 
             Spacer(Modifier.height(Spacing.xs))
 
             Text(
-                text =
-                    "Once PickupPass records a device session, it will appear here for review.",
-                style =
-                    MaterialTheme.typography
-                        .bodyMedium,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
+                "Once PickupPass records a device session, it will appear here for review.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -833,26 +704,21 @@ private fun EmptyDevicesState() {
 
 @Composable
 private fun DeviceErrorState(
-    modifier: Modifier,
     message: String,
     onRetry: () -> Unit
 ) {
     Column(
-        modifier =
-            modifier.padding(Spacing.lg),
-        horizontalAlignment =
-            Alignment.CenterHorizontally,
-        verticalArrangement =
-            Arrangement.Center
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(Spacing.lg),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         ErrorBanner(message)
-
         Spacer(Modifier.height(Spacing.md))
-
         OutlinedButton(
             onClick = onRetry,
-            modifier =
-                Modifier.heightIn(min = 44.dp)
+            modifier = Modifier.heightIn(min = 44.dp)
         ) {
             Text("Try again")
         }
@@ -864,10 +730,7 @@ private fun DeviceSecurityNote() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color =
-            MaterialTheme.colorScheme
-                .surfaceVariant
-                .copy(alpha = 0.64f)
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.64f)
     ) {
         Row(
             modifier = Modifier.padding(Spacing.md),
@@ -876,21 +739,14 @@ private fun DeviceSecurityNote() {
             Icon(
                 Icons.Filled.Security,
                 contentDescription = null,
-                tint =
-                    MaterialTheme.colorScheme.primary,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(19.dp)
             )
-
             Spacer(Modifier.width(Spacing.sm))
-
             Text(
-                text =
-                    "Revoking a device blocks its authenticated PickupPass requests. If you believe your password is known by someone else, change the password as well.",
-                style =
-                    MaterialTheme.typography.bodySmall,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
+                "Revoking a device blocks its authenticated PickupPass requests. If you believe your password is known by someone else, change the password as well.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

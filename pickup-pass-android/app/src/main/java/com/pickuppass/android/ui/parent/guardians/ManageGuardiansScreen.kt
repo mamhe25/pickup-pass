@@ -1,34 +1,35 @@
 package com.pickuppass.android.ui.parent.guardians
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PersonAddAlt1
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.GuardianAvatar
+import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.common.WarningBanner
 import com.pickuppass.android.ui.theme.Spacing
@@ -47,10 +48,7 @@ private enum class GuardianAddMode {
     ONE_DAY
 }
 
-@OptIn(
-    ExperimentalMaterial3Api::class,
-    ExperimentalFoundationApi::class
-)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageGuardiansScreen(
     studentId: String,
@@ -61,37 +59,50 @@ fun ManageGuardiansScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    var confirmRemoveRow by remember {
-        mutableStateOf<GuardianRow?>(null)
-    }
+    var confirmRemoveRow by remember { mutableStateOf<GuardianRow?>(null) }
+    var scheduleRow by remember { mutableStateOf<GuardianRow?>(null) }
+    var photoRow by remember { mutableStateOf<GuardianRow?>(null) }
+    var addMode by remember { mutableStateOf(GuardianAddMode.PERMANENT) }
 
-    var scheduleRow by remember {
-        mutableStateOf<GuardianRow?>(null)
+    val primaryGuardian = uiState.guardians.firstOrNull {
+        it.entry.isPrimary == true
     }
-
-    var addMode by remember {
-        mutableStateOf(GuardianAddMode.PERMANENT)
+    val additionalGuardians = uiState.guardians.filterNot {
+        it.entry.isPrimary == true
     }
+    val hasPrimaryGuardian = primaryGuardian != null
 
-    val primaryGuardian =
-        uiState.guardians.firstOrNull {
-            it.entry.isPrimary == true
-        }
-    val additionalGuardians =
-        uiState.guardians.filterNot {
-            it.entry.isPrimary == true
-        }
-    val hasPrimaryGuardian =
-        primaryGuardian != null
+    val actionsBusy = uiState.isSubmitting || uiState.isLoading
 
     LaunchedEffect(studentId) {
         viewModel.load(studentId)
     }
 
+    LaunchedEffect(uiState.completedAction) {
+        when (uiState.completedAction) {
+            "schedule-updated" -> scheduleRow = null
+            "guardian-removed" -> confirmRemoveRow = null
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Authorized Guardians") },
+                title = {
+                    Column {
+                        Text(
+                            "Authorized Guardians",
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        if (uiState.studentName.isNotBlank()) {
+                            Text(
+                                uiState.studentName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -103,205 +114,191 @@ fun ManageGuardiansScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = Spacing.md,
-                top = Spacing.sm,
-                end = Spacing.md,
-                bottom = Spacing.xl
-            ),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                .fillMaxSize()
         ) {
-            item {
-                GuardianHero(
-                    studentName = uiState.studentName,
-                    guardians = uiState.guardians
-                )
-            }
-
-            uiState.listError?.let { message ->
-                item {
-                    ErrorBanner(message)
-                }
-            }
-
-            item {
-                SectionHeading(
-                    title = "Primary guardian",
-                    detail = "The primary guardian is the accountable guardian of record. Only school staff can register this role."
-                )
-            }
-
-            if (uiState.isLoading) {
-                item {
-                    GuardiansLoadingCard()
-                }
-            } else if (primaryGuardian != null) {
-                item(key = "primary-${primaryGuardian.uid}") {
-                    GuardianRowCard(
-                        row = primaryGuardian,
-                        onRemoveClick = {},
-                        onScheduleClick = {},
-                        scheduleEnabled = false,
-                        modifier = Modifier.animateItemPlacement(
-                            animationSpec = spring(
-                                stiffness = Spring.StiffnessMediumLow
-                            )
-                        )
-                    )
-                }
-            } else {
-                item {
-                    MissingPrimaryGuardianCard(
-                        canRegisterPrimary = canRegisterPrimary,
-                        onRegisterPrimary = onRegisterPrimary
-                    )
-                }
-            }
-
-            item {
-                SectionHeading(
-                    title = "Backup & temporary guardians",
-                    detail = "Backup and one-day access can be adjusted without changing the protected primary guardian."
-                )
-            }
-
-            if (!uiState.isLoading) {
-                if (additionalGuardians.isEmpty()) {
-                    item {
-                        NoAdditionalGuardiansCard(
-                            hasPrimaryGuardian = hasPrimaryGuardian
-                        )
-                    }
-                } else {
-                    items(
-                        items = additionalGuardians,
-                        key = { it.uid }
-                    ) { row ->
-                        GuardianRowCard(
-                            row = row,
-                            onRemoveClick = {
-                                confirmRemoveRow = row
-                            },
-                            onScheduleClick = {
-                                scheduleRow = row
-                            },
-                            scheduleEnabled =
-                                uiState.guardianSchedulesEnabled,
-                            modifier = Modifier.animateItemPlacement(
-                                animationSpec = spring(
-                                    stiffness = Spring.StiffnessMediumLow
-                                )
-                            )
-                        )
-                    }
-                }
-            }
-
-            item {
-                Spacer(Modifier.height(Spacing.xs))
-
-                SectionHeading(
-                    title = "Add pickup access",
-                    detail = if (hasPrimaryGuardian) {
-                        "Add a backup guardian or one-day authorization. These roles never replace the primary guardian."
-                    } else {
-                        "Register the primary guardian first. Backup and one-day authorization stays locked until a primary guardian is on record."
-                    }
-                )
-            }
-
-            if (hasPrimaryGuardian) {
-                item {
-                    AddModePicker(
-                        mode = addMode,
-                        oneDayEnabled =
-                            uiState.temporaryGuardiansEnabled,
-                        onModeChange = { addMode = it }
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = 780.dp)
+                    .align(Alignment.TopCenter),
+                contentPadding = PaddingValues(
+                    start = Spacing.md,
+                    top = Spacing.sm,
+                    end = Spacing.md,
+                    bottom = Spacing.xl
+                ),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+            ) {
+                item(key = "hero") {
+                    GuardianHero(
+                        studentName = uiState.studentName,
+                        guardians = uiState.guardians
                     )
                 }
 
-                item {
-                    when (addMode) {
-                        GuardianAddMode.PERMANENT -> {
-                            AddGuardianForm(
-                                isSubmitting =
-                                    uiState.isSubmitting,
-                                formError =
-                                    uiState.formError,
-                                formSuccess =
-                                    uiState.formSuccess,
-                                formIsWarning =
-                                    uiState.formIsWarning,
-                                onSubmit = {
-                                        lastName,
-                                        firstName,
-                                        mi,
-                                        suffix,
-                                        email,
-                                        relationship ->
-                                    viewModel.addGuardian(
-                                        lastName,
-                                        firstName,
-                                        mi,
-                                        suffix,
-                                        email,
-                                        relationship
-                                    )
-                                }
-                            )
-                        }
-
-                        GuardianAddMode.ONE_DAY -> {
-                            if (uiState.temporaryGuardiansEnabled) {
-                                TemporaryGuardianForm(
-                                    isSubmitting =
-                                        uiState.isSubmitting,
-                                    formError =
-                                        uiState.formError,
-                                    formSuccess =
-                                        uiState.formSuccess,
-                                    formIsWarning =
-                                        uiState.formIsWarning,
-                                    onSubmit = {
-                                            lastName,
-                                            firstName,
-                                            mi,
-                                            suffix,
-                                            email,
-                                            relationship,
-                                            validDate ->
-                                        viewModel.addTemporaryGuardian(
-                                            lastName,
-                                            firstName,
-                                            mi,
-                                            suffix,
-                                            email,
-                                            relationship,
-                                            validDate
-                                        )
-                                    }
-                                )
-                            } else {
-                                FeatureUnavailableCard()
+                uiState.listError?.let { message ->
+                    item(key = "list_error") {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                        ) {
+                            ErrorBanner(message)
+                            OutlinedButton(
+                                onClick = { viewModel.load(studentId) },
+                                enabled = !uiState.isLoading
+                            ) {
+                                Text("Retry guardian details")
                             }
                         }
                     }
                 }
-            } else {
-                item {
-                    PrimaryRequiredCard(
-                        canRegisterPrimary = canRegisterPrimary,
-                        onRegisterPrimary = onRegisterPrimary
+
+                if (uiState.formError != null || uiState.formSuccess != null) {
+                    item(key = "feedback") {
+                        FormFeedback(
+                            formError = uiState.formError,
+                            formSuccess = uiState.formSuccess,
+                            formIsWarning = uiState.formIsWarning
+                        )
+                    }
+                }
+
+                item(key = "primary_heading") {
+                    SectionHeading(
+                        title = "Primary guardian",
+                        detail = "The accountable guardian of record. This protected role can only be registered by school staff."
                     )
                 }
-            }
 
-            item {
-                SafetyNote()
+                if (uiState.isLoading) {
+                    item(key = "loading") {
+                        GuardiansLoadingCard()
+                    }
+                } else if (primaryGuardian != null) {
+                    item(key = "primary-${primaryGuardian.uid}") {
+                        GuardianRowCard(
+                            row = primaryGuardian,
+                            scheduleEnabled = false,
+                            busy = actionsBusy,
+                            onPhotoClick = {
+                                if (!primaryGuardian.profile?.photoUrl.isNullOrBlank()) {
+                                    photoRow = primaryGuardian
+                                }
+                            },
+                            onScheduleClick = {},
+                            onRemoveClick = {}
+                        )
+                    }
+                } else {
+                    item(key = "missing_primary") {
+                        MissingPrimaryGuardianCard(
+                            canRegisterPrimary = canRegisterPrimary,
+                            onRegisterPrimary = onRegisterPrimary
+                        )
+                    }
+                }
+
+                item(key = "additional_heading") {
+                    SectionHeading(
+                        title = "Backup & temporary guardians",
+                        detail = "Additional pickup access never replaces the protected primary guardian."
+                    )
+                }
+
+                if (!uiState.isLoading) {
+                    if (additionalGuardians.isEmpty()) {
+                        item(key = "additional_empty") {
+                            NoAdditionalGuardiansCard(
+                                hasPrimaryGuardian = hasPrimaryGuardian
+                            )
+                        }
+                    } else {
+                        items(
+                            items = additionalGuardians,
+                            key = { "guardian-${it.uid}" }
+                        ) { row ->
+                            GuardianRowCard(
+                                row = row,
+                                scheduleEnabled =
+                                    uiState.guardianSchedulesEnabled,
+                                busy = actionsBusy,
+                                onPhotoClick = {
+                                    if (!row.profile?.photoUrl.isNullOrBlank()) {
+                                        photoRow = row
+                                    }
+                                },
+                                onScheduleClick = {
+                                    viewModel.clearFeedback()
+                                    scheduleRow = row
+                                },
+                                onRemoveClick = {
+                                    viewModel.clearFeedback()
+                                    confirmRemoveRow = row
+                                }
+                            )
+                        }
+                    }
+                }
+
+                item(key = "add_heading") {
+                    SectionHeading(
+                        title = "Add pickup access",
+                        detail = if (hasPrimaryGuardian) {
+                            "Add a permanent backup guardian or a one-day pickup authorization."
+                        } else {
+                            "Register the primary guardian first. Additional pickup access stays locked until that role exists."
+                        }
+                    )
+                }
+
+                if (hasPrimaryGuardian) {
+                    item(key = "mode_picker") {
+                        AddModePicker(
+                            mode = addMode,
+                            oneDayEnabled =
+                                uiState.temporaryGuardiansEnabled,
+                            onModeChange = {
+                                viewModel.clearFeedback()
+                                addMode = it
+                            }
+                        )
+                    }
+
+                    item(key = "add_form-${addMode.name}") {
+                        when (addMode) {
+                            GuardianAddMode.PERMANENT -> {
+                                AddGuardianForm(
+                                    isSubmitting = actionsBusy,
+                                    onSubmit = viewModel::addGuardian
+                                )
+                            }
+
+                            GuardianAddMode.ONE_DAY -> {
+                                if (uiState.temporaryGuardiansEnabled) {
+                                    TemporaryGuardianForm(
+                                        isSubmitting = actionsBusy,
+                                        onSubmit = viewModel::addTemporaryGuardian
+                                    )
+                                } else {
+                                    FeatureUnavailableCard()
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    item(key = "primary_required") {
+                        PrimaryRequiredCard(
+                            canRegisterPrimary = canRegisterPrimary,
+                            onRegisterPrimary = onRegisterPrimary
+                        )
+                    }
+                }
+
+                item(key = "safety") {
+                    SafetyNote()
+                }
             }
         }
     }
@@ -309,15 +306,15 @@ fun ManageGuardiansScreen(
     scheduleRow?.let { row ->
         GuardianScheduleDialog(
             row = row,
-            isSubmitting = uiState.isSubmitting,
+            isSubmitting = actionsBusy,
+            error = uiState.formError,
             onDismiss = {
-                scheduleRow = null
+                if (!actionsBusy) {
+                    scheduleRow = null
+                    viewModel.clearFeedback()
+                }
             },
-            onSave = {
-                    enabled,
-                    days,
-                    startDate,
-                    endDate ->
+            onSave = { enabled, days, startDate, endDate ->
                 viewModel.updatePickupSchedule(
                     row.uid,
                     enabled,
@@ -325,53 +322,73 @@ fun ManageGuardiansScreen(
                     startDate,
                     endDate
                 )
-                scheduleRow = null
             }
         )
     }
 
     confirmRemoveRow?.let { row ->
-        val name =
-            row.profile?.displayName
-                ?.ifBlank { "this guardian" }
-                ?: "this guardian"
+        val name = row.profile?.displayName
+            ?.ifBlank { "this guardian" }
+            ?: "this guardian"
 
         AlertDialog(
             onDismissRequest = {
-                confirmRemoveRow = null
+                if (!actionsBusy) {
+                    confirmRemoveRow = null
+                    viewModel.clearFeedback()
+                }
             },
-            title = {
-                Text("Remove $name?")
-            },
+            title = { Text("Remove $name?") },
             text = {
-                Text(
-                    "Their pickup authorization will end immediately. Any unused QR pass they hold will stop working."
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = !uiState.isSubmitting,
-                    onClick = {
-                        viewModel.removeGuardian(row.uid)
-                        confirmRemoveRow = null
-                    }
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
                     Text(
-                        "Remove",
-                        color = MaterialTheme.colorScheme.error
+                        "Their pickup authorization will end immediately. Any unused QR pass they hold will stop working."
                     )
+                    uiState.formError?.let { ErrorBanner(it) }
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = !actionsBusy,
+                    onClick = {
+                        viewModel.removeGuardian(row.uid)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    if (actionsBusy) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onError
+                        )
+                        Spacer(Modifier.width(Spacing.xs))
+                    }
+                    Text("Remove access")
                 }
             },
             dismissButton = {
                 TextButton(
-                    enabled = !uiState.isSubmitting,
+                    enabled = !actionsBusy,
                     onClick = {
                         confirmRemoveRow = null
+                        viewModel.clearFeedback()
                     }
                 ) {
                     Text("Cancel")
                 }
             }
+        )
+    }
+
+    photoRow?.let { row ->
+        GuardianPhotoDialog(
+            row = row,
+            onDismiss = { photoRow = null }
         )
     }
 }
@@ -381,83 +398,66 @@ private fun GuardianHero(
     studentName: String,
     guardians: List<GuardianRow>
 ) {
-    val primaryCount =
-        guardians.count { it.entry.isPrimary == true }
-
-    val oneDayCount =
-        guardians.count {
-            it.entry.authorizationType.equals(
-                "temporary",
-                ignoreCase = true
-            )
-        }
-
+    val primaryCount = guardians.count { it.entry.isPrimary == true }
+    val oneDayCount = guardians.count {
+        it.entry.authorizationType.equals("temporary", ignoreCase = true)
+    }
     val backupCount =
-        (guardians.size - primaryCount - oneDayCount)
-            .coerceAtLeast(0)
+        (guardians.size - primaryCount - oneDayCount).coerceAtLeast(0)
 
-    Surface(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
-        shadowElevation = 6.dp
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(Spacing.lg)
-        ) {
+        Column(Modifier.padding(Spacing.lg)) {
             Text(
-                text = "PICKUP AUTHORIZATION",
+                "PICKUP AUTHORIZATION",
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color =
-                    MaterialTheme.colorScheme.onPrimary
-                        .copy(alpha = 0.68f)
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
             )
 
             Spacer(Modifier.height(Spacing.xs))
 
             Text(
-                text = studentName.ifBlank {
-                    "Student guardians"
-                },
+                studentName.ifBlank { "Student guardians" },
                 style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
 
             Spacer(Modifier.height(Spacing.xs))
 
             Text(
-                text = "Control who may present a pickup pass for this student. School staff still verifies the person before release.",
+                "Control who may present a pickup pass. School staff still verifies the person before release.",
                 style = MaterialTheme.typography.bodyMedium,
-                color =
-                    MaterialTheme.colorScheme.onPrimary
-                        .copy(alpha = 0.78f)
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
             )
 
             Spacer(Modifier.height(Spacing.md))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.spacedBy(Spacing.sm)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
                 HeroMetric(
-                    value = primaryCount.toString(),
-                    label = "Primary",
-                    modifier = Modifier.weight(1f)
+                    primaryCount.toString(),
+                    "Primary",
+                    Modifier.weight(1f)
                 )
-
                 HeroMetric(
-                    value = backupCount.toString(),
-                    label = "Backup",
-                    modifier = Modifier.weight(1f)
+                    backupCount.toString(),
+                    "Backup",
+                    Modifier.weight(1f)
                 )
-
                 HeroMetric(
-                    value = oneDayCount.toString(),
-                    label = "One-day",
-                    modifier = Modifier.weight(1f)
+                    oneDayCount.toString(),
+                    "One-day",
+                    Modifier.weight(1f)
                 )
             }
         }
@@ -473,9 +473,7 @@ private fun HeroMetric(
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        color =
-            MaterialTheme.colorScheme.onPrimary
-                .copy(alpha = 0.10f)
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
     ) {
         Column(
             modifier = Modifier.padding(
@@ -485,17 +483,15 @@ private fun HeroMetric(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = value,
+                value,
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
             )
-
             Text(
-                text = label,
+                label,
                 style = MaterialTheme.typography.labelSmall,
-                color =
-                    MaterialTheme.colorScheme.onPrimary
-                        .copy(alpha = 0.70f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -508,18 +504,15 @@ private fun SectionHeading(
 ) {
     Column {
         Text(
-            text = title,
+            title,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.ExtraBold
         )
-
         Spacer(Modifier.height(Spacing.xs))
-
         Text(
-            text = detail,
+            detail,
             style = MaterialTheme.typography.bodyMedium,
-            color =
-                MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -538,162 +531,12 @@ private fun GuardiansLoadingCard() {
                 modifier = Modifier.size(24.dp),
                 strokeWidth = 2.dp
             )
-
             Spacer(Modifier.width(Spacing.md))
-
             Text(
-                text = "Loading authorized guardians…",
+                "Loading authorized guardians…",
                 style = MaterialTheme.typography.bodyMedium,
-                color =
-                    MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun MissingPrimaryGuardianCard(
-    canRegisterPrimary: Boolean,
-    onRegisterPrimary: (() -> Unit)?
-) {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.elevatedCardColors(
-            containerColor =
-                MaterialTheme.colorScheme.primaryContainer
-        ),
-        elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 1.dp
-        )
-    ) {
-        Row(
-            modifier = Modifier.padding(Spacing.md),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                modifier = Modifier.size(44.dp),
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.primary
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Filled.PersonAddAlt1,
-                        contentDescription = null,
-                        modifier = Modifier.size(22.dp),
-                        tint = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
-            }
-
-            Spacer(Modifier.width(Spacing.md))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "No primary guardian registered",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-
-                Spacer(Modifier.height(2.dp))
-
-                Text(
-                    text = if (canRegisterPrimary) {
-                        "Register the student's accountable guardian before adding backup or one-day pickup access."
-                    } else {
-                        "The school must register the student's accountable primary guardian before additional pickup access can be added."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-
-                if (canRegisterPrimary && onRegisterPrimary != null) {
-                    Spacer(Modifier.height(Spacing.sm))
-                    Button(
-                        onClick = onRegisterPrimary,
-                        modifier = Modifier.heightIn(min = 44.dp)
-                    ) {
-                        Text("Register primary guardian")
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun NoAdditionalGuardiansCard(
-    hasPrimaryGuardian: Boolean
-) {
-    OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large
-    ) {
-        Column(
-            modifier = Modifier.padding(Spacing.md)
-        ) {
-            Text(
-                text = if (hasPrimaryGuardian) {
-                    "No backup or one-day guardians"
-                } else {
-                    "Additional access unavailable"
-                },
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(Modifier.height(Spacing.xs))
-
-            Text(
-                text = if (hasPrimaryGuardian) {
-                    "Only the primary guardian is currently authorized. Add backup access below when another person needs pickup permission."
-                } else {
-                    "Register a primary guardian before adding another authorized pickup person."
-                },
-                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-    }
-}
-
-@Composable
-private fun PrimaryRequiredCard(
-    canRegisterPrimary: Boolean,
-    onRegisterPrimary: (() -> Unit)?
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        Column(
-            modifier = Modifier.padding(Spacing.md)
-        ) {
-            Text(
-                text = "Primary guardian required",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.ExtraBold
-            )
-
-            Spacer(Modifier.height(Spacing.xs))
-
-            Text(
-                text = "Backup and one-day pickup permissions are secondary authorizations and cannot be created until the student has a primary guardian.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            if (canRegisterPrimary && onRegisterPrimary != null) {
-                Spacer(Modifier.height(Spacing.sm))
-                OutlinedButton(
-                    onClick = onRegisterPrimary,
-                    modifier = Modifier.heightIn(min = 44.dp)
-                ) {
-                    Text("Register primary guardian")
-                }
-            }
         }
     }
 }
@@ -701,69 +544,68 @@ private fun PrimaryRequiredCard(
 @Composable
 private fun GuardianRowCard(
     row: GuardianRow,
-    onRemoveClick: () -> Unit,
-    onScheduleClick: () -> Unit,
     scheduleEnabled: Boolean,
-    modifier: Modifier = Modifier
+    busy: Boolean,
+    onPhotoClick: () -> Unit,
+    onScheduleClick: () -> Unit,
+    onRemoveClick: () -> Unit
 ) {
-    val temporary =
-        row.entry.authorizationType.equals(
-            "temporary",
-            ignoreCase = true
-        )
+    val temporary = row.entry.authorizationType.equals(
+        "temporary",
+        ignoreCase = true
+    )
 
     ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 2.dp
-        )
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(Spacing.md)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                GuardianAvatar(
-                    photoUrl = row.profile?.photoUrl,
-                    size = 54.dp
-                )
+        Column(Modifier.padding(Spacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.clickable(
+                        enabled = !row.profile?.photoUrl.isNullOrBlank(),
+                        onClick = onPhotoClick
+                    )
+                ) {
+                    GuardianAvatar(
+                        photoUrl = row.profile?.photoUrl,
+                        size = 56.dp
+                    )
+                }
 
                 Spacer(Modifier.width(Spacing.md))
 
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
+                Column(Modifier.weight(1f)) {
                     Text(
-                        text =
-                            row.profile?.displayName
-                                ?.ifBlank {
-                                    "Guardian identity unavailable"
-                                }
-                                ?: "Guardian identity unavailable",
-                        style =
-                            MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        row.profile?.displayName
+                            ?.ifBlank { "Guardian identity unavailable" }
+                            ?: "Guardian identity unavailable",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold
                     )
 
                     Spacer(Modifier.height(2.dp))
 
                     Text(
-                        text =
-                            row.entry.relationship
-                                .ifBlank {
-                                    "Authorized pickup"
-                                },
-                        style =
-                            MaterialTheme.typography.bodySmall,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
+                        row.entry.relationship.ifBlank {
+                            "Authorized pickup"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
+                    if (!row.profile?.photoUrl.isNullOrBlank()) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "Tap photo to view",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
 
                 GuardianTypeBadge(
@@ -777,20 +619,16 @@ private fun GuardianRowCard(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.medium,
-                color =
-                    MaterialTheme.colorScheme.surfaceVariant
-                        .copy(alpha = 0.62f)
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f)
             ) {
                 Text(
-                    text = guardianPermissionSummary(row),
+                    guardianPermissionSummary(row),
                     modifier = Modifier.padding(
                         horizontal = Spacing.md,
                         vertical = Spacing.sm
                     ),
                     style = MaterialTheme.typography.bodySmall,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -799,59 +637,48 @@ private fun GuardianRowCard(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement =
-                        Arrangement.spacedBy(Spacing.xs),
-                    verticalAlignment =
-                        Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
                 ) {
                     if (!temporary && scheduleEnabled) {
                         TextButton(
                             onClick = onScheduleClick,
-                            modifier =
-                                Modifier.heightIn(min = 44.dp)
+                            enabled = !busy,
+                            modifier = Modifier.heightIn(min = 44.dp)
                         ) {
                             Icon(
                                 Icons.Filled.Schedule,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp)
                             )
-
                             Spacer(Modifier.width(6.dp))
-
                             Text("Schedule")
                         }
                     }
 
                     TextButton(
                         onClick = onRemoveClick,
-                        modifier =
-                            Modifier.heightIn(min = 44.dp)
+                        enabled = !busy,
+                        modifier = Modifier.heightIn(min = 44.dp)
                     ) {
                         Icon(
                             Icons.Filled.Close,
                             contentDescription = null,
-                            tint =
-                                MaterialTheme.colorScheme.error,
+                            tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(18.dp)
                         )
-
                         Spacer(Modifier.width(6.dp))
-
                         Text(
                             "Remove",
-                            color =
-                                MaterialTheme.colorScheme.error
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
             } else {
                 Spacer(Modifier.height(Spacing.sm))
-
                 Text(
-                    text = "Primary guardian access is protected and cannot be removed from this screen.",
+                    "Primary guardian access is protected and cannot be removed from this screen.",
                     style = MaterialTheme.typography.bodySmall,
-                    color =
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -870,33 +697,23 @@ private fun GuardianTypeBadge(
     }
 
     val container = when {
-        primary ->
-            MaterialTheme.colorScheme.primaryContainer
-
-        temporary ->
-            MaterialTheme.colorScheme.secondaryContainer
-
-        else ->
-            MaterialTheme.colorScheme.surfaceVariant
+        primary -> MaterialTheme.colorScheme.primaryContainer
+        temporary -> MaterialTheme.colorScheme.secondaryContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
     }
 
     val content = when {
-        primary ->
-            MaterialTheme.colorScheme.onPrimaryContainer
-
-        temporary ->
-            MaterialTheme.colorScheme.onSecondaryContainer
-
-        else ->
-            MaterialTheme.colorScheme.onSurfaceVariant
+        primary -> MaterialTheme.colorScheme.onPrimaryContainer
+        temporary -> MaterialTheme.colorScheme.onSecondaryContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Surface(
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = CircleShape,
         color = container
     ) {
         Text(
-            text = label,
+            label,
             modifier = Modifier.padding(
                 horizontal = 10.dp,
                 vertical = 5.dp
@@ -908,34 +725,22 @@ private fun GuardianTypeBadge(
     }
 }
 
-private fun guardianPermissionSummary(
-    row: GuardianRow
-): String {
+private fun guardianPermissionSummary(row: GuardianRow): String {
     if (
         row.entry.authorizationType.equals(
             "temporary",
             ignoreCase = true
         )
     ) {
-        val date =
-            row.entry.validDate.ifBlank {
-                "authorized date"
-            }
-
-        return "Valid $date · one pickup only"
+        return "Valid ${row.entry.validDate.ifBlank { "authorized date" }} · one pickup only"
     }
 
     if (row.entry.pickupScheduleEnabled) {
-        val days =
-            row.entry.pickupDays.joinToString(", ") {
-                it.take(3)
-                    .lowercase()
-                    .replaceFirstChar { c ->
-                        c.uppercase()
-                    }
-            }.ifBlank {
-                "No days selected"
-            }
+        val days = row.entry.pickupDays.joinToString(", ") {
+            it.take(3)
+                .lowercase()
+                .replaceFirstChar { c -> c.uppercase() }
+        }.ifBlank { "No days selected" }
 
         val range = when {
             row.entry.scheduleStartDate.isNotBlank() &&
@@ -958,6 +763,137 @@ private fun guardianPermissionSummary(
 }
 
 @Composable
+private fun MissingPrimaryGuardianCard(
+    canRegisterPrimary: Boolean,
+    onRegisterPrimary: (() -> Unit)?
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(44.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Filled.PersonAddAlt1,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(Spacing.md))
+
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "No primary guardian registered",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    if (canRegisterPrimary) {
+                        "Register the guardian of record before adding backup or one-day pickup access."
+                    } else {
+                        "Contact school staff to register the guardian of record."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (canRegisterPrimary && onRegisterPrimary != null) {
+                Spacer(Modifier.width(Spacing.sm))
+                FilledTonalButton(onClick = onRegisterPrimary) {
+                    Text("Register")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoAdditionalGuardiansCard(
+    hasPrimaryGuardian: Boolean
+) {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.lg),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                if (hasPrimaryGuardian) {
+                    "No backup guardians yet"
+                } else {
+                    "Additional access unavailable"
+                },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                if (hasPrimaryGuardian) {
+                    "Add trusted pickup contacts only when they genuinely need authorization."
+                } else {
+                    "A primary guardian must be registered first."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+private fun PrimaryRequiredCard(
+    canRegisterPrimary: Boolean,
+    onRegisterPrimary: (() -> Unit)?
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+    ) {
+        Column(Modifier.padding(Spacing.md)) {
+            Text(
+                "Primary guardian required",
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                "Backup and one-day authorization remain locked until the protected primary guardian is registered.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (canRegisterPrimary && onRegisterPrimary != null) {
+                Spacer(Modifier.height(Spacing.sm))
+                FilledTonalButton(onClick = onRegisterPrimary) {
+                    Text("Register primary guardian")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun AddModePicker(
     mode: GuardianAddMode,
     oneDayEnabled: Boolean,
@@ -965,35 +901,375 @@ private fun AddModePicker(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement =
-            Arrangement.spacedBy(Spacing.sm)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         FilterChip(
-            selected =
-                mode == GuardianAddMode.PERMANENT,
-            onClick = {
-                onModeChange(
-                    GuardianAddMode.PERMANENT
-                )
-            },
-            label = {
-                Text("Backup guardian")
-            }
+            selected = mode == GuardianAddMode.PERMANENT,
+            onClick = { onModeChange(GuardianAddMode.PERMANENT) },
+            label = { Text("Backup guardian") }
         )
 
         FilterChip(
-            selected =
-                mode == GuardianAddMode.ONE_DAY,
+            selected = mode == GuardianAddMode.ONE_DAY,
             enabled = oneDayEnabled,
-            onClick = {
-                onModeChange(
-                    GuardianAddMode.ONE_DAY
-                )
-            },
-            label = {
-                Text("One-day pickup")
-            }
+            onClick = { onModeChange(GuardianAddMode.ONE_DAY) },
+            label = { Text("One-day pickup") }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddGuardianForm(
+    isSubmitting: Boolean,
+    onSubmit: (
+        lastName: String,
+        firstName: String,
+        middleInitial: String,
+        suffix: String,
+        email: String,
+        relationship: String
+    ) -> Unit
+) {
+    var lastName by remember { mutableStateOf("") }
+    var firstName by remember { mutableStateOf("") }
+    var middleInitial by remember { mutableStateOf("") }
+    var suffix by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var relationship by remember {
+        mutableStateOf(relationshipOptions.first().first)
+    }
+    var expanded by remember { mutableStateOf(false) }
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge
+    ) {
+        Column(Modifier.padding(Spacing.lg)) {
+            Text(
+                "Permanent backup guardian",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                "Add a trusted person who may pick up this student when you are unavailable.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(Modifier.height(Spacing.md))
+
+            GuardianNameFields(
+                lastName = lastName,
+                onLastNameChange = { lastName = it },
+                firstName = firstName,
+                onFirstNameChange = { firstName = it },
+                middleInitial = middleInitial,
+                onMiddleInitialChange = { middleInitial = it.take(2) },
+                suffix = suffix,
+                onSuffixChange = { suffix = it }
+            )
+
+            Spacer(Modifier.height(Spacing.sm))
+
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email address") },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email
+                ),
+                singleLine = true,
+                enabled = !isSubmitting,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(Spacing.sm))
+
+            RelationshipDropdown(
+                relationship = relationship,
+                expanded = expanded,
+                enabled = !isSubmitting,
+                onExpandedChange = { expanded = it },
+                onSelect = {
+                    relationship = it
+                    expanded = false
+                }
+            )
+
+            Spacer(Modifier.height(Spacing.md))
+
+            CompactSubmitButton(
+                text = "Add permanent guardian",
+                busyText = "Adding…",
+                isSubmitting = isSubmitting,
+                enabled = lastName.isNotBlank() &&
+                    firstName.isNotBlank() &&
+                    email.isNotBlank(),
+                onClick = {
+                    onSubmit(
+                        lastName,
+                        firstName,
+                        middleInitial,
+                        suffix,
+                        email,
+                        relationship
+                    )
+                }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TemporaryGuardianForm(
+    isSubmitting: Boolean,
+    onSubmit: (
+        lastName: String,
+        firstName: String,
+        middleInitial: String,
+        suffix: String,
+        email: String,
+        relationship: String,
+        validDate: String
+    ) -> Unit
+) {
+    var lastName by remember { mutableStateOf("") }
+    var firstName by remember { mutableStateOf("") }
+    var middleInitial by remember { mutableStateOf("") }
+    var suffix by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var relationship by remember { mutableStateOf("authorized pickup") }
+    var validDate by remember { mutableStateOf(LocalDate.now().toString()) }
+    var expanded by remember { mutableStateOf(false) }
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge
+    ) {
+        Column(Modifier.padding(Spacing.lg)) {
+            Text(
+                "One-day pickup authorization",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                "Use for a trusted person who should pick up this student once on a specific date.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(Modifier.height(Spacing.md))
+
+            GuardianNameFields(
+                lastName = lastName,
+                onLastNameChange = { lastName = it },
+                firstName = firstName,
+                onFirstNameChange = { firstName = it },
+                middleInitial = middleInitial,
+                onMiddleInitialChange = { middleInitial = it.take(2) },
+                suffix = suffix,
+                onSuffixChange = { suffix = it }
+            )
+
+            Spacer(Modifier.height(Spacing.sm))
+
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Guardian email") },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email
+                ),
+                singleLine = true,
+                enabled = !isSubmitting,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(Spacing.sm))
+
+            RelationshipDropdown(
+                relationship = relationship,
+                expanded = expanded,
+                enabled = !isSubmitting,
+                onExpandedChange = { expanded = it },
+                onSelect = {
+                    relationship = it
+                    expanded = false
+                }
+            )
+
+            Spacer(Modifier.height(Spacing.sm))
+
+            OutlinedTextField(
+                value = validDate,
+                onValueChange = { validDate = it.take(10) },
+                label = { Text("Pickup date") },
+                supportingText = { Text("YYYY-MM-DD") },
+                singleLine = true,
+                enabled = !isSubmitting,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(Spacing.md))
+
+            CompactSubmitButton(
+                text = "Authorize one-day pickup",
+                busyText = "Authorizing…",
+                isSubmitting = isSubmitting,
+                enabled = lastName.isNotBlank() &&
+                    firstName.isNotBlank() &&
+                    email.isNotBlank() &&
+                    validDate.isNotBlank(),
+                onClick = {
+                    onSubmit(
+                        lastName,
+                        firstName,
+                        middleInitial,
+                        suffix,
+                        email,
+                        relationship,
+                        validDate
+                    )
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun GuardianNameFields(
+    lastName: String,
+    onLastNameChange: (String) -> Unit,
+    firstName: String,
+    onFirstNameChange: (String) -> Unit,
+    middleInitial: String,
+    onMiddleInitialChange: (String) -> Unit,
+    suffix: String,
+    onSuffixChange: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = lastName,
+        onValueChange = onLastNameChange,
+        label = { Text("Last name") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    Spacer(Modifier.height(Spacing.sm))
+
+    OutlinedTextField(
+        value = firstName,
+        onValueChange = onFirstNameChange,
+        label = { Text("First name") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    Spacer(Modifier.height(Spacing.sm))
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+    ) {
+        OutlinedTextField(
+            value = middleInitial,
+            onValueChange = onMiddleInitialChange,
+            label = { Text("M.I.") },
+            singleLine = true,
+            modifier = Modifier.weight(1f)
+        )
+
+        OutlinedTextField(
+            value = suffix,
+            onValueChange = onSuffixChange,
+            label = { Text("Suffix") },
+            singleLine = true,
+            modifier = Modifier.weight(2f)
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RelationshipDropdown(
+    relationship: String,
+    expanded: Boolean,
+    enabled: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onSelect: (String) -> Unit
+) {
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = {
+            if (enabled) onExpandedChange(it)
+        }
+    ) {
+        OutlinedTextField(
+            value = relationshipOptions
+                .firstOrNull { it.first == relationship }
+                ?.second
+                ?: "Authorized pickup",
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            label = { Text("Relationship") },
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor()
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) }
+        ) {
+            relationshipOptions.forEach { (value, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = { onSelect(value) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactSubmitButton(
+    text: String,
+    busyText: String,
+    isSubmitting: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End
+    ) {
+        Button(
+            enabled = enabled && !isSubmitting,
+            onClick = onClick,
+            modifier = Modifier.heightIn(min = 46.dp),
+            contentPadding = PaddingValues(
+                horizontal = 18.dp,
+                vertical = 10.dp
+            )
+        ) {
+            if (isSubmitting) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+                Spacer(Modifier.width(Spacing.sm))
+            }
+
+            Text(if (isSubmitting) busyText else text)
+        }
     }
 }
 
@@ -1001,6 +1277,7 @@ private fun AddModePicker(
 private fun GuardianScheduleDialog(
     row: GuardianRow,
     isSubmitting: Boolean,
+    error: String?,
     onDismiss: () -> Unit,
     onSave: (
         enabled: Boolean,
@@ -1020,27 +1297,16 @@ private fun GuardianScheduleDialog(
     )
 
     var enabled by remember(row.uid) {
-        mutableStateOf(
-            row.entry.pickupScheduleEnabled
-        )
+        mutableStateOf(row.entry.pickupScheduleEnabled)
     }
-
     var selectedDays by remember(row.uid) {
-        mutableStateOf(
-            row.entry.pickupDays.toSet()
-        )
+        mutableStateOf(row.entry.pickupDays.toSet())
     }
-
     var startDate by remember(row.uid) {
-        mutableStateOf(
-            row.entry.scheduleStartDate
-        )
+        mutableStateOf(row.entry.scheduleStartDate)
     }
-
     var endDate by remember(row.uid) {
-        mutableStateOf(
-            row.entry.scheduleEndDate
-        )
+        mutableStateOf(row.entry.scheduleEndDate)
     }
 
     val invalidDateRange =
@@ -1050,121 +1316,81 @@ private fun GuardianScheduleDialog(
 
     AlertDialog(
         onDismissRequest = {
-            if (!isSubmitting) {
-                onDismiss()
-            }
+            if (!isSubmitting) onDismiss()
         },
-        title = {
-            Text("Pickup schedule")
-        },
+        title = { Text("Pickup schedule") },
         text = {
             Column(
                 modifier = Modifier
                     .heightIn(max = 520.dp)
-                    .verticalScroll(
-                        rememberScrollState()
-                    ),
-                verticalArrangement =
-                    Arrangement.spacedBy(Spacing.sm)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
                 Text(
-                    text =
-                        row.profile?.displayName
-                            ?.ifBlank { "Guardian" }
-                            ?: "Guardian",
+                    row.profile?.displayName
+                        ?.ifBlank { "Guardian" }
+                        ?: "Guardian",
                     fontWeight = FontWeight.Bold
                 )
 
                 Text(
-                    text = "Optional. Leave scheduling off to allow pickup on any day permitted by the school's policy.",
-                    style =
-                        MaterialTheme.typography.bodySmall,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
+                    "Optional. Leave scheduling off to allow pickup on any day permitted by the school's policy.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Row(
-                    verticalAlignment =
-                        Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(
                         checked = enabled,
-                        onCheckedChange = {
-                            enabled = it
-                        }
+                        onCheckedChange = { enabled = it },
+                        enabled = !isSubmitting
                     )
-
                     Spacer(Modifier.width(Spacing.sm))
-
-                    Text(
-                        "Limit pickup to selected days"
-                    )
+                    Text("Limit pickup to selected days")
                 }
 
                 if (enabled) {
                     Text(
-                        text = "Authorized weekdays",
-                        style =
-                            MaterialTheme.typography.labelLarge,
+                        "Authorized weekdays",
+                        style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold
                     )
 
                     allDays.forEach { day ->
-                        Row(
-                            verticalAlignment =
-                                Alignment.CenterVertically
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(
-                                checked =
-                                    selectedDays.contains(day),
+                                checked = selectedDays.contains(day),
                                 onCheckedChange = { checked ->
-                                    selectedDays =
-                                        if (checked) {
-                                            selectedDays + day
-                                        } else {
-                                            selectedDays - day
-                                        }
-                                }
+                                    selectedDays = if (checked) {
+                                        selectedDays + day
+                                    } else {
+                                        selectedDays - day
+                                    }
+                                },
+                                enabled = !isSubmitting
                             )
-
                             Text(
                                 day.lowercase()
-                                    .replaceFirstChar { c ->
-                                        c.uppercase()
-                                    }
+                                    .replaceFirstChar { c -> c.uppercase() }
                             )
                         }
                     }
 
                     OutlinedTextField(
                         value = startDate,
-                        onValueChange = {
-                            startDate = it
-                        },
-                        label = {
-                            Text(
-                                "Start date (optional)"
-                            )
-                        },
-                        supportingText = {
-                            Text("YYYY-MM-DD")
-                        },
+                        onValueChange = { startDate = it.take(10) },
+                        label = { Text("Start date (optional)") },
+                        supportingText = { Text("YYYY-MM-DD") },
                         isError = invalidDateRange,
                         singleLine = true,
+                        enabled = !isSubmitting,
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     OutlinedTextField(
                         value = endDate,
-                        onValueChange = {
-                            endDate = it
-                        },
-                        label = {
-                            Text(
-                                "End date (optional)"
-                            )
-                        },
+                        onValueChange = { endDate = it.take(10) },
+                        label = { Text("End date (optional)") },
                         supportingText = {
                             Text(
                                 if (invalidDateRange) {
@@ -1176,36 +1402,31 @@ private fun GuardianScheduleDialog(
                         },
                         isError = invalidDateRange,
                         singleLine = true,
+                        enabled = !isSubmitting,
                         modifier = Modifier.fillMaxWidth()
                     )
 
                     Surface(
                         shape = MaterialTheme.shapes.medium,
-                        color =
-                            MaterialTheme.colorScheme
-                                .surfaceVariant
+                        color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         Text(
-                            text = "Saving a schedule invalidates any unused QR already issued to this guardian.",
-                            modifier =
-                                Modifier.padding(Spacing.sm),
-                            style =
-                                MaterialTheme.typography.bodySmall,
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
+                            "Saving a schedule invalidates any unused QR already issued to this guardian.",
+                            modifier = Modifier.padding(Spacing.sm),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
+
+                error?.let { ErrorBanner(it) }
             }
         },
         confirmButton = {
             Button(
-                enabled =
-                    !isSubmitting &&
-                        !invalidDateRange &&
-                        (!enabled ||
-                            selectedDays.isNotEmpty()),
+                enabled = !isSubmitting &&
+                    !invalidDateRange &&
+                    (!enabled || selectedDays.isNotEmpty()),
                 onClick = {
                     onSave(
                         enabled,
@@ -1219,21 +1440,11 @@ private fun GuardianScheduleDialog(
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onPrimary
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
-
                     Spacer(Modifier.width(Spacing.sm))
                 }
-
-                Text(
-                    if (isSubmitting) {
-                        "Saving…"
-                    } else {
-                        "Save schedule"
-                    }
-                )
+                Text(if (isSubmitting) "Saving…" else "Save schedule")
             }
         },
         dismissButton = {
@@ -1247,547 +1458,21 @@ private fun GuardianScheduleDialog(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TemporaryGuardianForm(
-    isSubmitting: Boolean,
-    formError: String?,
-    formSuccess: String?,
-    formIsWarning: Boolean,
-    onSubmit: (
-        lastName: String,
-        firstName: String,
-        middleInitial: String,
-        suffix: String,
-        email: String,
-        relationship: String,
-        validDate: String
-    ) -> Unit
-) {
-    var lastName by remember {
-        mutableStateOf("")
-    }
-
-    var firstName by remember {
-        mutableStateOf("")
-    }
-
-    var middleInitial by remember {
-        mutableStateOf("")
-    }
-
-    var suffix by remember {
-        mutableStateOf("")
-    }
-
-    var email by remember {
-        mutableStateOf("")
-    }
-
-    var relationship by remember {
-        mutableStateOf("authorized pickup")
-    }
-
-    var validDate by remember {
-        mutableStateOf(
-            LocalDate.now().toString()
-        )
-    }
-
-    ElevatedCard(
-        shape = MaterialTheme.shapes.extraLarge
-    ) {
-        Column(
-            modifier = Modifier.padding(Spacing.lg)
-        ) {
-            Text(
-                text = "One-day pickup authorization",
-                style =
-                    MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold
-            )
-
-            Spacer(Modifier.height(Spacing.xs))
-
-            Text(
-                text = "For a trusted person who should pick up this student once on a specific date. Access is removed after the successful pickup.",
-                style =
-                    MaterialTheme.typography.bodySmall,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
-            )
-
-            Spacer(Modifier.height(Spacing.md))
-
-            OutlinedTextField(
-                value = lastName,
-                onValueChange = {
-                    lastName = it
-                },
-                label = {
-                    Text("Last name")
-                },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(Spacing.sm))
-
-            OutlinedTextField(
-                value = firstName,
-                onValueChange = {
-                    firstName = it
-                },
-                label = {
-                    Text("First name")
-                },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(Spacing.sm))
-
-            Row(
-                horizontalArrangement =
-                    Arrangement.spacedBy(Spacing.sm)
-            ) {
-                OutlinedTextField(
-                    value = middleInitial,
-                    onValueChange = {
-                        middleInitial = it
-                    },
-                    label = {
-                        Text("M.I.")
-                    },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-
-                OutlinedTextField(
-                    value = suffix,
-                    onValueChange = {
-                        suffix = it
-                    },
-                    label = {
-                        Text("Suffix")
-                    },
-                    singleLine = true,
-                    modifier = Modifier.weight(2f)
-                )
-            }
-
-            Spacer(Modifier.height(Spacing.sm))
-
-            OutlinedTextField(
-                value = email,
-                onValueChange = {
-                    email = it
-                },
-                label = {
-                    Text("Guardian email")
-                },
-                singleLine = true,
-                keyboardOptions =
-                    KeyboardOptions(
-                        keyboardType =
-                            KeyboardType.Email
-                    ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(Spacing.sm))
-
-            OutlinedTextField(
-                value = relationship,
-                onValueChange = {
-                    relationship = it
-                },
-                label = {
-                    Text("Relationship")
-                },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(Spacing.sm))
-
-            OutlinedTextField(
-                value = validDate,
-                onValueChange = {
-                    validDate = it
-                },
-                label = {
-                    Text(
-                        "Pickup date (YYYY-MM-DD)"
-                    )
-                },
-                supportingText = {
-                    Text(
-                        "Today through the next 30 days"
-                    )
-                },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(Spacing.md))
-
-            FormFeedback(
-                formError = formError,
-                formSuccess = formSuccess,
-                formIsWarning = formIsWarning
-            )
-
-            CompactSubmitButton(
-                text = "Authorize for one day",
-                busyText = "Authorizing…",
-                isSubmitting = isSubmitting,
-                onClick = {
-                    onSubmit(
-                        lastName.trim(),
-                        firstName.trim(),
-                        middleInitial.trim(),
-                        suffix.trim(),
-                        email.trim(),
-                        relationship.trim(),
-                        validDate.trim()
-                    )
-                }
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AddGuardianForm(
-    isSubmitting: Boolean,
-    formError: String?,
-    formSuccess: String?,
-    formIsWarning: Boolean,
-    onSubmit: (
-        lastName: String,
-        firstName: String,
-        middleInitial: String,
-        suffix: String,
-        email: String,
-        relationship: String
-    ) -> Unit
-) {
-    var lastName by remember {
-        mutableStateOf("")
-    }
-
-    var firstName by remember {
-        mutableStateOf("")
-    }
-
-    var middleInitial by remember {
-        mutableStateOf("")
-    }
-
-    var suffix by remember {
-        mutableStateOf("")
-    }
-
-    var email by remember {
-        mutableStateOf("")
-    }
-
-    var relationship by remember {
-        mutableStateOf(
-            relationshipOptions.first().first
-        )
-    }
-
-    var expanded by remember {
-        mutableStateOf(false)
-    }
-
-    val firstNameFocus =
-        remember { FocusRequester() }
-
-    val emailFocus =
-        remember { FocusRequester() }
-
-    ElevatedCard(
-        shape = MaterialTheme.shapes.extraLarge
-    ) {
-        Column(
-            modifier = Modifier.padding(Spacing.lg)
-        ) {
-            Text(
-                text = "Permanent backup guardian",
-                style =
-                    MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold
-            )
-
-            Spacer(Modifier.height(Spacing.xs))
-
-            Text(
-                text = "Add a trusted person who may pick up this student when you are unavailable. They receive their own account and identity profile.",
-                style =
-                    MaterialTheme.typography.bodySmall,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
-            )
-
-            Spacer(Modifier.height(Spacing.md))
-
-            OutlinedTextField(
-                value = lastName,
-                onValueChange = {
-                    lastName = it
-                },
-                label = {
-                    Text("Last name")
-                },
-                singleLine = true,
-                keyboardOptions =
-                    KeyboardOptions(
-                        imeAction = ImeAction.Next
-                    ),
-                keyboardActions =
-                    KeyboardActions(
-                        onNext = {
-                            firstNameFocus.requestFocus()
-                        }
-                    ),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(Spacing.sm))
-
-            OutlinedTextField(
-                value = firstName,
-                onValueChange = {
-                    firstName = it
-                },
-                label = {
-                    Text("First name")
-                },
-                singleLine = true,
-                keyboardOptions =
-                    KeyboardOptions(
-                        imeAction = ImeAction.Next
-                    ),
-                keyboardActions =
-                    KeyboardActions(
-                        onNext = {
-                            emailFocus.requestFocus()
-                        }
-                    ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(firstNameFocus)
-            )
-
-            Spacer(Modifier.height(Spacing.sm))
-
-            Row(
-                horizontalArrangement =
-                    Arrangement.spacedBy(Spacing.sm)
-            ) {
-                OutlinedTextField(
-                    value = middleInitial,
-                    onValueChange = {
-                        middleInitial = it
-                    },
-                    label = {
-                        Text("M.I.")
-                    },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-
-                OutlinedTextField(
-                    value = suffix,
-                    onValueChange = {
-                        suffix = it
-                    },
-                    label = {
-                        Text("Suffix")
-                    },
-                    singleLine = true,
-                    modifier = Modifier.weight(2f)
-                )
-            }
-
-            Spacer(Modifier.height(Spacing.sm))
-
-            OutlinedTextField(
-                value = email,
-                onValueChange = {
-                    email = it
-                },
-                label = {
-                    Text("Email address")
-                },
-                singleLine = true,
-                keyboardOptions =
-                    KeyboardOptions(
-                        keyboardType =
-                            KeyboardType.Email,
-                        imeAction = ImeAction.Done
-                    ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(emailFocus)
-            )
-
-            Spacer(Modifier.height(Spacing.sm))
-
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = {
-                    expanded = it
-                }
-            ) {
-                OutlinedTextField(
-                    value =
-                        relationshipOptions.first {
-                            it.first == relationship
-                        }.second,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = {
-                        Text("Relationship")
-                    },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults
-                            .TrailingIcon(
-                                expanded = expanded
-                            )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
-                )
-
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = {
-                        expanded = false
-                    }
-                ) {
-                    relationshipOptions.forEach {
-                            (value, label) ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(label)
-                            },
-                            onClick = {
-                                relationship = value
-                                expanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(Spacing.md))
-
-            FormFeedback(
-                formError = formError,
-                formSuccess = formSuccess,
-                formIsWarning = formIsWarning
-            )
-
-            CompactSubmitButton(
-                text = "Add permanent guardian",
-                busyText = "Adding…",
-                isSubmitting = isSubmitting,
-                onClick = {
-                    onSubmit(
-                        lastName.trim(),
-                        firstName.trim(),
-                        middleInitial.trim(),
-                        suffix.trim(),
-                        email.trim(),
-                        relationship
-                    )
-                }
-            )
-        }
-    }
-}
-
 @Composable
 private fun FormFeedback(
     formError: String?,
     formSuccess: String?,
     formIsWarning: Boolean
 ) {
-    formError?.let { message ->
-        ErrorBanner(
-            message,
-            modifier =
-                Modifier.padding(bottom = Spacing.md)
-        )
+    formError?.let {
+        ErrorBanner(it)
     }
 
-    formSuccess?.let { message ->
+    formSuccess?.let {
         if (formIsWarning) {
-            WarningBanner(
-                message,
-                modifier =
-                    Modifier.padding(
-                        bottom = Spacing.md
-                    )
-            )
+            WarningBanner(it)
         } else {
-            SuccessBanner(
-                message,
-                modifier =
-                    Modifier.padding(
-                        bottom = Spacing.md
-                    )
-            )
-        }
-    }
-}
-
-@Composable
-private fun CompactSubmitButton(
-    text: String,
-    busyText: String,
-    isSubmitting: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End
-    ) {
-        Button(
-            enabled = !isSubmitting,
-            onClick = onClick,
-            modifier = Modifier.heightIn(min = 46.dp),
-            contentPadding = PaddingValues(
-                horizontal = 18.dp,
-                vertical = 10.dp
-            )
-        ) {
-            if (isSubmitting) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp,
-                    color =
-                        MaterialTheme.colorScheme.onPrimary
-                )
-
-                Spacer(Modifier.width(Spacing.sm))
-            }
-
-            Text(
-                if (isSubmitting) {
-                    busyText
-                } else {
-                    text
-                }
-            )
+            SuccessBanner(it)
         }
     }
 }
@@ -1799,11 +1484,10 @@ private fun FeatureUnavailableCard() {
         shape = MaterialTheme.shapes.large
     ) {
         Text(
-            text = "One-day pickup authorization is not enabled for this school.",
+            "One-day pickup authorization is not enabled for this school.",
             modifier = Modifier.padding(Spacing.md),
             style = MaterialTheme.typography.bodyMedium,
-            color =
-                MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -1813,16 +1497,81 @@ private fun SafetyNote() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color =
-            MaterialTheme.colorScheme.surfaceVariant
-                .copy(alpha = 0.65f)
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
     ) {
-        Text(
-            text = "Changing guardian access does not release a student. Every pickup still requires a valid pass and staff identity verification.",
+        Row(
             modifier = Modifier.padding(Spacing.md),
-            style = MaterialTheme.typography.bodySmall,
-            color =
-                MaterialTheme.colorScheme.onSurfaceVariant
-        )
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                Icons.Filled.Security,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Text(
+                "Changing guardian access does not release a student. Every pickup still requires a valid pass and staff identity verification.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun GuardianPhotoDialog(
+    row: GuardianRow,
+    onDismiss: () -> Unit
+) {
+    val photoUrl = row.profile?.photoUrl
+    if (photoUrl.isNullOrBlank()) return
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(Modifier.padding(Spacing.md)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            row.profile?.displayName
+                                ?.ifBlank { "Guardian" }
+                                ?: "Guardian",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            row.entry.relationship.ifBlank { "Authorized pickup" },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = "Close"
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(Spacing.sm))
+
+                SmartImage(
+                    model = photoUrl,
+                    contentDescription = "Guardian verification photo",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 520.dp)
+                )
+            }
+        }
     }
 }
