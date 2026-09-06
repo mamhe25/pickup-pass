@@ -10,7 +10,6 @@ import com.pickuppass.android.data.model.Student
 import com.pickuppass.android.data.model.UserProfile
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.AuthRepository
-import com.pickuppass.android.data.repository.NotificationRepository
 import com.pickuppass.android.data.repository.PickupRepository
 import com.pickuppass.android.data.repository.StudentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -39,8 +38,7 @@ sealed class ScannerUiState {
 class ScannerViewModel @Inject constructor(
     private val pickupRepository: PickupRepository,
     private val studentRepository: StudentRepository,
-    private val authRepository: AuthRepository,
-    private val notificationRepository: NotificationRepository
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ScannerUiState>(ScannerUiState.Scanning)
@@ -60,9 +58,6 @@ class ScannerViewModel @Inject constructor(
 
     private val _gateError = MutableStateFlow<String?>(null)
     val gateError: StateFlow<String?> = _gateError
-
-    private val _signedOut = MutableStateFlow(false)
-    val signedOut: StateFlow<Boolean> = _signedOut
 
     private var isProcessing = false
 
@@ -215,14 +210,6 @@ class ScannerViewModel @Inject constructor(
     fun resetToScanning() {
         isProcessing = false
         _uiState.value = ScannerUiState.Scanning
-    }
-
-    fun signOut() {
-        viewModelScope.launch {
-            notificationRepository.unregisterCurrentDeviceToken()
-            authRepository.signOut()
-            _signedOut.value = true
-        }
     }
 
     /**

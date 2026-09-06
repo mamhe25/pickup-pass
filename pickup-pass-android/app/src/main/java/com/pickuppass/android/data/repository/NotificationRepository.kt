@@ -1,5 +1,6 @@
 package com.pickuppass.android.data.repository
 
+import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.messaging.FirebaseMessaging
@@ -119,8 +120,10 @@ class NotificationRepository @Inject constructor(
         val snapshot = firestore.collection("notifications")
             .whereEqualTo("recipientUid", uid)
             .whereEqualTo("read", false)
-            .get()
+            .count()
+            .get(AggregateSource.SERVER)
             .await()
-        snapshot.size()
+
+        snapshot.count.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }
 }

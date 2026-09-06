@@ -46,6 +46,7 @@ import com.pickuppass.android.ui.splash.SplashDestination
 import com.pickuppass.android.ui.splash.SplashScreen
 import com.pickuppass.android.ui.teacher.broadcast.TeacherBroadcastScreen
 import com.pickuppass.android.ui.teacher.exitlogs.ExitLogsScreen
+import com.pickuppass.android.ui.teacher.home.TeacherHomeScreen
 import com.pickuppass.android.ui.teacher.operations.TeacherOperationsScreen
 import com.pickuppass.android.ui.teacher.registerparent.RegisterParentScreen
 import com.pickuppass.android.ui.teacher.scanner.ScannerScreen
@@ -95,7 +96,7 @@ fun PickupPassNavHost(
                                 Screen.ParentStudents.route
 
                             SplashDestination.TeacherHome ->
-                                Screen.TeacherScanner.route
+                                Screen.TeacherHome.route
 
                             SplashDestination.SchoolAdminHome ->
                                 Screen.SchoolAdminBranding.route
@@ -209,7 +210,7 @@ fun PickupPassNavHost(
                 onTeacherHome = {
                     navController
                         .navigateToAuthenticatedRoot(
-                            Screen.TeacherScanner.route
+                            Screen.TeacherHome.route
                         )
                 },
                 onSchoolAdminHome = {
@@ -425,42 +426,53 @@ fun PickupPassNavHost(
         // ---- Teacher / guard flow ----
 
         composable(
-            Screen.TeacherScanner.route
+            Screen.TeacherHome.route
         ) {
-            ScannerScreen(
-                onGoToStudents = {
+            TeacherHomeScreen(
+                onStartScanner = {
+                    navController.navigate(
+                        Screen.TeacherScanner.route
+                    )
+                },
+                onOpenStudents = {
                     navController.navigate(
                         Screen.TeacherStudents.route
                     )
                 },
-                onGoToExitLogs = {
+                onOpenHistory = {
                     navController.navigate(
                         Screen.TeacherExitLogs.route
                     )
                 },
-                onGoToNotifications = {
+                onOpenNotifications = {
                     navController.navigate(
                         Screen.TeacherNotifications.route
                     )
                 },
-                onGoToBroadcast = {
+                onOpenBroadcast = {
                     navController.navigate(
                         Screen.TeacherBroadcast.route
                     )
                 },
-                onGoToOperations = {
+                onOpenOperations = {
                     navController.navigate(
                         Screen.TeacherOperations.route
                     )
                 },
-                onGoToProfile = {
+                onOpenProfile = {
                     navController.navigate(
                         Screen.AccountProfile.route
                     )
-                },
-                onSignOut = {
-                    navController
-                        .navigateToLoginClearingBackStack()
+                }
+            )
+        }
+
+        composable(
+            Screen.TeacherScanner.route
+        ) {
+            ScannerScreen(
+                onBack = {
+                    navController.popBackStack()
                 }
             )
         }

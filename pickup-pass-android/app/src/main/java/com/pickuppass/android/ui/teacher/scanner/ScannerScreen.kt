@@ -1,6 +1,7 @@
 package com.pickuppass.android.ui.teacher.scanner
 
 import android.Manifest
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
@@ -17,17 +18,11 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.*
@@ -68,16 +63,9 @@ import com.pickuppass.android.ui.theme.Spacing
 @Composable
 fun ScannerScreen(
     viewModel: ScannerViewModel = hiltViewModel(),
-    onGoToStudents: () -> Unit,
-    onGoToExitLogs: () -> Unit,
-    onGoToNotifications: () -> Unit,
-    onGoToBroadcast: () -> Unit,
-    onGoToOperations: () -> Unit,
-    onGoToProfile: () -> Unit,
-    onSignOut: () -> Unit
+    onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val signedOut by viewModel.signedOut.collectAsStateWithLifecycle()
     val school by viewModel.school.collectAsStateWithLifecycle()
     val pickupGates by viewModel.pickupGates.collectAsStateWithLifecycle()
     val selectedPickupGate by viewModel.selectedPickupGate.collectAsStateWithLifecycle()
@@ -85,15 +73,27 @@ fun ScannerScreen(
     val gateError by viewModel.gateError.collectAsStateWithLifecycle()
     val cameraPermission = rememberPermissionState(Manifest.permission.CAMERA)
 
-    LaunchedEffect(signedOut) {
-        if (signedOut) onSignOut()
-    }
-
     val screenTitle = when (uiState) {
         is ScannerUiState.Verifying -> "Verifying Pass"
         is ScannerUiState.Verified -> "Verify Release"
         is ScannerUiState.Approved -> "Release Complete"
         else -> "Dismissal Scanner"
+    }
+
+    BackHandler(
+        enabled = uiState !is ScannerUiState.Scanning
+    ) {
+        when (val current = uiState) {
+            is ScannerUiState.Error ->
+                viewModel.resetToScanning()
+
+            is ScannerUiState.Verified ->
+                if (!current.isApproving) {
+                    viewModel.resetToScanning()
+                }
+
+            else -> Unit
+        }
     }
 
     Scaffold(
@@ -108,85 +108,20 @@ fun ScannerScreen(
                         subtitleColor = Gray400
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Gray900
-                ),
-                actions = {
+                navigationIcon = {
                     if (uiState is ScannerUiState.Scanning) {
-                        IconButton(onClick = onGoToProfile) {
+                        IconButton(onClick = onBack) {
                             Icon(
-                                Icons.Filled.AccountCircle,
-                                contentDescription = "My profile",
-                                tint = Color.White
-                            )
-                        }
-                        IconButton(onClick = onGoToStudents) {
-                            Icon(
-                                Icons.Filled.People,
-                                contentDescription = "Students",
-                                tint = Color.White
-                            )
-                        }
-                        IconButton(onClick = onGoToExitLogs) {
-                            Icon(
-                                Icons.Filled.History,
-                                contentDescription = "Dismissal History",
-                                tint = Color.White
-                            )
-                        }
-
-                        var menuExpanded by remember { mutableStateOf(false) }
-                        IconButton(onClick = { menuExpanded = true }) {
-                            Icon(
-                                Icons.Filled.MoreVert,
-                                contentDescription = "More",
-                                tint = Color.White
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Notifications") },
-                                leadingIcon = {
-                                    Icon(Icons.Filled.Notifications, contentDescription = null)
-                                },
-                                onClick = {
-                                    menuExpanded = false
-                                    onGoToNotifications()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Pickup Operations") },
-                                leadingIcon = {
-                                    Icon(Icons.Filled.Settings, contentDescription = null)
-                                },
-                                onClick = {
-                                    menuExpanded = false
-                                    onGoToOperations()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Send Announcement") },
-                                leadingIcon = {
-                                    Icon(Icons.Filled.Campaign, contentDescription = null)
-                                },
-                                onClick = {
-                                    menuExpanded = false
-                                    onGoToBroadcast()
-                                }
-                            )
-                        }
-                        IconButton(onClick = viewModel::signOut) {
-                            Icon(
-                                Icons.Filled.Logout,
-                                contentDescription = "Sign out",
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
                                 tint = Color.White
                             )
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Gray900
+                )
             )
         }
     ) { padding ->
