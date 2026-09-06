@@ -139,7 +139,7 @@ class TeacherStudentsViewModel @Inject constructor(
     private suspend fun loadTeacherRoster(
         uid: String,
         schoolId: String,
-        schoolDeferred: Deferred<Result<SchoolInfo>>,
+        schoolDeferred: Deferred<Result<SchoolInfo?>>,
         structureDeferred: Deferred<ApiResult<AcademicStructureResponse>>
     ) {
         val sectionsResult = teacherRepository.getMyAssignedSections(uid)
@@ -247,7 +247,7 @@ class TeacherStudentsViewModel @Inject constructor(
 
     private suspend fun loadSchoolAdminRoster(
         schoolId: String,
-        schoolDeferred: Deferred<Result<SchoolInfo>>,
+        schoolDeferred: Deferred<Result<SchoolInfo?>>,
         structureDeferred: Deferred<ApiResult<AcademicStructureResponse>>,
         role: UserRole
     ) {
