@@ -53,6 +53,9 @@ sealed class Screen(
             "parent/guardians/$studentId"
     }
 
+    data object TeacherHome :
+        Screen("teacher/home")
+
     data object TeacherScanner :
         Screen("teacher/scanner")
 
