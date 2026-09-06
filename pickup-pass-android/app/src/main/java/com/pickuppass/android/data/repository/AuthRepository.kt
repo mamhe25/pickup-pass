@@ -84,12 +84,15 @@ class AuthRepository @Inject constructor(
     fun isCurrentEmailVerified(): Boolean =
         firebaseAuth.currentUser?.isEmailVerified == true
 
-    fun hasEnrolledTotpFactor(): Boolean =
-        firebaseAuth.currentUser
+    fun hasEnrolledTotpFactor(): Boolean {
+        return firebaseAuth.currentUser
             ?.multiFactor
             ?.enrolledFactors
-            ?.any { it.factorId == TotpMultiFactorGenerator.FACTOR_ID }
-            == true
+            ?.any {
+                it.factorId ==
+                    TotpMultiFactorGenerator.FACTOR_ID
+            } == true
+    }
 
     fun enrolledTotpFactorId(): String? =
         firebaseAuth.currentUser
