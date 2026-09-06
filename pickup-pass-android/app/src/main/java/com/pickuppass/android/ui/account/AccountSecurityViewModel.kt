@@ -12,21 +12,33 @@ import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.pickuppass.android.data.remote.PickupPassApi
 import com.pickuppass.android.data.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 data class AccountSecurityUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val currentEmail: String = "",
+    val emailVerified: Boolean = false,
+
     val emailBusy: Boolean = false,
     val emailError: String? = null,
     val emailSuccess: String? = null,
+
     val passwordBusy: Boolean = false,
     val passwordError: String? = null,
-    val passwordSuccess: String? = null
+    val passwordSuccess: String? = null,
+
+    val mfaRequired: Boolean = false,
+    val mfaEnabled: Boolean = false,
+    val mfaBusy: Boolean = false,
+    val mfaError: String? = null,
+    val mfaSuccess: String? = null,
+    val totpSetupKey: String? = null,
+    val totpSetupReady: Boolean = false,
+    val verificationEmailSent: Boolean = false
 )
 
 @HiltViewModel
@@ -48,25 +60,43 @@ class AccountSecurityViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isRefreshing = showBusy,
-                emailError = null
+                emailError = null,
+                mfaError = null
             )
 
             authRepository.refreshCurrentUser()
                 .onSuccess { email ->
+                    val session = authRepository.currentSession(
+                        forceRefresh = true
+                    )
                     runCatching { api.sessionMe() }
+
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isRefreshing = false,
                         currentEmail = email,
+                        emailVerified =
+                            authRepository.isCurrentEmailVerified(),
+                        mfaRequired = session?.role?.requiresMfa == true,
+                        mfaEnabled =
+                            authRepository.hasEnrolledTotpFactor(),
                         emailError = null
                     )
                 }
                 .onFailure { error ->
                     val fallback = authRepository.currentEmail()
+                    val session = authRepository.currentSession(
+                        forceRefresh = false
+                    )
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isRefreshing = false,
                         currentEmail = fallback,
+                        emailVerified =
+                            authRepository.isCurrentEmailVerified(),
+                        mfaRequired = session?.role?.requiresMfa == true,
+                        mfaEnabled =
+                            authRepository.hasEnrolledTotpFactor(),
                         emailError = if (showBusy || fallback.isBlank()) {
                             error.toAccountMessage(AccountAction.Refresh)
                         } else {
@@ -113,13 +143,15 @@ class AccountSecurityViewModel @Inject constructor(
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         emailBusy = false,
-                        emailSuccess = "Verification email sent to $normalizedEmail. Your current email stays active until you verify the new address."
+                        emailSuccess =
+                            "Verification email sent to $normalizedEmail. Your current email stays active until you verify the new address."
                     )
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         emailBusy = false,
-                        emailError = error.toAccountMessage(AccountAction.Email)
+                        emailError =
+                            error.toAccountMessage(AccountAction.Email)
                     )
                 }
         }
@@ -160,14 +192,190 @@ class AccountSecurityViewModel @Inject constructor(
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         passwordBusy = false,
-                        passwordSuccess = "Password updated successfully. Use the new password the next time you sign in."
+                        passwordSuccess =
+                            "Password updated successfully. Use the new password the next time you sign in."
                     )
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         passwordBusy = false,
-                        passwordError = error.toAccountMessage(AccountAction.Password)
+                        passwordError =
+                            error.toAccountMessage(AccountAction.Password)
                     )
+                }
+        }
+    }
+
+    fun sendMfaVerificationEmail() {
+        if (_uiState.value.mfaBusy) return
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                mfaBusy = true,
+                mfaError = null,
+                mfaSuccess = null
+            )
+
+            authRepository.sendEmailVerification()
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        mfaBusy = false,
+                        verificationEmailSent = true,
+                        mfaSuccess =
+                            "Verification email sent. Open the link, then return here and refresh your account."
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        mfaBusy = false,
+                        mfaError = error.toMfaMessage()
+                    )
+                }
+        }
+    }
+
+    fun beginMfaEnrollment(
+        currentPassword: String
+    ) {
+        val state = _uiState.value
+        if (state.mfaBusy || state.mfaEnabled) return
+
+        if (!state.emailVerified) {
+            _uiState.value = state.copy(
+                mfaError =
+                    "Verify your sign-in email before enabling two-factor authentication.",
+                mfaSuccess = null
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                mfaBusy = true,
+                mfaError = null,
+                mfaSuccess = null
+            )
+
+            authRepository.beginTotpEnrollment(currentPassword)
+                .onSuccess { setup ->
+                    _uiState.value = _uiState.value.copy(
+                        mfaBusy = false,
+                        totpSetupKey = setup.sharedSecretKey,
+                        totpSetupReady = true,
+                        mfaError = null
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        mfaBusy = false,
+                        mfaError = error.toMfaMessage()
+                    )
+                }
+        }
+    }
+
+    fun openAuthenticatorApp() {
+        authRepository.openPendingTotpInOtpApp()
+            .onFailure { error ->
+                _uiState.value = _uiState.value.copy(
+                    mfaError = error.toMfaMessage()
+                )
+            }
+    }
+
+    fun finishMfaEnrollment(
+        verificationCode: String
+    ) {
+        if (_uiState.value.mfaBusy) return
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                mfaBusy = true,
+                mfaError = null,
+                mfaSuccess = null
+            )
+
+            authRepository.finishTotpEnrollment(verificationCode)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        mfaBusy = false,
+                        mfaEnabled = true,
+                        totpSetupKey = null,
+                        totpSetupReady = false,
+                        mfaSuccess =
+                            "Two-factor authentication is enabled. Your next sign-in will require a code from your authenticator app."
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        mfaBusy = false,
+                        mfaError = error.toMfaMessage()
+                    )
+                }
+        }
+    }
+
+    fun cancelMfaEnrollment() {
+        authRepository.cancelTotpEnrollment()
+        _uiState.value = _uiState.value.copy(
+            totpSetupKey = null,
+            totpSetupReady = false,
+            mfaError = null
+        )
+    }
+
+    fun disableMfa(
+        currentPassword: String
+    ) {
+        val state = _uiState.value
+        if (state.mfaBusy || !state.mfaEnabled) return
+
+        if (state.mfaRequired) {
+            _uiState.value = state.copy(
+                mfaError =
+                    "Two-factor authentication is required for platform owners and school administrators.",
+                mfaSuccess = null
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                mfaBusy = true,
+                mfaError = null,
+                mfaSuccess = null
+            )
+
+            authRepository.disableTotp(currentPassword)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        mfaBusy = false,
+                        mfaEnabled = false,
+                        totpSetupKey = null,
+                        totpSetupReady = false,
+                        mfaSuccess =
+                            "Two-factor authentication is disabled for this account."
+                    )
+                }
+                .onFailure { error ->
+                    // Firebase can invalidate the local token after removing
+                    // the final factor. If the factor is gone, report the
+                    // operation as successful and let the normal session guard
+                    // request a fresh sign-in when needed.
+                    if (!authRepository.hasEnrolledTotpFactor()) {
+                        _uiState.value = _uiState.value.copy(
+                            mfaBusy = false,
+                            mfaEnabled = false,
+                            mfaSuccess =
+                                "Two-factor authentication is disabled. You may be asked to sign in again.",
+                            mfaError = null
+                        )
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            mfaBusy = false,
+                            mfaError = error.toMfaMessage()
+                        )
+                    }
                 }
         }
     }
@@ -186,13 +394,37 @@ class AccountSecurityViewModel @Inject constructor(
         )
     }
 
+    fun clearMfaFeedback() {
+        _uiState.value = _uiState.value.copy(
+            mfaError = null,
+            mfaSuccess = null
+        )
+    }
+
     private enum class AccountAction {
         Refresh,
         Email,
         Password
     }
 
-    private fun Throwable.toAccountMessage(action: AccountAction): String =
+    private fun Throwable.toMfaMessage(): String =
+        when (this) {
+            is FirebaseNetworkException ->
+                "No connection. Check your internet and try again."
+            is FirebaseTooManyRequestsException ->
+                "Too many attempts. Wait a few minutes and try again."
+            is FirebaseAuthInvalidCredentialsException ->
+                "Your current password or authenticator code is incorrect."
+            is FirebaseAuthInvalidUserException ->
+                "Your sign-in has expired. Sign in again."
+            else ->
+                message?.takeIf { it.isNotBlank() }
+                    ?: "Two-factor authentication could not be updated. Please try again."
+        }
+
+    private fun Throwable.toAccountMessage(
+        action: AccountAction
+    ): String =
         when (this) {
             is FirebaseNetworkException ->
                 "No connection. Check your internet and try again."
@@ -236,7 +468,9 @@ class AccountSecurityViewModel @Inject constructor(
                 genericAccountError(action)
         }
 
-    private fun genericAccountError(action: AccountAction): String =
+    private fun genericAccountError(
+        action: AccountAction
+    ): String =
         when (action) {
             AccountAction.Refresh ->
                 "Couldn't refresh your account details. Please try again."

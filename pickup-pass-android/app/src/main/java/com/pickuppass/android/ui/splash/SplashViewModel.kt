@@ -7,11 +7,11 @@ import com.pickuppass.android.data.repository.AuthRepository
 import com.pickuppass.android.data.repository.NotificationRepository
 import com.pickuppass.android.data.repository.UserRole
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.io.IOException
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.io.IOException
-import javax.inject.Inject
 
 sealed class SplashDestination {
     data object Loading : SplashDestination()
@@ -31,38 +31,64 @@ class SplashViewModel @Inject constructor(
     private val api: PickupPassApi
 ) : ViewModel() {
 
-    private val _destination = MutableStateFlow<SplashDestination>(SplashDestination.Loading)
+    private val _destination =
+        MutableStateFlow<SplashDestination>(SplashDestination.Loading)
     val destination: StateFlow<SplashDestination> = _destination
 
-    init { checkSession() }
+    init {
+        checkSession()
+    }
 
     fun checkSession() {
         _destination.value = SplashDestination.Loading
+
         viewModelScope.launch {
             if (!authRepository.isSignedIn) {
                 _destination.value = SplashDestination.Login
                 return@launch
             }
 
-            val session = authRepository.currentSession(forceRefresh = false)
+            val session = authRepository.currentSession(
+                forceRefresh = false
+            )
+
             if (session == null) {
-                _destination.value = if (authRepository.isSignedIn) {
-                    SplashDestination.Offline
-                } else {
-                    SplashDestination.Login
-                }
+                _destination.value =
+                    if (authRepository.isSignedIn) {
+                        SplashDestination.Offline
+                    } else {
+                        SplashDestination.Login
+                    }
                 return@launch
             }
 
-            // Server-side validation is required because Firebase may still
-            // have a locally cached user after an administrator revoked tokens.
+            /*
+             * Fail closed for protected roles before any normal API or
+             * Firestore-backed screen is entered. A cached first-factor-only
+             * Firebase session is never enough for a School Admin or Platform
+             * Owner.
+             *
+             * We sign out here so the next Login flow either:
+             *  - triggers Firebase's TOTP challenge for an enrolled admin, or
+             *  - starts mandatory first-time TOTP enrollment.
+             */
+            if (session.role.requiresMfa && !session.mfaSatisfied) {
+                authRepository.signOut()
+                _destination.value = SplashDestination.Login
+                return@launch
+            }
+
+            // Server-side validation remains authoritative for revocations,
+            // disabled accounts, role changes and mandatory MFA enforcement.
             try {
                 val response = api.sessionMe()
                 if (!response.isSuccessful) {
                     _destination.value = when (response.code()) {
-                        401 -> SplashDestination.Login
-                        in 500..599 -> SplashDestination.ServiceUnavailable
-                        else -> SplashDestination.Login
+                        401, 428 -> SplashDestination.Login
+                        in 500..599 ->
+                            SplashDestination.ServiceUnavailable
+                        else ->
+                            SplashDestination.Login
                     }
                     return@launch
                 }
@@ -70,17 +96,25 @@ class SplashViewModel @Inject constructor(
                 _destination.value = SplashDestination.Offline
                 return@launch
             } catch (_: Exception) {
-                _destination.value = SplashDestination.ServiceUnavailable
+                _destination.value =
+                    SplashDestination.ServiceUnavailable
                 return@launch
             }
 
-            notificationRepository.registerCurrentDeviceTokenInBackground()
+            notificationRepository
+                .registerCurrentDeviceTokenInBackground()
+
             _destination.value = when (session.role) {
-                UserRole.Parent -> SplashDestination.ParentHome
-                UserRole.Teacher -> SplashDestination.TeacherHome
-                UserRole.SchoolAdmin -> SplashDestination.SchoolAdminHome
-                UserRole.MasterAdmin -> SplashDestination.MasterAdminHome
-                else -> SplashDestination.Login
+                UserRole.Parent ->
+                    SplashDestination.ParentHome
+                UserRole.Teacher ->
+                    SplashDestination.TeacherHome
+                UserRole.SchoolAdmin ->
+                    SplashDestination.SchoolAdminHome
+                UserRole.MasterAdmin ->
+                    SplashDestination.MasterAdminHome
+                else ->
+                    SplashDestination.Login
             }
         }
     }

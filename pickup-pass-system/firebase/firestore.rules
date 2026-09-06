@@ -2,8 +2,28 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
+    function hasRawAuth() {
       return request.auth != null;
+    }
+
+    function roleRequiresMfa() {
+      return request.auth.token.role == 'school_admin'
+        || request.auth.token.role == 'master_admin';
+    }
+
+    function hasSecondFactor() {
+      return request.auth.token.firebase != null
+        && request.auth.token.firebase.keys().hasAny(['sign_in_second_factor'])
+        && request.auth.token.firebase.sign_in_second_factor != null;
+    }
+
+    /**
+     * Admin roles fail closed unless the Firebase token itself proves that a
+     * second factor was used. Parent and Teacher behavior remains unchanged.
+     */
+    function isSignedIn() {
+      return hasRawAuth()
+        && (!roleRequiresMfa() || hasSecondFactor());
     }
 
     function userDoc() {
@@ -11,20 +31,25 @@ service cloud.firestore {
     }
 
     function isUserActive() {
-      return !userDoc().keys().hasAll(['isActive']) || userDoc().isActive == true;
+      return !userDoc().keys().hasAll(['isActive'])
+        || userDoc().isActive == true;
     }
 
     function sameSchool(schoolId) {
-      return isSignedIn() && request.auth.token.schoolId == schoolId && isUserActive();
+      return isSignedIn()
+        && request.auth.token.schoolId == schoolId
+        && isUserActive();
     }
 
     function isMasterAdmin() {
-      return isSignedIn() && request.auth.token.role == 'master_admin';
+      return isSignedIn()
+        && request.auth.token.role == 'master_admin';
     }
 
     function isSchoolStaff(schoolId) {
-      return sameSchool(schoolId) &&
-        (request.auth.token.role == 'school_admin' || request.auth.token.role == 'teacher');
+      return sameSchool(schoolId)
+        && (request.auth.token.role == 'school_admin'
+          || request.auth.token.role == 'teacher');
     }
 
     match /schools/{schoolId} {
@@ -33,20 +58,24 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn() &&
-        (request.auth.uid == userId ||
-         isMasterAdmin() ||
-         isSchoolStaff(resource.data.schoolId));
+      allow read: if isSignedIn()
+        && (request.auth.uid == userId
+          || isMasterAdmin()
+          || isSchoolStaff(resource.data.schoolId));
 
       allow create: if false;
-      allow update: if isSignedIn() && request.auth.uid == userId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoUrl']);
+      allow update: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['photoUrl']);
       allow delete: if false;
     }
 
     match /students/{studentId} {
-      allow read: if isSchoolStaff(resource.data.schoolId) ||
-        (isSignedIn() && resource.data.guardianUids.hasAny([request.auth.uid]));
+      allow read: if isSchoolStaff(resource.data.schoolId)
+        || (isSignedIn()
+          && resource.data.guardianUids.hasAny([request.auth.uid]));
       allow create, update, delete: if false;
     }
 
@@ -55,15 +84,20 @@ service cloud.firestore {
     }
 
     match /exitLogs/{logId} {
-      allow read: if isSchoolStaff(resource.data.schoolId) ||
-        (isSignedIn() && resource.data.parentUid == request.auth.uid);
+      allow read: if isSchoolStaff(resource.data.schoolId)
+        || (isSignedIn()
+          && resource.data.parentUid == request.auth.uid);
       allow create, update, delete: if false;
     }
 
     match /notifications/{notificationId} {
-      allow read: if isSignedIn() && resource.data.recipientUid == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.recipientUid == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow read: if isSignedIn()
+        && resource.data.recipientUid == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.recipientUid == request.auth.uid
+        && request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['read']);
       allow create, delete: if false;
     }
   }

@@ -15,62 +15,113 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Verifies the "Authorization: Bearer <Firebase ID token>" header on every
- * request via the Admin SDK, then builds a FirebaseUserDetails principal
- * carrying schoolId + role from the token's custom claims. This is what lets
- * @PreAuthorize("hasRole('teacher')") and manual schoolId checks work
- * downstream in controllers.
+ * request via the Admin SDK, then builds a FirebaseUserDetails principal.
+ *
+ * MFA state is derived only from Firebase's reserved
+ * firebase.sign_in_second_factor token metadata. The client cannot create or
+ * override this value.
  */
 public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
 
     private final FirebaseAuth firebaseAuth;
     private final SecurityEventService securityEvents;
 
-    public FirebaseAuthenticationFilter(FirebaseAuth firebaseAuth, SecurityEventService securityEvents) {
+    public FirebaseAuthenticationFilter(
+            FirebaseAuth firebaseAuth,
+            SecurityEventService securityEvents) {
         this.firebaseAuth = firebaseAuth;
         this.securityEvents = securityEvents;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                     HttpServletResponse response,
-                                     FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain)
+            throws ServletException, IOException {
 
         String header = request.getHeader("Authorization");
 
         if (header != null && header.startsWith("Bearer ")) {
             String idToken = header.substring(7);
+
             try {
-                FirebaseToken decoded = firebaseAuth.verifyIdToken(idToken, true);
+                FirebaseToken decoded =
+                        firebaseAuth.verifyIdToken(idToken, true);
 
                 String uid = decoded.getUid();
                 String email = decoded.getEmail();
-                Object schoolIdClaim = decoded.getClaims().get("schoolId");
-                Object roleClaim = decoded.getClaims().get("role");
+                Object schoolIdClaim =
+                        decoded.getClaims().get("schoolId");
+                Object roleClaim =
+                        decoded.getClaims().get("role");
 
-                String schoolId = schoolIdClaim != null ? schoolIdClaim.toString() : null;
-                String role = roleClaim != null ? roleClaim.toString() : "unknown";
+                String schoolId = schoolIdClaim != null
+                        ? schoolIdClaim.toString()
+                        : null;
+                String role = roleClaim != null
+                        ? roleClaim.toString()
+                        : "unknown";
 
-                FirebaseUserDetails principal = new FirebaseUserDetails(uid, email, schoolId, role);
+                boolean mfaSatisfied =
+                        hasSecondFactor(decoded.getClaims());
+
+                FirebaseUserDetails principal =
+                        new FirebaseUserDetails(
+                                uid,
+                                email,
+                                schoolId,
+                                role,
+                                mfaSatisfied);
 
                 List<GrantedAuthority> authorities =
-                        List.of(new SimpleGrantedAuthority("ROLE_" + role));
+                        List.of(
+                                new SimpleGrantedAuthority(
+                                        "ROLE_" + role));
 
                 UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(principal, null, authorities);
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                        new UsernamePasswordAuthenticationToken(
+                                principal,
+                                null,
+                                authorities);
+
+                SecurityContextHolder
+                        .getContext()
+                        .setAuthentication(authToken);
 
             } catch (Exception e) {
-                // Invalid/expired token: leave context unauthenticated. Do not store
-                // the token or raw IP; security telemetry keeps only a keyed fingerprint.
-                request.setAttribute("firebaseTokenRejected", Boolean.TRUE);
-                securityEvents.recordInvalidToken(request, e.getClass().getSimpleName());
+                // Invalid/expired token: leave context unauthenticated. Do not
+                // store the token or raw IP; security telemetry keeps only a
+                // keyed fingerprint.
+                request.setAttribute(
+                        "firebaseTokenRejected",
+                        Boolean.TRUE);
+                securityEvents.recordInvalidToken(
+                        request,
+                        e.getClass().getSimpleName());
                 SecurityContextHolder.clearContext();
             }
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean hasSecondFactor(
+            Map<String, Object> claims) {
+        Object firebaseClaim = claims.get("firebase");
+
+        if (!(firebaseClaim instanceof Map<?, ?> firebaseMap)) {
+            return false;
+        }
+
+        Object secondFactor =
+                firebaseMap.get("sign_in_second_factor");
+
+        return secondFactor != null
+                && !secondFactor.toString().isBlank();
     }
 }

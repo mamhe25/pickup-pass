@@ -1,13 +1,14 @@
 package com.pickuppass.config;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.pickuppass.security.FirebaseAuthenticationFilter;
-import com.pickuppass.security.DeviceSessionFilter;
-import com.pickuppass.service.DeviceSessionService;
-import com.pickuppass.service.SecurityEventService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.firebase.auth.FirebaseAuth;
+import com.pickuppass.security.DeviceSessionFilter;
+import com.pickuppass.security.FirebaseAuthenticationFilter;
 import com.pickuppass.security.JsonAccessDeniedHandler;
 import com.pickuppass.security.JsonAuthenticationEntryPoint;
+import com.pickuppass.security.MfaEnforcementFilter;
+import com.pickuppass.service.DeviceSessionService;
+import com.pickuppass.service.SecurityEventService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,57 +29,126 @@ import java.util.List;
 public class SecurityConfig {
 
     @Bean
-    public FirebaseAuthenticationFilter firebaseAuthenticationFilter(FirebaseAuth firebaseAuth, SecurityEventService securityEvents) {
-        return new FirebaseAuthenticationFilter(firebaseAuth, securityEvents);
+    public FirebaseAuthenticationFilter firebaseAuthenticationFilter(
+            FirebaseAuth firebaseAuth,
+            SecurityEventService securityEvents) {
+        return new FirebaseAuthenticationFilter(
+                firebaseAuth,
+                securityEvents);
     }
 
     @Bean
-    public DeviceSessionFilter deviceSessionFilter(DeviceSessionService sessions, ObjectMapper objectMapper, SecurityEventService securityEvents) {
-        return new DeviceSessionFilter(sessions, objectMapper, securityEvents);
+    public MfaEnforcementFilter mfaEnforcementFilter(
+            ObjectMapper objectMapper) {
+        return new MfaEnforcementFilter(objectMapper);
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                     FirebaseAuthenticationFilter firebaseFilter,
-                                                     DeviceSessionFilter deviceSessionFilter,
-                                                     JsonAuthenticationEntryPoint authenticationEntryPoint,
-                                                     JsonAccessDeniedHandler accessDeniedHandler,
-                                                     CorsConfigurationSource corsConfigurationSource) throws Exception {
+    public DeviceSessionFilter deviceSessionFilter(
+            DeviceSessionService sessions,
+            ObjectMapper objectMapper,
+            SecurityEventService securityEvents) {
+        return new DeviceSessionFilter(
+                sessions,
+                objectMapper,
+                securityEvents);
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            FirebaseAuthenticationFilter firebaseFilter,
+            MfaEnforcementFilter mfaFilter,
+            DeviceSessionFilter deviceSessionFilter,
+            JsonAuthenticationEntryPoint authenticationEntryPoint,
+            JsonAccessDeniedHandler accessDeniedHandler,
+            CorsConfigurationSource corsConfigurationSource)
+            throws Exception {
+
         http
             .csrf(csrf -> csrf.disable())
-            .cors(cors -> cors.configurationSource(corsConfigurationSource))
-            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .cors(cors ->
+                    cors.configurationSource(
+                            corsConfigurationSource))
+            .sessionManagement(sm ->
+                    sm.sessionCreationPolicy(
+                            SessionCreationPolicy.STATELESS))
             .exceptionHandling(ex -> ex
-                .authenticationEntryPoint(authenticationEntryPoint)
-                .accessDeniedHandler(accessDeniedHandler))
+                    .authenticationEntryPoint(
+                            authenticationEntryPoint)
+                    .accessDeniedHandler(
+                            accessDeniedHandler))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                .requestMatchers("/actuator/metrics", "/actuator/metrics/**", "/actuator/info").hasRole("master_admin")
-                .requestMatchers("/api/bootstrap/**").permitAll()
-                .requestMatchers("/api/webhooks/payments/**").permitAll()
-                .anyRequest().authenticated()
-            )
-            .addFilterBefore(firebaseFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(deviceSessionFilter, FirebaseAuthenticationFilter.class);
+                    .requestMatchers(
+                            "/actuator/health",
+                            "/actuator/health/**")
+                        .permitAll()
+                    .requestMatchers(
+                            "/actuator/metrics",
+                            "/actuator/metrics/**",
+                            "/actuator/info")
+                        .hasRole("master_admin")
+                    .requestMatchers("/api/bootstrap/**")
+                        .permitAll()
+                    .requestMatchers("/api/webhooks/payments/**")
+                        .permitAll()
+                    .anyRequest()
+                        .authenticated())
+            .addFilterBefore(
+                    firebaseFilter,
+                    UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(
+                    mfaFilter,
+                    FirebaseAuthenticationFilter.class)
+            .addFilterAfter(
+                    deviceSessionFilter,
+                    MfaEnforcementFilter.class);
 
         return http.build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource(
-            @Value("${app.cors.allowed-origins:http://localhost:5500,http://localhost:5173}") String origins) {
+            @Value("${app.cors.allowed-origins:http://localhost:5500,http://localhost:5173}")
+            String origins) {
         CorsConfiguration config = new CorsConfiguration();
-        List<String> allowedOrigins = Arrays.stream(origins.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isBlank())
-                .toList();
+
+        List<String> allowedOrigins =
+                Arrays.stream(origins.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isBlank())
+                        .toList();
+
         config.setAllowedOrigins(allowedOrigins);
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-ID", "X-Client-Version", "X-Device-Id", "X-Device-Name", "X-Pickup-Gate-Id", "Idempotency-Key"));
-        config.setExposedHeaders(List.of("X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "Retry-After"));
+        config.setAllowedMethods(
+                List.of(
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "PATCH",
+                        "DELETE",
+                        "OPTIONS"));
+        config.setAllowedHeaders(
+                List.of(
+                        "Authorization",
+                        "Content-Type",
+                        "X-Request-ID",
+                        "X-Client-Version",
+                        "X-Device-Id",
+                        "X-Device-Name",
+                        "X-Pickup-Gate-Id",
+                        "Idempotency-Key"));
+        config.setExposedHeaders(
+                List.of(
+                        "X-Request-ID",
+                        "X-RateLimit-Limit",
+                        "X-RateLimit-Remaining",
+                        "Retry-After"));
         config.setAllowCredentials(false);
         config.setMaxAge(3600L);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
     }

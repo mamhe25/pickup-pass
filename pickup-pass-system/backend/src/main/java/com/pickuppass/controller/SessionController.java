@@ -15,6 +15,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/session")
 public class SessionController {
+
     private final AccountEmailService accountEmails;
 
     public SessionController() {
@@ -22,26 +23,51 @@ public class SessionController {
     }
 
     @Autowired
-
-    public SessionController(AccountEmailService accountEmails) {
+    public SessionController(
+            AccountEmailService accountEmails) {
         this.accountEmails = accountEmails;
     }
 
-
+    /**
+     * Minimal identity/bootstrap response. This is deliberately available to
+     * a first-factor-only admin session so the clients can complete required
+     * TOTP enrollment. Every normal privileged endpoint is still blocked by
+     * MfaEnforcementFilter until the Firebase token proves a second factor.
+     */
     @GetMapping("/me")
-    public ResponseEntity<?> me(@AuthenticationPrincipal FirebaseUserDetails user) {
+    public ResponseEntity<?> me(
+            @AuthenticationPrincipal
+            FirebaseUserDetails user) {
+
         if (accountEmails != null) {
             try {
                 accountEmails.synchronize(user.getUid());
             } catch (Exception ignored) {
-            // Profile email sync is best effort; identity response remains available.
+                // Profile email sync is best effort; identity response remains
+                // available.
             }
         }
-        Map<String, Object> body = new LinkedHashMap<>();
+
+        Map<String, Object> body =
+                new LinkedHashMap<>();
+
         body.put("uid", user.getUid());
         body.put("role", user.getRole());
-        if (user.getSchoolId() != null) body.put("schoolId", user.getSchoolId());
+
+        if (user.getSchoolId() != null) {
+            body.put(
+                    "schoolId",
+                    user.getSchoolId());
+        }
+
         body.put("status", "active");
+        body.put(
+                "mfaRequired",
+                user.requiresMfa());
+        body.put(
+                "mfaSatisfied",
+                user.isMfaSatisfied());
+
         return ResponseEntity.ok(body);
     }
 }

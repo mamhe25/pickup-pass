@@ -51,9 +51,9 @@
           </div>
         </div>
         <div class="rounded-2xl bg-white/10 border border-white/15 p-4">
-          <div class="text-2xl font-extrabold">4 roles</div>
+          <div class="text-2xl font-extrabold">2FA</div>
           <div class="text-xs text-white/70 mt-1">
-            Parent, staff, school and platform admin
+            Required for privileged administrator roles
           </div>
         </div>
       </div>
@@ -72,6 +72,10 @@
         Use the account provided by your school.
       </p>
     </div>
+
+    <div id="securityNotice"
+         class="hidden mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+         role="status" aria-live="polite"></div>
 
     <form id="loginForm" class="space-y-4">
       <label>
@@ -96,9 +100,9 @@
           placeholder="Enter your password">
       </label>
 
-      <p id="errorMsg" class="pp-alert pp-alert--danger hidden"></p>
+      <p id="errorMsg" class="pp-alert pp-alert--danger hidden" role="alert"></p>
 
-      <button type="submit" class="pp-btn pp-btn--primary w-full">
+      <button id="loginButton" type="submit" class="pp-btn pp-btn--primary w-full">
         Sign in securely
       </button>
     </form>
@@ -107,10 +111,79 @@
       Forgot password?
     </button>
 
+    <div class="mt-6 rounded-2xl border border-hairline bg-slate-50 p-4">
+      <div class="text-sm font-bold text-ink-strong">
+        Administrator account protection
+      </div>
+      <p class="text-xs text-ink-muted mt-1 leading-relaxed">
+        Platform Owner and School Admin accounts must use an authenticator app.
+        Parents and Teachers can enable the same protection from Account security.
+      </p>
+    </div>
+
     <div class="mt-7 pt-5 border-t border-hairline text-center text-xs text-ink-subtle">
       Protected by Firebase Authentication and role-based access controls.
     </div>
   </section>
+</div>
+
+<!-- Premium blocking TOTP challenge. It is intentionally non-dismissible by
+     clicking outside: cancelling explicitly signs the incomplete session out. -->
+<div id="mfaDialog"
+     class="hidden fixed inset-0 z-[120] bg-slate-950/55 backdrop-blur-sm p-4"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="mfaTitle">
+  <div class="min-h-full flex items-center justify-center">
+    <div class="w-full max-w-md rounded-3xl bg-white shadow-2xl border border-white/70 overflow-hidden">
+      <div class="p-6 border-b border-slate-100">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-4">
+          <svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M9.5 12.2 11.3 14l3.8-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="text-xs uppercase tracking-[.14em] font-extrabold text-emerald-700">
+          Two-factor authentication
+        </div>
+        <h2 id="mfaTitle" class="text-xl font-extrabold text-slate-900 mt-1">
+          Verify it’s you
+        </h2>
+        <p class="text-sm text-slate-600 mt-2 leading-relaxed">
+          Open your authenticator app and enter the current 6-digit PickupPass code.
+        </p>
+      </div>
+
+      <form id="mfaForm" class="p-6">
+        <label class="block text-sm font-bold text-slate-800" for="mfaCode">
+          Authenticator code
+        </label>
+        <input
+          id="mfaCode"
+          type="text"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          maxlength="6"
+          pattern="[0-9]{6}"
+          class="pp-field mt-2 text-center text-2xl tracking-[.35em] font-extrabold"
+          placeholder="000000"
+          required>
+
+        <p id="mfaError"
+           class="pp-alert pp-alert--danger hidden mt-3"
+           role="alert"></p>
+
+        <div class="grid grid-cols-2 gap-3 mt-5">
+          <button id="cancelMfa" type="button" class="pp-btn pp-btn--ghost">
+            Cancel sign-in
+          </button>
+          <button id="verifyMfa" type="submit" class="pp-btn pp-btn--primary">
+            Verify
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 <script type="module">
@@ -124,28 +197,139 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   onAuthStateChanged,
+  signOut,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-onAuthStateChanged(auth, async (user) => {
-  if (user) await routeByRole(user);
+import {
+  authContext,
+  resolverFor,
+  resolveTotpSignIn,
+  totpHint,
+  mfaError as friendlyMfaError,
+} from "./shared/mfa.js";
+
+let pendingResolver = null;
+let routing = false;
+
+const loginForm = document.getElementById("loginForm");
+const loginButton = document.getElementById("loginButton");
+const errorMsg = document.getElementById("errorMsg");
+const mfaDialog = document.getElementById("mfaDialog");
+const mfaForm = document.getElementById("mfaForm");
+const mfaCode = document.getElementById("mfaCode");
+const mfaError = document.getElementById("mfaError");
+const verifyMfa = document.getElementById("verifyMfa");
+const cancelMfa = document.getElementById("cancelMfa");
+const securityNotice = document.getElementById("securityNotice");
+
+const params = new URLSearchParams(location.search);
+if (params.get("mfa") === "enabled") {
+  securityNotice.textContent =
+    "Two-factor authentication is enabled. Sign in again to complete verification with your authenticator code.";
+  securityNotice.classList.remove("hidden");
+} else if (params.get("mfa") === "disabled") {
+  securityNotice.textContent =
+    "Two-factor authentication was disabled. Sign in again to continue.";
+  securityNotice.classList.remove("hidden");
+} else if (params.get("mfa") === "required") {
+  securityNotice.textContent =
+    "A fresh two-factor sign-in is required for this administrator account.";
+  securityNotice.classList.remove("hidden");
+}
+
+onAuthStateChanged(auth, async user => {
+  if (!user || routing || pendingResolver) return;
+
+  try {
+    await routeByRole(user);
+  } catch (error) {
+    showLoginError(error);
+  }
 });
 
-document.getElementById("loginForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
+loginForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  if (loginButton.disabled) return;
 
-  const errorMsg = document.getElementById("errorMsg");
   errorMsg.classList.add("hidden");
 
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
 
+  setSubmitButtonBusy(loginButton, true, "Signing in…");
+
   try {
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-    await routeByRole(cred.user);
-  } catch (err) {
-    errorMsg.textContent = friendlyError(err.code);
-    errorMsg.classList.remove("hidden");
+    const credential = await signInWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+    await routeByRole(credential.user);
+  } catch (error) {
+    if (error?.code === "auth/multi-factor-auth-required") {
+      try {
+        const resolver = resolverFor(auth, error);
+        if (!totpHint(resolver)) {
+          await signOut(auth);
+          throw new Error(
+            "This account uses a two-factor method that PickupPass does not support."
+          );
+        }
+
+        pendingResolver = resolver;
+        mfaCode.value = "";
+        mfaError.classList.add("hidden");
+        mfaDialog.classList.remove("hidden");
+        requestAnimationFrame(() => mfaCode.focus());
+      } catch (resolverError) {
+        showLoginError(resolverError);
+      }
+    } else {
+      showLoginError(error);
+    }
+  } finally {
+    setSubmitButtonBusy(loginButton, false);
   }
+});
+
+mfaCode.addEventListener("input", () => {
+  mfaCode.value = mfaCode.value.replace(/\D/g, "").slice(0, 6);
+  mfaError.classList.add("hidden");
+});
+
+mfaForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  if (!pendingResolver || verifyMfa.disabled) return;
+
+  mfaError.classList.add("hidden");
+  setSubmitButtonBusy(verifyMfa, true, "Verifying…");
+  cancelMfa.disabled = true;
+
+  try {
+    const result = await resolveTotpSignIn(
+      pendingResolver,
+      mfaCode.value
+    );
+
+    pendingResolver = null;
+    mfaDialog.classList.add("hidden");
+    await routeByRole(result.user);
+  } catch (error) {
+    mfaError.textContent = friendlyMfaError(error);
+    mfaError.classList.remove("hidden");
+    mfaCode.select();
+  } finally {
+    setSubmitButtonBusy(verifyMfa, false);
+    cancelMfa.disabled = false;
+  }
+});
+
+cancelMfa.addEventListener("click", async () => {
+  pendingResolver = null;
+  mfaDialog.classList.add("hidden");
+  mfaCode.value = "";
+  await signOut(auth);
+  document.getElementById("password").value = "";
 });
 
 document.getElementById("forgotBtn").addEventListener("click", async () => {
@@ -170,9 +354,9 @@ document.getElementById("forgotBtn").addEventListener("click", async () => {
       "Password reset email sent. Check your inbox.",
       "success"
     );
-  } catch (err) {
+  } catch (error) {
     showToast(
-      "Could not send reset email: " + friendlyError(err.code),
+      "Could not send reset email: " + friendlyError(error.code),
       "error"
     );
   } finally {
@@ -181,31 +365,65 @@ document.getElementById("forgotBtn").addEventListener("click", async () => {
 });
 
 async function routeByRole(user) {
-  const tokenResult = await user.getIdTokenResult(true);
-  const role = tokenResult.claims.role;
+  if (routing) return;
+  routing = true;
 
-  switch (role) {
-    case "parent":
-      window.location.href = "./parent/students.html";
-      break;
+  try {
+    const context = await authContext(user, true);
+    const role = context.role;
 
-    case "teacher":
-      window.location.href = "./teacher/scanner.html";
-      break;
+    if (context.mfaRequired) {
+      if (!context.mfaEnabled) {
+        // First-time protected-role enrollment happens in the shared Account
+        // Security surface. The backend and Firestore independently block all
+        // privileged access until enrollment + a fresh MFA sign-in are complete.
+        location.replace("./account.html?mfa=setup");
+        return;
+      }
 
-    case "school_admin":
-      window.location.href = "./school-admin/dashboard.html";
-      break;
+      if (!context.mfaSatisfied) {
+        await signOut(auth);
+        securityNotice.textContent =
+          "Two-factor verification is required. Sign in again and enter the current authenticator code.";
+        securityNotice.classList.remove("hidden");
+        document.getElementById("password").value = "";
+        return;
+      }
+    }
 
-    case "master_admin":
-      window.location.href = "./master-admin/overview.html";
-      break;
+    switch (role) {
+      case "parent":
+        location.replace("./parent/students.html");
+        return;
 
-    default:
-      document.getElementById("errorMsg").textContent =
-        "Your account isn't fully set up yet. Contact your school.";
-      document.getElementById("errorMsg").classList.remove("hidden");
+      case "teacher":
+        location.replace("./teacher/scanner.html");
+        return;
+
+      case "school_admin":
+        location.replace("./school-admin/dashboard.html");
+        return;
+
+      case "master_admin":
+        location.replace("./master-admin/overview.html");
+        return;
+
+      default:
+        await signOut(auth);
+        throw new Error(
+          "Your account isn't fully set up yet. Contact your school."
+        );
+    }
+  } finally {
+    routing = false;
   }
+}
+
+function showLoginError(error) {
+  errorMsg.textContent =
+    error?.code ? friendlyError(error.code) :
+    error?.message || "Sign-in failed. Please try again.";
+  errorMsg.classList.remove("hidden");
 }
 
 function friendlyError(code) {
@@ -217,6 +435,12 @@ function friendlyError(code) {
 
     case "auth/too-many-requests":
       return "Too many attempts — try again in a bit.";
+
+    case "auth/network-request-failed":
+      return "No connection. Check your internet and try again.";
+
+    case "auth/user-disabled":
+      return "This account is disabled. Contact your administrator.";
 
     default:
       return "Sign-in failed. Please try again.";
