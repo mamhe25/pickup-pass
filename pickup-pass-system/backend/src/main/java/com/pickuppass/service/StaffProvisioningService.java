@@ -11,6 +11,7 @@ import com.pickuppass.util.NameFormatter;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -57,6 +58,15 @@ public class StaffProvisioningService {
             String email, String lastName, String firstName, String middleInitial, String suffix,
             String role, String schoolId)
             throws FirebaseAuthException, java.util.concurrent.ExecutionException, InterruptedException {
+        return createStaffAccount(
+                email, lastName, firstName, middleInitial, suffix,
+                role, schoolId, List.of());
+    }
+
+    public StaffCreationResult createStaffAccount(
+            String email, String lastName, String firstName, String middleInitial, String suffix,
+            String role, String schoolId, List<Map<String, String>> assignedSections)
+            throws FirebaseAuthException, java.util.concurrent.ExecutionException, InterruptedException {
 
         if (staffAccountExists(email)) {
             throw new ConflictException("An account with this email already exists");
@@ -91,6 +101,9 @@ public class StaffProvisioningService {
         profile.put("createdAt", FieldValue.serverTimestamp());
         if (schoolId != null) {
             profile.put("schoolId", schoolId);
+        }
+        if ("teacher".equals(role) && assignedSections != null && !assignedSections.isEmpty()) {
+            profile.put("assignedSections", assignedSections);
         }
         firestore.collection("users").document(created.getUid()).set(profile).get();
 

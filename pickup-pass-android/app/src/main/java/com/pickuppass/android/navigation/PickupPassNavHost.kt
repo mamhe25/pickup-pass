@@ -820,6 +820,11 @@ fun PickupPassNavHost(
                 onBack = {
                     navController
                         .popBackStack()
+                },
+                onOpenAcademicStructure = {
+                    navController.navigate(
+                        Screen.SchoolAdminAcademicStructure.route
+                    )
                 }
             )
         }

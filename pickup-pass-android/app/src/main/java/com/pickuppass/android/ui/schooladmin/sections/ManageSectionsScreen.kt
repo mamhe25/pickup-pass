@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -197,6 +198,13 @@ private fun TeacherSectionsCard(
     var sectionMenuExpanded by remember { mutableStateOf(false) }
     var selectedSection by remember { mutableStateOf<GradeSection?>(null) }
 
+    val legacyCount = teacher.assignedSections.count { assigned ->
+        availableSections.none {
+            it.gradeLevel.equals(assigned.grade, ignoreCase = true) &&
+                it.sectionName.equals(assigned.section, ignoreCase = true)
+        }
+    }
+
     ElevatedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(Spacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -231,6 +239,36 @@ private fun TeacherSectionsCard(
 
             Spacer(Modifier.height(Spacing.sm))
 
+            if (legacyCount > 0) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(Spacing.sm),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Icon(
+                            Icons.Filled.WarningAmber,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(Spacing.xs))
+                        Text(
+                            legacyCount.toString() +
+                                " older assignment" +
+                                (if (legacyCount == 1) " is" else "s are") +
+                                " not in the current school-year setup. They can remain for legacy roster visibility, but cannot be assigned to new students.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+                Spacer(Modifier.height(Spacing.sm))
+            }
+
             if (teacher.assignedSections.isEmpty()) {
                 Text(
                     "No sections assigned. This teacher has no section-scoped roster assignment yet.",
@@ -239,18 +277,53 @@ private fun TeacherSectionsCard(
                 )
             } else {
                 teacher.assignedSections.forEachIndexed { index, chip ->
+                    val isCurrent = availableSections.any {
+                        it.gradeLevel.equals(chip.grade, ignoreCase = true) &&
+                            it.sectionName.equals(chip.section, ignoreCase = true)
+                    }
+
                     Surface(
                         shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.xs)
+                        color = if (isCurrent) {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.38f)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = Spacing.xs)
                     ) {
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    horizontal = Spacing.sm,
+                                    vertical = Spacing.xs
+                                ),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Grade ${chip.grade} → ${chip.section}", Modifier.weight(1f))
-                            IconButton(onClick = { onRequestRemove(index) }, modifier = Modifier.size(32.dp)) {
-                                Icon(Icons.Filled.Close, contentDescription = "Remove section", modifier = Modifier.size(18.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "Grade " + chip.grade + " → " + chip.section,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                if (!isCurrent) {
+                                    Text(
+                                        "Legacy / not in current setup",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                            IconButton(
+                                onClick = { onRequestRemove(index) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.Close,
+                                    contentDescription = "Remove section",
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
                     }
