@@ -38,6 +38,7 @@ import com.pickuppass.android.data.model.Student
 import com.pickuppass.android.ui.common.BrandedTitle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.theme.Spacing
 
@@ -101,10 +102,13 @@ fun StudentsScreen(
             )
         }
     ) { padding ->
-        Box(
+        PickupPassPullToRefresh(
+            refreshing = uiState.isRefreshing,
+            onRefresh = viewModel::load,
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
+                .fillMaxSize(),
+            enabled = !uiState.isLoading
         ) {
             when {
                 uiState.isLoading -> FullScreenLoading()

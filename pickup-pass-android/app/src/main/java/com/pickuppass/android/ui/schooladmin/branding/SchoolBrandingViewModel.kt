@@ -17,6 +17,7 @@ import javax.inject.Inject
 
 data class SchoolBrandingUiState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val schoolName: String = "",
     val logoUrl: String? = null,
     val plan: String = "trial",
@@ -41,17 +42,34 @@ class SchoolBrandingViewModel @Inject constructor(
     private val _signedOut = MutableStateFlow(false)
     val signedOut: StateFlow<Boolean> = _signedOut
 
+    private var loadInProgress = false
+    private var hasLoaded = false
+
     init {
-        load()
+        refresh()
     }
 
-    private fun load() {
+    fun refresh() {
+        if (loadInProgress) return
+        loadInProgress = true
+
         viewModelScope.launch {
-            val session = authRepository.currentSession()
-            if (session?.schoolId == null) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = "Session expired — please sign in again")
-                return@launch
-            }
+            try {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = !hasLoaded,
+                    isRefreshing = hasLoaded,
+                    error = null
+                )
+
+                val session = authRepository.currentSession()
+                if (session?.schoolId == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        error = "Session expired — please sign in again"
+                    )
+                    return@launch
+                }
 
             studentRepository.getSchool(session.schoolId)
                 .onSuccess { school ->
@@ -67,14 +85,21 @@ class SchoolBrandingViewModel @Inject constructor(
             when (val entitlements = schoolRepository.getEntitlements()) {
                 is ApiResult.Success -> _uiState.value = _uiState.value.copy(
                     isLoading = false,
+                    isRefreshing = false,
                     plan = entitlements.data.plan,
                     subscriptionStatus = entitlements.data.subscriptionStatus,
                     features = entitlements.data.features
                 )
                 is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
                     isLoading = false,
+                    isRefreshing = false,
                     error = entitlements.message
                 )
+            }
+
+                hasLoaded = true
+            } finally {
+                loadInProgress = false
             }
         }
     }

@@ -12,14 +12,12 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,6 +45,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -97,23 +96,6 @@ fun TeacherHomeScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = viewModel::refresh,
-                        enabled = !uiState.isLoading && !uiState.isRefreshing
-                    ) {
-                        if (uiState.isRefreshing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                Icons.Filled.Refresh,
-                                contentDescription = "Refresh dashboard"
-                            )
-                        }
-                    }
-
                     IconButton(onClick = onOpenNotifications) {
                         BadgedBox(
                             badge = {
@@ -147,10 +129,13 @@ fun TeacherHomeScreen(
             )
         }
     ) { padding ->
-        Box(
+        PickupPassPullToRefresh(
+            refreshing = uiState.isRefreshing,
+            onRefresh = viewModel::refresh,
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
+                .fillMaxSize(),
+            enabled = !uiState.isLoading
         ) {
             LazyColumn(
                 modifier = Modifier

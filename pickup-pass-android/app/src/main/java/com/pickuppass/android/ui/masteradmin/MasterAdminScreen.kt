@@ -10,7 +10,6 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,6 +33,7 @@ import com.pickuppass.android.data.model.MasterBackupItem
 import com.pickuppass.android.data.model.MasterRecoveryJobItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,9 +92,6 @@ fun MasterAdminAdvancedConsole(
                     IconButton(onClick = onOpenProfile) {
                         Icon(Icons.Filled.AccountCircle, contentDescription = "My profile")
                     }
-                    IconButton(onClick = { viewModel.signOut(); onSignedOut() }) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sign out")
-                    }
                 }
             )
         },
@@ -104,15 +101,27 @@ fun MasterAdminAdvancedConsole(
             }
         }
     ) { padding ->
-        if (state.loading) {
+        if (state.loading && state.schools.isEmpty()) {
             Box(Modifier.padding(padding).fillMaxSize()) { FullScreenLoading() }
             return@Scaffold
         }
-        LazyColumn(
-            modifier = Modifier.padding(padding).fillMaxSize(),
-            contentPadding = PaddingValues(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+
+        PickupPassPullToRefresh(
+            refreshing = state.loading,
+            onRefresh = {
+                if (!state.saving) {
+                    viewModel.load()
+                }
+            },
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
         ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(Spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+            ) {
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     MetricCard("Schools", state.totalSchools.toString(), Modifier.weight(1f))
@@ -134,9 +143,6 @@ fun MasterAdminAdvancedConsole(
                                     "Actionable subscription, billing, quota, and delivery risks across all tenants.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            }
-                            FilledTonalButton(onClick = { viewModel.refreshOperations() }, enabled = !state.saving && !state.operationsLoading) {
-                                Text("Refresh")
                             }
                         }
                         if (state.operationsLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -288,9 +294,6 @@ fun MasterAdminAdvancedConsole(
                             Text("Security Center", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                             Text("Privacy-preserving authentication, session, and privileged-action monitoring.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        TextButton(onClick = { viewModel.loadSecurity() }, enabled = !state.securityLoading) {
-                            Text(if (state.securityLoading) "Loading…" else "Refresh")
-                        }
                     }
                 }
                 item {
@@ -341,9 +344,6 @@ fun MasterAdminAdvancedConsole(
                                 "Native Firestore protection, retention guardrails, and isolated recovery drills.",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
-                        TextButton(onClick = { viewModel.loadDisasterRecovery() }, enabled = !state.disasterRecoveryLoading) {
-                            Text(if (state.disasterRecoveryLoading) "Loading…" else "Refresh")
                         }
                     }
                 }
@@ -523,6 +523,7 @@ fun MasterAdminAdvancedConsole(
                         viewModel.loadSchoolLaunchReadiness(school.schoolId)
                     }
                 )
+            }
             }
         }
     }

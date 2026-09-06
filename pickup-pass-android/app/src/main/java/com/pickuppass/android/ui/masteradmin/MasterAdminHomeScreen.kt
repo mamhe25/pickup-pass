@@ -5,11 +5,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
@@ -24,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.MasterSchoolItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.theme.Spacing
 
 private enum class MasterAdminSection(val label: String) {
@@ -72,26 +71,29 @@ fun MasterAdminScreen(
                     IconButton(onClick = onOpenProfile) {
                         Icon(Icons.Filled.AccountCircle, contentDescription = "My profile")
                     }
-                    IconButton(onClick = viewModel::load, enabled = !state.loading && !state.saving) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
-                    }
-                    IconButton(onClick = { viewModel.signOut(); onSignedOut() }) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sign out")
-                    }
                 }
             )
         }
     ) { padding ->
-        if (state.loading) {
+        if (state.loading && state.schools.isEmpty()) {
             Box(Modifier.padding(padding).fillMaxSize()) { FullScreenLoading() }
             return@Scaffold
         }
 
-        Column(
+        PickupPassPullToRefresh(
+            refreshing = state.loading,
+            onRefresh = {
+                if (!state.saving) {
+                    viewModel.load()
+                }
+            },
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
         ) {
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
             LazyRow(
                 contentPadding = PaddingValues(horizontal = Spacing.md),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
@@ -140,15 +142,14 @@ fun MasterAdminScreen(
                 )
                 MasterAdminSection.OPERATIONS -> MasterOperations(
                     state,
-                    onRefresh = viewModel::refreshOperations,
                     onAdvanced = { section = MasterAdminSection.ADVANCED }
                 )
                 MasterAdminSection.SECURITY -> MasterSecurity(
                     state,
-                    onRefresh = { viewModel.loadSecurity() },
                     onAdvanced = { section = MasterAdminSection.ADVANCED }
                 )
                 MasterAdminSection.ADVANCED -> Unit
+            }
             }
         }
     }
@@ -268,7 +269,6 @@ private fun MasterSchools(
 @Composable
 private fun MasterOperations(
     state: MasterAdminUiState,
-    onRefresh: () -> Unit,
     onAdvanced: () -> Unit
 ) {
     val operations = state.operations
@@ -283,10 +283,6 @@ private fun MasterOperations(
                     Text("Operations health", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("Billing, quota and delivery risk across tenants.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                FilledTonalButton(
-                    onClick = onRefresh,
-                    enabled = !state.saving && !state.operationsLoading
-                ) { Text(if (state.operationsLoading) "Refreshing…" else "Refresh") }
             }
         }
 
@@ -342,7 +338,6 @@ private fun MasterOperations(
 @Composable
 private fun MasterSecurity(
     state: MasterAdminUiState,
-    onRefresh: () -> Unit,
     onAdvanced: () -> Unit
 ) {
     val security = state.security
@@ -356,9 +351,6 @@ private fun MasterSecurity(
                 Column(Modifier.weight(1f)) {
                     Text("Security center", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("Authentication, session and privileged-action monitoring.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                FilledTonalButton(onClick = onRefresh, enabled = !state.securityLoading) {
-                    Text(if (state.securityLoading) "Refreshing…" else "Refresh")
                 }
             }
         }

@@ -16,6 +16,7 @@ import javax.inject.Inject
 
 data class StudentsUiState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val students: List<Student> = emptyList(),
     val error: String? = null,
     val parentDisplayName: String = "",
@@ -34,6 +35,7 @@ class StudentsViewModel @Inject constructor(
     val uiState: StateFlow<StudentsUiState> = _uiState
 
     private var loadInProgress = false
+    private var hasLoaded = false
 
     init {
         load()
@@ -45,12 +47,17 @@ class StudentsViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+                _uiState.value = _uiState.value.copy(
+                    isLoading = !hasLoaded,
+                    isRefreshing = hasLoaded,
+                    error = null
+                )
 
                 val session = authRepository.currentSession()
                 if (session == null || session.schoolId == null) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        isRefreshing = false,
                         error = "Session expired — please sign in again"
                     )
                     return@launch
@@ -81,6 +88,7 @@ class StudentsViewModel @Inject constructor(
                     .onSuccess { students ->
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
+                            isRefreshing = false,
                             students = students.sortedBy { it.fullName.lowercase() },
                             school = school,
                             unreadNotificationCount = unread,
@@ -91,19 +99,21 @@ class StudentsViewModel @Inject constructor(
                     .onFailure {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
+                            isRefreshing = false,
                             school = school,
                             unreadNotificationCount = unread,
                             parentDisplayName = greetingName,
                             error = "Couldn't load your students"
                         )
                     }
+
+                hasLoaded = true
             } finally {
                 loadInProgress = false
             }
         }
     }
 
-    fun signOut() = authRepository.signOut()
 }
 
 /**

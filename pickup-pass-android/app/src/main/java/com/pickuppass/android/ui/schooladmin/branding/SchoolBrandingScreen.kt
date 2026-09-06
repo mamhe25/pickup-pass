@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -28,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
@@ -61,13 +61,7 @@ fun SchoolBrandingScreen(
     onSignedOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val signedOut by viewModel.signedOut.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var confirmSignOut by remember { mutableStateOf(false) }
-
-    LaunchedEffect(signedOut) {
-        if (signedOut) onSignedOut()
-    }
 
     val pickImage = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
@@ -97,12 +91,6 @@ fun SchoolBrandingScreen(
                             contentDescription = "My profile"
                         )
                     }
-                    IconButton(onClick = { confirmSignOut = true }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Logout,
-                            contentDescription = "Sign out"
-                        )
-                    }
                 }
             )
         }
@@ -118,7 +106,13 @@ fun SchoolBrandingScreen(
             return@Scaffold
         }
 
-        Box(
+        PickupPassPullToRefresh(
+            refreshing = uiState.isRefreshing,
+            onRefresh = {
+                if (!uiState.isUploading) {
+                    viewModel.refresh()
+                }
+            },
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
@@ -380,32 +374,6 @@ fun SchoolBrandingScreen(
         }
     }
 
-    if (confirmSignOut) {
-        AlertDialog(
-            onDismissRequest = { confirmSignOut = false },
-            title = { Text("Sign out of PickupPass?") },
-            text = {
-                Text(
-                    "This device will stop receiving notifications for this account until you sign in again."
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        confirmSignOut = false
-                        viewModel.signOut()
-                    }
-                ) {
-                    Text("Sign out")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmSignOut = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
 }
 
 @Composable
