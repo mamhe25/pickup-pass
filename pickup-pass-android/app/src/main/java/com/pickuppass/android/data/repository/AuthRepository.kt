@@ -1,5 +1,6 @@
 package com.pickuppass.android.data.repository
 
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.pickuppass.android.telemetry.AppTelemetry
 import kotlinx.coroutines.tasks.await
@@ -60,6 +61,85 @@ class AuthRepository @Inject constructor(
             }
         ) { "Password-reset request timed out" }
         Unit
+    }
+
+    fun currentEmail(): String = firebaseAuth.currentUser?.email.orEmpty()
+
+    suspend fun refreshCurrentUser(): Result<String> = runCatching {
+        val user = requireNotNull(firebaseAuth.currentUser) {
+            "Session expired"
+        }
+
+        val completed = withTimeoutOrNull(AUTH_OPERATION_TIMEOUT_MS) {
+            user.reload().await()
+            true
+        } ?: false
+
+        check(completed) { "Account refresh timed out" }
+
+        firebaseAuth.currentUser?.email.orEmpty()
+    }
+
+    suspend fun requestEmailChange(
+        currentPassword: String,
+        newEmail: String
+    ): Result<Unit> = runCatching {
+        val user = requireNotNull(firebaseAuth.currentUser) {
+            "Session expired"
+        }
+        val currentEmail = requireNotNull(user.email) {
+            "This account does not have an email sign-in address"
+        }
+
+        val credential = EmailAuthProvider.getCredential(
+            currentEmail,
+            currentPassword
+        )
+
+        val reauthenticated = withTimeoutOrNull(AUTH_OPERATION_TIMEOUT_MS) {
+            user.reauthenticate(credential).await()
+            true
+        } ?: false
+
+        check(reauthenticated) { "Reauthentication timed out" }
+
+        val requested = withTimeoutOrNull(AUTH_OPERATION_TIMEOUT_MS) {
+            user.verifyBeforeUpdateEmail(newEmail.trim()).await()
+            true
+        } ?: false
+
+        check(requested) { "Email-change request timed out" }
+    }
+
+    suspend fun changePassword(
+        currentPassword: String,
+        newPassword: String
+    ): Result<Unit> = runCatching {
+        val user = requireNotNull(firebaseAuth.currentUser) {
+            "Session expired"
+        }
+        val currentEmail = requireNotNull(user.email) {
+            "This account does not have an email sign-in address"
+        }
+
+        val credential = EmailAuthProvider.getCredential(
+            currentEmail,
+            currentPassword
+        )
+
+        val reauthenticated = withTimeoutOrNull(AUTH_OPERATION_TIMEOUT_MS) {
+            user.reauthenticate(credential).await()
+            true
+        } ?: false
+
+        check(reauthenticated) { "Reauthentication timed out" }
+
+        val updated = withTimeoutOrNull(AUTH_OPERATION_TIMEOUT_MS) {
+            user.updatePassword(newPassword).await()
+            true
+        } ?: false
+
+        check(updated) { "Password update timed out" }
     }
 
     fun signOut() {

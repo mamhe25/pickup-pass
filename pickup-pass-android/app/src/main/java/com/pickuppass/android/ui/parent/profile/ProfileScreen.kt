@@ -39,6 +39,7 @@ import com.pickuppass.android.ui.theme.Spacing
 fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
     onBack: () -> Unit,
+    onOpenAccountSecurity: () -> Unit,
     onOpenDevices: () -> Unit,
     onSignedOut: () -> Unit
 ) {
@@ -135,7 +136,10 @@ fun ProfileScreen(
                     isLoading = uiState.isLoading
                 )
 
-                SecurityCard(onOpenDevices = onOpenDevices)
+                SecurityCard(
+                    onOpenAccountSecurity = onOpenAccountSecurity,
+                    onOpenDevices = onOpenDevices
+                )
 
                 SignOutCard(
                     onSignOut = { showSignOutConfirmation = true }
@@ -457,63 +461,79 @@ private fun ProfileDetailRow(
 
 @Composable
 private fun SecurityCard(
+    onOpenAccountSecurity: () -> Unit,
     onOpenDevices: () -> Unit
 ) {
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(Spacing.lg),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
-            Surface(
-                modifier = Modifier.size(44.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    modifier = Modifier.size(44.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
                 ) {
-                    Icon(
-                        Icons.Filled.Security,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Filled.Security,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(Spacing.md))
+
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Account security",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Manage your sign-in email and password, or review devices that have used this account.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            Spacer(Modifier.width(Spacing.md))
-
-            Column(Modifier.weight(1f)) {
-                Text(
-                    "Account security",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    "Review devices that have used this PickupPass account and revoke sessions you no longer trust.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(Modifier.width(Spacing.sm))
-
-            OutlinedButton(
-                onClick = onOpenDevices,
-                modifier = Modifier.heightIn(min = 44.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
-                Icon(
-                    Icons.Filled.Devices,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text("Devices")
+                FilledTonalButton(
+                    onClick = onOpenAccountSecurity,
+                    modifier = Modifier.weight(1f).heightIn(min = 44.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Security,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Sign-in")
+                }
+
+                OutlinedButton(
+                    onClick = onOpenDevices,
+                    modifier = Modifier.weight(1f).heightIn(min = 44.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Devices,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Devices")
+                }
             }
         }
     }

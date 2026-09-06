@@ -11,6 +11,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pickuppass.android.session.SessionGuardViewModel
+import com.pickuppass.android.ui.account.AccountProfileScreen
+import com.pickuppass.android.ui.account.AccountSecurityScreen
 import com.pickuppass.android.ui.login.LoginScreen
 import com.pickuppass.android.ui.masteradmin.MasterAdminScreen
 import com.pickuppass.android.ui.onboarding.OnboardingPreferences
@@ -225,12 +227,48 @@ fun PickupPassNavHost(
             )
         }
 
+        // ---- Shared account flow ----
+
+        composable(
+            Screen.AccountProfile.route
+        ) {
+            AccountProfileScreen(
+                onBack = {
+                    navController.popBackStack()
+                },
+                onOpenSecurity = {
+                    navController.navigate(
+                        Screen.AccountSecurity.route
+                    )
+                },
+                onSignedOut = {
+                    navController
+                        .navigateToLoginClearingBackStack()
+                }
+            )
+        }
+
+        composable(
+            Screen.AccountSecurity.route
+        ) {
+            AccountSecurityScreen(
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
         // ---- Master admin SaaS flow ----
 
         composable(
             Screen.MasterAdminHome.route
         ) {
             MasterAdminScreen(
+                onOpenProfile = {
+                    navController.navigate(
+                        Screen.AccountProfile.route
+                    )
+                },
                 onSignedOut = {
                     navController
                         .navigateToLoginClearingBackStack()
@@ -282,6 +320,11 @@ fun PickupPassNavHost(
                 onBack = {
                     navController
                         .popBackStack()
+                },
+                onOpenAccountSecurity = {
+                    navController.navigate(
+                        Screen.AccountSecurity.route
+                    )
                 },
                 onOpenDevices = {
                     navController.navigate(
@@ -408,6 +451,11 @@ fun PickupPassNavHost(
                 onGoToOperations = {
                     navController.navigate(
                         Screen.TeacherOperations.route
+                    )
+                },
+                onGoToProfile = {
+                    navController.navigate(
+                        Screen.AccountProfile.route
                     )
                 },
                 onSignOut = {
@@ -673,6 +721,11 @@ fun PickupPassNavHost(
                 onGoToLaunchReadiness = {
                     navController.navigate(
                         Screen.SchoolAdminLaunchReadiness.route
+                    )
+                },
+                onOpenProfile = {
+                    navController.navigate(
+                        Screen.AccountProfile.route
                     )
                 },
                 onSignedOut = {
