@@ -16,6 +16,7 @@ import { auth, db, getSchoolBranding } from "./firebase-init.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { mountThemeToggle, enhancePortal } from './shell.js';
+import { mountAccountLink } from './account-link.js';
 
 const NAV_ITEMS = [
   { key: "home",      label: "Dashboard",  href: "/school-admin/dashboard.html",          icon: iconHome },
@@ -63,6 +64,7 @@ function render(mount) {
   `;
 
   mountThemeToggle(mount.querySelector("[data-pp-theme-toggle]"));
+  mountAccountLink(mount);
   enhancePortal();
 
   mount.querySelector("#signOutBtn").addEventListener("click", async () => {

@@ -22,6 +22,7 @@ import { auth, db, getSchoolBranding } from "./firebase-init.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { mountThemeToggle, enhancePortal } from './shell.js';
+import { mountAccountLink } from './account-link.js';
 
 // Primary destinations, in the order a teacher's day tends to flow.
 const NAV_ITEMS = [
@@ -67,6 +68,7 @@ function render(mount) {
   `;
 
   mountThemeToggle(mount.querySelector("[data-pp-theme-toggle]"));
+  mountAccountLink(mount);
   enhancePortal();
 
   const signOutBtn = mount.querySelector("#signOutBtn");

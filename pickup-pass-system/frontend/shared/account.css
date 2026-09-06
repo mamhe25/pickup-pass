@@ -1,0 +1,16 @@
+body { margin: 0; background: var(--color-surface, #f5f7f6); color: var(--color-ink, #162d25); font-family: Inter, system-ui, sans-serif; }
+.account-page { max-width: 660px; margin: 0 auto; padding: 32px 20px 64px; }
+.account-page a { color: #047857; }
+.account-page p { line-height: 1.6; }
+.account-card { background: white; border: 1px solid #dce5df; border-radius: 16px; padding: 24px; margin: 24px 0; }
+.account-card h2 { margin-top: 0; }
+fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 10px; min-width: 0; }
+label { font-weight: 600; margin-top: 8px; }
+input, button { font: inherit; padding: 12px; border-radius: 8px; }
+input { border: 1px solid #899b91; width: 100%; box-sizing: border-box; }
+button { border: 0; background: #047857; color: white; cursor: pointer; margin-top: 12px; }
+button:disabled, fieldset:disabled button { opacity: .55; cursor: wait; }
+input:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid #34d399; outline-offset: 3px; }
+.form-status { overflow-wrap: anywhere; }
+[data-error="true"] { color: #b91c1c; }
+#passwordHelp { margin: 0; font-size: .875rem; }

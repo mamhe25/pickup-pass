@@ -4,6 +4,7 @@ import {
   signOut
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { mountThemeToggle, enhancePortal } from './shell.js';
+import { mountAccountLink } from './account-link.js';
 
 const ITEMS = [
   {
@@ -84,6 +85,7 @@ function render(mount) {
     mount.querySelector('[data-pp-theme-toggle]')
   );
 
+  mountAccountLink(mount);
   enhancePortal();
 
   mount.querySelector('#masterSignOut').onclick = async () => {
