@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -39,6 +40,7 @@ import com.pickuppass.android.ui.theme.Spacing
 @Composable
 fun MasterAdminAdvancedConsole(
     viewModel: MasterAdminViewModel = hiltViewModel(),
+    onOpenProfile: () -> Unit,
     onSignedOut: () -> Unit,
     onBackToOverview: () -> Unit = {}
 ) {
@@ -87,6 +89,9 @@ fun MasterAdminAdvancedConsole(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onOpenProfile) {
+                        Icon(Icons.Filled.AccountCircle, contentDescription = "My profile")
+                    }
                     IconButton(onClick = { viewModel.signOut(); onSignedOut() }) {
                         Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Sign out")
                     }

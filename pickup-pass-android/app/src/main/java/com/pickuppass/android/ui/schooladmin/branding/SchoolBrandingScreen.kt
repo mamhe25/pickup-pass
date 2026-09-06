@@ -57,6 +57,7 @@ fun SchoolBrandingScreen(
     onGoToBilling: () -> Unit,
     onGoToDataExport: () -> Unit,
     onGoToLaunchReadiness: () -> Unit,
+    onOpenProfile: () -> Unit,
     onSignedOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -90,6 +91,12 @@ fun SchoolBrandingScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onOpenProfile) {
+                        Icon(
+                            Icons.Filled.AccountCircle,
+                            contentDescription = "My profile"
+                        )
+                    }
                     IconButton(onClick = { confirmSignOut = true }) {
                         Icon(
                             Icons.AutoMirrored.Filled.Logout,

@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Refresh
@@ -37,6 +38,7 @@ private enum class MasterAdminSection(val label: String) {
 @Composable
 fun MasterAdminScreen(
     viewModel: MasterAdminViewModel = hiltViewModel(),
+    onOpenProfile: () -> Unit,
     onSignedOut: () -> Unit
 ) {
     var section by remember { mutableStateOf(MasterAdminSection.OVERVIEW) }
@@ -44,6 +46,7 @@ fun MasterAdminScreen(
     if (section == MasterAdminSection.ADVANCED) {
         MasterAdminAdvancedConsole(
             viewModel = viewModel,
+            onOpenProfile = onOpenProfile,
             onSignedOut = onSignedOut,
             onBackToOverview = { section = MasterAdminSection.OVERVIEW }
         )
@@ -66,6 +69,9 @@ fun MasterAdminScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onOpenProfile) {
+                        Icon(Icons.Filled.AccountCircle, contentDescription = "My profile")
+                    }
                     IconButton(onClick = viewModel::load, enabled = !state.loading && !state.saving) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
                     }

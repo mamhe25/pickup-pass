@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -72,6 +73,7 @@ fun ScannerScreen(
     onGoToNotifications: () -> Unit,
     onGoToBroadcast: () -> Unit,
     onGoToOperations: () -> Unit,
+    onGoToProfile: () -> Unit,
     onSignOut: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -138,6 +140,17 @@ fun ScannerScreen(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("My profile") },
+                                leadingIcon = {
+                                    Icon(Icons.Filled.AccountCircle, contentDescription = null)
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onGoToProfile()
+                                }
+                            )
+                            HorizontalDivider()
                             DropdownMenuItem(
                                 text = { Text("Notifications") },
                                 leadingIcon = {

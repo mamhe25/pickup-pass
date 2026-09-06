@@ -15,6 +15,12 @@ sealed class Screen(
     data object Login :
         Screen("login")
 
+    data object AccountProfile :
+        Screen("account/profile")
+
+    data object AccountSecurity :
+        Screen("account/security")
+
     data object ParentStudents :
         Screen("parent/students")
 
