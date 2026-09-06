@@ -75,6 +75,7 @@ class StudentsViewModel @Inject constructor(
                 val school = schoolDeferred.await().getOrNull()
                 val unread = unreadDeferred.await().getOrNull() ?: 0
                 val profile = profileDeferred.await().getOrNull()
+                val greetingName = profile?.displayName.orEmpty().toGreetingName()
 
                 studentsResult
                     .onSuccess { students ->
@@ -83,7 +84,7 @@ class StudentsViewModel @Inject constructor(
                             students = students.sortedBy { it.fullName.lowercase() },
                             school = school,
                             unreadNotificationCount = unread,
-                            parentDisplayName = profile?.displayName.orEmpty(),
+                            parentDisplayName = greetingName,
                             error = null
                         )
                     }
@@ -92,7 +93,7 @@ class StudentsViewModel @Inject constructor(
                             isLoading = false,
                             school = school,
                             unreadNotificationCount = unread,
-                            parentDisplayName = profile?.displayName.orEmpty(),
+                            parentDisplayName = greetingName,
                             error = "Couldn't load your students"
                         )
                     }
@@ -103,4 +104,29 @@ class StudentsViewModel @Inject constructor(
     }
 
     fun signOut() = authRepository.signOut()
+}
+
+/**
+ * PickupPass stores people in the canonical display format
+ * "Lastname, Firstname M. Suffix" for sorting and administration.
+ *
+ * The parent dashboard is conversational, so its greeting should use the
+ * given name instead. This also supports older profiles stored as
+ * "Firstname Lastname" and single-name profiles.
+ */
+private fun String.toGreetingName(): String {
+    val normalized = trim()
+    if (normalized.isBlank()) return ""
+
+    val givenNamePart = if (',' in normalized) {
+        normalized.substringAfter(',').trim()
+    } else {
+        normalized
+    }
+
+    return givenNamePart
+        .substringBefore(' ')
+        .trim()
+        .trim(',', '.')
+        .ifBlank { normalized.substringBefore(' ').trim(',', '.') }
 }
