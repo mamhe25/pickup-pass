@@ -41,6 +41,18 @@ test("login routes every supported role to its protected home", async () => {
     "legacy completion CSS must not reintroduce the old green auth brand"
   );
 
+  const portalCss = await shared("portal.css");
+  assert.match(
+    portalCss,
+    /\.pp-auth-input\s*\{[\s\S]*?box-sizing:\s*border-box/,
+    "login inputs must stay within the auth form column"
+  );
+  assert.match(
+    portalCss,
+    /\.pp-auth-page\s*\{[\s\S]*?height:\s*100svh[\s\S]*?overflow:\s*hidden/,
+    "login page must remain viewport-contained"
+  );
+
   const routes = {
     parent: "./parent/students.html",
     teacher: "./teacher/scanner.html",
