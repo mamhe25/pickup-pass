@@ -267,14 +267,26 @@ test("parent guardian navigation is student-scoped and account security lives un
     shared("account.js"),
   ]);
 
-  assert.match(nav, /label:\s*"Guardians"[\s\S]*?href:\s*"\.\/guardians\.html"/);
+  assert.doesNotMatch(nav, /label:\s*"Guardians"/);
+  assert.doesNotMatch(nav, /label:\s*"Devices"/);
   assert.doesNotMatch(nav, /mountAccountLink/);
   assert.match(students, /Manage guardians/);
-  assert.match(overview, /Guardian access by student/);
-  assert.match(overview, /manage-guardians\.html\?studentId=/);
+  assert.match(overview, /location\.replace\("\.\/students\.html"\)/);
   assert.match(manager, /Managing guardian access for/);
+  assert.match(manager, /← My Students/);
   assert.match(profile, /\.\.\/account\.html\?return=parent\/profile\.html/);
   assert.match(profile, /Manage security/);
+  assert.match(profile, /id="devices"/);
+  assert.match(profile, /\/session\/devices/);
+  assert.match(profile, /Sign out other devices/);
+  assert.doesNotMatch(profile, /href="\.\/devices\.html"/);
   assert.match(account, /new Set\(\["parent\/profile\.html"\]\)/);
   assert.match(account, /Back to My profile/);
+});
+
+
+test("legacy parent devices route redirects into My Profile", async () => {
+  const devices = await page("parent/devices.html");
+  assert.match(devices, /profile\.html#devices/);
+  assert.match(devices, /location\.replace\("\.\/profile\.html#devices"\)/);
 });

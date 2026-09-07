@@ -25,8 +25,6 @@ import { mountThemeToggle, enhancePortal } from './shell.js';
 
 const NAV_ITEMS = [
   { key: "students",      label: "My Students",   href: "./students.html",          icon: iconUsers },
-  { key: "guardians",     label: "Guardians",     href: "./guardians.html",         icon: iconShield },
-  { key: "devices",       label: "Devices",       href: "./devices.html",           icon: iconDevice },
   { key: "notifications", label: "Notifications", href: "./notifications.html",     icon: iconBell, badge: true },
   { key: "profile",       label: "My Profile",    href: "./profile.html",           icon: iconUser },
 ];
@@ -132,14 +130,6 @@ function svg(paths) {
 }
 function iconUsers() { return svg('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'); }
 function iconBell() { return svg('<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>'); }
-function iconDevice() { return svg('<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 18h6"/>'); }
 function iconUser() { return svg('<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>'); }
-function iconShield() {
-  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z" fill="white" fill-opacity="0.2"/>
-    <path d="M9.5 12.2l1.8 1.8 3.5-3.7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`;
-}
-
 const mount = document.getElementById("parentNav");
 if (mount) render(mount);

@@ -125,9 +125,6 @@
             class="pp-btn pp-btn--primary">
             Manage security
           </a>
-          <a href="./devices.html" class="pp-btn pp-btn--ghost">
-            Devices
-          </a>
         </div>
       </div>
 
@@ -147,6 +144,79 @@
     </section>
   </div>
 
+  <section id="devices" class="pp-profile-device-section" aria-labelledby="devicesTitle">
+    <div class="pp-profile-device-section__head">
+      <div>
+        <p class="pp-profile-device-section__eyebrow">Account access</p>
+        <h2 id="devicesTitle">Signed-in devices</h2>
+        <p>
+          Review phones and browsers that have used this account. Revoke anything
+          lost, shared, or unfamiliar without changing your password.
+        </p>
+      </div>
+
+      <div class="pp-profile-device-section__actions">
+        <button
+          id="profileRevokeOthersBtn"
+          type="button"
+          class="pp-btn pp-btn--ghost hidden">
+          Sign out other devices
+        </button>
+        <button
+          id="profileDeviceRefreshBtn"
+          type="button"
+          class="pp-btn pp-btn--ghost">
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <div class="pp-profile-device-metrics" aria-label="Device session summary">
+      <div>
+        <strong id="profileActiveDeviceCount">—</strong>
+        <span>Active</span>
+      </div>
+      <div>
+        <strong id="profileOtherDeviceCount">—</strong>
+        <span>Other</span>
+      </div>
+      <div>
+        <strong id="profileRecordedDeviceCount">—</strong>
+        <span>Recorded</span>
+      </div>
+    </div>
+
+    <div id="profileDeviceNotice" class="pp-alert pp-alert--info hidden"></div>
+
+    <div id="profileDeviceLoading" class="pp-profile-device-loading">
+      Loading device sessions…
+    </div>
+
+    <div
+      id="profileDeviceList"
+      class="pp-profile-device-list hidden"
+      aria-live="polite"></div>
+
+    <div id="profileDeviceEmpty" class="pp-profile-device-empty hidden">
+      <strong>No device sessions recorded</strong>
+      <p>Once PickupPass records a session, it will appear here for review.</p>
+    </div>
+
+    <div id="profileDeviceError" class="pp-profile-device-error hidden" role="alert">
+      <strong>Device sessions are unavailable.</strong>
+      <p id="profileDeviceErrorDetail">Check your connection and try again.</p>
+      <button id="profileDeviceRetryBtn" type="button" class="pp-btn pp-btn--ghost">
+        Try again
+      </button>
+    </div>
+
+    <p class="pp-profile-device-section__footnote">
+      Revoking a device blocks authenticated PickupPass requests from that session.
+      If you believe someone else knows your password, use Manage security above
+      to change it as well.
+    </p>
+  </section>
+
   <aside class="pp-profile-safety">
     Your profile photo supports identity verification only. Student release
     still requires a valid PickupPass and staff confirmation.
@@ -154,7 +224,12 @@
 </main>
 
 <script type="module">
-import { auth, db } from "../shared/firebase-init.js";
+import {
+  auth,
+  db,
+  showToast,
+  setSubmitButtonBusy
+} from "../shared/firebase-init.js";
 
 import {
   doc,
@@ -165,6 +240,13 @@ import {
 import {
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+import {
+  apiJson,
+  fmtDate,
+  escapeHtml,
+  confirmAction
+} from "../shared/portal.js";
 
 const ui = {
   heroName: document.getElementById("heroName"),
@@ -177,10 +259,24 @@ const ui = {
   preview: document.getElementById("preview"),
   placeholder: document.getElementById("placeholder"),
   photoBusy: document.getElementById("photoBusy"),
-  uploadStatus: document.getElementById("uploadStatus")
+  uploadStatus: document.getElementById("uploadStatus"),
+  deviceActiveCount: document.getElementById("profileActiveDeviceCount"),
+  deviceOtherCount: document.getElementById("profileOtherDeviceCount"),
+  deviceRecordedCount: document.getElementById("profileRecordedDeviceCount"),
+  deviceRevokeOthers: document.getElementById("profileRevokeOthersBtn"),
+  deviceRefresh: document.getElementById("profileDeviceRefreshBtn"),
+  deviceNotice: document.getElementById("profileDeviceNotice"),
+  deviceLoading: document.getElementById("profileDeviceLoading"),
+  deviceList: document.getElementById("profileDeviceList"),
+  deviceEmpty: document.getElementById("profileDeviceEmpty"),
+  deviceError: document.getElementById("profileDeviceError"),
+  deviceErrorDetail: document.getElementById("profileDeviceErrorDetail"),
+  deviceRetry: document.getElementById("profileDeviceRetryBtn")
 };
 
 let currentUser = null;
+let deviceSessions = [];
+let deviceSessionsLoaded = false;
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) return;
@@ -189,6 +285,8 @@ onAuthStateChanged(auth, async (user) => {
 
   ui.heroEmail.textContent = user.email || "Signed-in parent";
   ui.profileEmail.textContent = user.email || "Not available";
+
+  loadDeviceSessions();
 
   try {
     const userSnap = await getDoc(
@@ -323,6 +421,225 @@ function setStatus(message, type = "neutral") {
     ui.uploadStatus.classList.add(
       "pp-profile-status--error"
     );
+  }
+}
+
+async function loadDeviceSessions() {
+  setDeviceLoading(true);
+  ui.deviceNotice.classList.add("hidden");
+
+  try {
+    const data = await apiJson("/session/devices");
+    deviceSessions = data.devices || [];
+    deviceSessionsLoaded = true;
+    renderDeviceSessions();
+  } catch (error) {
+    deviceSessions = [];
+    deviceSessionsLoaded = false;
+    showDeviceError(error);
+  } finally {
+    setDeviceLoading(false);
+  }
+}
+
+function renderDeviceSessions() {
+  const active = deviceSessions.filter(device => device.active);
+  const otherActive = active.filter(device => !device.current);
+
+  ui.deviceActiveCount.textContent = String(active.length);
+  ui.deviceOtherCount.textContent = String(otherActive.length);
+  ui.deviceRecordedCount.textContent = String(deviceSessions.length);
+
+  ui.deviceRevokeOthers.classList.toggle(
+    "hidden",
+    otherActive.length === 0
+  );
+
+  ui.deviceError.classList.add("hidden");
+
+  if (!deviceSessions.length) {
+    ui.deviceList.classList.add("hidden");
+    ui.deviceEmpty.classList.remove("hidden");
+    return;
+  }
+
+  ui.deviceEmpty.classList.add("hidden");
+  ui.deviceList.classList.remove("hidden");
+  ui.deviceList.innerHTML = "";
+
+  deviceSessions.forEach(device => {
+    ui.deviceList.appendChild(createProfileDeviceCard(device));
+  });
+}
+
+function createProfileDeviceCard(device) {
+  const card = document.createElement("article");
+  card.className =
+    `pp-profile-device-card${device.current ? " pp-profile-device-card--current" : ""}`;
+
+  const status =
+    `<span class="pp-status ${device.active ? "pp-status--success" : ""}">
+      ${device.active ? "Active" : "Signed out"}
+    </span>`;
+
+  const current =
+    device.current
+      ? '<span class="pp-status pp-status--info">This device</span>'
+      : "";
+
+  const action =
+    device.active
+      ? `<button
+          type="button"
+          class="pp-btn pp-btn--ghost profile-revoke-device"
+          data-id="${escapeHtml(device.deviceId || "")}">
+          ${device.current ? "Sign out this device" : "Sign out device"}
+        </button>`
+      : "";
+
+  card.innerHTML = `
+    <div class="pp-profile-device-card__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="7" y="2" width="10" height="20" rx="2"/>
+        <path d="M11 18h2"/>
+      </svg>
+    </div>
+
+    <div class="pp-profile-device-card__body">
+      <h3>${escapeHtml(device.deviceName || "Unknown device")}</h3>
+      <div class="pp-profile-device-card__badges">
+        ${status}${current}
+      </div>
+      <dl class="pp-profile-device-card__meta">
+        <div><dt>App version</dt><dd>${escapeHtml(device.clientVersion || "—")}</dd></div>
+        <div><dt>Last seen</dt><dd>${escapeHtml(fmtDate(device.lastSeenAt))}</dd></div>
+        ${device.createdAt
+          ? `<div><dt>Registered</dt><dd>${escapeHtml(fmtDate(device.createdAt))}</dd></div>`
+          : ""}
+        ${!device.active && device.revokedAt
+          ? `<div><dt>Signed out</dt><dd>${escapeHtml(fmtDate(device.revokedAt))}</dd></div>`
+          : ""}
+      </dl>
+    </div>
+
+    <div class="pp-profile-device-card__actions">
+      ${action}
+    </div>
+  `;
+
+  card
+    .querySelector(".profile-revoke-device")
+    ?.addEventListener("click", event => {
+      revokeProfileDevice(device, event.currentTarget);
+    });
+
+  return card;
+}
+
+async function revokeProfileDevice(device, button) {
+  const message = device.current
+    ? "Sign out this device? You will need to sign in again."
+    : "Sign out this device session? It will immediately lose authenticated PickupPass access.";
+
+  if (!confirmAction(message)) return;
+
+  setSubmitButtonBusy(button, true, "Signing out…");
+
+  try {
+    await apiJson(
+      `/session/devices/${encodeURIComponent(device.deviceId)}/revoke`,
+      { method: "POST" }
+    );
+
+    showToast(
+      device.current
+        ? "This device was signed out."
+        : "Device session revoked."
+    );
+
+    await loadDeviceSessions();
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    if (button.isConnected) {
+      setSubmitButtonBusy(button, false);
+    }
+  }
+}
+
+ui.deviceRevokeOthers.addEventListener("click", async () => {
+  if (
+    !deviceSessionsLoaded ||
+    !confirmAction(
+      "Sign out every other active device? This device will stay signed in."
+    )
+  ) {
+    return;
+  }
+
+  setSubmitButtonBusy(
+    ui.deviceRevokeOthers,
+    true,
+    "Signing out…"
+  );
+
+  try {
+    const response = await apiJson(
+      "/session/devices/revoke-others",
+      { method: "POST" }
+    );
+
+    showToast(
+      `${response.revokedCount || 0} other device session(s) revoked.`
+    );
+
+    await loadDeviceSessions();
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    setSubmitButtonBusy(ui.deviceRevokeOthers, false);
+  }
+});
+
+ui.deviceRefresh.addEventListener("click", loadDeviceSessions);
+ui.deviceRetry.addEventListener("click", loadDeviceSessions);
+
+function setDeviceLoading(isLoading) {
+  ui.deviceRefresh.disabled = isLoading;
+
+  if (isLoading && deviceSessions.length === 0) {
+    ui.deviceLoading.classList.remove("hidden");
+    ui.deviceList.classList.add("hidden");
+    ui.deviceEmpty.classList.add("hidden");
+    ui.deviceError.classList.add("hidden");
+  } else {
+    ui.deviceLoading.classList.add("hidden");
+  }
+}
+
+function showDeviceError(error) {
+  ui.deviceLoading.classList.add("hidden");
+  ui.deviceList.classList.add("hidden");
+  ui.deviceEmpty.classList.add("hidden");
+  ui.deviceError.classList.remove("hidden");
+
+  ui.deviceActiveCount.textContent = "—";
+  ui.deviceOtherCount.textContent = "—";
+  ui.deviceRecordedCount.textContent = "—";
+  ui.deviceRevokeOthers.classList.add("hidden");
+
+  const planDisabled = error?.status === 403;
+
+  ui.deviceErrorDetail.textContent =
+    planDisabled
+      ? "Device session management is not enabled for your school plan."
+      : error?.message || "Check your connection and try again.";
+
+  if (planDisabled) {
+    ui.deviceNotice.textContent =
+      "Device session management is not enabled for your school plan.";
+    ui.deviceNotice.classList.remove("hidden");
   }
 }
 

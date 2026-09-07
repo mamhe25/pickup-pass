@@ -20,7 +20,7 @@
 <script type="module" src="../shared/parent-nav.js"></script>
 
 <main class="pp-page pp-guardians-page">
-  <a href="./guardians.html" class="pp-backlink">← Guardians overview</a>
+  <a href="./students.html" class="pp-backlink">← My Students</a>
 
   <section class="pp-guardians-hero mt-3">
     <p class="pp-guardians-hero__eyebrow">Pickup authorization</p>
@@ -291,7 +291,7 @@ const studentId =
   sessionStorage.getItem("pendingGuardianStudentId");
 
 if (!studentId) {
-  location.replace("./guardians.html");
+  location.replace("./students.html");
 }
 
 let student = null;
