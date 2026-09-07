@@ -3,14 +3,9 @@ package com.pickuppass.android.ui.common
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -19,17 +14,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -73,22 +66,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.pickuppass.android.ui.theme.Amber500
 import com.pickuppass.android.ui.theme.Amber700
 import com.pickuppass.android.ui.theme.Spacing
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 private const val SMART_IMAGE_MAX_DIMENSION_PX = 1024
-private const val SUCCESS_FEEDBACK_DURATION_MS = 4_800L
-private const val INFO_FEEDBACK_DURATION_MS = 5_200L
-private const val WARNING_FEEDBACK_DURATION_MS = 6_200L
-private const val ERROR_FEEDBACK_DURATION_MS = 7_200L
 
 @Composable
 fun PrimaryButton(
@@ -135,10 +123,10 @@ enum class FeedbackTone {
 /**
  * Canonical PickupPass action-feedback surface.
  *
- * Action outcomes are intentionally rendered in a floating overlay instead of
- * consuming layout space beside the field or list that happened to trigger the
- * action. This gives every role and screen the same predictable confirmation
- * position while preserving the user's current task underneath.
+ * Terminal action outcomes are presented as a centered modal so they never
+ * appear underneath the field, list, or card that triggered the action. The
+ * dialog deliberately stays visible until the user dismisses it, keeping
+ * important school, guardian, security, and administrative feedback readable.
  */
 @Composable
 fun FeedbackCard(
@@ -160,135 +148,145 @@ fun FeedbackCard(
         FeedbackTone.Success -> {
             accent = scheme.secondary
             icon = Icons.Filled.CheckCircle
-            defaultTitle = "Completed"
+            defaultTitle = "Success"
             liveRegionMode = LiveRegionMode.Polite
         }
 
         FeedbackTone.Error -> {
             accent = scheme.error
             icon = Icons.Filled.Error
-            defaultTitle = "Couldn't complete action"
+            defaultTitle = "Something went wrong"
             liveRegionMode = LiveRegionMode.Assertive
         }
 
         FeedbackTone.Warning -> {
             accent = if (isDark) Amber500 else Amber700
             icon = Icons.Filled.Warning
-            defaultTitle = "Needs attention"
+            defaultTitle = "Action required"
             liveRegionMode = LiveRegionMode.Polite
         }
 
         FeedbackTone.Info -> {
             accent = scheme.primary
             icon = Icons.Filled.Info
-            defaultTitle = "Good to know"
+            defaultTitle = "Information"
             liveRegionMode = LiveRegionMode.Polite
         }
     }
 
-    val containerColor = when (tone) {
-        FeedbackTone.Warning -> Amber500.copy(alpha = 0.08f)
-        else -> accent.copy(alpha = 0.055f)
-    }
-
     var visible by remember(message, tone) { mutableStateOf(true) }
+    if (!visible) return
 
-    LaunchedEffect(message, tone) {
-        visible = true
-        delay(
-            when (tone) {
-                FeedbackTone.Success -> SUCCESS_FEEDBACK_DURATION_MS
-                FeedbackTone.Info -> INFO_FEEDBACK_DURATION_MS
-                FeedbackTone.Warning -> WARNING_FEEDBACK_DURATION_MS
-                FeedbackTone.Error -> ERROR_FEEDBACK_DURATION_MS
-            }
-        )
-        visible = false
-    }
-
-    Popup(
-        alignment = Alignment.TopCenter,
+    Dialog(
         onDismissRequest = { visible = false },
-        properties = PopupProperties(focusable = false)
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+            usePlatformDefaultWidth = false
+        )
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
-            contentAlignment = Alignment.TopCenter
+                .padding(horizontal = Spacing.lg),
+            contentAlignment = Alignment.Center
         ) {
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn() + slideInVertically(initialOffsetY = { -it / 3 }),
-                exit = fadeOut() + slideOutVertically(targetOffsetY = { -it / 3 })
+            Surface(
+                color = scheme.surface,
+                contentColor = scheme.onSurface,
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, accent.copy(alpha = 0.16f)),
+                shadowElevation = 24.dp,
+                tonalElevation = 1.dp,
+                modifier = modifier
+                    .widthIn(max = 440.dp)
+                    .fillMaxWidth()
+                    .semantics { liveRegion = liveRegionMode }
             ) {
-                Surface(
-                    color = containerColor,
-                    contentColor = scheme.onSurface,
-                    shape = MaterialTheme.shapes.medium,
-                    border = BorderStroke(1.dp, accent.copy(alpha = 0.24f)),
-                    shadowElevation = 10.dp,
-                    tonalElevation = 2.dp,
-                    modifier = modifier
-                        .widthIn(max = 440.dp)
-                        .fillMaxWidth()
-                        .semantics { liveRegion = liveRegionMode }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(
-                            start = Spacing.md,
-                            top = Spacing.sm,
-                            end = Spacing.xs,
-                            bottom = Spacing.sm
-                        ),
-                        verticalAlignment = Alignment.Top
+                Box {
+                    IconButton(
+                        onClick = { visible = false },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 8.dp, end = 8.dp)
+                            .size(40.dp)
                     ) {
                         Surface(
-                            color = accent.copy(alpha = 0.13f),
+                            color = scheme.surfaceVariant.copy(alpha = 0.72f),
                             shape = CircleShape,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.fillMaxSize()
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = icon,
-                                    contentDescription = null,
-                                    tint = accent,
-                                    modifier = Modifier.size(22.dp)
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Close message",
+                                    tint = scheme.onSurfaceVariant,
+                                    modifier = Modifier.size(19.dp)
                                 )
                             }
                         }
+                    }
 
-                        Spacer(Modifier.width(Spacing.sm))
-
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                start = Spacing.xl,
+                                top = 52.dp,
+                                end = Spacing.xl,
+                                bottom = Spacing.xl
+                            ),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Surface(
+                            color = accent.copy(alpha = if (isDark) 0.18f else 0.10f),
+                            shape = CircleShape,
+                            modifier = Modifier.size(76.dp)
                         ) {
-                            Text(
-                                text = title ?: defaultTitle,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = accent
-                            )
-                            Text(
-                                text = message,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = scheme.onSurface
-                            )
+                            Box(contentAlignment = Alignment.Center) {
+                                Surface(
+                                    color = accent.copy(alpha = if (isDark) 0.17f else 0.08f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(58.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = icon,
+                                            contentDescription = null,
+                                            tint = accent,
+                                            modifier = Modifier.size(34.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
 
-                        IconButton(
-                            onClick = { visible = false },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Close,
-                                contentDescription = "Dismiss message",
-                                tint = scheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        Spacer(Modifier.height(Spacing.lg))
+
+                        Text(
+                            text = title ?: defaultTitle,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = scheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(Modifier.height(Spacing.sm))
+
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = scheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(Modifier.height(Spacing.md))
+
+                        Surface(
+                            color = accent,
+                            shape = CircleShape,
+                            modifier = Modifier.size(width = 36.dp, height = 4.dp)
+                        ) {}
                     }
                 }
             }

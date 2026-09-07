@@ -102,31 +102,26 @@ const FEEDBACK_STYLE_ID = "pickupPassFeedbackStyles";
 const FEEDBACK_REGION_ID = "pickupPassToastRegion";
 const FEEDBACK_CONSUMED_CLASS = "pp-feedback-inline-consumed";
 const RECENT_FEEDBACK_WINDOW_MS = 1400;
-const MAX_VISIBLE_FEEDBACK = 4;
 const recentFeedback = new Map();
 let feedbackSequence = 0;
 let inlineFeedbackBridgeInstalled = false;
 
 const feedbackMeta = {
   success: {
-    title: "Completed",
+    title: "Success",
     icon: '<path d="M20 6 9 17l-5-5"/>',
-    duration: 4800,
   },
   warning: {
-    title: "Needs attention",
+    title: "Action required",
     icon: '<path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
-    duration: 6200,
   },
   error: {
-    title: "Couldn't complete action",
+    title: "Something went wrong",
     icon: '<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/>',
-    duration: 7200,
   },
   info: {
-    title: "Good to know",
+    title: "Information",
     icon: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/>',
-    duration: 5200,
   },
 };
 
@@ -142,42 +137,50 @@ function ensureFeedbackStyles() {
 
     #${FEEDBACK_REGION_ID} {
       position: fixed;
-      z-index: 1200;
-      top: max(16px, env(safe-area-inset-top));
-      right: max(16px, env(safe-area-inset-right));
-      width: min(420px, calc(100vw - 32px));
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      pointer-events: none;
+      z-index: 1400;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+      background: rgb(15 23 42 / 0.48);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      pointer-events: auto;
+    }
+
+    #${FEEDBACK_REGION_ID}:empty {
+      display: none;
     }
 
     .pp-feedback-toast {
       --pp-feedback-accent: var(--primary, #047857);
       --pp-feedback-soft: var(--primary-container, #d1fae5);
       position: relative;
-      display: grid;
-      grid-template-columns: 42px minmax(0, 1fr) 32px;
-      gap: 12px;
-      align-items: start;
-      overflow: hidden;
-      padding: 14px 14px 13px;
+      width: min(440px, calc(100vw - 32px));
+      max-height: min(86vh, 620px);
+      overflow: auto;
+      padding: 52px 30px 30px;
       border: 1px solid var(--border, #e5e7eb);
-      border: 1px solid color-mix(in srgb, var(--pp-feedback-accent) 24%, var(--border, #e5e7eb));
-      border-radius: 16px;
+      border: 1px solid color-mix(in srgb, var(--pp-feedback-accent) 16%, var(--border, #e5e7eb));
+      border-radius: 24px;
       background: var(--surface, #fff);
-      background: color-mix(in srgb, var(--surface, #fff) 96%, var(--pp-feedback-soft));
       color: var(--text, #1f2937);
-      box-shadow: 0 18px 45px rgb(15 23 42 / 0.16), 0 3px 10px rgb(15 23 42 / 0.08);
-      pointer-events: auto;
+      box-shadow: 0 32px 90px rgb(15 23 42 / 0.28), 0 12px 30px rgb(15 23 42 / 0.16);
       opacity: 0;
-      transform: translateY(-8px) scale(.985);
-      transition: opacity 180ms ease, transform 180ms ease;
+      transform: translateY(10px) scale(.975);
+      transition: opacity 180ms ease, transform 220ms cubic-bezier(.2,.75,.25,1);
       -webkit-font-smoothing: antialiased;
     }
 
-    .pp-feedback-toast.is-visible { opacity: 1; transform: translateY(0) scale(1); }
-    .pp-feedback-toast.is-leaving { opacity: 0; transform: translateY(-5px) scale(.99); }
+    .pp-feedback-toast.is-visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .pp-feedback-toast.is-leaving {
+      opacity: 0;
+      transform: translateY(5px) scale(.985);
+    }
 
     .pp-feedback-toast--success {
       --pp-feedback-accent: var(--success, #0f766e);
@@ -197,75 +200,92 @@ function ensureFeedbackStyles() {
     }
 
     .pp-feedback-toast__icon {
-      width: 42px;
-      height: 42px;
+      width: 76px;
+      height: 76px;
+      margin: 0 auto 20px;
       border-radius: 999px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       color: var(--pp-feedback-accent);
       background: var(--pp-feedback-soft);
-      background: color-mix(in srgb, var(--pp-feedback-accent) 12%, transparent);
+      background: color-mix(in srgb, var(--pp-feedback-accent) 10%, transparent);
+      box-shadow: inset 0 0 0 9px color-mix(in srgb, var(--pp-feedback-accent) 6%, transparent);
     }
+
     .pp-feedback-toast__icon svg {
-      width: 21px;
-      height: 21px;
+      width: 34px;
+      height: 34px;
       fill: none;
       stroke: currentColor;
       stroke-width: 2;
       stroke-linecap: round;
       stroke-linejoin: round;
     }
-    .pp-feedback-toast__content { min-width: 0; padding-top: 1px; }
-    .pp-feedback-toast__title {
-      margin: 0 0 3px;
-      color: var(--pp-feedback-accent);
-      font: 700 0.875rem/1.25 var(--font-sans, Inter, system-ui, sans-serif);
-      letter-spacing: -0.01em;
+
+    .pp-feedback-toast__content {
+      min-width: 0;
+      text-align: center;
     }
-    .pp-feedback-toast__message {
-      margin: 0;
+
+    .pp-feedback-toast__title {
+      margin: 0 0 9px;
       color: var(--text, #1f2937);
-      font: 500 0.875rem/1.45 var(--font-sans, Inter, system-ui, sans-serif);
+      font: 700 1.28rem/1.3 var(--font-sans, Inter, system-ui, sans-serif);
+      letter-spacing: -0.025em;
+    }
+
+    .pp-feedback-toast__message {
+      max-width: 36ch;
+      margin: 0 auto;
+      color: var(--text-muted, #64748b);
+      font: 500 0.94rem/1.6 var(--font-sans, Inter, system-ui, sans-serif);
       overflow-wrap: anywhere;
     }
+
+    .pp-feedback-toast__accent {
+      width: 36px;
+      height: 4px;
+      margin: 20px auto 0;
+      border-radius: 999px;
+      background: var(--pp-feedback-accent);
+    }
+
     .pp-feedback-toast__close {
-      width: 32px;
-      height: 32px;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 40px;
+      height: 40px;
       border: 0;
       border-radius: 999px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: transparent;
+      background: var(--surface-variant, #f1f5f9);
       color: var(--text-muted, #64748b);
       cursor: pointer;
+      transition: transform 140ms ease, background 140ms ease, color 140ms ease;
     }
-    .pp-feedback-toast__close:hover { background: var(--surface-variant, #f1f5f9); color: var(--text, #1f2937); }
-    .pp-feedback-toast__close:focus-visible { outline: 2px solid var(--pp-feedback-accent); outline-offset: 2px; }
-    .pp-feedback-toast__close svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 
-    .pp-feedback-toast__progress {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      height: 3px;
-      background: var(--pp-feedback-soft);
-      background: color-mix(in srgb, var(--pp-feedback-accent) 16%, transparent);
+    .pp-feedback-toast__close:hover {
+      background: color-mix(in srgb, var(--pp-feedback-accent) 8%, var(--surface-variant, #f1f5f9));
+      color: var(--text, #1f2937);
+      transform: scale(1.04);
     }
-    .pp-feedback-toast__progress::after {
-      content: "";
-      display: block;
-      height: 100%;
-      width: 100%;
-      background: var(--pp-feedback-accent);
-      transform-origin: left center;
-      animation: pp-feedback-countdown var(--pp-feedback-duration, 5200ms) linear forwards;
+
+    .pp-feedback-toast__close:focus-visible {
+      outline: 2px solid var(--pp-feedback-accent);
+      outline-offset: 2px;
     }
-    .pp-feedback-toast:hover .pp-feedback-toast__progress::after,
-    .pp-feedback-toast:focus-within .pp-feedback-toast__progress::after {
-      animation-play-state: paused;
+
+    .pp-feedback-toast__close svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
     }
 
     /* Old action-result containers are still updated by legacy screens for
@@ -286,27 +306,34 @@ function ensureFeedbackStyles() {
       line-height: 1.5;
     }
 
-    @keyframes pp-feedback-countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
-
     @media (max-width: 640px) {
       #${FEEDBACK_REGION_ID} {
-        left: 12px;
-        right: 12px;
-        top: max(12px, env(safe-area-inset-top));
-        width: auto;
+        padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
       }
+
       .pp-feedback-toast {
-        grid-template-columns: 38px minmax(0, 1fr) 30px;
-        gap: 10px;
-        padding: 13px 12px 12px;
-        border-radius: 15px;
+        width: min(100%, 420px);
+        padding: 50px 22px 26px;
+        border-radius: 22px;
       }
-      .pp-feedback-toast__icon { width: 38px; height: 38px; }
+
+      .pp-feedback-toast__icon {
+        width: 70px;
+        height: 70px;
+        margin-bottom: 18px;
+      }
+
+      .pp-feedback-toast__title {
+        font-size: 1.16rem;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .pp-feedback-toast { transition: none; transform: none; }
-      .pp-feedback-toast__progress::after { animation: none; }
+      .pp-feedback-toast,
+      .pp-feedback-toast__close {
+        transition: none;
+        transform: none;
+      }
     }
   `;
   document.head.appendChild(style);
@@ -336,9 +363,10 @@ function createFeedbackRegion() {
   if (!region) {
     region = document.createElement("div");
     region.id = FEEDBACK_REGION_ID;
-    region.setAttribute("aria-live", "polite");
-    region.setAttribute("aria-atomic", "false");
-    region.setAttribute("aria-label", "PickupPass notifications");
+    region.setAttribute("aria-label", "PickupPass feedback");
+    region.addEventListener("click", (event) => {
+      if (event.target === region) dismissFeedback(region.firstElementChild);
+    });
     document.body.appendChild(region);
   }
   return region;
@@ -348,16 +376,24 @@ function dismissFeedback(toast) {
   if (!toast || toast.dataset.dismissed === "true") return;
   toast.dataset.dismissed = "true";
   toast.classList.add("is-leaving");
-  window.setTimeout(() => toast.remove(), 190);
+  toast._ppCleanup?.();
+  window.setTimeout(() => {
+    const restoreFocus = toast._ppRestoreFocus;
+    toast.remove();
+    if (restoreFocus instanceof HTMLElement && document.contains(restoreFocus)) {
+      restoreFocus.focus({ preventScroll: true });
+    }
+  }, 190);
 }
 
 /**
- * Canonical, non-blocking feedback for every web screen.
+ * Canonical centered feedback dialog for every web screen.
  *
- * Backwards-compatible with the historical showToast(message, type) API, but
- * now renders a premium semantic card with an icon, state title, close affordance,
- * timed progress, mobile-safe positioning, reduced-motion support and duplicate
- * suppression. Callers can optionally provide a custom title/duration.
+ * The historical showToast API is retained so existing screens need no rewrite,
+ * but terminal action outcomes now render as a premium modal with a dimmed
+ * backdrop, semantic hero icon, centered content, close affordance, focus
+ * management, Escape/backdrop dismissal, reduced-motion support and duplicate
+ * suppression. Feedback remains visible until the user dismisses it.
  */
 export function showToast(message, type = "success", options = {}) {
   const normalizedMessage = String(message ?? "").trim();
@@ -367,24 +403,33 @@ export function showToast(message, type = "success", options = {}) {
   if (isDuplicateFeedback(normalizedMessage, normalizedType)) return null;
 
   const meta = feedbackMeta[normalizedType];
-  const duration = Number.isFinite(options.duration)
-    ? Math.max(1800, options.duration)
-    : meta.duration;
   const title = String(options.title || meta.title);
   const region = createFeedbackRegion();
 
-  while (region.children.length >= MAX_VISIBLE_FEEDBACK) {
-    region.firstElementChild?.remove();
+  // One action result at a time. A second result supersedes the first instead
+  // of stacking multiple modal scrims/cards on top of each other.
+  while (region.firstElementChild) {
+    region.firstElementChild._ppCleanup?.();
+    region.firstElementChild.remove();
   }
 
   const toast = document.createElement("section");
   const toastId = `pp-feedback-${++feedbackSequence}`;
   toast.id = toastId;
   toast.className = `pp-feedback-toast pp-feedback-toast--${normalizedType}`;
-  toast.style.setProperty("--pp-feedback-duration", `${duration}ms`);
-  toast.setAttribute("role", normalizedType === "error" ? "alert" : "status");
+  toast.setAttribute("role", normalizedType === "error" ? "alertdialog" : "dialog");
+  toast.setAttribute("aria-modal", "true");
   toast.setAttribute("aria-labelledby", `${toastId}-title`);
   toast.setAttribute("aria-describedby", `${toastId}-message`);
+  toast.tabIndex = -1;
+  toast._ppRestoreFocus = document.activeElement;
+
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "pp-feedback-toast__close";
+  close.setAttribute("aria-label", "Close message");
+  close.innerHTML = '<svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg>';
+  close.addEventListener("click", () => dismissFeedback(toast));
 
   const iconWrap = document.createElement("span");
   iconWrap.className = "pp-feedback-toast__icon";
@@ -404,44 +449,27 @@ export function showToast(message, type = "success", options = {}) {
   body.className = "pp-feedback-toast__message";
   body.textContent = normalizedMessage;
 
-  content.append(heading, body);
+  const accent = document.createElement("span");
+  accent.className = "pp-feedback-toast__accent";
+  accent.setAttribute("aria-hidden", "true");
 
-  const close = document.createElement("button");
-  close.type = "button";
-  close.className = "pp-feedback-toast__close";
-  close.setAttribute("aria-label", "Dismiss notification");
-  close.innerHTML = '<svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg>';
-  close.addEventListener("click", () => dismissFeedback(toast));
-
-  const progress = document.createElement("span");
-  progress.className = "pp-feedback-toast__progress";
-  progress.setAttribute("aria-hidden", "true");
-
-  toast.append(iconWrap, content, close, progress);
+  content.append(heading, body, accent);
+  toast.append(close, iconWrap, content);
   region.appendChild(toast);
 
-  requestAnimationFrame(() => toast.classList.add("is-visible"));
-
-  let remaining = duration;
-  let startedAt = Date.now();
-  let timer = window.setTimeout(() => dismissFeedback(toast), remaining);
-
-  const pause = () => {
-    if (!timer) return;
-    window.clearTimeout(timer);
-    timer = null;
-    remaining = Math.max(400, remaining - (Date.now() - startedAt));
+  const onKeyDown = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      dismissFeedback(toast);
+    }
   };
-  const resume = () => {
-    if (timer || toast.dataset.dismissed === "true") return;
-    startedAt = Date.now();
-    timer = window.setTimeout(() => dismissFeedback(toast), remaining);
-  };
+  document.addEventListener("keydown", onKeyDown);
+  toast._ppCleanup = () => document.removeEventListener("keydown", onKeyDown);
 
-  toast.addEventListener("mouseenter", pause);
-  toast.addEventListener("mouseleave", resume);
-  toast.addEventListener("focusin", pause);
-  toast.addEventListener("focusout", resume);
+  requestAnimationFrame(() => {
+    toast.classList.add("is-visible");
+    close.focus({ preventScroll: true });
+  });
 
   return toast;
 }
@@ -544,7 +572,7 @@ function maybeBridgeLegacyFeedback(node) {
 
 /**
  * Legacy screens still update inline action-result elements. Bridge those
- * mutations into the global floating feedback surface and consume the old
+ * mutations into the global centered feedback surface and consume the old
  * inline result so users never see duplicate messages in arbitrary locations.
  *
  * Static/contextual notices can opt out with data-pp-no-popup="true".
