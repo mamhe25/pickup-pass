@@ -264,101 +264,66 @@ body {
   }
 }
 
-
 /* =============================================================================
-   PickupPass selected brand identity — teal / gold luggage mark
+   PickupPass official brand identity — indigo / violet P
    ============================================================================= */
 
 :root {
-  --pp-brand-teal: #003B45;
-  --pp-brand-gold: #D69513;
-  --pp-brand-gold-soft: #F5C451;
+  --pp-wordmark-pickup: #243A9A;
+  --pp-wordmark-pass: #6D5DFB;
+  --pp-wordmark-pickup-on-dark: #F7F8FF;
+  --pp-wordmark-pass-on-dark: #A89CFF;
 }
 
-.pp-brandmark__badge {
-  width: 42px !important;
-  height: 42px !important;
-  min-width: 42px !important;
-  flex: 0 0 42px !important;
-  display: inline-block !important;
-  border-radius: 0 !important;
-  background: url("../assets/brand/pickuppass-mark.png") center / contain no-repeat !important;
-  box-shadow: none !important;
-  color: transparent !important;
-}
-
-.pp-brandmark__badge svg,
-.landing-brand__mark svg {
-  display: none !important;
-}
-
+/* The official mark is an actual image/SVG child. Never layer a legacy
+   background asset behind it. */
+.pp-brandmark__badge,
 .landing-brand__mark {
-  width: 42px !important;
-  height: 42px !important;
-  min-width: 42px !important;
-  flex: 0 0 42px !important;
-  display: inline-block !important;
-  border-radius: 0 !important;
-  background: url("../assets/brand/pickuppass-mark.png") center / contain no-repeat !important;
-  box-shadow: none !important;
-  color: transparent !important;
+  background: none !important;
+  color: inherit !important;
 }
 
-.pp-brandmark__name,
-.landing-brand__name {
-  font-weight: 800 !important;
-  background: linear-gradient(
-    90deg,
-    var(--pp-brand-teal) 0 58%,
-    var(--pp-brand-gold) 58% 100%
-  ) !important;
-  -webkit-background-clip: text !important;
-  background-clip: text !important;
-  color: transparent !important;
+.pp-brandmark__badge img,
+.landing-brand__mark img {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
 }
 
-.landing-brand--footer .landing-brand__name,
-.pp-auth-story .text-xl.font-extrabold {
-  background: linear-gradient(
-    90deg,
-    #ECFDF5 0 58%,
-    var(--pp-brand-gold-soft) 58% 100%
-  ) !important;
-  -webkit-background-clip: text !important;
-  background-clip: text !important;
-  color: transparent !important;
+.pp-wordmark__pickup {
+  color: var(--pp-wordmark-pickup);
 }
 
-:root[data-theme="dark"] .pp-brandmark__name {
-  background: linear-gradient(
-    90deg,
-    #DDFBF5 0 58%,
-    var(--pp-brand-gold-soft) 58% 100%
-  ) !important;
-  -webkit-background-clip: text !important;
-  background-clip: text !important;
-  color: transparent !important;
+.pp-wordmark__pass {
+  color: var(--pp-wordmark-pass);
+}
+
+:root[data-theme="dark"] {
+  --pp-wordmark-pickup: var(--pp-wordmark-pickup-on-dark);
+  --pp-wordmark-pass: var(--pp-wordmark-pass-on-dark);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .pp-brandmark__name {
-    background: linear-gradient(
-      90deg,
-      #DDFBF5 0 58%,
-      var(--pp-brand-gold-soft) 58% 100%
-    ) !important;
-    -webkit-background-clip: text !important;
-    background-clip: text !important;
-    color: transparent !important;
+  :root:not([data-theme="light"]) {
+    --pp-wordmark-pickup: var(--pp-wordmark-pickup-on-dark);
+    --pp-wordmark-pass: var(--pp-wordmark-pass-on-dark);
   }
 }
 
-@media (max-width: 680px) {
-  .pp-brandmark__badge,
-  .landing-brand__mark {
-    width: 38px !important;
-    height: 38px !important;
-    min-width: 38px !important;
-    flex-basis: 38px !important;
-  }
+/* These brand surfaces are dark regardless of the active page theme. */
+.landing-brand--footer,
+.pp-auth-story {
+  --pp-wordmark-pickup: var(--pp-wordmark-pickup-on-dark);
+  --pp-wordmark-pass: var(--pp-wordmark-pass-on-dark);
+}
+
+.pp-brandmark__name,
+.landing-brand__name,
+.pp-brand-wordmark {
+  font-weight: 800;
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  color: inherit !important;
 }

@@ -45,7 +45,7 @@ function render(mount) {
           aria-label="PickupPass platform control center">
           <span class="pp-brandmark__badge"><img src="../assets/pickuppass-mark.svg" alt="" /></span>
           <span class="flex flex-col">
-            <span class="pp-brandmark__name">PickupPass</span>
+            <span class="pp-brandmark__name"><span class="pp-wordmark__pickup">Pickup</span><span class="pp-wordmark__pass">Pass</span></span>
             <span class="pp-brandmark__tag">Platform Owner</span>
           </span>
         </a>

@@ -46,7 +46,7 @@ function render(mount) {
         <a class="pp-brandmark" href="/school-admin/dashboard.html" aria-label="PickupPass Admin home">
           <span class="pp-brandmark__badge"><img src="../assets/pickuppass-mark.svg" alt="" /></span>
           <span class="flex flex-col">
-            <span class="pp-brandmark__name">PickupPass</span>
+            <span class="pp-brandmark__name"><span class="pp-wordmark__pickup">Pickup</span><span class="pp-wordmark__pass">Pass</span></span>
             <span class="pp-brandmark__tag">Admin</span>
           </span>
         </a>
