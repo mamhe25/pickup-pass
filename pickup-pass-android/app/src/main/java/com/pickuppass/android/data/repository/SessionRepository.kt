@@ -13,6 +13,13 @@ class SessionRepository @Inject constructor(
 ) {
     val currentDeviceId: String get() = identity.deviceId
 
+    /**
+     * Use only after the current backend device session has been revoked.
+     * A later fresh authentication will then register a new active session.
+     */
+    fun rotateCurrentDeviceSession(): String =
+        identity.rotateDeviceId()
+
     suspend fun listDevices(): ApiResult<List<DeviceSessionItem>> = try {
         val response = api.listDeviceSessions()
         val body = response.body()

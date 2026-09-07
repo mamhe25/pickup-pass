@@ -102,6 +102,9 @@ class MyDevicesViewModel @Inject constructor(
                 is ApiResult.Success -> {
                     if (device.deviceId == repository.currentDeviceId) {
                         auth.signOut()
+                        runCatching {
+                            repository.rotateCurrentDeviceSession()
+                        }
                         sessionExpiryManager.notifySessionEnded(
                             SessionEndReason.EXPIRED_OR_REVOKED
                         )
