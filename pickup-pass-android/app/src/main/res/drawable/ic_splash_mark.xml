@@ -4,5 +4,5 @@
         android:width="168dp"
         android:height="168dp"
         android:gravity="center"
-        android:drawable="@drawable/pickuppass_brand_mark" />
+        android:drawable="@drawable/pickuppass_logo_full" />
 </layer-list>
