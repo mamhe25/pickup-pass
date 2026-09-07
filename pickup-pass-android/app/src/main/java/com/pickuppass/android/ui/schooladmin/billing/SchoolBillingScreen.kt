@@ -24,6 +24,7 @@ import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import java.time.Instant
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,22 +58,10 @@ fun SchoolBillingScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Subscription & Billing", fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            "Invoices & payment verification",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Subscription & billing",
+                subtitle = "Invoices & payment verification",
+                onBack = onBack,
             )
         }
     ) { padding ->

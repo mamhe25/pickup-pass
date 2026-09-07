@@ -29,6 +29,7 @@ import com.pickuppass.android.data.model.BroadcastHistoryItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -92,27 +93,10 @@ fun SchoolBroadcastScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Announcements", fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            "School-wide communication",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = viewModel::refreshHistory, enabled = !uiState.isLoadingHistory) {
-                        Icon(Icons.Filled.Refresh, "Refresh history")
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Announcements",
+                subtitle = "School-wide communication",
+                onBack = onBack,
             )
         }
     ) { padding ->

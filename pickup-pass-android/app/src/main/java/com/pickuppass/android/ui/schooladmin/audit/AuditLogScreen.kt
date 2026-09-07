@@ -22,6 +22,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.AuditEvent
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.theme.Spacing
 import java.time.Instant
 import java.time.ZoneId
@@ -56,27 +58,10 @@ fun AuditLogScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Audit Log", fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            "Administrative activity trail",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = viewModel::load, enabled = !state.isLoading) {
-                        Icon(Icons.Filled.Refresh, "Refresh")
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Audit log",
+                subtitle = "Administrative activity trail",
+                onBack = onBack,
             )
         }
     ) { padding ->
@@ -85,7 +70,13 @@ fun AuditLogScreen(
             return@Scaffold
         }
 
-        BoxWithConstraints(Modifier.padding(padding).fillMaxSize()) {
+        PickupPassPullToRefresh(
+            refreshing = state.isLoading,
+            onRefresh = viewModel::load,
+            enabled = !state.isLoading,
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
             LazyColumn(
                 modifier = Modifier.fillMaxHeight().widthIn(max = 860.dp).align(Alignment.TopCenter),
                 contentPadding = PaddingValues(Spacing.md),
@@ -237,6 +228,7 @@ private fun AuditCard(event: AuditEvent) {
                     )
                 }
             }
+        }
         }
     }
 }
