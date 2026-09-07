@@ -215,5 +215,7 @@ test(
     assert.match(js, /feedbackObserver\.observe\(element/);
     assert.match(js, /discoveryObserver\.observe\(discoveryRoot/);
     assert.doesNotMatch(js, /observer\.observe\(document\.documentElement/);
+    assert.match(js, /ppObservedFeedbackState/);
+    assert.match(js, /classList\.contains\(FEEDBACK_CONSUMED_CLASS\)\) return/);
   }
 );

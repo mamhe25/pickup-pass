@@ -516,7 +516,8 @@ function shouldKeepInline(element, message) {
 }
 
 function resetConsumedState(element) {
-  element?.classList?.remove(FEEDBACK_CONSUMED_CLASS);
+  if (!element?.classList?.contains(FEEDBACK_CONSUMED_CLASS)) return;
+  element.classList.remove(FEEDBACK_CONSUMED_CLASS);
 }
 
 function consumeInlineFeedback(element, message, type) {
@@ -529,6 +530,8 @@ function consumeInlineFeedback(element, message, type) {
     resetConsumedState(element);
     return;
   }
+
+  if (element.classList.contains(FEEDBACK_CONSUMED_CLASS)) return;
 
   showToast(message, type);
   element.classList.add(FEEDBACK_CONSUMED_CLASS);
@@ -588,8 +591,26 @@ function installInlineFeedbackBridge() {
 
   const inspect = (element) => {
     if (!element || element.closest?.(`#${FEEDBACK_REGION_ID}`)) return;
+
+    const state = [
+      element.hidden ? "1" : "0",
+      element.classList.contains("hidden") ? "1" : "0",
+      element.classList.contains(FEEDBACK_CONSUMED_CLASS) ? "1" : "0",
+      element.textContent?.trim() || "",
+    ].join("\u0000");
+
+    if (element.dataset.ppObservedFeedbackState === state) return;
+    element.dataset.ppObservedFeedbackState = state;
+
     maybeBridgeInlineAlert(element);
     maybeBridgeLegacyFeedback(element);
+
+    element.dataset.ppObservedFeedbackState = [
+      element.hidden ? "1" : "0",
+      element.classList.contains("hidden") ? "1" : "0",
+      element.classList.contains(FEEDBACK_CONSUMED_CLASS) ? "1" : "0",
+      element.textContent?.trim() || "",
+    ].join("\u0000");
   };
 
   // Observe only actual feedback/status elements. The previous implementation
