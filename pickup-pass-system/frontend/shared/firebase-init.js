@@ -100,6 +100,7 @@ export async function authedFetch(path, options = {}) {
 
 const FEEDBACK_STYLE_ID = "pickupPassFeedbackStyles";
 const FEEDBACK_REGION_ID = "pickupPassToastRegion";
+const FEEDBACK_CONSUMED_CLASS = "pp-feedback-inline-consumed";
 const RECENT_FEEDBACK_WINDOW_MS = 1400;
 const MAX_VISIBLE_FEEDBACK = 4;
 const recentFeedback = new Map();
@@ -135,6 +136,10 @@ function ensureFeedbackStyles() {
   const style = document.createElement("style");
   style.id = FEEDBACK_STYLE_ID;
   style.textContent = `
+    .pp-feedback-inline-consumed {
+      display: none !important;
+    }
+
     #${FEEDBACK_REGION_ID} {
       position: fixed;
       z-index: 1200;
@@ -263,9 +268,14 @@ function ensureFeedbackStyles() {
       animation-play-state: paused;
     }
 
-    /* Existing inline alert elements remain valuable next to forms. Give them
-       the same premium visual hierarchy so inline and floating feedback never
-       look like two unrelated design systems. */
+    /* Old action-result containers are still updated by legacy screens for
+       compatibility, but once bridged they must not remain as duplicate text
+       below a password field, above a table, or inside a card. Busy/progress
+       labels are deliberately not consumed. */
+    .${FEEDBACK_CONSUMED_CLASS} {
+      display: none !important;
+    }
+
     .pp-alert {
       position: relative;
       align-items: flex-start;
@@ -446,52 +456,104 @@ function feedbackTypeFromAlert(alert) {
   return "info";
 }
 
-function maybeBridgeInlineAlert(node) {
-  const alert = node?.nodeType === Node.ELEMENT_NODE
-    ? (node.matches?.(".pp-alert") ? node : node.closest?.(".pp-alert"))
-    : node?.parentElement?.closest?.(".pp-alert");
+const BUSY_FEEDBACK_TEXT = /^(?:loading|saving|uploading|refreshing|sending|registering|checking|processing|approving|generating|downloading|creating|updating|deleting|revoking|signing|verifying)(?:\b|…|\.{3})/i;
+const LEGACY_FEEDBACK_SELECTOR = [
+  ".form-status",
+  ".save-status",
+  "#statusMsg",
+  "#uploadStatus",
+  "#actionStatus",
+  "#formStatus",
+  "#accountStatus",
+  "#mfaStatus",
+  "#actionFeedback",
+  "#successMsg",
+  "#errorMsg",
+  "#formError",
+  "#formSuccess",
+  "#dialogError",
+].join(",");
 
-  if (!alert || alert.dataset.ppNoPopup === "true") return;
-  if (alert.hidden || alert.classList.contains("hidden")) return;
-
-  const message = alert.textContent?.trim();
-  if (!message) return;
-
-  showToast(message, feedbackTypeFromAlert(alert));
+function inlineFeedbackElement(node, selector) {
+  if (!node) return null;
+  const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  if (!element) return null;
+  return element.matches?.(selector) ? element : element.closest?.(selector);
 }
 
-const LEGACY_FEEDBACK_ID = /(?:^error|error$|^success|success$|^saveStatus$|^uploadStatus$|^actionStatus$|^formStatus$)/i;
-const BUSY_FEEDBACK_TEXT = /^(?:loading|saving|uploading|refreshing|sending|registering|checking|processing|approving|generating|downloading|creating|updating|deleting|revoking|signing|verifying)(?:\b|…|\.{3})/i;
+function shouldKeepInline(element, message) {
+  if (!element || element.dataset.ppNoPopup === "true") return true;
+  if (BUSY_FEEDBACK_TEXT.test(message)) return true;
+  return false;
+}
+
+function resetConsumedState(element) {
+  element?.classList?.remove(FEEDBACK_CONSUMED_CLASS);
+}
+
+function consumeInlineFeedback(element, message, type) {
+  if (!message || message.length > 600) {
+    resetConsumedState(element);
+    return;
+  }
+
+  if (shouldKeepInline(element, message)) {
+    resetConsumedState(element);
+    return;
+  }
+
+  showToast(message, type);
+  element.classList.add(FEEDBACK_CONSUMED_CLASS);
+}
+
+function maybeBridgeInlineAlert(node) {
+  const alert = inlineFeedbackElement(node, ".pp-alert");
+  if (!alert || alert.dataset.ppNoPopup === "true") return;
+
+  if (alert.hidden || alert.classList.contains("hidden")) {
+    resetConsumedState(alert);
+    return;
+  }
+
+  const message = alert.textContent?.trim() || "";
+  consumeInlineFeedback(alert, message, feedbackTypeFromAlert(alert));
+}
 
 function legacyFeedbackType(element, message) {
   const id = element.id || "";
   if (/error/i.test(id) || /(?:failed|failure|error|could not|couldn't|unable to|invalid)/i.test(message)) return "error";
   if (/warning|attention|couldn't be sent|could not be sent/i.test(message)) return "warning";
-  if (/success/i.test(id) || /(?:saved|updated|registered|created|completed|sent|approved|released|removed|deleted|linked)(?:\b|!)/i.test(message)) return "success";
+  if (/success/i.test(id) || /(?:saved|updated|registered|created|completed|sent|approved|released|removed|deleted|linked|enabled|disabled)(?:\b|!)/i.test(message)) return "success";
   return "info";
 }
 
 function maybeBridgeLegacyFeedback(node) {
-  const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
-  if (!element || !element.id || !LEGACY_FEEDBACK_ID.test(element.id)) return;
+  const element = inlineFeedbackElement(node, LEGACY_FEEDBACK_SELECTOR);
+  if (!element || element.matches?.(".pp-alert")) return;
   if (element.closest?.(`#${FEEDBACK_REGION_ID}`)) return;
-  if (element.dataset.ppNoPopup === "true" || element.hidden || element.classList.contains("hidden")) return;
+  if (element.dataset.ppNoPopup === "true") return;
 
-  const message = element.textContent?.trim();
-  if (!message || message.length > 600 || BUSY_FEEDBACK_TEXT.test(message)) return;
+  if (element.hidden || element.classList.contains("hidden")) {
+    resetConsumedState(element);
+    return;
+  }
 
-  showToast(message, legacyFeedbackType(element, message));
+  const message = element.textContent?.trim() || "";
+  consumeInlineFeedback(element, message, legacyFeedbackType(element, message));
 }
 
 /**
- * Legacy pages still expose action results by removing `.hidden` from a
- * `.pp-alert`. Bridge those outcomes into the same floating feedback system so
- * every role gets consistent feedback without requiring page-by-page rewrites.
- * `data-pp-no-popup="true"` is an escape hatch for intentionally static notices.
+ * Legacy screens still update inline action-result elements. Bridge those
+ * mutations into the global floating feedback surface and consume the old
+ * inline result so users never see duplicate messages in arbitrary locations.
+ *
+ * Static/contextual notices can opt out with data-pp-no-popup="true".
+ * Busy text (Saving…, Uploading…, etc.) intentionally remains inline.
  */
 function installInlineFeedbackBridge() {
   if (inlineFeedbackBridgeInstalled || !document.documentElement) return;
   inlineFeedbackBridgeInstalled = true;
+  ensureFeedbackStyles();
 
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
@@ -518,6 +580,12 @@ function installInlineFeedbackBridge() {
     characterData: true,
     attributes: true,
     attributeFilter: ["class", "hidden"],
+  });
+
+  // Catch feedback populated synchronously before the observer was installed.
+  document.querySelectorAll(`.pp-alert,${LEGACY_FEEDBACK_SELECTOR}`).forEach((element) => {
+    maybeBridgeInlineAlert(element);
+    maybeBridgeLegacyFeedback(element);
   });
 }
 

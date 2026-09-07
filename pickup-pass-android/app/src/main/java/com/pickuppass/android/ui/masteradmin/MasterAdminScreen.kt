@@ -32,6 +32,7 @@ import com.pickuppass.android.data.model.MasterPrivilegedAuditEvent
 import com.pickuppass.android.data.model.MasterBackupItem
 import com.pickuppass.android.data.model.MasterRecoveryJobItem
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.theme.Spacing
@@ -196,7 +197,7 @@ fun MasterAdminAdvancedConsole(
                 item {
                     val m = operations.metrics
                     Text(
-                        "Pending GCash ${m.pendingGcashReviews} · Overdue invoices ${m.overdueInvoices} · Expiring subscriptions ${m.expiringSubscriptions} · Quota warnings ${m.quotaWarnings} · Email failures ${m.billingEmailFailures}",
+                        "Pending GCash ${m.pendingGcashReviews} Â· Overdue invoices ${m.overdueInvoices} Â· Expiring subscriptions ${m.expiringSubscriptions} Â· Quota warnings ${m.quotaWarnings} Â· Email failures ${m.billingEmailFailures}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -215,7 +216,7 @@ fun MasterAdminAdvancedConsole(
                         FilledTonalButton(
                             onClick = { viewModel.evaluateObservability() },
                             enabled = !state.saving && !state.observabilityLoading
-                        ) { Text(if (state.observabilityLoading) "Checking…" else "Check now") }
+                        ) { Text(if (state.observabilityLoading) "Checkingâ€¦" else "Check now") }
                     }
                 }
                 item {
@@ -234,7 +235,7 @@ fun MasterAdminAdvancedConsole(
                 }
                 item {
                     Text(
-                        "Server error rate ${observability.http.serverErrorRatePercent}% · Avg ${observability.http.averageDurationMs}ms · Max ${observability.http.maxDurationMs}ms. Metrics reset when this backend instance restarts.",
+                        "Server error rate ${observability.http.serverErrorRatePercent}% Â· Avg ${observability.http.averageDurationMs}ms Â· Max ${observability.http.maxDurationMs}ms. Metrics reset when this backend instance restarts.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -280,7 +281,7 @@ fun MasterAdminAdvancedConsole(
                 }
                 item {
                     Text(
-                        "Mode: startup / low cost · No paid APM required · Durable incident records: ${if (observability.durableIncidentsEnabled) "on" else "off"}",
+                        "Mode: startup / low cost Â· No paid APM required Â· Durable incident records: ${if (observability.durableIncidentsEnabled) "on" else "off"}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -305,7 +306,7 @@ fun MasterAdminAdvancedConsole(
                 }
                 item {
                     Text(
-                        "Open ${security.metrics.openAlerts} · Acknowledged ${security.metrics.acknowledged}",
+                        "Open ${security.metrics.openAlerts} Â· Acknowledged ${security.metrics.acknowledged}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -380,17 +381,17 @@ fun MasterAdminAdvancedConsole(
                         OutlinedCard(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                                 Text("Protection profile", fontWeight = FontWeight.SemiBold)
-                                Text("Database ${recovery.databaseId} · ${recovery.locationId ?: "location unavailable"}")
+                                Text("Database ${recovery.databaseId} Â· ${recovery.locationId ?: "location unavailable"}")
                                 Text(
                                     if (recovery.latestBackupAgeHours >= 0)
-                                        "Health ${recovery.healthState.ifBlank { if (recovery.protectionHealthy) "healthy" else "warning" }} · latest READY backup ${recovery.latestBackupAgeHours}h old · target ≤ ${recovery.maxBackupAgeHours}h"
+                                        "Health ${recovery.healthState.ifBlank { if (recovery.protectionHealthy) "healthy" else "warning" }} Â· latest READY backup ${recovery.latestBackupAgeHours}h old Â· target â‰¤ ${recovery.maxBackupAgeHours}h"
                                     else
-                                        "Health ${recovery.healthState.ifBlank { "warning" }} · no READY backup age available",
+                                        "Health ${recovery.healthState.ifBlank { "warning" }} Â· no READY backup age available",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (recovery.protectionHealthy) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                 )
                                 Text(
-                                    "Daily ${recovery.dailySchedule?.retentionDays ?: 0} days · Weekly ${recovery.weeklySchedule?.retentionDays ?: 0} days",
+                                    "Daily ${recovery.dailySchedule?.retentionDays ?: 0} days Â· Weekly ${recovery.weeklySchedule?.retentionDays ?: 0} days",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
@@ -479,7 +480,7 @@ fun MasterAdminAdvancedConsole(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 recovery.retentionPolicies.filter { it.ttlEligible }.forEach { policy ->
-                                    Text("• ${policy.collection}: ${policy.retentionDays} days via ${policy.ttlField}", style = MaterialTheme.typography.bodySmall)
+                                    Text("â€¢ ${policy.collection}: ${policy.retentionDays} days via ${policy.ttlField}", style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
@@ -488,7 +489,7 @@ fun MasterAdminAdvancedConsole(
             }
 
             state.error?.let { item { ErrorBanner(it) } }
-            state.message?.let { item { Text(it, color = MaterialTheme.colorScheme.primary) } }
+            state.message?.let { item { SuccessBanner(it) } }
             item {
                 Text("Tenant management", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(
@@ -769,7 +770,7 @@ private fun SubscriptionDialog(
                             Text(definition?.displayName ?: key.replaceFirstChar { it.uppercase() })
                             definition?.let {
                                 Text(
-                                    "Students ${limitLabel(it.maxStudents)} · Staff ${limitLabel(it.maxStaff)} · Campuses ${limitLabel(it.maxCampuses)}",
+                                    "Students ${limitLabel(it.maxStudents)} Â· Staff ${limitLabel(it.maxStaff)} Â· Campuses ${limitLabel(it.maxCampuses)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -910,7 +911,7 @@ private fun PlatformIncidentCard(
             }
             Text(incident.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                "${incident.status.replace('_', ' ').replaceFirstChar { it.uppercase() }} · Occurrences ${incident.occurrences}",
+                "${incident.status.replace('_', ' ').replaceFirstChar { it.uppercase() }} Â· Occurrences ${incident.occurrences}",
                 style = MaterialTheme.typography.bodySmall
             )
             if (incident.status != "runtime") {
@@ -947,8 +948,8 @@ private fun SecurityAlertCard(
             }
             Text(alert.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                "${alert.status.replaceFirstChar { it.uppercase() }} · Occurrences: ${alert.occurrences}" +
-                    (alert.role?.let { " · $it" } ?: ""),
+                "${alert.status.replaceFirstChar { it.uppercase() }} Â· Occurrences: ${alert.occurrences}" +
+                    (alert.role?.let { " Â· $it" } ?: ""),
                 style = MaterialTheme.typography.bodySmall
             )
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -969,8 +970,8 @@ private fun PrivilegedActionCard(event: MasterPrivilegedAuditEvent) {
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(Spacing.sm)) {
             Text(event.action.replace('_', ' '), fontWeight = FontWeight.SemiBold)
-            Text("${event.resourceType} · ${event.resourceId}", style = MaterialTheme.typography.bodySmall)
-            Text("Actor ${event.actorRole} · ${event.actorUid.take(12)}" + (event.timestamp?.let { " · ${it.take(16).replace('T',' ')}" } ?: ""),
+            Text("${event.resourceType} Â· ${event.resourceId}", style = MaterialTheme.typography.bodySmall)
+            Text("Actor ${event.actorRole} Â· ${event.actorUid.take(12)}" + (event.timestamp?.let { " Â· ${it.take(16).replace('T',' ')}" } ?: ""),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -994,7 +995,7 @@ private fun BackupItemCard(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(backup.snapshotTime?.replace('T', ' ')?.take(19) ?: "Backup", fontWeight = FontWeight.SemiBold)
-                    Text("${backup.state} · expires ${backup.expireTime?.take(10) ?: "n/a"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${backup.state} Â· expires ${backup.expireTime?.take(10) ?: "n/a"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (allowRestoreDrills && backup.state == "READY") {
                     TextButton(enabled = !saving, onClick = onTestRestore) { Text("Test restore") }
@@ -1059,13 +1060,13 @@ private fun SchoolCard(
                     Text(school.schoolName, fontWeight = FontWeight.SemiBold)
                     health?.let {
                         Text(
-                            healthLabel(it.healthState) + if (it.activeAlertCount > 0) " · ${it.activeAlertCount} alert(s)" else "",
+                            healthLabel(it.healthState) + if (it.activeAlertCount > 0) " Â· ${it.activeAlertCount} alert(s)" else "",
                             style = MaterialTheme.typography.labelMedium,
                             color = healthColor(it.healthState)
                         )
                     }
                     Text(
-                        "${school.plan.replaceFirstChar { it.uppercase() }} · ${school.subscriptionStatus.replace('_', ' ')}",
+                        "${school.plan.replaceFirstChar { it.uppercase() }} Â· ${school.subscriptionStatus.replace('_', ' ')}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1094,12 +1095,12 @@ private fun SchoolCard(
             }
             val u = school.usage
             Text(
-                "Students ${usageLabel(u.activeStudents, u.studentLimit)} · Staff ${usageLabel(u.activeStaff, u.staffLimit)} · Campuses ${usageLabel(u.activeCampuses, u.campusLimit)}",
+                "Students ${usageLabel(u.activeStudents, u.studentLimit)} Â· Staff ${usageLabel(u.activeStaff, u.staffLimit)} Â· Campuses ${usageLabel(u.activeCampuses, u.campusLimit)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = if (u.studentsOverLimit || u.staffOverLimit || u.campusesOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                "Lifetime pickups: QR ${u.totalQrPickups} · Manual ${u.totalManualPickups}",
+                "Lifetime pickups: QR ${u.totalQrPickups} Â· Manual ${u.totalManualPickups}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1154,7 +1155,7 @@ private fun LaunchReadinessDialog(
     var note by remember(school.schoolId) { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Launch Readiness · ${school.schoolName}") },
+        title = { Text("Launch Readiness Â· ${school.schoolName}") },
         text = {
             Column(
                 modifier = Modifier.heightIn(max = 520.dp),
@@ -1174,12 +1175,12 @@ private fun LaunchReadinessDialog(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            "${readiness.passedCount} passed · ${readiness.warningCount} warning(s) · ${readiness.blockerCount} blocker(s)",
+                            "${readiness.passedCount} passed Â· ${readiness.warningCount} warning(s) Â· ${readiness.blockerCount} blocker(s)",
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         readiness.checks.filter { it.status != "pass" }.take(8).forEach { check ->
                             Text(
-                                "• ${check.label}: ${check.detail}",
+                                "â€¢ ${check.label}: ${check.detail}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (check.status == "blocker") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1322,10 +1323,10 @@ private fun BillingDialog(
                     items(pendingGcash, key = { "gcash-" + it.noticeId }) { notice ->
                         OutlinedCard(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                                Text("${notice.invoiceNumber} · ${notice.currency} ${moneyLabel(notice.amountMinor)}", fontWeight = FontWeight.SemiBold)
+                                Text("${notice.invoiceNumber} Â· ${notice.currency} ${moneyLabel(notice.amountMinor)}", fontWeight = FontWeight.SemiBold)
                                 Text("Payer: ${notice.payerName}", style = MaterialTheme.typography.bodySmall)
                                 Text("Reference: ${notice.referenceNumber}", style = MaterialTheme.typography.bodySmall)
-                                Text("Claimed paid: ${notice.paidAtClaimed?.replace('T',' ')?.take(16) ?: "—"}", style = MaterialTheme.typography.bodySmall)
+                                Text("Claimed paid: ${notice.paidAtClaimed?.replace('T',' ')?.take(16) ?: "â€”"}", style = MaterialTheme.typography.bodySmall)
                                 Button(onClick = { reviewGcashNotice = notice }, enabled = !saving) { Text("Verify payment") }
                             }
                         }
@@ -1339,7 +1340,7 @@ private fun BillingDialog(
                                 Text(invoice.invoiceNumber, fontWeight = FontWeight.SemiBold)
                                 Text(invoice.status.replace('_',' ').replaceFirstChar { it.uppercase() })
                             }
-                            Text("${invoice.currency} ${moneyLabel(invoice.amountMinor)} · due ${invoice.dueAt?.take(10) ?: "—"}", style = MaterialTheme.typography.bodySmall)
+                            Text("${invoice.currency} ${moneyLabel(invoice.amountMinor)} Â· due ${invoice.dueAt?.take(10) ?: "â€”"}", style = MaterialTheme.typography.bodySmall)
                             if (invoice.note.isNotBlank()) Text(invoice.note, style = MaterialTheme.typography.bodySmall)
                             if (invoice.lastEmailedAt != null) {
                                 Text("Last emailed ${invoice.lastEmailedAt.take(10)} to ${invoice.lastEmailedTo}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1447,7 +1448,7 @@ private fun BillingDialog(
             onDismissRequest = { reviewGcashNotice = null },
             title = { Text(if (rejecting) "Reject GCash payment" else "Confirm GCash payment") },
             text = { Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                Text("${notice.invoiceNumber} · ${notice.currency} ${moneyLabel(notice.amountMinor)}", fontWeight = FontWeight.SemiBold)
+                Text("${notice.invoiceNumber} Â· ${notice.currency} ${moneyLabel(notice.amountMinor)}", fontWeight = FontWeight.SemiBold)
                 Text("Payer: ${notice.payerName}")
                 Text("GCash reference: ${notice.referenceNumber}")
                 Text("Check the actual receiving GCash transaction before confirming.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1481,4 +1482,4 @@ private fun BillingDialog(
 
 private fun moneyLabel(amountMinor: Long): String = "%.2f".format(amountMinor / 100.0)
 
-private fun usageLabel(current: Long, limit: Long): String = if (limit < 0) "$current/∞" else "$current/$limit"
+private fun usageLabel(current: Long, limit: Long): String = if (limit < 0) "$current/âˆž" else "$current/$limit"
