@@ -29,6 +29,8 @@ import com.pickuppass.android.data.model.GradeSection
 import com.pickuppass.android.data.model.PickupGateItem
 import com.pickuppass.android.data.model.TenantEntitlementsResponse
 import com.pickuppass.android.ui.theme.Spacing
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,70 +53,31 @@ fun TeacherOperationsScreen(
         }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text =
-                                "Pickup Operations",
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .titleMedium,
-                            fontWeight =
-                                FontWeight.ExtraBold
-                        )
-
-                        Text(
-                            text =
-                                "Staff reference",
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .labelSmall,
-                            color =
-                                MaterialTheme
-                                    .colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onBack
-                    ) {
-                        Icon(
-                            imageVector =
-                                Icons
-                                    .AutoMirrored
-                                    .Filled
-                                    .ArrowBack,
-                            contentDescription =
-                                "Back"
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick =
-                            viewModel::refresh
-                    ) {
-                        Icon(
-                            imageVector =
-                                Icons.Filled.Refresh,
-                            contentDescription =
-                                "Refresh"
-                        )
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Pickup operations",
+                subtitle = "Gates, sections & staff reference",
+                onBack = onBack,
             )
         }
     ) { padding ->
-        LazyColumn(
+        PickupPassPullToRefresh(
+            refreshing =
+                uiState.gatesLoading ||
+                    uiState.structureLoading ||
+                    uiState.entitlementsLoading,
+            onRefresh = viewModel::refresh,
+            enabled =
+                !uiState.gatesLoading &&
+                    !uiState.structureLoading &&
+                    !uiState.entitlementsLoading,
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize(),
+        ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
             contentPadding =
                 PaddingValues(
                     start = Spacing.md,
@@ -186,6 +149,7 @@ fun TeacherOperationsScreen(
                             ::loadEntitlements
                 )
             }
+        }
         }
     }
 }

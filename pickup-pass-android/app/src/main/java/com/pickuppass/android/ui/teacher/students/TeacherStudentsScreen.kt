@@ -36,6 +36,8 @@ import com.pickuppass.android.data.repository.UserRole
 import com.pickuppass.android.ui.common.BrandedTitle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.theme.Spacing
 
@@ -64,22 +66,12 @@ fun TeacherStudentsScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    BrandedTitle(
-                        title = "Students",
-                        school = uiState.school
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
+            PremiumTopAppBar(
+                title = "Students",
+                subtitle = uiState.school?.schoolName?.takeIf { it.isNotBlank() } ?: "Assigned roster",
+                onBack = onBack,
                 actions = {
                     IconButton(onClick = onGoToExitLogs) {
                         Icon(
@@ -111,10 +103,16 @@ fun TeacherStudentsScreen(
             }
         }
     ) { padding ->
-        Box(
+        PickupPassPullToRefresh(
+            refreshing = uiState.isLoading,
+            onRefresh = viewModel::load,
+            enabled = !uiState.isLoading && !uiState.isSubmitting,
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
+                .fillMaxSize(),
+        ) {
+        Box(
+            modifier = Modifier.fillMaxSize()
         ) {
             when {
                 uiState.isLoading ->
@@ -142,6 +140,7 @@ fun TeacherStudentsScreen(
                         }
                     )
             }
+        }
         }
     }
 

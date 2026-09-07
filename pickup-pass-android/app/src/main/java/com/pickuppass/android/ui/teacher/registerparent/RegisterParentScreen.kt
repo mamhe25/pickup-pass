@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.common.WarningBanner
 import com.pickuppass.android.ui.theme.Spacing
@@ -96,17 +97,12 @@ fun RegisterParentScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = { Text("Register primary guardian") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Register primary guardian",
+                subtitle = uiState.studentLabel.takeIf { it.isNotBlank() } ?: "Student guardian setup",
+                onBack = onBack,
             )
         }
     ) { padding ->

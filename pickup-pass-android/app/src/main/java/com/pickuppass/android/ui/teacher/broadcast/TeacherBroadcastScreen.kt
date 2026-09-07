@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
 
@@ -70,25 +71,12 @@ fun TeacherBroadcastScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text("Announcement")
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onBack
-                    ) {
-                        Icon(
-                            imageVector =
-                                Icons.AutoMirrored
-                                    .Filled
-                                    .ArrowBack,
-                            contentDescription =
-                                "Back"
-                        )
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Announcement",
+                subtitle = "Guardian communication",
+                onBack = onBack,
             )
         }
     ) { padding ->

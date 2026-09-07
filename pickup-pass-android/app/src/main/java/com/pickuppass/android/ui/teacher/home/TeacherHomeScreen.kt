@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.PickupPassPullToRefresh
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,25 +77,11 @@ fun TeacherHomeScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            "Teacher Home",
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                        Text(
-                            uiState.school?.schoolName
-                                ?.takeIf { it.isNotBlank() }
-                                ?: "PickupPass",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                },
+            PremiumTopAppBar(
+                title = "Teacher home",
+                subtitle = uiState.school?.schoolName?.takeIf { it.isNotBlank() } ?: "PickupPass",
                 actions = {
                     IconButton(onClick = onOpenNotifications) {
                         BadgedBox(

@@ -28,6 +28,8 @@ import com.pickuppass.android.data.model.ExitLogEntry
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FilterDropdown
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.theme.Spacing
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -73,26 +75,25 @@ fun ExitLogsScreen(
             .size
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text("Dismissal History")
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Dismissal history",
+                subtitle = "Verified release records",
+                onBack = onBack,
             )
         }
     ) { padding ->
-        Column(
+        PickupPassPullToRefresh(
+            refreshing = uiState.isLoading,
+            onRefresh = viewModel::load,
+            enabled = !uiState.isLoading,
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
+                .fillMaxSize(),
+        ) {
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
             if (
                 !uiState.isLoading &&
@@ -210,6 +211,7 @@ fun ExitLogsScreen(
                         }
                 }
             }
+        }
         }
     }
 
