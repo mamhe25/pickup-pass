@@ -347,7 +347,7 @@ fun AccountProfileScreen(
             },
         )
     }
-}}
+}
 
 @Composable
 private fun DetailRow(

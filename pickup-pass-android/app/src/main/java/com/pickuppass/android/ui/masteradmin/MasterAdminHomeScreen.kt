@@ -67,7 +67,6 @@ fun MasterAdminScreen(
                 }
             )
 
-            )
         }
     ) { padding ->
         if (state.loading && state.schools.isEmpty()) {
