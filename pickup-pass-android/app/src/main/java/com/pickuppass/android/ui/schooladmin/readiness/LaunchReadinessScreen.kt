@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.LaunchReadinessCheck
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
 
@@ -38,27 +39,18 @@ fun LaunchReadinessScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Launch Readiness", fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            "Production setup checklist",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
+            PremiumTopAppBar(
+                title = "Launch readiness",
+                subtitle = "Production setup checklist",
+                onBack = onBack,
                 actions = {
-                    IconButton(onClick = viewModel::load, enabled = !state.saving && !state.loading) {
+                    IconButton(
+                        onClick = viewModel::load,
+                        enabled = !state.saving && !state.loading,
+                    ) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh readiness")
                     }
-                }
+                },
             )
         }
     ) { padding ->

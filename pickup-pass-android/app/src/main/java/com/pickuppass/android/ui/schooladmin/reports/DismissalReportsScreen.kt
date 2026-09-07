@@ -21,6 +21,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.theme.Spacing
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,22 +58,10 @@ fun DismissalReportsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Dismissal Reports", fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            "Operational analytics & export",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Dismissal reports",
+                subtitle = "Operational analytics & export",
+                onBack = onBack,
             )
         }
     ) { padding ->

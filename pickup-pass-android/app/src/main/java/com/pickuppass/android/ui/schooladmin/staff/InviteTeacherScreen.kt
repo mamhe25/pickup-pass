@@ -36,6 +36,7 @@ import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.common.WarningBanner
 import com.pickuppass.android.ui.theme.Spacing
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,33 +118,10 @@ fun InviteTeacherScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            "Invite teacher",
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                        Text(
-                            uiState.currentAcademicYearName.ifBlank {
-                                "Teacher onboarding"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onBack,
-                        enabled = !uiState.isSubmitting
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Invite teacher",
+                subtitle = "Teacher onboarding",
+                onBack = { if (!uiState.isSubmitting) onBack() },
             )
         }
     ) { padding ->
@@ -156,7 +134,8 @@ fun InviteTeacherScreen(
                 modifier = Modifier
                     .fillMaxHeight()
                     .widthIn(max = 780.dp)
-                    .align(Alignment.TopCenter),
+                    .align(Alignment.TopCenter)
+                    .imePadding(),
                 contentPadding = PaddingValues(
                     start = Spacing.md,
                     top = Spacing.sm,

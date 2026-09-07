@@ -22,6 +22,7 @@ import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,22 +47,10 @@ fun StaffPickupGatesScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Staff Pickup Gates", fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            "Scanner location access",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Staff pickup gates",
+                subtitle = "Scanner location access",
+                onBack = onBack,
             )
         }
     ) { padding ->

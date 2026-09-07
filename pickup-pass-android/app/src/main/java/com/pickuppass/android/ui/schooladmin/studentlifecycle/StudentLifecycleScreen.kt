@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.StudentLifecycleItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.SuccessBanner
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.theme.Spacing
 
 private val statuses = listOf("active", "inactive", "transferred", "graduated", "archived")
@@ -40,22 +41,10 @@ fun StudentLifecycleScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Student Lifecycle", fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            "Status, retention & promotion",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
+            PremiumTopAppBar(
+                title = "Student lifecycle",
+                subtitle = "Status, retention & promotion",
+                onBack = onBack,
                 actions = {
                     FilledTonalButton(
                         onClick = { showPromotion = true },
@@ -65,7 +54,7 @@ fun StudentLifecycleScreen(
                         Spacer(Modifier.width(Spacing.xs))
                         Text("Promote")
                     }
-                }
+                },
             )
         }
     ) { padding ->

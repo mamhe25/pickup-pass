@@ -25,6 +25,7 @@ import com.pickuppass.android.data.model.TeacherWithSections
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.theme.Spacing
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,22 +49,10 @@ fun ManageSectionsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Teacher Sections", fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            "Teaching scope & roster access",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Teacher sections",
+                subtitle = "Teaching scope & roster access",
+                onBack = onBack,
             )
         }
     ) { padding ->
