@@ -153,8 +153,8 @@ function ensureFeedbackStyles() {
     }
 
     .pp-feedback-toast {
-      --pp-feedback-accent: var(--primary, #047857);
-      --pp-feedback-soft: var(--primary-container, #d1fae5);
+      --pp-feedback-accent: var(--primary, #4652C7);
+      --pp-feedback-soft: var(--primary-container, #EEF0FF);
       position: relative;
       width: min(440px, calc(100vw - 32px));
       max-height: min(86vh, 620px);
@@ -195,8 +195,8 @@ function ensureFeedbackStyles() {
       --pp-feedback-soft: var(--danger-container, #fee2e2);
     }
     .pp-feedback-toast--info {
-      --pp-feedback-accent: var(--primary, #047857);
-      --pp-feedback-soft: var(--primary-container, #d1fae5);
+      --pp-feedback-accent: var(--primary, #4652C7);
+      --pp-feedback-soft: var(--primary-container, #EEF0FF);
     }
 
     .pp-feedback-toast__icon {

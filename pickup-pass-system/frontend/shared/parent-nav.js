@@ -45,7 +45,7 @@ function render(mount) {
     <header class="pp-appbar">
       <div class="pp-appbar__inner">
         <a class="pp-brandmark" href="./students.html" aria-label="PickupPass home">
-          <span class="pp-brandmark__badge">${iconShield()}</span>
+          <span class="pp-brandmark__badge"><img src="../assets/pickuppass-mark.svg" alt="" /></span>
           <span class="flex flex-col">
             <span class="pp-brandmark__name">PickupPass</span>
             <span class="pp-brandmark__tag">Family</span>

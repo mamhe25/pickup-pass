@@ -43,7 +43,7 @@ function render(mount) {
           class="pp-brandmark"
           href="./overview.html"
           aria-label="PickupPass platform control center">
-          <span class="pp-brandmark__badge">${iconShield(true)}</span>
+          <span class="pp-brandmark__badge"><img src="../assets/pickuppass-mark.svg" alt="" /></span>
           <span class="flex flex-col">
             <span class="pp-brandmark__name">PickupPass</span>
             <span class="pp-brandmark__tag">Platform Owner</span>
