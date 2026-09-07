@@ -2,9 +2,13 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(900px 520px at 10% 0%, rgba(70, 82, 199, .12), transparent 68%),
-    linear-gradient(180deg, #F7F8FC 0%, #F1F3F8 100%);
-  color: var(--text, #12182F);
+    radial-gradient(
+      900px 520px at 10% 0%,
+      color-mix(in srgb, var(--primary) 12%, transparent),
+      transparent 68%
+    ),
+    var(--bg);
+  color: var(--text);
   font-family: Inter, system-ui, sans-serif;
 }
 
@@ -16,7 +20,7 @@ body {
 }
 
 .account-page a {
-  color: #4652C7;
+  color: var(--primary);
 }
 
 .account-page p {
@@ -35,14 +39,14 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: var(--text-muted, #667085);
+  color: var(--text-muted);
   font-size: .78rem;
   font-weight: 760;
   text-decoration: none;
 }
 
 .account-back:hover {
-  color: #4652C7;
+  color: var(--primary);
 }
 
 .account-back svg {
@@ -59,7 +63,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--text-strong, #12182F);
+  color: var(--text-strong);
   font-size: .82rem;
   font-weight: 850;
 }
@@ -67,6 +71,14 @@ body {
 .account-brand img {
   width: 30px;
   height: 30px;
+}
+
+.account-brand .pp-wordmark__pickup {
+  color: var(--text-strong);
+}
+
+.account-brand .pp-wordmark__pass {
+  color: var(--primary);
 }
 
 .account-hero {
@@ -125,7 +137,7 @@ body {
 .account-eyebrow,
 .account-label {
   margin: 0;
-  color: #4652C7;
+  color: var(--primary);
   font-size: .67rem;
   font-weight: 850;
   letter-spacing: .12em;
@@ -198,10 +210,10 @@ body {
   align-items: center;
   margin-top: 14px;
   padding: 14px 16px;
-  border: 1px solid var(--border, #D7DBE8);
+  border: 1px solid var(--border);
   border-radius: 16px;
-  background: rgba(255,255,255,.88);
-  box-shadow: 0 8px 24px rgba(18,24,47,.05);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow-sm);
 }
 
 .account-identity__icon {
@@ -210,8 +222,8 @@ body {
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: #EEF0FF;
-  color: #4652C7;
+  background: var(--primary-container);
+  color: var(--primary);
 }
 
 .account-identity__icon svg {
@@ -226,27 +238,27 @@ body {
 .account-identity strong {
   display: block;
   margin-top: 3px;
-  color: var(--text-strong, #12182F);
+  color: var(--text-strong);
   overflow-wrap: anywhere;
 }
 
 .account-card {
   margin: 18px 0 0;
   padding: 22px;
-  border: 1px solid var(--border, #D7DBE8);
+  border: 1px solid var(--border);
   border-radius: 20px;
-  background: rgba(255,255,255,.94);
-  box-shadow: 0 10px 30px rgba(18,24,47,.06);
+  background: color-mix(in srgb, var(--surface) 97%, transparent);
+  box-shadow: var(--shadow-md);
 }
 
 .account-card--security {
-  border-color: #C8CCF3;
-  box-shadow: 0 16px 38px rgba(70,82,199,.10);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+  box-shadow: 0 16px 38px color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 .account-card h2,
 .account-card h3 {
-  color: var(--text-strong, #12182F);
+  color: var(--text-strong);
 }
 
 .security-heading {
@@ -255,7 +267,7 @@ body {
   gap: 14px;
   align-items: start;
   padding-bottom: 18px;
-  border-bottom: 1px solid var(--border, #D7DBE8);
+  border-bottom: 1px solid var(--border);
 }
 
 .security-heading__icon,
@@ -266,8 +278,8 @@ body {
   place-items: center;
   flex: 0 0 auto;
   border-radius: 13px;
-  background: #EEF0FF;
-  color: #4652C7;
+  background: var(--primary-container);
+  color: var(--primary);
 }
 
 .security-heading__icon svg,
@@ -288,7 +300,7 @@ body {
 
 .security-heading p {
   margin: 0;
-  color: var(--text-muted, #667085);
+  color: var(--text-muted);
   font-size: .79rem;
 }
 
@@ -304,10 +316,10 @@ body {
   align-items: center;
   min-height: 26px;
   padding: 2px 9px;
-  border: 1px solid #D8DBE8;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: #F7F8FC;
-  color: #596174;
+  background: var(--surface-variant);
+  color: var(--text-muted);
   font-size: .68rem;
   font-weight: 800;
   white-space: nowrap;
@@ -316,16 +328,16 @@ body {
 .security-badge[data-state="on"],
 .security-badge[data-state="required"],
 .security-badge[data-state="verified"] {
-  border-color: #9DD8BE;
-  background: #ECF9F3;
-  color: #087A57;
+  border-color: color-mix(in srgb, var(--success) 34%, var(--border));
+  background: var(--success-container);
+  color: var(--on-success-container);
 }
 
 .security-badge[data-state="off"],
 .security-badge[data-state="unverified"] {
-  border-color: #F1C4C4;
-  background: #FFF3F3;
-  color: #B42318;
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--border));
+  background: var(--danger-container);
+  color: var(--on-danger-container);
 }
 
 .security-step {
@@ -341,8 +353,8 @@ body {
   height: 30px;
   place-items: center;
   border-radius: 999px;
-  background: #EEF0FF;
-  color: #4652C7;
+  background: var(--primary-container);
+  color: var(--primary);
   font-size: .76rem;
   font-weight: 900;
 }
@@ -358,7 +370,7 @@ body {
 .security-enabled p,
 .security-disable p {
   margin: 0 0 10px;
-  color: var(--text-muted, #667085);
+  color: var(--text-muted);
   font-size: .76rem;
 }
 
@@ -369,15 +381,15 @@ body {
 .secret-box {
   margin: 12px 0;
   padding: 14px;
-  border: 1px dashed #AEB4E8;
+  border: 1px dashed color-mix(in srgb, var(--primary) 35%, var(--border));
   border-radius: 12px;
-  background: #F6F7FF;
+  background: color-mix(in srgb, var(--primary-container) 58%, var(--surface));
 }
 
 .secret-box span {
   display: block;
   margin-bottom: 6px;
-  color: #6A7185;
+  color: var(--text-muted);
   font-size: .67rem;
   font-weight: 850;
   letter-spacing: .12em;
@@ -387,7 +399,7 @@ body {
 .secret-box code {
   display: block;
   overflow-wrap: anywhere;
-  color: #1E275C;
+  color: var(--on-primary-container);
   font-size: .92rem;
   font-weight: 800;
 }
@@ -409,9 +421,9 @@ body {
   gap: 12px;
   margin-top: 18px;
   padding: 14px;
-  border: 1px solid #A7D7C5;
+  border: 1px solid color-mix(in srgb, var(--success) 32%, var(--border));
   border-radius: 14px;
-  background: #EFFAF5;
+  background: var(--success-container);
 }
 
 .security-enabled__mark {
@@ -421,8 +433,8 @@ body {
   flex: 0 0 36px;
   place-items: center;
   border-radius: 999px;
-  background: #087A57;
-  color: white;
+  background: var(--success);
+  color: var(--text-on-brand);
   font-weight: 900;
 }
 
@@ -431,31 +443,31 @@ body {
   padding: 13px 14px;
   border-left: 4px solid #4652C7;
   border-radius: 10px;
-  background: #F3F4FF;
+  background: color-mix(in srgb, var(--primary-container) 58%, var(--surface));
 }
 
 .policy-notice p {
   margin: 4px 0 0;
-  color: var(--text-muted, #667085);
+  color: var(--text-muted);
   font-size: .75rem;
 }
 
 .security-disable {
   margin-top: 18px;
   padding-top: 18px;
-  border-top: 1px solid var(--border, #D7DBE8);
+  border-top: 1px solid var(--border);
 }
 
 .security-footnote,
 .field-help {
-  color: var(--text-subtle, #7B8497);
+  color: var(--text-subtle);
   font-size: .72rem;
 }
 
 .security-footnote {
   margin: 16px 0 0;
   padding-top: 14px;
-  border-top: 1px solid var(--border, #D7DBE8);
+  border-top: 1px solid var(--border);
 }
 
 .account-credential-grid {
@@ -483,7 +495,7 @@ body {
 .account-card__intro {
   margin: 12px 0 14px;
   min-height: 46px;
-  color: var(--text-muted, #667085);
+  color: var(--text-muted);
   font-size: .74rem;
 }
 
@@ -496,9 +508,26 @@ fieldset {
   gap: 8px;
 }
 
+fieldset:disabled {
+  opacity: 1;
+}
+
+fieldset:disabled label,
+fieldset:disabled .field-help {
+  color: var(--text-subtle);
+}
+
+fieldset:disabled input {
+  border-color: var(--border);
+  background: var(--surface-variant);
+  color: var(--text-muted);
+  -webkit-text-fill-color: var(--text-muted);
+  opacity: 1;
+}
+
 label {
   margin-top: 6px;
-  color: var(--text, #12182F);
+  color: var(--text);
   font-size: .76rem;
   font-weight: 760;
 }
@@ -514,18 +543,18 @@ input {
   width: 100%;
   min-width: 0;
   padding: 11px 12px;
-  border: 1px solid #BEC4D2;
-  background: #FBFCFF;
-  color: var(--text, #12182F);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
 }
 
 input:hover:not(:disabled) {
-  border-color: #A4ABD0;
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--border-strong));
 }
 
 input:focus {
-  border-color: #4652C7;
-  box-shadow: 0 0 0 4px rgba(70,82,199,.10);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent);
   outline: 0;
 }
 
@@ -533,7 +562,12 @@ button {
   margin-top: 10px;
   padding: 11px 14px;
   border: 0;
-  background: linear-gradient(135deg, #4652C7, #6D5DFB);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary) 90%, #35409C),
+      #6D5DFB
+    );
   color: white;
   cursor: pointer;
   font-size: .76rem;
@@ -553,14 +587,14 @@ button:hover:not(:disabled) {
 }
 
 .button-secondary {
-  border: 1px solid #C5CAD8;
-  background: #fff;
-  color: #4652C7;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--primary);
   box-shadow: none;
 }
 
 .button-danger {
-  background: #B42318;
+  background: var(--danger);
   box-shadow: none;
 }
 
@@ -573,7 +607,7 @@ fieldset:disabled button {
 input:focus-visible,
 button:focus-visible,
 a:focus-visible {
-  outline: 3px solid rgba(109,93,251,.45);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
 
@@ -584,11 +618,11 @@ a:focus-visible {
 }
 
 .form-status[data-error="true"] {
-  color: #B42318;
+  color: var(--danger);
 }
 
 .form-status[data-success="true"] {
-  color: #087A57;
+  color: var(--success);
 }
 
 .account-recovery-note {
@@ -598,9 +632,9 @@ a:focus-visible {
   align-items: center;
   margin-top: 16px;
   padding: 14px 16px;
-  border: 1px solid var(--border, #D7DBE8);
+  border: 1px solid var(--border);
   border-radius: 16px;
-  background: rgba(255,255,255,.72);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
 }
 
 .account-recovery-note__icon {
@@ -609,8 +643,8 @@ a:focus-visible {
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: #EEF0FF;
-  color: #4652C7;
+  background: var(--primary-container);
+  color: var(--primary);
 }
 
 .account-recovery-note__icon svg {
@@ -620,13 +654,13 @@ a:focus-visible {
 
 .account-recovery-note strong {
   display: block;
-  color: var(--text-strong, #12182F);
+  color: var(--text-strong);
   font-size: .78rem;
 }
 
 .account-recovery-note p {
   margin: 2px 0 0;
-  color: var(--text-muted, #667085);
+  color: var(--text-muted);
   font-size: .7rem;
 }
 
@@ -717,5 +751,22 @@ a:focus-visible {
 
   button:hover:not(:disabled) {
     transform: none;
+  }
+}
+
+
+/* Keep Account Security surfaces and text on the same semantic theme.
+   The previous implementation mixed white cards with dark-mode text tokens. */
+:root[data-theme="dark"] .account-identity,
+:root[data-theme="dark"] .account-card,
+:root[data-theme="dark"] .account-recovery-note {
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .account-identity,
+  :root:not([data-theme="light"]) .account-card,
+  :root:not([data-theme="light"]) .account-recovery-note {
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
   }
 }

@@ -343,3 +343,18 @@ test("parent profile remains responsive and premium across account and security 
   assert.match(accountLink, /pp-navlink__label">Account security/);
   assert.doesNotMatch(accountLink, /Account settings/);
 });
+
+
+test("account security keeps readable theme contrast across light and dark modes", async () => {
+  const css = await shared("account.css");
+
+  assert.match(css, /body\s*\{[\s\S]*?var\(--bg\)[\s\S]*?color:\s*var\(--text\)/);
+  assert.match(css, /\.account-card\s*\{[\s\S]*?var\(--surface\)/);
+  assert.match(css, /\.account-identity\s*\{[\s\S]*?var\(--surface\)/);
+  assert.match(css, /input\s*\{[\s\S]*?var\(--surface\)[\s\S]*?var\(--text\)/);
+  assert.match(css, /fieldset:disabled\s*\{[\s\S]*?opacity:\s*1/);
+  assert.match(css, /fieldset:disabled input\s*\{[\s\S]*?-webkit-text-fill-color:\s*var\(--text-muted\)/);
+  assert.match(css, /\.account-brand \.pp-wordmark__pickup\s*\{[\s\S]*?var\(--text-strong\)/);
+  assert.match(css, /:root\[data-theme="dark"\] \.account-card/);
+  assert.doesNotMatch(css, /background:\s*rgba\(255,255,255,\.(?:88|94|72)\)/);
+});
