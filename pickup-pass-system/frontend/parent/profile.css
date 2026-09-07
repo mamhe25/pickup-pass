@@ -292,10 +292,18 @@
   line-height: 1.45;
 }
 
-.pp-profile-security .pp-btn {
+.pp-profile-security__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.pp-profile-security__actions .pp-btn {
   width: auto;
   min-height: 42px;
   flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .pp-profile-shared-device {
@@ -357,8 +365,10 @@
     flex-wrap: wrap;
   }
 
-  .pp-profile-security .pp-btn {
+  .pp-profile-security__actions {
+    width: 100%;
     margin-left: 54px;
+    justify-content: flex-start;
   }
 }
 

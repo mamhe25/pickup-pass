@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="theme-color" content="#047857" />
+<meta name="theme-color" content="#4652C7" />
 <title>My Profile — PickupPass</title>
 
 <link rel="stylesheet" href="../shared/theme.css" />
@@ -114,14 +114,21 @@
         <div class="pp-profile-security__copy">
           <strong>Account security</strong>
           <p>
-            Review signed-in devices and revoke a lost or shared device without
-            changing your password.
+            Manage your sign-in email, password, authenticator 2FA, and devices
+            that have used this account.
           </p>
         </div>
 
-        <a href="./devices.html" class="pp-btn pp-btn--ghost">
-          Devices
-        </a>
+        <div class="pp-profile-security__actions">
+          <a
+            href="../account.html?return=parent/profile.html"
+            class="pp-btn pp-btn--primary">
+            Manage security
+          </a>
+          <a href="./devices.html" class="pp-btn pp-btn--ghost">
+            Devices
+          </a>
+        </div>
       </div>
 
       <div class="pp-profile-shared-device">

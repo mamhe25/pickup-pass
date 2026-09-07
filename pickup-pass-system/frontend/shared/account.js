@@ -31,6 +31,19 @@ const homes = {
   master_admin: "master-admin/overview.html",
 };
 
+const allowedReturnPaths = {
+  parent: new Set(["parent/profile.html"]),
+};
+
+function requestedReturnPath(role) {
+  const requested =
+    new URLSearchParams(location.search).get("return") || "";
+
+  return allowedReturnPaths[role]?.has(requested)
+    ? requested
+    : homes[role];
+}
+
 const el = id => document.getElementById(id);
 const show = (element, visible) =>
   element?.classList.toggle("hidden", !visible);
@@ -179,14 +192,18 @@ async function refreshAccount() {
     return;
   }
 
+  const returnPath = requestedReturnPath(context.role);
   const backLink = el("backLink");
   if (context.mfaRequired && !context.mfaEnabled) {
     backLink.href = "./login.html";
     backLink.textContent = "← Sign out instead";
     backLink.dataset.requiredMfaSetup = "true";
   } else {
-    backLink.href = "./" + home;
-    backLink.textContent = "← Back to PickupPass";
+    backLink.href = "./" + returnPath;
+    backLink.textContent =
+      returnPath === "parent/profile.html"
+        ? "← Back to My profile"
+        : "← Back to PickupPass";
     delete backLink.dataset.requiredMfaSetup;
   }
 

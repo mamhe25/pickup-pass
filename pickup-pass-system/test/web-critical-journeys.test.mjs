@@ -255,3 +255,26 @@ test(
     assert.match(js, /classList\.contains\(FEEDBACK_CONSUMED_CLASS\)\) return/);
   }
 );
+
+
+test("parent guardian navigation is student-scoped and account security lives under profile", async () => {
+  const [nav, students, overview, manager, profile, account] = await Promise.all([
+    shared("parent-nav.js"),
+    page("parent/students.html"),
+    page("parent/guardians.html"),
+    page("parent/manage-guardians.html"),
+    page("parent/profile.html"),
+    shared("account.js"),
+  ]);
+
+  assert.match(nav, /label:\s*"Guardians"[\s\S]*?href:\s*"\.\/guardians\.html"/);
+  assert.doesNotMatch(nav, /mountAccountLink/);
+  assert.match(students, /Manage guardians/);
+  assert.match(overview, /Guardian access by student/);
+  assert.match(overview, /manage-guardians\.html\?studentId=/);
+  assert.match(manager, /Managing guardian access for/);
+  assert.match(profile, /\.\.\/account\.html\?return=parent\/profile\.html/);
+  assert.match(profile, /Manage security/);
+  assert.match(account, /new Set\(\["parent\/profile\.html"\]\)/);
+  assert.match(account, /Back to My profile/);
+});

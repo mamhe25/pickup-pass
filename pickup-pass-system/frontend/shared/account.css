@@ -1,9 +1,9 @@
 body {
   margin: 0;
   background:
-    radial-gradient(circle at 15% 0%, rgba(16, 185, 129, .10), transparent 28rem),
-    var(--color-surface, #f5f7f6);
-  color: var(--color-ink, #162d25);
+    radial-gradient(circle at 15% 0%, rgba(70, 82, 199, .12), transparent 28rem),
+    var(--surface, #F7F8FC);
+  color: var(--text, #12182F);
   font-family: Inter, system-ui, sans-serif;
 }
 
@@ -14,7 +14,7 @@ body {
 }
 
 .account-page a {
-  color: #047857;
+  color: #4652C7;
 }
 
 .account-page p {
@@ -42,11 +42,11 @@ body {
   flex: 0 0 58px;
   place-items: center;
   border-radius: 18px;
-  background: #047857;
+  background: linear-gradient(135deg, #4652C7, #6D5DFB);
   color: #fff;
   font-size: 28px;
   font-weight: 900;
-  box-shadow: 0 12px 24px rgba(4, 120, 87, .18);
+  box-shadow: 0 12px 24px rgba(70, 82, 199, .22);
 }
 
 .account-hero h1 {
@@ -63,7 +63,7 @@ body {
 .account-eyebrow,
 .account-label {
   margin: 0;
-  color: #047857;
+  color: #4652C7;
   font-size: .72rem;
   font-weight: 850;
   letter-spacing: .12em;
@@ -97,8 +97,8 @@ body {
 }
 
 .account-card--security {
-  border-color: #a7d7c5;
-  box-shadow: 0 14px 34px rgba(4, 120, 87, .08);
+  border-color: #C8CCF3;
+  box-shadow: 0 14px 34px rgba(70, 82, 199, .10);
 }
 
 .account-card h2,
@@ -173,8 +173,8 @@ body {
   height: 30px;
   place-items: center;
   border-radius: 999px;
-  background: #dff5ea;
-  color: #047857;
+  background: #EEF0FF;
+  color: #4652C7;
   font-weight: 900;
 }
 
@@ -198,9 +198,9 @@ body {
 .secret-box {
   margin: 12px 0;
   padding: 14px;
-  border: 1px dashed #86ad9b;
+  border: 1px dashed #AEB4E8;
   border-radius: 12px;
-  background: #f4f8f6;
+  background: #F6F7FF;
 }
 
 .secret-box span {
@@ -224,7 +224,7 @@ body {
   display: inline-block;
   padding: 11px 14px;
   border-radius: 10px;
-  background: #e8f3ee;
+  background: #EEF0FF;
   font-weight: 800;
   text-decoration: none;
 }
@@ -255,9 +255,9 @@ body {
 .policy-notice {
   margin-top: 16px;
   padding: 14px 16px;
-  border-left: 4px solid #047857;
+  border-left: 4px solid #4652C7;
   border-radius: 10px;
-  background: #f0f8f4;
+  background: #F3F4FF;
 }
 
 .policy-notice p {
@@ -309,7 +309,7 @@ button {
   margin-top: 12px;
   padding: 12px 15px;
   border: 0;
-  background: #047857;
+  background: #4652C7;
   color: white;
   cursor: pointer;
   font-weight: 800;
@@ -340,7 +340,7 @@ fieldset:disabled button {
 input:focus-visible,
 button:focus-visible,
 a:focus-visible {
-  outline: 3px solid #34d399;
+  outline: 3px solid #6D5DFB;
   outline-offset: 3px;
 }
 
