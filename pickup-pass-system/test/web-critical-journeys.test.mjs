@@ -22,6 +22,12 @@ test("login routes every supported role to its protected home", async () => {
     shared("mfa.js"),
   ]);
 
+  assert.doesNotMatch(
+    html,
+    /cdn\.tailwindcss\.com|tailwind-config\.js/,
+    "login must not load the Tailwind browser compiler"
+  );
+
   const routes = {
     parent: "./parent/students.html",
     teacher: "./teacher/scanner.html",

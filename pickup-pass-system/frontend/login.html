@@ -11,47 +11,45 @@
 <link rel="stylesheet" href="./shared/components.css">
 <link rel="stylesheet" href="./shared/portal.css">
 <link rel="stylesheet" href="./shared/premium-completion.css">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="./shared/tailwind-config.js"></script>
 </head>
-<body class="min-h-screen pp-portal-body flex items-center justify-center p-4">
+<body class="pp-portal-body pp-auth-page">
 <div class="pp-auth-shell">
   <section class="pp-auth-story">
-    <div class="relative z-10 max-w-lg">
-      <div class="flex items-center gap-3 mb-10">
-        <span class="pp-brandmark__badge w-11 h-11 inline-flex items-center justify-center rounded-xl">
+    <div class="pp-auth-story__content">
+      <div class="pp-auth-brand">
+        <span class="pp-brandmark__badge pp-auth-brand__mark">
           <img src="./assets/pickuppass-mark.svg" alt="" />
         </span>
         <div>
-          <div class="text-xl font-extrabold pp-brand-wordmark"><span class="pp-wordmark__pickup">Pickup</span><span class="pp-wordmark__pass">Pass</span></div>
-          <div class="text-xs text-white/70">Safe Dismissal. Peace of Mind.</div>
+          <div class="pp-brand-wordmark pp-auth-brand__name"><span class="pp-wordmark__pickup">Pickup</span><span class="pp-wordmark__pass">Pass</span></div>
+          <div class="pp-auth-brand__tagline">Safe Dismissal. Peace of Mind.</div>
         </div>
       </div>
 
-      <div class="text-xs uppercase tracking-[.18em] font-bold text-white/60 mb-3">
+      <div class="pp-auth-story__eyebrow">
         Secure school dismissal
       </div>
 
-      <h1 class="text-4xl font-extrabold leading-tight tracking-tight">
+      <h1 class="pp-auth-story__title">
         One trusted portal for every pickup role.
       </h1>
 
-      <p class="mt-4 text-white/75 leading-relaxed">
+      <p class="pp-auth-story__copy">
         Parents manage authorized pickup. Staff verify and release students.
         School administrators oversee safety, operations, reporting and billing
         — all from the same protected platform.
       </p>
 
-      <div class="grid grid-cols-2 gap-3 mt-8">
-        <div class="rounded-2xl bg-white/10 border border-white/15 p-4">
-          <div class="text-2xl font-extrabold">QR</div>
-          <div class="text-xs text-white/70 mt-1">
+      <div class="pp-auth-story__stats">
+        <div class="pp-auth-story__stat">
+          <div class="pp-auth-story__stat-value">QR</div>
+          <div class="pp-auth-story__stat-label">
             Single-use secure pickup passes
           </div>
         </div>
-        <div class="rounded-2xl bg-white/10 border border-white/15 p-4">
-          <div class="text-2xl font-extrabold">2FA</div>
-          <div class="text-xs text-white/70 mt-1">
+        <div class="pp-auth-story__stat">
+          <div class="pp-auth-story__stat-value">2FA</div>
+          <div class="pp-auth-story__stat-label">
             Required for privileged administrator roles
           </div>
         </div>
@@ -60,23 +58,23 @@
   </section>
 
   <section class="pp-auth-form">
-    <div class="mb-7">
-      <div class="text-xs uppercase tracking-[.14em] text-brand-600 font-bold">
+    <div class="pp-auth-form__intro">
+      <div class="pp-auth-form__eyebrow">
         Welcome back
       </div>
-      <h2 class="text-2xl font-extrabold text-ink-strong tracking-tight mt-2">
+      <h2 class="pp-auth-form__title">
         Sign in to PickupPass
       </h2>
-      <p class="text-sm text-ink-muted mt-2">
+      <p class="pp-auth-form__subtitle">
         Use the account provided by your school.
       </p>
     </div>
 
     <div id="securityNotice"
-         class="hidden mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+         class="hidden pp-auth-notice"
          role="status" aria-live="polite"></div>
 
-    <form id="loginForm" class="space-y-4">
+    <form id="loginForm" class="pp-auth-login-form">
       <label>
         Email address
         <input
@@ -101,26 +99,26 @@
 
       <p id="errorMsg" class="pp-alert pp-alert--danger hidden" role="alert"></p>
 
-      <button id="loginButton" type="submit" class="pp-btn pp-btn--primary w-full">
+      <button id="loginButton" type="submit" class="pp-btn pp-btn--primary pp-btn--block">
         Sign in securely
       </button>
     </form>
 
-    <button id="forgotBtn" class="pp-btn pp-btn--ghost mt-4 w-full">
+    <button id="forgotBtn" class="pp-btn pp-btn--ghost pp-btn--block pp-auth-forgot">
       Forgot password?
     </button>
 
-    <div class="mt-6 rounded-2xl border border-hairline bg-slate-50 p-4">
-      <div class="text-sm font-bold text-ink-strong">
+    <div class="pp-auth-admin-note">
+      <div class="pp-auth-admin-note__title">
         Administrator account protection
       </div>
-      <p class="text-xs text-ink-muted mt-1 leading-relaxed">
+      <p class="pp-auth-admin-note__copy">
         Platform Owner and School Admin accounts must use an authenticator app.
         Parents and Teachers can enable the same protection from Account security.
       </p>
     </div>
 
-    <div class="mt-7 pt-5 border-t border-hairline text-center text-xs text-ink-subtle">
+    <div class="pp-auth-footer-note">
       Protected by Firebase Authentication and role-based access controls.
     </div>
   </section>
@@ -129,32 +127,32 @@
 <!-- Premium blocking TOTP challenge. It is intentionally non-dismissible by
      clicking outside: cancelling explicitly signs the incomplete session out. -->
 <div id="mfaDialog"
-     class="hidden fixed inset-0 z-[120] bg-slate-950/55 backdrop-blur-sm p-4"
+     class="hidden pp-mfa-backdrop"
      role="dialog"
      aria-modal="true"
      aria-labelledby="mfaTitle">
-  <div class="min-h-full flex items-center justify-center">
-    <div class="w-full max-w-md rounded-3xl bg-white shadow-2xl border border-white/70 overflow-hidden">
-      <div class="p-6 border-b border-slate-100">
-        <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-4">
+  <div class="pp-mfa-center">
+    <div class="pp-mfa-card">
+      <div class="pp-mfa-card__header">
+        <div class="pp-mfa-icon">
           <svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z" stroke="currentColor" stroke-width="1.8"/>
             <path d="M9.5 12.2 11.3 14l3.8-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
-        <div class="text-xs uppercase tracking-[.14em] font-extrabold text-emerald-700">
+        <div class="pp-mfa-eyebrow">
           Two-factor authentication
         </div>
-        <h2 id="mfaTitle" class="text-xl font-extrabold text-slate-900 mt-1">
+        <h2 id="mfaTitle" class="pp-mfa-title">
           Verify it’s you
         </h2>
-        <p class="text-sm text-slate-600 mt-2 leading-relaxed">
+        <p class="pp-mfa-copy">
           Open your authenticator app and enter the current 6-digit PickupPass code.
         </p>
       </div>
 
-      <form id="mfaForm" class="p-6">
-        <label class="block text-sm font-bold text-slate-800" for="mfaCode">
+      <form id="mfaForm" class="pp-mfa-form">
+        <label class="pp-mfa-label" for="mfaCode">
           Authenticator code
         </label>
         <input
@@ -164,15 +162,15 @@
           autocomplete="one-time-code"
           maxlength="6"
           pattern="[0-9]{6}"
-          class="pp-field mt-2 text-center text-2xl tracking-[.35em] font-extrabold"
+          class="pp-field pp-mfa-code"
           placeholder="000000"
           required>
 
         <p id="mfaError"
-           class="pp-alert pp-alert--danger hidden mt-3"
+           class="pp-alert pp-alert--danger hidden pp-mfa-error"
            role="alert"></p>
 
-        <div class="grid grid-cols-2 gap-3 mt-5">
+        <div class="pp-mfa-actions">
           <button id="cancelMfa" type="button" class="pp-btn pp-btn--ghost">
             Cancel sign-in
           </button>
