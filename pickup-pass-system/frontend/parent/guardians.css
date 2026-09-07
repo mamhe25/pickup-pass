@@ -22,7 +22,7 @@
 .pp-guardian-overview__eyebrow,
 .pp-guardian-scope-card__eyebrow {
   margin: 0;
-  font-size: .66rem;
+  font-size: var(--pp-heading-card-eyebrow-size);
   font-weight: 850;
   letter-spacing: .11em;
   text-transform: uppercase;
@@ -36,8 +36,8 @@
   margin: 7px 0 0;
   max-width: 680px;
   color: #fff;
-  font-size: clamp(1.75rem, 5vw, 2.45rem);
-  line-height: 1.06;
+  font-size: var(--pp-heading-card-title-size);
+  line-height: var(--pp-heading-card-title-line-height);
   letter-spacing: -.04em;
   font-weight: 850;
 }
@@ -46,7 +46,7 @@
   margin: 10px 0 0;
   max-width: 680px;
   color: rgba(255,255,255,.76);
-  font-size: .84rem;
+  font-size: var(--pp-heading-card-copy-size);
   line-height: 1.55;
 }
 

@@ -358,3 +358,59 @@ test("account security keeps readable theme contrast across light and dark modes
   assert.match(css, /:root\[data-theme="dark"\] \.account-card/);
   assert.doesNotMatch(css, /background:\s*rgba\(255,255,255,\.(?:88|94|72)\)/);
 });
+
+
+test("in-app heading cards use one compact typography scale across every web role", async () => {
+  const [
+    theme,
+    portal,
+    account,
+    master,
+    parentStudents,
+    parentProfile,
+    parentGuardians,
+    parentNotifications,
+    parentPass,
+    teacherStudents,
+    teacherHistory,
+  ] = await Promise.all([
+    shared("theme.css"),
+    shared("portal.css"),
+    shared("account.css"),
+    page("master-admin/control-center.css"),
+    page("parent/students.css"),
+    page("parent/profile.css"),
+    page("parent/manage-guardians.css"),
+    page("parent/notifications.css"),
+    page("parent/pickup-pass.css"),
+    page("teacher/students.css"),
+    page("teacher/exit-logs.css"),
+  ]);
+
+  assert.match(
+    theme,
+    /--pp-heading-card-title-size:\s*clamp\(1\.45rem,\s*2\.4vw,\s*1\.85rem\)/
+  );
+  assert.match(theme, /--pp-heading-card-eyebrow-size:\s*\.64rem/);
+  assert.match(theme, /--pp-heading-card-copy-size:\s*\.80rem/);
+
+  for (const css of [
+    portal,
+    account,
+    master,
+    parentStudents,
+    parentProfile,
+    parentGuardians,
+    parentNotifications,
+    parentPass,
+    teacherStudents,
+    teacherHistory,
+  ]) {
+    assert.match(css, /var\(--pp-heading-card-title-size\)/);
+  }
+
+  assert.doesNotMatch(account, /font-size:\s*clamp\(2rem,\s*5vw,\s*3\.2rem\)/);
+  assert.doesNotMatch(master, /font-size:\s*clamp\(1\.8rem,\s*4vw,\s*2\.65rem\)/);
+  assert.doesNotMatch(parentStudents, /font-size:\s*clamp\(1\.65rem,\s*5vw,\s*2\.45rem\)/);
+  assert.doesNotMatch(teacherStudents, /font-size:\s*clamp\(1\.6rem,5vw,2\.3rem\)/);
+});
