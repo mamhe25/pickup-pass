@@ -173,6 +173,7 @@ fun AuditLogScreen(
                 items(filtered, key = { it.id }) { event -> AuditCard(event) }
             }
         }
+        }
     }
 }
 
