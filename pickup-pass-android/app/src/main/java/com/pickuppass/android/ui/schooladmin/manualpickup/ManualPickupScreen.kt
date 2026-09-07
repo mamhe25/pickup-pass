@@ -218,6 +218,7 @@ fun ManualPickupScreen(
                         .widthIn(max = 820.dp)
                         .align(Alignment.TopCenter)
                         .verticalScroll(rememberScrollState())
+                        .imePadding()
                         .padding(
                             start = Spacing.md,
                             top = Spacing.md,

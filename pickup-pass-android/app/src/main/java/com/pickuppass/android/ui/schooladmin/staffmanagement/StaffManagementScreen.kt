@@ -64,7 +64,8 @@ fun StaffManagementScreen(
 
         BoxWithConstraints(Modifier.padding(padding).fillMaxSize()) {
             LazyColumn(
-                modifier = Modifier.fillMaxHeight().widthIn(max = 820.dp).align(Alignment.TopCenter),
+                modifier = Modifier.fillMaxHeight().widthIn(max = 820.dp).align(Alignment.TopCenter)
+                    .imePadding(),
                 contentPadding = PaddingValues(Spacing.md),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
