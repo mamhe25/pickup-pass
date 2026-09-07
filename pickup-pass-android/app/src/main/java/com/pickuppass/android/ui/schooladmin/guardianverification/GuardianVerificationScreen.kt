@@ -1,6 +1,7 @@
 package com.pickuppass.android.ui.schooladmin.guardianverification
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -19,15 +20,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.GuardianVerificationItem
-import com.pickuppass.android.data.model.GuardianVerificationPolicyRequest
-import com.pickuppass.android.data.model.GuardianVerificationStatusRequest
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.SuccessBanner
+import com.pickuppass.android.ui.theme.Green500
+import com.pickuppass.android.ui.theme.Green600
 import com.pickuppass.android.ui.theme.Spacing
 import java.time.Instant
 import java.time.ZoneId
@@ -48,6 +51,13 @@ private data class GuardianAction(
     val targetStatus: String
 )
 
+private enum class MetricKind {
+    TOTAL,
+    ATTENTION,
+    POSITIVE,
+    DANGER
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GuardianVerificationScreen(
@@ -60,7 +70,6 @@ fun GuardianVerificationScreen(
     var statusFilter by rememberSaveable { mutableStateOf(GuardianStatusFilter.ALL) }
     var pendingAction by remember { mutableStateOf<GuardianAction?>(null) }
     var pendingPolicyChange by remember { mutableStateOf<Boolean?>(null) }
-    var localActionError by remember { mutableStateOf<String?>(null) }
 
     val guardians = state.guardians
     val pendingCount = remember(guardians) {
@@ -75,30 +84,42 @@ fun GuardianVerificationScreen(
 
     val filteredGuardians = remember(guardians, query, statusFilter) {
         val normalizedQuery = query.trim().lowercase()
-        guardians.filter { guardian ->
-            val statusMatches =
-                statusFilter.value == null ||
-                    guardian.status.equals(statusFilter.value, ignoreCase = true)
 
-            val queryMatches = normalizedQuery.isBlank() ||
-                guardian.displayName.lowercase().contains(normalizedQuery) ||
-                guardian.email.lowercase().contains(normalizedQuery) ||
-                guardian.studentNames.any { it.lowercase().contains(normalizedQuery) }
+        guardians
+            .filter { guardian ->
+                val statusMatches =
+                    statusFilter.value == null ||
+                        guardian.status.equals(statusFilter.value, ignoreCase = true)
 
-            statusMatches && queryMatches
-        }.sortedWith(
-            compareBy<GuardianVerificationItem> {
-                when (it.status.lowercase()) {
-                    "pending" -> 0
-                    "suspended" -> 1
-                    "verified" -> 2
-                    else -> 3
-                }
-            }.thenBy { it.displayName.lowercase() }
-        )
+                val queryMatches =
+                    normalizedQuery.isBlank() ||
+                        guardian.displayName.lowercase().contains(normalizedQuery) ||
+                        guardian.email.lowercase().contains(normalizedQuery) ||
+                        guardian.studentNames.any {
+                            it.lowercase().contains(normalizedQuery)
+                        }
+
+                statusMatches && queryMatches
+            }
+            .sortedWith(
+                compareBy<GuardianVerificationItem> {
+                    when (it.status.lowercase()) {
+                        "pending" -> 0
+                        "suspended" -> 1
+                        "verified" -> 2
+                        else -> 3
+                    }
+                }.thenBy { it.displayName.lowercase() }
+            )
     }
 
+    val mutationBusy =
+        state.isLoading ||
+            state.policyBusy ||
+            state.busyUid != null
+
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = {
@@ -106,11 +127,11 @@ fun GuardianVerificationScreen(
                         Text(
                             text = "Guardian Verification",
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold
+                            fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = "Identity assurance & pickup access",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -123,6 +144,28 @@ fun GuardianVerificationScreen(
                         )
                     }
                 },
+                actions = {
+                    IconButton(
+                        onClick = viewModel::load,
+                        enabled = !mutationBusy
+                    ) {
+                        if (state.isLoading && guardians.isNotEmpty()) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(19.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                Icons.Filled.Refresh,
+                                contentDescription = "Refresh guardian verification"
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface
+                )
             )
         }
     ) { padding ->
@@ -145,40 +188,29 @@ fun GuardianVerificationScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .widthIn(max = 760.dp)
+                    .widthIn(max = 820.dp)
                     .align(Alignment.TopCenter),
                 contentPadding = PaddingValues(
                     start = Spacing.md,
-                    top = Spacing.sm,
+                    top = Spacing.md,
                     end = Spacing.md,
                     bottom = Spacing.xl
                 ),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
-                localActionError?.let { message ->
-                    item {
-                        ErrorBanner(message)
-                    }
-                }
-
-                state.error?.let { message ->
-                    item {
-                        ErrorBanner(message)
-                    }
-                }
-
-                item {
+                item(key = "policy") {
                     VerificationPolicyCard(
                         verificationRequired = state.verificationRequired,
                         pendingCount = pendingCount,
-                        enabled = !state.isLoading,
+                        busy = state.policyBusy,
+                        enabled = !state.isLoading && state.busyUid == null,
                         onToggle = { required ->
                             pendingPolicyChange = required
                         }
                     )
                 }
 
-                item {
+                item(key = "overview") {
                     VerificationOverview(
                         total = guardians.size,
                         pending = pendingCount,
@@ -188,19 +220,26 @@ fun GuardianVerificationScreen(
                 }
 
                 if (pendingCount > 0) {
-                    item {
+                    item(key = "attention") {
                         AttentionCard(pendingCount)
                     }
                 }
 
-                item {
+                item(key = "search") {
+                    SearchAndFilterHeader(
+                        visibleCount = filteredGuardians.size,
+                        totalCount = guardians.size
+                    )
+                }
+
+                item(key = "search-field") {
                     GuardianSearchField(
                         query = query,
                         onQueryChange = { query = it }
                     )
                 }
 
-                item {
+                item(key = "filters") {
                     StatusFilterRow(
                         selected = statusFilter,
                         counts = mapOf(
@@ -214,10 +253,12 @@ fun GuardianVerificationScreen(
                 }
 
                 if (filteredGuardians.isEmpty()) {
-                    item {
+                    item(key = "empty") {
                         GuardianEmptyState(
                             hasGuardians = guardians.isNotEmpty(),
-                            hasFilter = query.isNotBlank() || statusFilter != GuardianStatusFilter.ALL,
+                            hasFilter =
+                                query.isNotBlank() ||
+                                    statusFilter != GuardianStatusFilter.ALL,
                             onClearFilters = {
                                 query = ""
                                 statusFilter = GuardianStatusFilter.ALL
@@ -231,7 +272,8 @@ fun GuardianVerificationScreen(
                     ) { guardian ->
                         GuardianReviewCard(
                             guardian = guardian,
-                            enabled = !state.isLoading,
+                            enabled = !state.policyBusy && state.busyUid == null,
+                            busy = state.busyUid == guardian.uid,
                             onVerify = {
                                 pendingAction = GuardianAction(
                                     guardian = guardian,
@@ -248,28 +290,39 @@ fun GuardianVerificationScreen(
                     }
                 }
 
-                item {
+                item(key = "security-footnote") {
                     SecurityFootnote()
                 }
             }
         }
     }
 
+    // Terminal action feedback intentionally lives outside LazyColumn.
+    // Dialog feedback must be composed independently of scroll position.
+    when {
+        !state.error.isNullOrBlank() -> {
+            ErrorBanner(state.error.orEmpty())
+        }
+
+        !state.message.isNullOrBlank() -> {
+            SuccessBanner(state.message.orEmpty())
+        }
+    }
+
     pendingAction?.let { action ->
         GuardianStatusDialog(
             action = action,
-            onDismiss = { pendingAction = null },
+            onDismiss = {
+                if (state.busyUid == null) {
+                    pendingAction = null
+                }
+            },
             onConfirm = { reason ->
-                localActionError = null
-                val result = viewModel.invokeGuardianStatusMutation(
-                    guardianUid = action.guardian.uid,
+                viewModel.updateStatus(
+                    guardian = action.guardian,
                     status = action.targetStatus,
                     reason = reason
                 )
-                result.exceptionOrNull()?.let { error ->
-                    localActionError = error.message
-                        ?: "Could not update guardian verification status."
-                }
                 pendingAction = null
             }
         )
@@ -279,14 +332,13 @@ fun GuardianVerificationScreen(
         PolicyChangeDialog(
             required = required,
             pendingCount = pendingCount,
-            onDismiss = { pendingPolicyChange = null },
-            onConfirm = {
-                localActionError = null
-                val result = viewModel.invokeVerificationPolicyMutation(required)
-                result.exceptionOrNull()?.let { error ->
-                    localActionError = error.message
-                        ?: "Could not update guardian verification policy."
+            onDismiss = {
+                if (!state.policyBusy) {
+                    pendingPolicyChange = null
                 }
+            },
+            onConfirm = {
+                viewModel.setPolicy(required)
                 pendingPolicyChange = null
             }
         )
@@ -297,26 +349,26 @@ fun GuardianVerificationScreen(
 private fun VerificationPolicyCard(
     verificationRequired: Boolean,
     pendingCount: Int,
+    busy: Boolean,
     enabled: Boolean,
     onToggle: (Boolean) -> Unit
 ) {
-    val containerColor = if (verificationRequired) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.surfaceContainerHigh
-    }
-    val contentColor = if (verificationRequired) {
-        MaterialTheme.colorScheme.onPrimary
-    } else {
-        MaterialTheme.colorScheme.onSurface
-    }
+    val scheme = MaterialTheme.colorScheme
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = containerColor,
-        contentColor = contentColor,
-        shadowElevation = if (verificationRequired) 7.dp else 1.dp
+        color = scheme.surface,
+        border = BorderStroke(
+            1.dp,
+            if (verificationRequired) {
+                scheme.primary.copy(alpha = 0.24f)
+            } else {
+                scheme.outlineVariant
+            }
+        ),
+        shadowElevation = if (verificationRequired) 3.dp else 1.dp,
+        tonalElevation = 1.dp
     ) {
         Column(
             modifier = Modifier.padding(Spacing.lg),
@@ -327,13 +379,10 @@ private fun VerificationPolicyCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    modifier = Modifier.size(46.dp),
-                    shape = CircleShape,
-                    color = if (verificationRequired) {
-                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.13f)
-                    } else {
-                        MaterialTheme.colorScheme.primaryContainer
-                    }
+                    modifier = Modifier.size(50.dp),
+                    shape = MaterialTheme.shapes.large,
+                    color = scheme.primaryContainer,
+                    contentColor = scheme.onPrimaryContainer
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -343,11 +392,7 @@ private fun VerificationPolicyCard(
                                 Icons.Filled.Policy
                             },
                             contentDescription = null,
-                            tint = if (verificationRequired) {
-                                MaterialTheme.colorScheme.onPrimary
-                            } else {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            }
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
@@ -356,59 +401,80 @@ private fun VerificationPolicyCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (verificationRequired) {
-                            "Identity verification required"
-                        } else {
-                            "Identity verification optional"
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold
+                        text = "Guardian verification policy",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = scheme.primary
                     )
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         text = if (verificationRequired) {
-                            "New parent-added guardians require school review before they can authorize pickup."
+                            "School review required"
+                        } else {
+                            "School review optional"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = if (verificationRequired) {
+                            "New parent-added guardians must be reviewed before they can authorize student pickup."
                         } else {
                             "New guardians can become pickup-authorized without a separate school identity review."
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = contentColor.copy(alpha = 0.78f)
+                        color = scheme.onSurfaceVariant
                     )
                 }
 
                 Spacer(Modifier.width(Spacing.sm))
-                Switch(
-                    checked = verificationRequired,
-                    onCheckedChange = onToggle,
-                    enabled = enabled,
-                    colors = if (verificationRequired) {
-                        SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    } else {
-                        SwitchDefaults.colors()
-                    }
-                )
+
+                if (busy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Switch(
+                        checked = verificationRequired,
+                        onCheckedChange = onToggle,
+                        enabled = enabled
+                    )
+                }
             }
 
             if (verificationRequired && pendingCount > 0) {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.15f)
-                )
+                HorizontalDivider(color = scheme.outlineVariant)
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Filled.PendingActions,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Surface(
+                        shape = CircleShape,
+                        color = scheme.tertiaryContainer
+                    ) {
+                        Icon(
+                            Icons.Filled.PendingActions,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .padding(7.dp)
+                                .size(17.dp),
+                            tint = scheme.onTertiaryContainer
+                        )
+                    }
                     Spacer(Modifier.width(Spacing.sm))
-                    Text(
-                        text = "$pendingCount guardian${if (pendingCount == 1) "" else "s"} waiting for review",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column {
+                        Text(
+                            text = "$pendingCount awaiting school review",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Pending guardians cannot authorize pickup while verification is required.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = scheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
@@ -425,22 +491,17 @@ private fun VerificationOverview(
     Column(
         verticalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Bottom
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Guardian assurance",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold
-                )
-                Text(
-                    text = "$total guardian${if (total == 1) "" else "s"} linked to students",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+        Column {
+            Text(
+                text = "Identity assurance",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "A clear view of guardian pickup authorization across the school.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         Row(
@@ -449,18 +510,29 @@ private fun VerificationOverview(
         ) {
             VerificationMetric(
                 modifier = Modifier.weight(1f),
+                value = total,
+                label = "Total",
+                icon = Icons.Filled.PeopleAlt,
+                kind = MetricKind.TOTAL
+            )
+            VerificationMetric(
+                modifier = Modifier.weight(1f),
                 value = pending,
                 label = "Pending",
                 icon = Icons.Filled.Schedule,
-                emphasis = pending > 0,
                 kind = MetricKind.ATTENTION
             )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
             VerificationMetric(
                 modifier = Modifier.weight(1f),
                 value = verified,
                 label = "Verified",
                 icon = Icons.Filled.Verified,
-                emphasis = false,
                 kind = MetricKind.POSITIVE
             )
             VerificationMetric(
@@ -468,14 +540,11 @@ private fun VerificationOverview(
                 value = suspended,
                 label = "Suspended",
                 icon = Icons.Filled.Block,
-                emphasis = suspended > 0,
                 kind = MetricKind.DANGER
             )
         }
     }
 }
-
-private enum class MetricKind { ATTENTION, POSITIVE, DANGER }
 
 @Composable
 private fun VerificationMetric(
@@ -483,85 +552,141 @@ private fun VerificationMetric(
     value: Int,
     label: String,
     icon: ImageVector,
-    emphasis: Boolean,
     kind: MetricKind
 ) {
+    val scheme = MaterialTheme.colorScheme
+    val success = successAccent()
     val accent = when (kind) {
-        MetricKind.ATTENTION -> MaterialTheme.colorScheme.tertiary
-        MetricKind.POSITIVE -> MaterialTheme.colorScheme.primary
-        MetricKind.DANGER -> MaterialTheme.colorScheme.error
+        MetricKind.TOTAL -> scheme.primary
+        MetricKind.ATTENTION -> scheme.tertiary
+        MetricKind.POSITIVE -> success
+        MetricKind.DANGER -> scheme.error
     }
 
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        color = if (emphasis) accent.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surfaceContainer,
+        color = scheme.surface,
         border = BorderStroke(
             1.dp,
-            if (emphasis) accent.copy(alpha = 0.28f) else MaterialTheme.colorScheme.outlineVariant
-        )
+            accent.copy(alpha = if (value > 0) 0.22f else 0.10f)
+        ),
+        tonalElevation = 1.dp
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Row(
+            modifier = Modifier.padding(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = accent,
-                modifier = Modifier.size(19.dp)
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = value.toString(),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.ExtraBold
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
+            Surface(
+                modifier = Modifier.size(38.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = accent.copy(alpha = 0.10f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(Spacing.sm))
+
+            Column {
+                Text(
+                    text = value.toString(),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = scheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun AttentionCard(pendingCount: Int) {
+    val scheme = MaterialTheme.colorScheme
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f),
+        color = scheme.tertiaryContainer.copy(alpha = 0.52f),
         border = BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.24f)
+            scheme.tertiary.copy(alpha = 0.25f)
         )
     ) {
         Row(
             modifier = Modifier.padding(Spacing.md),
             verticalAlignment = Alignment.Top
         ) {
-            Icon(
-                Icons.Filled.AssignmentInd,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onTertiaryContainer
-            )
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = CircleShape,
+                color = scheme.tertiary.copy(alpha = 0.12f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Filled.AssignmentInd,
+                        contentDescription = null,
+                        tint = scheme.onTertiaryContainer,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
             Spacer(Modifier.width(Spacing.sm))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Identity reviews need attention",
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                    fontWeight = FontWeight.Bold,
+                    color = scheme.onTertiaryContainer
                 )
                 Text(
-                    text = "$pendingCount guardian${if (pendingCount == 1) " is" else "s are"} waiting for a school decision. Review identity before granting pickup access.",
+                    text = "$pendingCount guardian${if (pendingCount == 1) " is" else "s are"} waiting for a school decision. Review identity and relationship before granting pickup access.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.80f)
+                    color = scheme.onTertiaryContainer.copy(alpha = 0.82f)
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SearchAndFilterHeader(
+    visibleCount: Int,
+    totalCount: Int
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Review guardians",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Search by guardian, email, or linked student.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Text(
+            text = "$visibleCount of $totalCount",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -575,6 +700,7 @@ private fun GuardianSearchField(
         onValueChange = onQueryChange,
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
+        shape = MaterialTheme.shapes.large,
         label = { Text("Search guardians") },
         placeholder = { Text("Name, email or student") },
         leadingIcon = {
@@ -583,11 +709,16 @@ private fun GuardianSearchField(
         trailingIcon = {
             if (query.isNotBlank()) {
                 IconButton(onClick = { onQueryChange("") }) {
-                    Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = "Clear search"
+                    )
                 }
             }
         },
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
+        keyboardOptions = KeyboardOptions(
+            imeAction = ImeAction.Done
+        )
     )
 }
 
@@ -602,7 +733,10 @@ private fun StatusFilterRow(
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         contentPadding = PaddingValues(horizontal = 1.dp)
     ) {
-        items(GuardianStatusFilter.entries) { filter ->
+        items(
+            items = GuardianStatusFilter.entries,
+            key = { it.name }
+        ) { filter ->
             FilterChip(
                 selected = filter == selected,
                 onClick = { onSelect(filter) },
@@ -629,21 +763,33 @@ private fun StatusFilterRow(
 private fun GuardianReviewCard(
     guardian: GuardianVerificationItem,
     enabled: Boolean,
+    busy: Boolean,
     onVerify: () -> Unit,
     onSuspend: () -> Unit
 ) {
+    val scheme = MaterialTheme.colorScheme
     val status = guardian.status.lowercase()
     val isPending = status == "pending"
     val isVerified = status == "verified"
     val isSuspended = status == "suspended"
 
-    ElevatedCard(
+    val accent = when {
+        isVerified -> successAccent()
+        isSuspended -> scheme.error
+        else -> scheme.tertiary
+    }
+
+    Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+        colors = CardDefaults.cardColors(
+            containerColor = scheme.surface
         ),
-        elevation = CardDefaults.elevatedCardElevation(
+        border = BorderStroke(
+            1.dp,
+            accent.copy(alpha = if (isPending || isSuspended) 0.24f else 0.14f)
+        ),
+        elevation = CardDefaults.cardElevation(
             defaultElevation = if (isPending) 3.dp else 1.dp
         )
     ) {
@@ -655,7 +801,10 @@ private fun GuardianReviewCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                GuardianInitialsAvatar(guardian.displayName)
+                GuardianInitialsAvatar(
+                    name = guardian.displayName,
+                    status = status
+                )
 
                 Spacer(Modifier.width(Spacing.md))
 
@@ -663,15 +812,16 @@ private fun GuardianReviewCard(
                     Text(
                         text = guardian.displayName.ifBlank { "Guardian" },
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     if (guardian.email.isNotBlank()) {
+                        Spacer(Modifier.height(2.dp))
                         Text(
                             text = guardian.email,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = scheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -707,109 +857,148 @@ private fun GuardianReviewCard(
                 }
 
                 isVerified -> {
-                    val meta = buildList {
-                        guardian.verifiedAt?.takeIf { it.isNotBlank() }?.let {
-                            add("Verified ${formatVerificationTime(it)}")
-                        }
-                        guardian.verificationReason.takeIf { it.isNotBlank() }?.let {
-                            add(it)
-                        }
-                    }.joinToString(" · ")
-
-                    if (meta.isNotBlank()) {
-                        Text(
-                            text = meta,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    VerifiedContext(guardian)
                 }
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            HorizontalDivider(
+                color = scheme.outlineVariant
+            )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                when {
-                    isPending -> {
-                        OutlinedButton(
-                            onClick = onSuspend,
-                            enabled = enabled,
-                            modifier = Modifier.heightIn(min = 44.dp)
-                        ) {
-                            Icon(
-                                Icons.Filled.Block,
-                                contentDescription = null,
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text("Suspend")
-                        }
-                        Spacer(Modifier.width(Spacing.sm))
-                        Button(
-                            onClick = onVerify,
-                            enabled = enabled,
-                            modifier = Modifier.heightIn(min = 44.dp)
-                        ) {
-                            Icon(
-                                Icons.Filled.Verified,
-                                contentDescription = null,
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text("Verify guardian", fontWeight = FontWeight.Bold)
-                        }
-                    }
+            GuardianCardActions(
+                isPending = isPending,
+                isVerified = isVerified,
+                isSuspended = isSuspended,
+                enabled = enabled,
+                busy = busy,
+                onVerify = onVerify,
+                onSuspend = onSuspend
+            )
+        }
+    }
+}
 
-                    isVerified -> {
-                        OutlinedButton(
-                            onClick = onSuspend,
-                            enabled = enabled,
-                            modifier = Modifier.heightIn(min = 44.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            ),
-                            border = BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.error.copy(alpha = 0.45f)
-                            )
-                        ) {
-                            Icon(
-                                Icons.Filled.Block,
-                                contentDescription = null,
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text("Suspend access")
-                        }
-                    }
+@Composable
+private fun GuardianCardActions(
+    isPending: Boolean,
+    isVerified: Boolean,
+    isSuspended: Boolean,
+    enabled: Boolean,
+    busy: Boolean,
+    onVerify: () -> Unit,
+    onSuspend: () -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
 
-                    isSuspended -> {
-                        Button(
-                            onClick = onVerify,
-                            enabled = enabled,
-                            modifier = Modifier.heightIn(min = 44.dp)
-                        ) {
-                            Icon(
-                                Icons.Filled.VerifiedUser,
-                                contentDescription = null,
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text("Verify & restore", fontWeight = FontWeight.Bold)
-                        }
-                    }
+    if (busy) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 44.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Text(
+                text = "Updating guardian…",
+                style = MaterialTheme.typography.labelLarge,
+                color = scheme.onSurfaceVariant
+            )
+        }
+        return
+    }
 
-                    else -> {
-                        Text(
-                            text = "Status: ${guardian.status.ifBlank { "Unknown" }}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        when {
+            isPending -> {
+                OutlinedButton(
+                    onClick = onSuspend,
+                    enabled = enabled,
+                    modifier = Modifier.heightIn(min = 44.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = scheme.error
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        scheme.error.copy(alpha = 0.42f)
+                    )
+                ) {
+                    Icon(
+                        Icons.Filled.Block,
+                        contentDescription = null,
+                        modifier = Modifier.size(17.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Suspend")
+                }
+
+                Spacer(Modifier.width(Spacing.sm))
+
+                Button(
+                    onClick = onVerify,
+                    enabled = enabled,
+                    modifier = Modifier.heightIn(min = 44.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Verified,
+                        contentDescription = null,
+                        modifier = Modifier.size(17.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "Verify guardian",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            isVerified -> {
+                OutlinedButton(
+                    onClick = onSuspend,
+                    enabled = enabled,
+                    modifier = Modifier.heightIn(min = 44.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = scheme.error
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        scheme.error.copy(alpha = 0.42f)
+                    )
+                ) {
+                    Icon(
+                        Icons.Filled.Block,
+                        contentDescription = null,
+                        modifier = Modifier.size(17.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Suspend access")
+                }
+            }
+
+            isSuspended -> {
+                Button(
+                    onClick = onVerify,
+                    enabled = enabled,
+                    modifier = Modifier.heightIn(min = 44.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.VerifiedUser,
+                        contentDescription = null,
+                        modifier = Modifier.size(17.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "Verify & restore",
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -817,7 +1006,11 @@ private fun GuardianReviewCard(
 }
 
 @Composable
-private fun GuardianInitialsAvatar(name: String) {
+private fun GuardianInitialsAvatar(
+    name: String,
+    status: String
+) {
+    val scheme = MaterialTheme.colorScheme
     val initials = remember(name) {
         name.trim()
             .split(Regex("\\s+"))
@@ -828,17 +1021,28 @@ private fun GuardianInitialsAvatar(name: String) {
             .ifBlank { "G" }
     }
 
+    val accent = when (status) {
+        "verified" -> successAccent()
+        "suspended" -> scheme.error
+        "pending" -> scheme.tertiary
+        else -> scheme.primary
+    }
+
     Surface(
-        modifier = Modifier.size(48.dp),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        modifier = Modifier.size(52.dp),
+        shape = MaterialTheme.shapes.large,
+        color = accent.copy(alpha = 0.10f),
+        border = BorderStroke(
+            1.dp,
+            accent.copy(alpha = 0.18f)
+        ),
+        contentColor = accent
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = initials,
                 style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.Bold
             )
         }
     }
@@ -846,53 +1050,64 @@ private fun GuardianInitialsAvatar(name: String) {
 
 @Composable
 private fun GuardianStatusBadge(status: String) {
-    val (label, icon, container, content) = when (status) {
+    val scheme = MaterialTheme.colorScheme
+    val success = successAccent()
+
+    val style = when (status) {
         "pending" -> StatusStyle(
-            "Pending",
-            Icons.Filled.Schedule,
-            MaterialTheme.colorScheme.tertiaryContainer,
-            MaterialTheme.colorScheme.onTertiaryContainer
+            label = "Pending",
+            icon = Icons.Filled.Schedule,
+            container = scheme.tertiaryContainer,
+            content = scheme.onTertiaryContainer
         )
+
         "verified" -> StatusStyle(
-            "Verified",
-            Icons.Filled.Verified,
-            MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.onPrimaryContainer
+            label = "Verified",
+            icon = Icons.Filled.Verified,
+            container = success.copy(alpha = 0.12f),
+            content = success
         )
+
         "suspended" -> StatusStyle(
-            "Suspended",
-            Icons.Filled.Block,
-            MaterialTheme.colorScheme.errorContainer,
-            MaterialTheme.colorScheme.onErrorContainer
+            label = "Suspended",
+            icon = Icons.Filled.Block,
+            container = scheme.errorContainer,
+            content = scheme.onErrorContainer
         )
+
         else -> StatusStyle(
-            status.ifBlank { "Unknown" }.replaceFirstChar { it.uppercase() },
-            Icons.Filled.HelpOutline,
-            MaterialTheme.colorScheme.surfaceContainerHighest,
-            MaterialTheme.colorScheme.onSurfaceVariant
+            label = status
+                .ifBlank { "Unknown" }
+                .replaceFirstChar { it.uppercase() },
+            icon = Icons.Filled.HelpOutline,
+            container = scheme.surfaceContainerHighest,
+            content = scheme.onSurfaceVariant
         )
     }
 
     Surface(
         shape = CircleShape,
-        color = container
+        color = style.container
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+            modifier = Modifier.padding(
+                horizontal = 9.dp,
+                vertical = 5.dp
+            ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                icon,
+                style.icon,
                 contentDescription = null,
-                tint = content,
+                tint = style.content,
                 modifier = Modifier.size(14.dp)
             )
             Spacer(Modifier.width(5.dp))
             Text(
-                text = label,
+                text = style.label,
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.ExtraBold,
-                color = content
+                fontWeight = FontWeight.Bold,
+                color = style.content
             )
         }
     }
@@ -906,30 +1121,50 @@ private data class StatusStyle(
 )
 
 @Composable
-private fun StudentLinksSummary(studentNames: List<String>) {
+private fun StudentLinksSummary(
+    studentNames: List<String>
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.padding(
+                horizontal = 12.dp,
+                vertical = 11.dp
+            ),
             verticalAlignment = Alignment.Top
         ) {
-            Icon(
-                Icons.Filled.School,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
-            )
+            Surface(
+                modifier = Modifier.size(34.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Filled.School,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(17.dp)
+                    )
+                }
+            }
+
             Spacer(Modifier.width(Spacing.sm))
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (studentNames.size == 1) "Authorized student" else "Authorized students",
+                    text = if (studentNames.size == 1) {
+                        "Authorized student"
+                    } else {
+                        "Authorized students"
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = studentNames.joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium,
@@ -943,27 +1178,95 @@ private fun StudentLinksSummary(studentNames: List<String>) {
 }
 
 @Composable
+private fun VerifiedContext(
+    guardian: GuardianVerificationItem
+) {
+    val success = successAccent()
+
+    val meta = buildList {
+        guardian.verifiedAt
+            ?.takeIf { it.isNotBlank() }
+            ?.let {
+                add("Verified ${formatVerificationTime(it)}")
+            }
+
+        guardian.verificationReason
+            .takeIf { it.isNotBlank() }
+            ?.let { add(it) }
+    }.joinToString(" · ")
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = success.copy(alpha = 0.07f),
+        border = BorderStroke(
+            1.dp,
+            success.copy(alpha = 0.16f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                Icons.Filled.VerifiedUser,
+                contentDescription = null,
+                tint = success,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Pickup identity verified",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = success
+                )
+                Text(
+                    text = meta.ifBlank {
+                        "This guardian is currently authorized under the school's verification policy."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ReviewContext(
     icon: ImageVector,
     title: String,
     detail: String,
     danger: Boolean = false
 ) {
+    val scheme = MaterialTheme.colorScheme
+
     val container = if (danger) {
-        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
+        scheme.errorContainer.copy(alpha = 0.55f)
     } else {
-        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f)
+        scheme.tertiaryContainer.copy(alpha = 0.50f)
     }
+
     val content = if (danger) {
-        MaterialTheme.colorScheme.onErrorContainer
+        scheme.onErrorContainer
     } else {
-        MaterialTheme.colorScheme.onTertiaryContainer
+        scheme.onTertiaryContainer
     }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = container
+        color = container,
+        border = BorderStroke(
+            1.dp,
+            if (danger) {
+                scheme.error.copy(alpha = 0.16f)
+            } else {
+                scheme.tertiary.copy(alpha = 0.18f)
+            }
+        )
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -986,7 +1289,7 @@ private fun ReviewContext(
                 Text(
                     text = detail,
                     style = MaterialTheme.typography.bodySmall,
-                    color = content.copy(alpha = 0.80f)
+                    color = content.copy(alpha = 0.82f)
                 )
             }
         }
@@ -1002,8 +1305,11 @@ private fun GuardianEmptyState(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant
+        )
     ) {
         Column(
             modifier = Modifier
@@ -1013,22 +1319,30 @@ private fun GuardianEmptyState(
             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
             Surface(
-                modifier = Modifier.size(52.dp),
-                shape = CircleShape,
+                modifier = Modifier.size(54.dp),
+                shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = if (hasGuardians) Icons.Filled.SearchOff else Icons.Filled.PeopleOutline,
+                        imageVector = if (hasGuardians) {
+                            Icons.Filled.SearchOff
+                        } else {
+                            Icons.Filled.PeopleOutline
+                        },
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
             Text(
-                text = if (hasGuardians) "No guardians match" else "No guardians to review",
+                text = if (hasGuardians) {
+                    "No guardians match"
+                } else {
+                    "No guardians to review"
+                },
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.Bold
             )
             Text(
                 text = if (hasGuardians) {
@@ -1037,7 +1351,8 @@ private fun GuardianEmptyState(
                     "Guardian identities will appear here when they are linked to students."
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
             )
             if (hasFilter) {
                 TextButton(onClick = onClearFilters) {
@@ -1050,24 +1365,28 @@ private fun GuardianEmptyState(
 
 @Composable
 private fun SecurityFootnote() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Spacing.sm, vertical = Spacing.md),
-        verticalAlignment = Alignment.Top
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
-        Icon(
-            Icons.Filled.Security,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.width(Spacing.sm))
-        Text(
-            text = "Guardian verification controls pickup authorization. Use suspension when access must be blocked, and verify only after the school has completed its identity-check process.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Row(
+            modifier = Modifier.padding(Spacing.md),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                Icons.Filled.Security,
+                contentDescription = null,
+                modifier = Modifier.size(17.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Text(
+                text = "Guardian verification controls pickup authorization. Suspend access when pickup must be blocked, and verify only after the school has completed its identity-check process.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -1077,30 +1396,62 @@ private fun GuardianStatusDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
-    val isSuspension = action.targetStatus == "suspended"
-    var reason by remember(action.guardian.uid, action.targetStatus) { mutableStateOf("") }
+    val isSuspension =
+        action.targetStatus == "suspended"
+
+    var reason by remember(
+        action.guardian.uid,
+        action.targetStatus
+    ) {
+        mutableStateOf("")
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
-            Icon(
-                imageVector = if (isSuspension) Icons.Filled.GppBad else Icons.Filled.VerifiedUser,
-                contentDescription = null,
-                tint = if (isSuspension) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-            )
+            Surface(
+                shape = CircleShape,
+                color = if (isSuspension) {
+                    MaterialTheme.colorScheme.errorContainer
+                } else {
+                    MaterialTheme.colorScheme.primaryContainer
+                }
+            ) {
+                Icon(
+                    imageVector = if (isSuspension) {
+                        Icons.Filled.GppBad
+                    } else {
+                        Icons.Filled.VerifiedUser
+                    },
+                    contentDescription = null,
+                    tint = if (isSuspension) {
+                        MaterialTheme.colorScheme.onErrorContainer
+                    } else {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    },
+                    modifier = Modifier.padding(10.dp)
+                )
+            }
         },
         title = {
             Text(
-                text = if (isSuspension) "Suspend pickup access?" else "Verify this guardian?",
-                fontWeight = FontWeight.ExtraBold
+                text = if (isSuspension) {
+                    "Suspend pickup access?"
+                } else {
+                    "Verify this guardian?"
+                },
+                fontWeight = FontWeight.Bold
             )
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+            ) {
                 Text(
                     text = if (isSuspension) {
                         "${action.guardian.displayName} will no longer be allowed to authorize student pickup until the school verifies them again."
                     } else {
-                        "Confirm that the school has reviewed ${action.guardian.displayName}'s identity before restoring or granting pickup access."
+                        "Confirm that the school reviewed ${action.guardian.displayName}'s identity and relationship before granting pickup access."
                     },
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -1109,8 +1460,15 @@ private fun GuardianStatusDialog(
                     value = reason,
                     onValueChange = { reason = it },
                     modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
                     label = {
-                        Text(if (isSuspension) "Suspension reason" else "Review note (optional)")
+                        Text(
+                            if (isSuspension) {
+                                "Suspension reason"
+                            } else {
+                                "Review note (optional)"
+                            }
+                        )
                     },
                     placeholder = {
                         Text(
@@ -1123,29 +1481,51 @@ private fun GuardianStatusDialog(
                     },
                     minLines = 2,
                     maxLines = 4,
-                    isError = isSuspension && reason.isBlank(),
-                    supportingText = if (isSuspension && reason.isBlank()) {
-                        { Text("Enter a reason before suspending pickup access.") }
-                    } else {
-                        null
-                    }
+                    isError =
+                        isSuspension &&
+                            reason.isBlank(),
+                    supportingText =
+                        if (
+                            isSuspension &&
+                            reason.isBlank()
+                        ) {
+                            {
+                                Text(
+                                    "Enter a reason before suspending pickup access."
+                                )
+                            }
+                        } else {
+                            null
+                        }
                 )
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(reason.trim()) },
-                enabled = !isSuspension || reason.isNotBlank(),
+                onClick = {
+                    onConfirm(reason.trim())
+                },
+                enabled =
+                    !isSuspension ||
+                        reason.isNotBlank(),
                 colors = if (isSuspension) {
                     ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
+                        containerColor =
+                            MaterialTheme.colorScheme.error,
+                        contentColor =
+                            MaterialTheme.colorScheme.onError
                     )
                 } else {
                     ButtonDefaults.buttonColors()
                 }
             ) {
-                Text(if (isSuspension) "Suspend access" else "Verify guardian")
+                Text(
+                    if (isSuspension) {
+                        "Suspend access"
+                    } else {
+                        "Verify guardian"
+                    }
+                )
             }
         },
         dismissButton = {
@@ -1166,10 +1546,21 @@ private fun PolicyChangeDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
-            Icon(
-                if (required) Icons.Filled.VerifiedUser else Icons.Filled.Policy,
-                contentDescription = null
-            )
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Icon(
+                    if (required) {
+                        Icons.Filled.VerifiedUser
+                    } else {
+                        Icons.Filled.Policy
+                    },
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(10.dp)
+                )
+            }
         },
         title = {
             Text(
@@ -1178,11 +1569,13 @@ private fun PolicyChangeDialog(
                 } else {
                     "Make verification optional?"
                 },
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.Bold
             )
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
                 Text(
                     text = if (required) {
                         "New parent-added guardians will need a school review before they can authorize pickup."
@@ -1193,13 +1586,18 @@ private fun PolicyChangeDialog(
                 if (!required && pendingCount > 0) {
                     Surface(
                         shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f)
+                        color =
+                            MaterialTheme.colorScheme.tertiaryContainer
+                                .copy(alpha = 0.55f)
                     ) {
                         Text(
-                            text = "$pendingCount currently pending guardian${if (pendingCount == 1) " remains" else "s remain"} pending until their status is changed explicitly.",
+                            text =
+                                "$pendingCount currently pending guardian${if (pendingCount == 1) " remains" else "s remain"} pending until their status is changed explicitly.",
                             modifier = Modifier.padding(Spacing.sm),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onTertiaryContainer
                         )
                     }
                 }
@@ -1207,7 +1605,13 @@ private fun PolicyChangeDialog(
         },
         confirmButton = {
             Button(onClick = onConfirm) {
-                Text(if (required) "Require verification" else "Make optional")
+                Text(
+                    if (required) {
+                        "Require verification"
+                    } else {
+                        "Make optional"
+                    }
+                )
             }
         },
         dismissButton = {
@@ -1218,124 +1622,25 @@ private fun PolicyChangeDialog(
     )
 }
 
-private fun formatVerificationTime(value: String): String {
+@Composable
+private fun successAccent(): Color {
+    return if (isSystemInDarkTheme()) {
+        Green500
+    } else {
+        Green600
+    }
+}
+
+private fun formatVerificationTime(
+    value: String
+): String {
     return try {
         val instant = Instant.parse(value)
-        DateTimeFormatter.ofPattern("MMM d, yyyy · h:mm a")
+        DateTimeFormatter
+            .ofPattern("MMM d, yyyy · h:mm a")
             .withZone(ZoneId.systemDefault())
             .format(instant)
     } catch (_: Exception) {
         value.take(16).replace('T', ' ')
     }
 }
-
-/**
- * Compatibility adapter for the existing GuardianVerificationViewModel contract.
- *
- * Older PickupPass branches expose the same server-backed mutations through
- * slightly different ViewModel method names. The request models are stable, so
- * this adapter resolves the existing public method by its operation signature
- * instead of coupling the premium screen to one branch-specific method name.
- * It keeps the mutation inside the ViewModel/server path, including token
- * invalidation performed by the backend for guardian status changes.
- */
-private fun GuardianVerificationViewModel.invokeGuardianStatusMutation(
-    guardianUid: String,
-    status: String,
-    reason: String
-): Result<Unit> = runCatching {
-    val request = GuardianVerificationStatusRequest(
-        status = status,
-        reason = reason
-    )
-
-    val publicMethods = javaClass.methods.toList()
-
-    val requestMethod = publicMethods
-        .filter { method ->
-            val types = method.parameterTypes
-            types.size == 2 &&
-                types[0] == String::class.java &&
-                types[1] == GuardianVerificationStatusRequest::class.java
-        }
-        .sortedByDescending { it.name.guardianMutationNameScore() }
-        .firstOrNull()
-
-    if (requestMethod != null) {
-        requestMethod.invoke(this, guardianUid, request)
-        return@runCatching
-    }
-
-    val scalarMethod = publicMethods
-        .filter { method ->
-            val types = method.parameterTypes
-            types.size == 3 &&
-                types.all { it == String::class.java }
-        }
-        .sortedByDescending { it.name.guardianMutationNameScore() }
-        .firstOrNull()
-        ?: error(
-            "Guardian verification action is unavailable in this app build. " +
-                "Update GuardianVerificationViewModel to expose its existing status mutation."
-        )
-
-    scalarMethod.invoke(this, guardianUid, status, reason)
-}
-
-private fun GuardianVerificationViewModel.invokeVerificationPolicyMutation(
-    required: Boolean
-): Result<Unit> = runCatching {
-    val request = GuardianVerificationPolicyRequest(required = required)
-    val publicMethods = javaClass.methods.toList()
-
-    val requestMethod = publicMethods
-        .filter { method ->
-            val types = method.parameterTypes
-            types.size == 1 &&
-                types[0] == GuardianVerificationPolicyRequest::class.java
-        }
-        .sortedByDescending { it.name.policyMutationNameScore() }
-        .firstOrNull()
-
-    if (requestMethod != null) {
-        requestMethod.invoke(this, request)
-        return@runCatching
-    }
-
-    val booleanMethod = publicMethods
-        .filter { method ->
-            val types = method.parameterTypes
-            types.size == 1 &&
-                (types[0] == Boolean::class.javaPrimitiveType ||
-                    types[0] == Boolean::class.javaObjectType)
-        }
-        .sortedByDescending { it.name.policyMutationNameScore() }
-        .firstOrNull()
-        ?: error(
-            "Guardian verification policy action is unavailable in this app build. " +
-                "Update GuardianVerificationViewModel to expose its existing policy mutation."
-        )
-
-    booleanMethod.invoke(this, required)
-}
-
-private fun String.guardianMutationNameScore(): Int {
-    val normalized = lowercase()
-    var score = 0
-    if ("guardian" in normalized) score += 8
-    if ("verification" in normalized) score += 6
-    if ("status" in normalized) score += 6
-    if ("update" in normalized || "set" in normalized || "change" in normalized) score += 4
-    return score
-}
-
-private fun String.policyMutationNameScore(): Int {
-    val normalized = lowercase()
-    var score = 0
-    if ("policy" in normalized) score += 8
-    if ("verification" in normalized) score += 6
-    if ("required" in normalized) score += 6
-    if ("update" in normalized || "set" in normalized || "change" in normalized) score += 4
-    return score
-}
-
