@@ -29,6 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.GuardianAvatar
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.common.WarningBanner
@@ -86,31 +87,12 @@ fun ManageGuardiansScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            "Authorized Guardians",
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                        if (uiState.studentName.isNotBlank()) {
-                            Text(
-                                uiState.studentName,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Authorized guardians",
+                subtitle = uiState.studentName.takeIf { it.isNotBlank() } ?: "Student pickup access",
+                onBack = onBack,
             )
         }
     ) { padding ->

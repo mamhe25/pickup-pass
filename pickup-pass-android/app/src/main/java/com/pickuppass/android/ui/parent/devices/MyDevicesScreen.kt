@@ -23,6 +23,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.DeviceSessionItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
 
@@ -47,39 +49,12 @@ fun MyDevicesScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Devices & Sessions", fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            "$activeCount active",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = viewModel::refresh,
-                        enabled = !state.refreshing &&
-                            state.busyDeviceId == null &&
-                            !state.revokingOthers
-                    ) {
-                        Icon(
-                            Icons.Filled.Refresh,
-                            contentDescription = "Refresh devices"
-                        )
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Signed-in devices",
+                subtitle = "$activeCount active · account access",
+                onBack = onBack,
             )
         }
     ) { padding ->
@@ -99,6 +74,12 @@ fun MyDevicesScreen(
                     )
 
                 else -> {
+                    PickupPassPullToRefresh(
+                        refreshing = state.refreshing,
+                        onRefresh = viewModel::refresh,
+                        enabled = state.busyDeviceId == null && !state.revokingOthers,
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxHeight()
@@ -172,12 +153,6 @@ fun MyDevicesScreen(
                         }
                     }
 
-                    if (state.refreshing) {
-                        LinearProgressIndicator(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.TopCenter)
-                        )
                     }
                 }
             }

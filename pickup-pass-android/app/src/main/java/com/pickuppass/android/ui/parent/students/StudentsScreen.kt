@@ -39,6 +39,8 @@ import com.pickuppass.android.ui.common.BrandedTitle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.PickupPassPullToRefresh
+import com.pickuppass.android.ui.common.PremiumSectionHeader
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.theme.Spacing
 
@@ -65,14 +67,11 @@ fun StudentsScreen(
         notificationPermission == null || notificationPermission.status.isGranted
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    BrandedTitle(
-                        title = "My Students",
-                        school = uiState.school
-                    )
-                },
+            PremiumTopAppBar(
+                title = "My Students",
+                subtitle = uiState.school?.schoolName?.takeIf { it.isNotBlank() } ?: "Family pickup",
                 actions = {
                     IconButton(onClick = onOpenNotifications) {
                         BadgedBox(
@@ -187,19 +186,10 @@ private fun StudentsContent(
             }
 
             item(key = "students_header") {
-                Column {
-                    Text(
-                        "Linked students",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Spacer(Modifier.height(Spacing.xs))
-                    Text(
-                        "Choose the student being collected. Pickup passes are generated individually and still require school verification.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                PremiumSectionHeader(
+                    title = "Linked students",
+                    subtitle = "Choose the student being collected. Pickup passes are generated individually and still require school verification."
+                )
             }
 
             items(

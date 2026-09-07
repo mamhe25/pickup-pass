@@ -30,6 +30,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.PremiumConfirmDialog
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
@@ -63,26 +65,12 @@ fun ProfileScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("My Profile", fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            "Pickup identity & security",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                }
+            PremiumTopAppBar(
+                title = "My profile",
+                subtitle = "Pickup identity & account protection",
+                onBack = onBack,
             )
         }
     ) { padding ->
@@ -157,33 +145,17 @@ fun ProfileScreen(
     }
 
     if (showSignOutConfirmation) {
-        AlertDialog(
-            onDismissRequest = { showSignOutConfirmation = false },
-            title = { Text("Sign out of PickupPass?") },
-            text = {
-                Text(
-                    "You'll need to sign in again before viewing students, pickup passes, or guardian settings on this device."
-                )
+        PremiumConfirmDialog(
+            title = "Sign out of PickupPass?",
+            message = "You'll need to sign in again before viewing students, pickup passes, or guardian settings on this device.",
+            confirmLabel = "Sign out",
+            destructive = true,
+            icon = Icons.AutoMirrored.Filled.Logout,
+            onDismiss = { showSignOutConfirmation = false },
+            onConfirm = {
+                showSignOutConfirmation = false
+                viewModel.signOut()
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showSignOutConfirmation = false
-                        viewModel.signOut()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
-                    )
-                ) {
-                    Text("Sign out")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSignOutConfirmation = false }) {
-                    Text("Cancel")
-                }
-            }
         )
     }
 
