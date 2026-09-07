@@ -28,7 +28,7 @@ test("login routes every supported role to its protected home", async () => {
 
   assert.match(
     html,
-    /signInWithEmailAndPassword\(auth,\s*email,\s*password\)/
+    /signInWithEmailAndPassword\(\s*auth,\s*email,\s*password\s*\)/
   );
 
   assert.match(
@@ -182,11 +182,16 @@ test(
     assert.match(js, /export const showFeedback = showToast/);
     assert.match(js, /pp-feedback-toast__close/);
     assert.match(js, /prefers-reduced-motion/);
-    assert.match(js, /role", normalizedType === "error" \? "alert" : "status"/);
+    assert.match(js, /role", normalizedType === "error" \? "alertdialog" : "dialog"/);
+    assert.match(js, /"aria-modal", "true"/);
+    assert.match(js, /"aria-labelledby"/);
+    assert.match(js, /"aria-describedby"/);
+    assert.match(js, /close\.focus\(\{ preventScroll: true \}\)/);
+    assert.match(js, /event\.key === "Escape"/);
     assert.match(js, /RECENT_FEEDBACK_WINDOW_MS/);
     assert.match(js, /installInlineFeedbackBridge\(\)/);
     assert.match(js, /\.pp-alert/);
-    assert.match(js, /LEGACY_FEEDBACK_ID/);
+    assert.match(js, /LEGACY_FEEDBACK_SELECTOR/);
     assert.match(js, /data-pp-no-popup/);
   }
 );
