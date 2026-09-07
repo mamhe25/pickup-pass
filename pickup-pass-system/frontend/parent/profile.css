@@ -82,13 +82,15 @@
   display: grid;
   grid-template-columns: minmax(320px, .88fr) minmax(0, 1.12fr);
   gap: 14px;
-  align-items: start;
+  align-items: stretch;
   margin-top: 16px;
 }
 
 .pp-profile-card {
   position: relative;
   min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
   padding: clamp(20px,3vw,26px);
   border: 1px solid var(--border);
   border-radius: 22px;
@@ -101,6 +103,25 @@
   box-shadow:
     0 16px 38px rgb(15 23 42 / .07),
     inset 0 1px 0 rgb(255 255 255 / .54);
+}
+
+.pp-profile-card--photo {
+  display: flex;
+  flex-direction: column;
+}
+
+.pp-profile-card--photo .pp-profile-photo-wrap {
+  flex: 1 1 auto;
+  align-content: center;
+  margin-top: 18px;
+}
+
+.pp-profile-card--photo .pp-profile-photo-actions {
+  flex: 0 0 auto;
+}
+
+.pp-profile-card--photo .pp-profile-status {
+  flex: 0 0 auto;
 }
 
 .pp-profile-card__heading {
@@ -673,11 +694,22 @@
 
   .pp-profile-grid {
     grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .pp-profile-card {
+    height: auto;
   }
 
   .pp-profile-card--photo,
   .pp-profile-card--account {
     min-height: 0;
+  }
+
+  .pp-profile-card--photo .pp-profile-photo-wrap {
+    flex: 0 0 auto;
+    align-content: normal;
+    margin-top: 20px;
   }
 
   .pp-profile-security {

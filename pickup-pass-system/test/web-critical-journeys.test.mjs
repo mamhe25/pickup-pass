@@ -334,6 +334,10 @@ test("parent profile remains responsive and premium across account and security 
   assert.match(css, /\.pp-profile-security\s*\{[\s\S]*?grid-template-columns:\s*50px minmax\(0,1fr\) auto/);
   assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.pp-profile-security__actions[\s\S]*?grid-column:\s*1 \/ -1/);
   assert.doesNotMatch(css, /margin-left:\s*54px/);
+  assert.match(css, /\.pp-profile-grid\s*\{[\s\S]*?align-items:\s*stretch/);
+  assert.match(css, /\.pp-profile-card\s*\{[\s\S]*?height:\s*100%/);
+  assert.match(css, /\.pp-profile-card--photo\s*\{[\s\S]*?display:\s*flex/);
+  assert.match(css, /\.pp-profile-card--photo \.pp-profile-photo-wrap\s*\{[\s\S]*?flex:\s*1 1 auto/);
 
   assert.match(accountLink, /aria-label', 'Account security'/);
   assert.match(accountLink, /pp-navlink__label">Account security/);
