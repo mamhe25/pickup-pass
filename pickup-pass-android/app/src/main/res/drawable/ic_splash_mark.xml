@@ -3,9 +3,6 @@
     <item
         android:width="168dp"
         android:height="168dp"
-        android:gravity="center">
-        <bitmap
-            android:src="@drawable/pickuppass_splash_logo"
-            android:gravity="fill" />
-    </item>
+        android:gravity="center"
+        android:drawable="@drawable/pickuppass_brand_mark" />
 </layer-list>
