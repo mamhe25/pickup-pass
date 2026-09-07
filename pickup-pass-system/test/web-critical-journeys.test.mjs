@@ -17,15 +17,28 @@ async function shared(relativePath) {
 }
 
 test("login routes every supported role to its protected home", async () => {
-  const [html, mfa] = await Promise.all([
+  const [html, mfa, legacyCompletionCss] = await Promise.all([
     page("login.html"),
     shared("mfa.js"),
+    shared("premium-completion.css"),
   ]);
 
   assert.doesNotMatch(
     html,
     /cdn\.tailwindcss\.com|tailwind-config\.js/,
     "login must not load the Tailwind browser compiler"
+  );
+
+  assert.doesNotMatch(
+    html,
+    /premium-completion\.css/,
+    "login must not load the retired legacy completion override"
+  );
+
+  assert.doesNotMatch(
+    legacyCompletionCss,
+    /\.pp-auth-story\s*\{|#064E3B|#065F46|#047857|rgba\(16,\s*185,\s*129/,
+    "legacy completion CSS must not reintroduce the old green auth brand"
   );
 
   const routes = {
