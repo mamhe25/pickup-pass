@@ -2,6 +2,7 @@ package com.pickuppass.android.ui.schooladmin.dashboard
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,10 +21,26 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Class
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.PersonOff
 import androidx.compose.material.icons.filled.PeopleAlt
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.UploadFile
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
@@ -34,6 +51,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
@@ -42,6 +62,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,20 +92,59 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+@androidx.compose.material3.ExperimentalMaterial3Api
 @Composable
 fun DismissalDashboardScreen(
     viewModel: DismissalDashboardViewModel = hiltViewModel(),
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
+    schoolName: String? = null,
+    onOpenProfile: (() -> Unit)? = null,
+    onOpenBranding: (() -> Unit)? = null,
+    onGoToScanner: (() -> Unit)? = null,
+    onGoToStudents: (() -> Unit)? = null,
+    onGoToExitLogs: (() -> Unit)? = null,
+    onGoToInviteTeacher: (() -> Unit)? = null,
+    onGoToManageSections: (() -> Unit)? = null,
+    onGoToStaffManagement: (() -> Unit)? = null,
+    onGoToManualPickup: (() -> Unit)? = null,
+    onGoToAuditLog: (() -> Unit)? = null,
+    onGoToPickupPolicy: (() -> Unit)? = null,
+    onGoToAcademicStructure: (() -> Unit)? = null,
+    onGoToBulkStudentImport: (() -> Unit)? = null,
+    onGoToStudentLifecycle: (() -> Unit)? = null,
+    onGoToDismissalReports: (() -> Unit)? = null,
+    onGoToGuardianVerification: (() -> Unit)? = null,
+    onGoToCampusGates: (() -> Unit)? = null,
+    onGoToStaffPickupGates: (() -> Unit)? = null,
+    onGoToBroadcast: (() -> Unit)? = null,
+    onGoToBilling: (() -> Unit)? = null,
+    onGoToDataExport: (() -> Unit)? = null,
+    onGoToLaunchReadiness: (() -> Unit)? = null,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val dashboard = state.dashboard
+    var showAdminTools by remember { mutableStateOf(false) }
+    val isAdminHome = onBack == null
+    val hasAdminTools = listOf(
+        onOpenBranding, onGoToScanner, onGoToStudents, onGoToExitLogs,
+        onGoToInviteTeacher, onGoToManageSections, onGoToStaffManagement,
+        onGoToManualPickup, onGoToAuditLog, onGoToPickupPolicy,
+        onGoToAcademicStructure, onGoToBulkStudentImport, onGoToStudentLifecycle,
+        onGoToDismissalReports, onGoToGuardianVerification, onGoToCampusGates,
+        onGoToStaffPickupGates, onGoToBroadcast, onGoToBilling, onGoToDataExport,
+        onGoToLaunchReadiness,
+    ).any { it != null }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             PremiumTopAppBar(
-                title = "School operations",
-                subtitle = "Live dismissal dashboard",
+                title = if (isAdminHome) {
+                    schoolName?.takeIf { it.isNotBlank() } ?: "School Admin"
+                } else {
+                    "School operations"
+                },
+                subtitle = if (isAdminHome) "Live dismissal · Admin console" else "Live dismissal dashboard",
                 onBack = onBack,
                 actions = {
                     IconButton(
@@ -98,6 +160,22 @@ fun DismissalDashboardScreen(
                             Icon(
                                 imageVector = Icons.Filled.Refresh,
                                 contentDescription = "Refresh dismissal data",
+                            )
+                        }
+                    }
+                    if (hasAdminTools) {
+                        IconButton(onClick = { showAdminTools = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.Apps,
+                                contentDescription = "Open admin tools",
+                            )
+                        }
+                    }
+                    if (onOpenProfile != null) {
+                        IconButton(onClick = onOpenProfile) {
+                            Icon(
+                                imageVector = Icons.Filled.AccountCircle,
+                                contentDescription = "My profile",
                             )
                         }
                     }
@@ -152,6 +230,17 @@ fun DismissalDashboardScreen(
                             timeZone = dashboard.timeZone,
                             refreshing = state.isRefreshing,
                         )
+                    }
+
+                    if (isAdminHome) {
+                        item(key = "quick_actions") {
+                            AdminQuickActions(
+                                onScanner = onGoToScanner,
+                                onManualRelease = onGoToManualPickup,
+                                onStudents = onGoToStudents,
+                                onGuardians = onGoToGuardianVerification,
+                            )
+                        }
                     }
 
                     item(key = "hero") {
@@ -277,6 +366,279 @@ fun DismissalDashboardScreen(
     // it here guarantees refresh failures are visible regardless of scroll position.
     if (dashboard != null) {
         state.error?.let { ErrorBanner(it) }
+    }
+
+    if (showAdminTools) {
+        AdminToolsSheet(
+            onDismiss = { showAdminTools = false },
+            onBranding = onOpenBranding,
+            onScanner = onGoToScanner,
+            onStudents = onGoToStudents,
+            onExitLogs = onGoToExitLogs,
+            onInviteTeacher = onGoToInviteTeacher,
+            onManageSections = onGoToManageSections,
+            onStaffManagement = onGoToStaffManagement,
+            onManualPickup = onGoToManualPickup,
+            onAuditLog = onGoToAuditLog,
+            onPickupPolicy = onGoToPickupPolicy,
+            onAcademicStructure = onGoToAcademicStructure,
+            onBulkImport = onGoToBulkStudentImport,
+            onStudentLifecycle = onGoToStudentLifecycle,
+            onReports = onGoToDismissalReports,
+            onGuardianVerification = onGoToGuardianVerification,
+            onCampusGates = onGoToCampusGates,
+            onStaffGates = onGoToStaffPickupGates,
+            onBroadcast = onGoToBroadcast,
+            onBilling = onGoToBilling,
+            onDataExport = onGoToDataExport,
+            onLaunchReadiness = onGoToLaunchReadiness,
+        )
+    }
+}
+
+@Composable
+private fun AdminQuickActions(
+    onScanner: (() -> Unit)?,
+    onManualRelease: (() -> Unit)?,
+    onStudents: (() -> Unit)?,
+    onGuardians: (() -> Unit)?,
+) {
+    val actions = buildList {
+        onScanner?.let { add(QuickAction(Icons.Filled.QrCode2, "Scan pass", "Verify & release", it)) }
+        onManualRelease?.let { add(QuickAction(Icons.Filled.WarningAmber, "Manual release", "Audited fallback", it)) }
+        onStudents?.let { add(QuickAction(Icons.Filled.Groups, "Students", "Roster & guardians", it)) }
+        onGuardians?.let { add(QuickAction(Icons.Filled.VerifiedUser, "Guardians", "Identity assurance", it)) }
+    }
+    if (actions.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        Text(
+            text = "QUICK ACTIONS",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        actions.chunked(2).forEach { rowActions ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                rowActions.forEach { action ->
+                    QuickActionCard(action, Modifier.weight(1f))
+                }
+                if (rowActions.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+private data class QuickAction(
+    val icon: ImageVector,
+    val title: String,
+    val subtitle: String,
+    val onClick: () -> Unit,
+)
+
+@Composable
+private fun QuickActionCard(action: QuickAction, modifier: Modifier) {
+    OutlinedCard(
+        modifier = modifier.clickable(onClick = action.onClick),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = action.icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = action.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = action.subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@androidx.compose.material3.ExperimentalMaterial3Api
+@Composable
+private fun AdminToolsSheet(
+    onDismiss: () -> Unit,
+    onBranding: (() -> Unit)?,
+    onScanner: (() -> Unit)?,
+    onStudents: (() -> Unit)?,
+    onExitLogs: (() -> Unit)?,
+    onInviteTeacher: (() -> Unit)?,
+    onManageSections: (() -> Unit)?,
+    onStaffManagement: (() -> Unit)?,
+    onManualPickup: (() -> Unit)?,
+    onAuditLog: (() -> Unit)?,
+    onPickupPolicy: (() -> Unit)?,
+    onAcademicStructure: (() -> Unit)?,
+    onBulkImport: (() -> Unit)?,
+    onStudentLifecycle: (() -> Unit)?,
+    onReports: (() -> Unit)?,
+    onGuardianVerification: (() -> Unit)?,
+    onCampusGates: (() -> Unit)?,
+    onStaffGates: (() -> Unit)?,
+    onBroadcast: (() -> Unit)?,
+    onBilling: (() -> Unit)?,
+    onDataExport: (() -> Unit)?,
+    onLaunchReadiness: (() -> Unit)?,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(start = Spacing.md, end = Spacing.md, bottom = Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            item {
+                Column(Modifier.padding(bottom = Spacing.sm)) {
+                    Text(
+                        text = "Admin tools",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "School operations, people, policy and administration",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            adminToolSection(
+                title = "Dismissal operations",
+                tools = listOfNotNull(
+                    onScanner?.let { AdminTool(Icons.Filled.QrCode2, "Scanner", "Verify guardian passes and release students", it) },
+                    onManualPickup?.let { AdminTool(Icons.Filled.WarningAmber, "Manual release", "Audited fallback release workflow", it) },
+                    onExitLogs?.let { AdminTool(Icons.Filled.History, "Dismissal history", "Review completed release records", it) },
+                    onReports?.let { AdminTool(Icons.Filled.Assessment, "Reports & export", "Analyze dismissal activity", it) },
+                    onPickupPolicy?.let { AdminTool(Icons.Filled.Schedule, "Pickup policy", "Configure pass availability and fallback rules", it) },
+                    onBroadcast?.let { AdminTool(Icons.Filled.Campaign, "Announcements", "Notify the school community", it) },
+                ),
+                onDismiss = onDismiss,
+            )
+
+            adminToolSection(
+                title = "Students & guardians",
+                tools = listOfNotNull(
+                    onStudents?.let { AdminTool(Icons.Filled.Groups, "Students", "Roster, guardians and student records", it) },
+                    onAcademicStructure?.let { AdminTool(Icons.Filled.Class, "School year & sections", "Academic structure used across PickupPass", it) },
+                    onBulkImport?.let { AdminTool(Icons.Filled.UploadFile, "Bulk import", "Validate and import student rosters", it) },
+                    onStudentLifecycle?.let { AdminTool(Icons.Filled.PersonOff, "Student lifecycle", "Status history and year-end promotion", it) },
+                    onGuardianVerification?.let { AdminTool(Icons.Filled.VerifiedUser, "Guardian verification", "Identity assurance and pickup access", it) },
+                ),
+                onDismiss = onDismiss,
+            )
+
+            adminToolSection(
+                title = "Staff & locations",
+                tools = listOfNotNull(
+                    onInviteTeacher?.let { AdminTool(Icons.Filled.PersonAdd, "Invite teacher", "Create a school staff account", it) },
+                    onManageSections?.let { AdminTool(Icons.Filled.Class, "Teacher sections", "Assign roster and broadcast scope", it) },
+                    onStaffManagement?.let { AdminTool(Icons.Filled.AdminPanelSettings, "Teacher accounts", "Access status and session security", it) },
+                    onCampusGates?.let { AdminTool(Icons.Filled.LocationOn, "Campuses & pickup gates", "Configure release locations", it) },
+                    onStaffGates?.let { AdminTool(Icons.Filled.Security, "Staff pickup gates", "Limit scanner access by gate", it) },
+                ),
+                onDismiss = onDismiss,
+            )
+
+            adminToolSection(
+                title = "Administration",
+                tools = listOfNotNull(
+                    onLaunchReadiness?.let { AdminTool(Icons.Filled.CheckCircle, "Launch readiness", "Production setup and on-site checks", it) },
+                    onAuditLog?.let { AdminTool(Icons.Filled.Security, "Audit log", "Administrative activity trail", it) },
+                    onBranding?.let { AdminTool(Icons.Filled.Palette, "School branding", "Logo and school identity", it) },
+                    onBilling?.let { AdminTool(Icons.Filled.Assessment, "Subscription & billing", "Plan, invoices and receipts", it) },
+                    onDataExport?.let { AdminTool(Icons.Filled.Download, "Data backup & export", "Tenant data portability export", it) },
+                ),
+                onDismiss = onDismiss,
+            )
+        }
+    }
+}
+
+private data class AdminTool(
+    val icon: ImageVector,
+    val title: String,
+    val subtitle: String,
+    val onClick: () -> Unit,
+)
+
+private fun androidx.compose.foundation.lazy.LazyListScope.adminToolSection(
+    title: String,
+    tools: List<AdminTool>,
+    onDismiss: () -> Unit,
+) {
+    if (tools.isEmpty()) return
+    item(key = "tools-title-$title") {
+        Text(
+            text = title,
+            modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+    items(tools, key = { "tool-${title}-${it.title}" }) { tool ->
+        ListItem(
+            headlineContent = { Text(tool.title, fontWeight = FontWeight.SemiBold) },
+            supportingContent = {
+                Text(
+                    text = tool.subtitle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            leadingContent = {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = tool.icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            },
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+            modifier = Modifier
+                .clip(MaterialTheme.shapes.large)
+                .clickable {
+                    onDismiss()
+                    tool.onClick()
+                },
+        )
     }
 }
 
