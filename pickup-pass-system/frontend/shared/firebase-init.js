@@ -102,25 +102,35 @@ const FEEDBACK_STYLE_ID = "pickupPassFeedbackStyles";
 const FEEDBACK_REGION_ID = "pickupPassToastRegion";
 const FEEDBACK_CONSUMED_CLASS = "pp-feedback-inline-consumed";
 const RECENT_FEEDBACK_WINDOW_MS = 1400;
+const feedbackBrandMarkUrl =
+  new URL("../assets/pickuppass-mark.svg", import.meta.url).href;
 const recentFeedback = new Map();
 let feedbackSequence = 0;
 let inlineFeedbackBridgeInstalled = false;
 
 const feedbackMeta = {
   success: {
+    kicker: "Action completed",
     title: "Success",
+    actionLabel: "Done",
     icon: '<path d="M20 6 9 17l-5-5"/>',
   },
   warning: {
-    title: "Action required",
+    kicker: "Review required",
+    title: "Please review",
+    actionLabel: "Got it",
     icon: '<path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
   },
   error: {
+    kicker: "Action not completed",
     title: "Something went wrong",
+    actionLabel: "Close",
     icon: '<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/>',
   },
   info: {
+    kicker: "PickupPass update",
     title: "Information",
+    actionLabel: "Okay",
     icon: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/>',
   },
 };
@@ -131,20 +141,26 @@ function ensureFeedbackStyles() {
   const style = document.createElement("style");
   style.id = FEEDBACK_STYLE_ID;
   style.textContent = `
-    .pp-feedback-inline-consumed {
-      display: none !important;
-    }
-
     #${FEEDBACK_REGION_ID} {
       position: fixed;
       z-index: 1400;
       inset: 0;
       display: grid;
       place-items: center;
-      padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
-      background: rgb(15 23 42 / 0.48);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
+      padding:
+        max(20px, env(safe-area-inset-top))
+        max(20px, env(safe-area-inset-right))
+        max(20px, env(safe-area-inset-bottom))
+        max(20px, env(safe-area-inset-left));
+      background:
+        radial-gradient(
+          560px 340px at 50% 42%,
+          rgb(70 82 199 / .11),
+          transparent 72%
+        ),
+        rgb(10 16 34 / .66);
+      backdrop-filter: blur(12px) saturate(.82);
+      -webkit-backdrop-filter: blur(12px) saturate(.82);
       pointer-events: auto;
     }
 
@@ -156,20 +172,55 @@ function ensureFeedbackStyles() {
       --pp-feedback-accent: var(--primary, #4652C7);
       --pp-feedback-soft: var(--primary-container, #EEF0FF);
       position: relative;
-      width: min(440px, calc(100vw - 32px));
-      max-height: min(86vh, 620px);
+      width: min(500px, calc(100vw - 32px));
+      max-height: min(88vh, 660px);
       overflow: auto;
-      padding: 52px 30px 30px;
-      border: 1px solid var(--border, #e5e7eb);
-      border: 1px solid color-mix(in srgb, var(--pp-feedback-accent) 16%, var(--border, #e5e7eb));
-      border-radius: 24px;
-      background: var(--surface, #fff);
-      color: var(--text, #1f2937);
-      box-shadow: 0 32px 90px rgb(15 23 42 / 0.28), 0 12px 30px rgb(15 23 42 / 0.16);
+      border:
+        1px solid
+        color-mix(
+          in srgb,
+          var(--pp-feedback-accent) 16%,
+          var(--border, #E1E5F0)
+        );
+      border-radius: 28px;
+      background:
+        radial-gradient(
+          360px 170px at 100% 0%,
+          color-mix(
+            in srgb,
+            var(--pp-feedback-accent) 8%,
+            transparent
+          ),
+          transparent 72%
+        ),
+        var(--surface, #FFFFFF);
+      color: var(--text, #12182F);
+      box-shadow:
+        0 42px 110px rgb(2 6 23 / .38),
+        0 14px 36px rgb(2 6 23 / .18),
+        inset 0 1px 0 rgb(255 255 255 / .7);
       opacity: 0;
-      transform: translateY(10px) scale(.975);
-      transition: opacity 180ms ease, transform 220ms cubic-bezier(.2,.75,.25,1);
+      transform: translateY(14px) scale(.97);
+      transition:
+        opacity 180ms ease,
+        transform 230ms cubic-bezier(.2,.78,.24,1);
       -webkit-font-smoothing: antialiased;
+    }
+
+    .pp-feedback-toast::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 4px;
+      border-radius: 28px 28px 0 0;
+      background:
+        linear-gradient(
+          90deg,
+          #4652C7,
+          var(--pp-feedback-accent),
+          #6D5DFB
+        );
+      opacity: .95;
     }
 
     .pp-feedback-toast.is-visible {
@@ -179,43 +230,145 @@ function ensureFeedbackStyles() {
 
     .pp-feedback-toast.is-leaving {
       opacity: 0;
-      transform: translateY(5px) scale(.985);
+      transform: translateY(7px) scale(.985);
     }
 
     .pp-feedback-toast--success {
-      --pp-feedback-accent: var(--success, #0f766e);
-      --pp-feedback-soft: var(--success-container, #ccfbf1);
+      --pp-feedback-accent: var(--success, #0F8A78);
+      --pp-feedback-soft: var(--success-container, #DDF7F1);
     }
+
     .pp-feedback-toast--warning {
-      --pp-feedback-accent: var(--warning, #d97706);
-      --pp-feedback-soft: var(--warning-container, #fef3c7);
+      --pp-feedback-accent: var(--warning, #D97706);
+      --pp-feedback-soft: var(--warning-container, #FEF3C7);
     }
+
     .pp-feedback-toast--error {
-      --pp-feedback-accent: var(--danger, #dc2626);
-      --pp-feedback-soft: var(--danger-container, #fee2e2);
+      --pp-feedback-accent: var(--danger, #DC3545);
+      --pp-feedback-soft: var(--danger-container, #FDE8EA);
     }
+
     .pp-feedback-toast--info {
       --pp-feedback-accent: var(--primary, #4652C7);
       --pp-feedback-soft: var(--primary-container, #EEF0FF);
     }
 
-    .pp-feedback-toast__icon {
-      width: 76px;
-      height: 76px;
-      margin: 0 auto 20px;
-      border-radius: 999px;
-      display: inline-flex;
+    .pp-feedback-toast__brand {
+      min-height: 64px;
+      display: flex;
       align-items: center;
-      justify-content: center;
+      gap: 10px;
+      padding: 18px 70px 16px 22px;
+      border-bottom: 1px solid var(--border, #E1E5F0);
+    }
+
+    .pp-feedback-toast__brand-mark {
+      width: 32px;
+      height: 32px;
+      flex: 0 0 32px;
+      display: block;
+      border-radius: 9px;
+      box-shadow: 0 8px 18px rgb(70 82 199 / .18);
+    }
+
+    .pp-feedback-toast__brand-copy {
+      min-width: 0;
+      display: grid;
+      line-height: 1.1;
+    }
+
+    .pp-feedback-toast__brand-copy strong {
+      color: var(--text-strong, #12182F);
+      font:
+        800 .79rem/1.2
+        var(--font-sans, Inter, system-ui, sans-serif);
+      letter-spacing: -.015em;
+    }
+
+    .pp-feedback-toast__brand-copy span {
+      margin-top: 3px;
+      color: var(--text-subtle, #8790A5);
+      font:
+        700 .59rem/1.2
+        var(--font-sans, Inter, system-ui, sans-serif);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .pp-feedback-toast__kind {
+      margin-left: auto;
+      max-width: 150px;
+      padding: 6px 9px;
+      border:
+        1px solid
+        color-mix(
+          in srgb,
+          var(--pp-feedback-accent) 20%,
+          var(--border, #E1E5F0)
+        );
+      border-radius: 999px;
+      background:
+        color-mix(
+          in srgb,
+          var(--pp-feedback-accent) 8%,
+          var(--surface, #FFFFFF)
+        );
       color: var(--pp-feedback-accent);
-      background: var(--pp-feedback-soft);
-      background: color-mix(in srgb, var(--pp-feedback-accent) 10%, transparent);
-      box-shadow: inset 0 0 0 9px color-mix(in srgb, var(--pp-feedback-accent) 6%, transparent);
+      font:
+        800 .61rem/1
+        var(--font-sans, Inter, system-ui, sans-serif);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .pp-feedback-toast__main {
+      display: grid;
+      grid-template-columns: 66px minmax(0, 1fr);
+      gap: 18px;
+      padding: 26px 26px 22px;
+    }
+
+    .pp-feedback-toast__icon {
+      width: 62px;
+      height: 62px;
+      display: grid;
+      place-items: center;
+      border:
+        1px solid
+        color-mix(
+          in srgb,
+          var(--pp-feedback-accent) 15%,
+          transparent
+        );
+      border-radius: 19px;
+      color: var(--pp-feedback-accent);
+      background:
+        linear-gradient(
+          145deg,
+          color-mix(
+            in srgb,
+            var(--pp-feedback-accent) 13%,
+            var(--surface, #FFFFFF)
+          ),
+          color-mix(
+            in srgb,
+            var(--pp-feedback-accent) 5%,
+            var(--surface, #FFFFFF)
+          )
+        );
+      box-shadow:
+        inset 0 0 0 7px
+        color-mix(
+          in srgb,
+          var(--pp-feedback-accent) 4%,
+          transparent
+        );
     }
 
     .pp-feedback-toast__icon svg {
-      width: 34px;
-      height: 34px;
+      width: 30px;
+      height: 30px;
       fill: none;
       stroke: currentColor;
       stroke-width: 2;
@@ -225,111 +378,232 @@ function ensureFeedbackStyles() {
 
     .pp-feedback-toast__content {
       min-width: 0;
-      text-align: center;
+      align-self: center;
     }
 
     .pp-feedback-toast__title {
-      margin: 0 0 9px;
-      color: var(--text, #1f2937);
-      font: 700 1.28rem/1.3 var(--font-sans, Inter, system-ui, sans-serif);
-      letter-spacing: -0.025em;
+      margin: 0;
+      color: var(--text-strong, #12182F);
+      font:
+        820 1.32rem/1.22
+        var(--font-sans, Inter, system-ui, sans-serif);
+      letter-spacing: -.034em;
     }
 
     .pp-feedback-toast__message {
-      max-width: 36ch;
-      margin: 0 auto;
-      color: var(--text-muted, #64748b);
-      font: 500 0.94rem/1.6 var(--font-sans, Inter, system-ui, sans-serif);
+      margin: 8px 0 0;
+      color: var(--text-muted, #64748B);
+      font:
+        500 .91rem/1.58
+        var(--font-sans, Inter, system-ui, sans-serif);
       overflow-wrap: anywhere;
     }
 
-    .pp-feedback-toast__accent {
-      width: 36px;
-      height: 4px;
-      margin: 20px auto 0;
-      border-radius: 999px;
-      background: var(--pp-feedback-accent);
+    .pp-feedback-toast__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 16px 22px 20px;
+      border-top: 1px solid var(--border, #E1E5F0);
+      background:
+        color-mix(
+          in srgb,
+          var(--surface-variant, #F6F7FB) 62%,
+          transparent
+        );
+    }
+
+    .pp-feedback-toast__assurance {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      max-width: 245px;
+      color: var(--text-subtle, #8790A5);
+      font:
+        650 .65rem/1.35
+        var(--font-sans, Inter, system-ui, sans-serif);
+    }
+
+    .pp-feedback-toast__assurance svg {
+      width: 15px;
+      height: 15px;
+      flex: 0 0 15px;
+      fill: none;
+      stroke: var(--primary, #4652C7);
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .pp-feedback-toast__action {
+      min-width: 94px;
+      min-height: 42px;
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 13px;
+      background:
+        linear-gradient(
+          135deg,
+          color-mix(in srgb, var(--pp-feedback-accent) 88%, #4652C7),
+          color-mix(in srgb, var(--pp-feedback-accent) 74%, #6D5DFB)
+        );
+      color: #FFFFFF;
+      cursor: pointer;
+      font:
+        800 .78rem/1
+        var(--font-sans, Inter, system-ui, sans-serif);
+      box-shadow:
+        0 10px 22px
+        color-mix(
+          in srgb,
+          var(--pp-feedback-accent) 24%,
+          transparent
+        );
+      transition:
+        transform 140ms ease,
+        box-shadow 140ms ease,
+        filter 140ms ease;
+    }
+
+    .pp-feedback-toast__action:hover {
+      transform: translateY(-1px);
+      filter: saturate(1.06);
+      box-shadow:
+        0 13px 26px
+        color-mix(
+          in srgb,
+          var(--pp-feedback-accent) 30%,
+          transparent
+        );
+    }
+
+    .pp-feedback-toast__action:focus-visible,
+    .pp-feedback-toast__close:focus-visible {
+      outline: 3px solid
+        color-mix(
+          in srgb,
+          var(--pp-feedback-accent) 26%,
+          transparent
+        );
+      outline-offset: 3px;
     }
 
     .pp-feedback-toast__close {
       position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 40px;
-      height: 40px;
-      border: 0;
-      border-radius: 999px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--surface-variant, #f1f5f9);
-      color: var(--text-muted, #64748b);
+      z-index: 2;
+      top: 14px;
+      right: 14px;
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--border, #E1E5F0);
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: var(--surface-variant, #F6F7FB);
+      color: var(--text-muted, #64748B);
       cursor: pointer;
-      transition: transform 140ms ease, background 140ms ease, color 140ms ease;
+      transition:
+        transform 140ms ease,
+        background 140ms ease,
+        color 140ms ease;
     }
 
     .pp-feedback-toast__close:hover {
-      background: color-mix(in srgb, var(--pp-feedback-accent) 8%, var(--surface-variant, #f1f5f9));
-      color: var(--text, #1f2937);
-      transform: scale(1.04);
-    }
-
-    .pp-feedback-toast__close:focus-visible {
-      outline: 2px solid var(--pp-feedback-accent);
-      outline-offset: 2px;
+      background:
+        color-mix(
+          in srgb,
+          var(--pp-feedback-accent) 7%,
+          var(--surface-variant, #F6F7FB)
+        );
+      color: var(--text-strong, #12182F);
+      transform: scale(1.03);
     }
 
     .pp-feedback-toast__close svg {
-      width: 18px;
-      height: 18px;
+      width: 17px;
+      height: 17px;
       fill: none;
       stroke: currentColor;
       stroke-width: 2;
       stroke-linecap: round;
     }
 
-    /* Old action-result containers are still updated by legacy screens for
-       compatibility, but once bridged they must not remain as duplicate text
-       below a password field, above a table, or inside a card. Busy/progress
-       labels are deliberately not consumed. */
+    /* Terminal action results from older screens are consumed after being
+       bridged into the standardized feedback dialog. Busy/progress text stays
+       inline so users still see immediate activity close to the control. */
     .${FEEDBACK_CONSUMED_CLASS} {
       display: none !important;
     }
 
-    .pp-alert {
-      position: relative;
-      align-items: flex-start;
-      border-radius: 14px !important;
-      border-width: 1px !important;
-      box-shadow: 0 5px 18px rgb(15 23 42 / 0.06);
-      font-weight: 500;
-      line-height: 1.5;
-    }
-
     @media (max-width: 640px) {
       #${FEEDBACK_REGION_ID} {
-        padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+        padding:
+          max(14px, env(safe-area-inset-top))
+          14px
+          max(14px, env(safe-area-inset-bottom));
       }
 
       .pp-feedback-toast {
-        width: min(100%, 420px);
-        padding: 50px 22px 26px;
-        border-radius: 22px;
+        width: min(100%, 460px);
+        border-radius: 24px;
+      }
+
+      .pp-feedback-toast::before {
+        border-radius: 24px 24px 0 0;
+      }
+
+      .pp-feedback-toast__brand {
+        padding: 16px 58px 14px 18px;
+      }
+
+      .pp-feedback-toast__kind {
+        display: none;
+      }
+
+      .pp-feedback-toast__main {
+        grid-template-columns: 54px minmax(0, 1fr);
+        gap: 14px;
+        padding: 22px 18px 20px;
       }
 
       .pp-feedback-toast__icon {
-        width: 70px;
-        height: 70px;
-        margin-bottom: 18px;
+        width: 52px;
+        height: 52px;
+        border-radius: 16px;
+      }
+
+      .pp-feedback-toast__icon svg {
+        width: 25px;
+        height: 25px;
       }
 
       .pp-feedback-toast__title {
         font-size: 1.16rem;
       }
+
+      .pp-feedback-toast__message {
+        font-size: .86rem;
+      }
+
+      .pp-feedback-toast__footer {
+        align-items: stretch;
+        flex-direction: column;
+        padding: 14px 18px 18px;
+      }
+
+      .pp-feedback-toast__assurance {
+        max-width: none;
+      }
+
+      .pp-feedback-toast__action {
+        width: 100%;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
       .pp-feedback-toast,
+      .pp-feedback-toast__action,
       .pp-feedback-toast__close {
         transition: none;
         transform: none;
@@ -404,10 +678,10 @@ export function showToast(message, type = "success", options = {}) {
 
   const meta = feedbackMeta[normalizedType];
   const title = String(options.title || meta.title);
+  const actionLabel = String(options.actionLabel || meta.actionLabel);
   const region = createFeedbackRegion();
 
-  // One action result at a time. A second result supersedes the first instead
-  // of stacking multiple modal scrims/cards on top of each other.
+  // A second terminal result supersedes the first instead of stacking cards.
   while (region.firstElementChild) {
     region.firstElementChild._ppCleanup?.();
     region.firstElementChild.remove();
@@ -416,8 +690,14 @@ export function showToast(message, type = "success", options = {}) {
   const toast = document.createElement("section");
   const toastId = `pp-feedback-${++feedbackSequence}`;
   toast.id = toastId;
-  toast.className = `pp-feedback-toast pp-feedback-toast--${normalizedType}`;
-  toast.setAttribute("role", normalizedType === "error" ? "alertdialog" : "dialog");
+  toast.className =
+    `pp-feedback-toast pp-feedback-toast--${normalizedType}`;
+  toast.setAttribute(
+    "role",
+    normalizedType === "error" || normalizedType === "warning"
+      ? "alertdialog"
+      : "dialog"
+  );
   toast.setAttribute("aria-modal", "true");
   toast.setAttribute("aria-labelledby", `${toastId}-title`);
   toast.setAttribute("aria-describedby", `${toastId}-message`);
@@ -428,13 +708,44 @@ export function showToast(message, type = "success", options = {}) {
   close.type = "button";
   close.className = "pp-feedback-toast__close";
   close.setAttribute("aria-label", "Close message");
-  close.innerHTML = '<svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg>';
+  close.innerHTML =
+    '<svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg>';
   close.addEventListener("click", () => dismissFeedback(toast));
+
+  const brand = document.createElement("div");
+  brand.className = "pp-feedback-toast__brand";
+
+  const brandMark = document.createElement("img");
+  brandMark.className = "pp-feedback-toast__brand-mark";
+  brandMark.src = feedbackBrandMarkUrl;
+  brandMark.alt = "";
+  brandMark.setAttribute("aria-hidden", "true");
+
+  const brandCopy = document.createElement("span");
+  brandCopy.className = "pp-feedback-toast__brand-copy";
+
+  const brandName = document.createElement("strong");
+  brandName.textContent = "PickupPass";
+
+  const brandContext = document.createElement("span");
+  brandContext.textContent = "Secure action feedback";
+
+  brandCopy.append(brandName, brandContext);
+
+  const kind = document.createElement("span");
+  kind.className = "pp-feedback-toast__kind";
+  kind.textContent = meta.kicker;
+
+  brand.append(brandMark, brandCopy, kind);
+
+  const main = document.createElement("div");
+  main.className = "pp-feedback-toast__main";
 
   const iconWrap = document.createElement("span");
   iconWrap.className = "pp-feedback-toast__icon";
   iconWrap.setAttribute("aria-hidden", "true");
-  iconWrap.innerHTML = `<svg viewBox="0 0 24 24">${meta.icon}</svg>`;
+  iconWrap.innerHTML =
+    `<svg viewBox="0 0 24 24">${meta.icon}</svg>`;
 
   const content = document.createElement("div");
   content.className = "pp-feedback-toast__content";
@@ -449,33 +760,77 @@ export function showToast(message, type = "success", options = {}) {
   body.className = "pp-feedback-toast__message";
   body.textContent = normalizedMessage;
 
-  const accent = document.createElement("span");
-  accent.className = "pp-feedback-toast__accent";
-  accent.setAttribute("aria-hidden", "true");
+  content.append(heading, body);
+  main.append(iconWrap, content);
 
-  content.append(heading, body, accent);
-  toast.append(close, iconWrap, content);
+  const footer = document.createElement("div");
+  footer.className = "pp-feedback-toast__footer";
+
+  const assurance = document.createElement("span");
+  assurance.className = "pp-feedback-toast__assurance";
+  assurance.innerHTML =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.1 2.8 7.5 7 8.8 4.2-1.3 7-4.7 7-8.8V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg><span>PickupPass keeps action results clear and consistent.</span>';
+
+  const action = document.createElement("button");
+  action.type = "button";
+  action.className = "pp-feedback-toast__action";
+  action.textContent = actionLabel;
+  action.addEventListener("click", () => {
+    if (typeof options.onAction === "function") {
+      options.onAction();
+    }
+    dismissFeedback(toast);
+  });
+
+  footer.append(assurance, action);
+  toast.append(close, brand, main, footer);
   region.appendChild(toast);
+
+  const focusable = [close, action];
 
   const onKeyDown = (event) => {
     if (event.key === "Escape") {
       event.preventDefault();
       dismissFeedback(toast);
+      return;
+    }
+
+    if (event.key !== "Tab") return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
     }
   };
+
   document.addEventListener("keydown", onKeyDown);
-  toast._ppCleanup = () => document.removeEventListener("keydown", onKeyDown);
+  toast._ppCleanup = () =>
+    document.removeEventListener("keydown", onKeyDown);
 
   requestAnimationFrame(() => {
     toast.classList.add("is-visible");
-    close.focus({ preventScroll: true });
+    action.focus({ preventScroll: true });
   });
 
   return toast;
 }
 
-// Semantic alias for new code. Existing screens can keep importing showToast.
+// Semantic aliases for new code. Existing screens can keep importing showToast.
 export const showFeedback = showToast;
+export const showSuccess = (message, options = {}) =>
+  showToast(message, "success", options);
+export const showWarning = (message, options = {}) =>
+  showToast(message, "warning", options);
+export const showError = (message, options = {}) =>
+  showToast(message, "error", options);
+export const showInfo = (message, options = {}) =>
+  showToast(message, "info", options);
 
 function feedbackTypeFromAlert(alert) {
   if (alert.classList.contains("pp-alert--danger")) return "error";
@@ -488,6 +843,9 @@ const BUSY_FEEDBACK_TEXT = /^(?:loading|saving|uploading|refreshing|sending|regi
 const LEGACY_FEEDBACK_SELECTOR = [
   ".form-status",
   ".save-status",
+  ".pp-profile-status",
+  ".pp-inline-feedback",
+  "[data-pp-feedback]",
   "#statusMsg",
   "#uploadStatus",
   "#actionStatus",
@@ -552,9 +910,19 @@ function maybeBridgeInlineAlert(node) {
 
 function legacyFeedbackType(element, message) {
   const id = element.id || "";
-  if (/error/i.test(id) || /(?:failed|failure|error|could not|couldn't|unable to|invalid)/i.test(message)) return "error";
-  if (/warning|attention|couldn't be sent|could not be sent/i.test(message)) return "warning";
-  if (/success/i.test(id) || /(?:saved|updated|registered|created|completed|sent|approved|released|removed|deleted|linked|enabled|disabled)(?:\b|!)/i.test(message)) return "success";
+  if (
+    /error/i.test(id) ||
+    /(?:failed|failure|error|could not|couldn't|unable to|invalid|not available|denied)/i.test(message)
+  ) return "error";
+
+  if (
+    /warning|attention|review required|couldn't be sent|could not be sent|not verified/i.test(message)
+  ) return "warning";
+
+  if (
+    /success/i.test(id) ||
+    /(?:saved|updated|registered|created|completed|sent|approved|released|removed|deleted|linked|enabled|disabled|revoked|confirmed|cancelled|canceled|submitted|requested|reconciled|refreshed)(?:\b|!)/i.test(message)
+  ) return "success";
   return "info";
 }
 

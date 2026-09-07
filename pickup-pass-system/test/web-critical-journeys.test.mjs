@@ -235,24 +235,42 @@ test(
 );
 
 test(
-  "web action feedback is centralized, accessible, dismissible, and bridges legacy alerts",
+  "web action feedback is centralized, premium, accessible, and bridges legacy results",
   async () => {
     const js = await shared("firebase-init.js");
 
     assert.match(js, /export function showToast\(message, type = "success", options = \{\}\)/);
     assert.match(js, /export const showFeedback = showToast/);
-    assert.match(js, /pp-feedback-toast__close/);
+    assert.match(js, /export const showSuccess/);
+    assert.match(js, /export const showWarning/);
+    assert.match(js, /export const showError/);
+    assert.match(js, /export const showInfo/);
+
+    assert.match(js, /feedbackBrandMarkUrl/);
+    assert.match(js, /pp-feedback-toast__brand/);
+    assert.match(js, /pp-feedback-toast__brand-mark/);
+    assert.match(js, /pp-feedback-toast__kind/);
+    assert.match(js, /pp-feedback-toast__main/);
+    assert.match(js, /pp-feedback-toast__footer/);
+    assert.match(js, /pp-feedback-toast__assurance/);
+    assert.match(js, /pp-feedback-toast__action/);
+    assert.match(js, /Secure action feedback/);
+
     assert.match(js, /prefers-reduced-motion/);
-    assert.match(js, /role", normalizedType === "error" \? "alertdialog" : "dialog"/);
+    assert.match(js, /normalizedType === "error" \|\| normalizedType === "warning"/);
     assert.match(js, /"aria-modal", "true"/);
     assert.match(js, /"aria-labelledby"/);
     assert.match(js, /"aria-describedby"/);
-    assert.match(js, /close\.focus\(\{ preventScroll: true \}\)/);
+    assert.match(js, /action\.focus\(\{ preventScroll: true \}\)/);
     assert.match(js, /event\.key === "Escape"/);
+    assert.match(js, /event\.key !== "Tab"/);
     assert.match(js, /RECENT_FEEDBACK_WINDOW_MS/);
+
     assert.match(js, /installInlineFeedbackBridge\(\)/);
     assert.match(js, /\.pp-alert/);
     assert.match(js, /LEGACY_FEEDBACK_SELECTOR/);
+    assert.match(js, /\.pp-profile-status/);
+    assert.match(js, /\[data-pp-feedback\]/);
     assert.match(js, /data-pp-no-popup/);
     assert.match(js, /feedbackObserver\.observe\(element/);
     assert.match(js, /discoveryObserver\.observe\(discoveryRoot/);
@@ -261,7 +279,6 @@ test(
     assert.match(js, /classList\.contains\(FEEDBACK_CONSUMED_CLASS\)\) return/);
   }
 );
-
 
 test("parent guardian navigation is student-scoped and account security lives under profile", async () => {
   const [nav, students, overview, manager, profile, account] = await Promise.all([
