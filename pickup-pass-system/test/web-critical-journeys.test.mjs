@@ -314,3 +314,28 @@ test("legacy parent devices route redirects into My Profile", async () => {
   assert.match(devices, /profile\.html#devices/);
   assert.match(devices, /location\.replace\("\.\/profile\.html#devices"\)/);
 });
+
+
+test("parent profile remains responsive and premium across account and security surfaces", async () => {
+  const [html, css, accountLink] = await Promise.all([
+    page("parent/profile.html"),
+    page("parent/profile.css"),
+    shared("account-link.js"),
+  ]);
+
+  assert.match(html, /pp-profile-card__heading/);
+  assert.match(html, /pp-profile-security__eyebrow/);
+  assert.match(html, /Manage security/);
+  assert.doesNotMatch(html, /pp-profile-next/);
+
+  assert.match(css, /max-width:\s*1040px/);
+  assert.match(css, /rgba\(109, 93, 251, \.34\)/);
+  assert.doesNotMatch(css, /rgba\(132, 204, 22/);
+  assert.match(css, /\.pp-profile-security\s*\{[\s\S]*?grid-template-columns:\s*50px minmax\(0,1fr\) auto/);
+  assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.pp-profile-security__actions[\s\S]*?grid-column:\s*1 \/ -1/);
+  assert.doesNotMatch(css, /margin-left:\s*54px/);
+
+  assert.match(accountLink, /aria-label', 'Account security'/);
+  assert.match(accountLink, /pp-navlink__label">Account security/);
+  assert.doesNotMatch(accountLink, /Account settings/);
+});

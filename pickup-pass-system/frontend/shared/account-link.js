@@ -8,7 +8,9 @@ export function mountAccountLink(mount) {
   link.href = '../account.html';
   link.className = 'pp-navlink';
   link.dataset.accountLink = '';
-  link.textContent = 'Account settings';
+  link.setAttribute('aria-label', 'Account security');
+  link.innerHTML =
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.4 9 8 10 4.6-1 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg><span class="pp-navlink__label">Account security</span>';
   nav.appendChild(link);
   // Reconcile the profile on return after Firebase completes email verification.
   onAuthStateChanged(auth, user => {

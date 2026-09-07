@@ -41,8 +41,20 @@
   </section>
 
   <div class="pp-profile-grid">
-    <section class="pp-profile-card">
-      <h2>Verification photo</h2>
+    <section class="pp-profile-card pp-profile-card--photo">
+      <div class="pp-profile-card__heading">
+        <span class="pp-profile-card__heading-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 7h3l1.5-2h7L17 7h3v12H4Z"/>
+            <circle cx="12" cy="13" r="3.5"/>
+          </svg>
+        </span>
+        <div>
+          <p class="pp-profile-card__eyebrow">Pickup verification</p>
+          <h2>Verification photo</h2>
+        </div>
+      </div>
       <p class="pp-profile-card__intro">
         Use a clear, recent photo of your face. Avoid sunglasses, masks, or
         group photos. This image is shown to authorized school staff during
@@ -83,8 +95,20 @@
       <p id="uploadStatus" class="pp-profile-status" aria-live="polite"></p>
     </section>
 
-    <section class="pp-profile-card">
-      <h2>Account details</h2>
+    <section class="pp-profile-card pp-profile-card--account">
+      <div class="pp-profile-card__heading">
+        <span class="pp-profile-card__heading-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M5 21v-1a7 7 0 0 1 14 0v1"/>
+          </svg>
+        </span>
+        <div>
+          <p class="pp-profile-card__eyebrow">Signed-in identity</p>
+          <h2>Account details</h2>
+        </div>
+      </div>
       <p class="pp-profile-card__intro">
         Confirm you are using the correct parent account before changing a
         pickup identity photo on a shared device.
@@ -112,10 +136,11 @@
         </div>
 
         <div class="pp-profile-security__copy">
+          <span class="pp-profile-security__eyebrow">Account protection</span>
           <strong>Account security</strong>
           <p>
-            Manage your sign-in email, password, authenticator 2FA, and devices
-            that have used this account.
+            Change your sign-in email or password, configure authenticator 2FA,
+            and review security settings for this account.
           </p>
         </div>
 
@@ -123,7 +148,12 @@
           <a
             href="../account.html?return=parent/profile.html"
             class="pp-btn pp-btn--primary">
-            Manage security
+            <span>Manage security</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true">
+              <path d="m9 18 6-6-6-6"/>
+            </svg>
           </a>
         </div>
       </div>
@@ -136,11 +166,6 @@
         </p>
       </div>
 
-      <div class="pp-profile-next">
-        <a href="./students.html" class="pp-btn pp-btn--primary">
-          My Students
-        </a>
-      </div>
     </section>
   </div>
 
