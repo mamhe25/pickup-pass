@@ -233,7 +233,6 @@ private fun AuditCard(event: AuditEvent) {
         }
         }
     }
-}
 
 @Composable
 private fun Metric(label: String, value: Int, modifier: Modifier) {
