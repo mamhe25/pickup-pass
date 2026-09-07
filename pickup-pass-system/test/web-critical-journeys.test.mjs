@@ -17,7 +17,10 @@ async function shared(relativePath) {
 }
 
 test("login routes every supported role to its protected home", async () => {
-  const html = await page("login.html");
+  const [html, mfa] = await Promise.all([
+    page("login.html"),
+    shared("mfa.js"),
+  ]);
 
   const routes = {
     parent: "./parent/students.html",
@@ -33,7 +36,17 @@ test("login routes every supported role to its protected home", async () => {
 
   assert.match(
     html,
-    /getIdTokenResult\(true\)/
+    /authContext\(\s*user,\s*true\s*\)/
+  );
+
+  assert.match(
+    mfa,
+    /authContext\(user, forceRefresh = true\)/
+  );
+
+  assert.match(
+    mfa,
+    /user\.getIdTokenResult\(forceRefresh\)/
   );
 
   for (const [role, route] of Object.entries(routes)) {
