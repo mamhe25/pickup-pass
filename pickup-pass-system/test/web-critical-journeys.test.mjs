@@ -206,5 +206,8 @@ test(
     assert.match(js, /\.pp-alert/);
     assert.match(js, /LEGACY_FEEDBACK_SELECTOR/);
     assert.match(js, /data-pp-no-popup/);
+    assert.match(js, /feedbackObserver\.observe\(element/);
+    assert.match(js, /discoveryObserver\.observe\(discoveryRoot/);
+    assert.doesNotMatch(js, /observer\.observe\(document\.documentElement/);
   }
 );

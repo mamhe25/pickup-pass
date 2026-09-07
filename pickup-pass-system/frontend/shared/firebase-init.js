@@ -583,37 +583,76 @@ function installInlineFeedbackBridge() {
   inlineFeedbackBridgeInstalled = true;
   ensureFeedbackStyles();
 
-  const observer = new MutationObserver((mutations) => {
+  const selector = `.pp-alert,${LEGACY_FEEDBACK_SELECTOR}`;
+  const observedElements = new WeakSet();
+
+  const inspect = (element) => {
+    if (!element || element.closest?.(`#${FEEDBACK_REGION_ID}`)) return;
+    maybeBridgeInlineAlert(element);
+    maybeBridgeLegacyFeedback(element);
+  };
+
+  // Observe only actual feedback/status elements. The previous implementation
+  // watched class/text/child mutations across the entire document, which made
+  // Tailwind CDN pages unnecessarily expensive in Firefox.
+  const feedbackObserver = new MutationObserver((mutations) => {
+    const targets = new Set();
+
     for (const mutation of mutations) {
-      if (mutation.type === "attributes") {
-        maybeBridgeInlineAlert(mutation.target);
-        maybeBridgeLegacyFeedback(mutation.target);
-      } else if (mutation.type === "characterData") {
-        maybeBridgeInlineAlert(mutation.target);
-        maybeBridgeLegacyFeedback(mutation.target);
-      } else if (mutation.type === "childList") {
-        maybeBridgeInlineAlert(mutation.target);
-        maybeBridgeLegacyFeedback(mutation.target);
-        mutation.addedNodes.forEach((node) => {
-          maybeBridgeInlineAlert(node);
-          maybeBridgeLegacyFeedback(node);
-        });
-      }
+      const element =
+        mutation.target.nodeType === Node.ELEMENT_NODE
+          ? mutation.target
+          : mutation.target.parentElement;
+
+      const feedbackElement = element?.closest?.(selector);
+      if (feedbackElement) targets.add(feedbackElement);
+    }
+
+    targets.forEach(inspect);
+  });
+
+  const observeFeedbackElement = (element) => {
+    if (!element || observedElements.has(element)) return;
+    if (element.closest?.(`#${FEEDBACK_REGION_ID}`)) return;
+
+    observedElements.add(element);
+    feedbackObserver.observe(element, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["class", "hidden"],
+    });
+    inspect(element);
+  };
+
+  const discoverFeedbackElements = (node) => {
+    if (!node || node.nodeType !== Node.ELEMENT_NODE) return;
+    const element = node;
+
+    if (element.matches?.(selector)) {
+      observeFeedbackElement(element);
+    }
+
+    element.querySelectorAll?.(selector).forEach(observeFeedbackElement);
+  };
+
+  // Existing feedback elements are registered once at startup.
+  document.querySelectorAll(selector).forEach(observeFeedbackElement);
+
+  // Dynamic dialogs/forms may add new status nodes later. Observe only
+  // child additions for discovery; do not monitor page-wide class or text
+  // mutations.
+  const discoveryRoot = document.body || document.documentElement;
+  const discoveryObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      mutation.addedNodes.forEach(discoverFeedbackElements);
     }
   });
 
-  observer.observe(document.documentElement, {
+  discoveryObserver.observe(discoveryRoot, {
     subtree: true,
     childList: true,
-    characterData: true,
-    attributes: true,
-    attributeFilter: ["class", "hidden"],
-  });
-
-  // Catch feedback populated synchronously before the observer was installed.
-  document.querySelectorAll(`.pp-alert,${LEGACY_FEEDBACK_SELECTOR}`).forEach((element) => {
-    maybeBridgeInlineAlert(element);
-    maybeBridgeLegacyFeedback(element);
   });
 }
 
