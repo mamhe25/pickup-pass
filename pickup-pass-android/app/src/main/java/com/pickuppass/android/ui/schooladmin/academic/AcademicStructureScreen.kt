@@ -99,6 +99,14 @@ fun AcademicStructureScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
+            // Action feedback must be composed at screen level, not as a LazyColumn
+            // item. LazyColumn disposes off-screen items, which previously meant a
+            // success/error dialog could not exist until the user scrolled back up.
+            when {
+                state.error != null -> ErrorBanner(state.error!!)
+                state.message != null -> SuccessBanner(state.message!!)
+            }
+
             LazyColumn(
                 modifier = Modifier
                     .fillMaxHeight()
@@ -121,13 +129,6 @@ fun AcademicStructureScreen(
                             )
                         }
                     }
-                }
-
-                state.error?.let { message ->
-                    item(key = "error") { ErrorBanner(message) }
-                }
-                state.message?.let { message ->
-                    item(key = "success") { SuccessBanner(message) }
                 }
 
                 item(key = "metrics") {
@@ -271,7 +272,6 @@ fun AcademicStructureScreen(
             title = "Add academic year",
             initial = null,
             busy = state.isSaving,
-            error = state.error,
             allowSetCurrent = true,
             defaultSetCurrent = state.years.isEmpty(),
             onDismiss = {
@@ -291,7 +291,6 @@ fun AcademicStructureScreen(
             title = "Edit academic year",
             initial = year,
             busy = state.isSaving,
-            error = state.error,
             allowSetCurrent = false,
             onDismiss = {
                 if (!state.isSaving) {
@@ -316,7 +315,6 @@ fun AcademicStructureScreen(
             confirmLabel = if (active) "Reactivate" else "Archive",
             destructive = !active,
             busy = state.isSaving,
-            error = state.error,
             onDismiss = {
                 if (!state.isSaving) {
                     yearStatusAction = null
@@ -334,7 +332,6 @@ fun AcademicStructureScreen(
             confirmLabel = "Delete unused year",
             destructive = true,
             busy = state.isSaving,
-            error = state.error,
             onDismiss = {
                 if (!state.isSaving) {
                     deletingYear = null
@@ -352,7 +349,6 @@ fun AcademicStructureScreen(
             years = state.years.filter { it.status.lowercase() != "archived" },
             currentYearId = state.currentYearId,
             busy = state.isSaving,
-            error = state.error,
             onDismiss = {
                 if (!state.isSaving) {
                     showCreateSection = false
@@ -372,7 +368,6 @@ fun AcademicStructureScreen(
             years = state.years,
             currentYearId = state.currentYearId,
             busy = state.isSaving,
-            error = state.error,
             onDismiss = {
                 if (!state.isSaving) {
                     editingSection = null
@@ -396,7 +391,6 @@ fun AcademicStructureScreen(
             confirmLabel = if (active) "Reactivate" else "Archive",
             destructive = !active,
             busy = state.isSaving,
-            error = state.error,
             onDismiss = {
                 if (!state.isSaving) {
                     sectionStatusAction = null
@@ -414,7 +408,6 @@ fun AcademicStructureScreen(
             confirmLabel = "Delete unused section",
             destructive = true,
             busy = state.isSaving,
-            error = state.error,
             onDismiss = {
                 if (!state.isSaving) {
                     deletingSection = null
@@ -559,7 +552,7 @@ private fun AcademicYearCard(
                                     tint = MaterialTheme.colorScheme.error
                                 )
                             },
-                                                        onClick = {
+                            onClick = {
                                 menuExpanded = false
                                 onDelete()
                             }
@@ -682,7 +675,6 @@ private fun AcademicYearEditorDialog(
     title: String,
     initial: AcademicYear?,
     busy: Boolean,
-    error: String?,
     allowSetCurrent: Boolean,
     defaultSetCurrent: Boolean = false,
     onDismiss: () -> Unit,
@@ -755,8 +747,6 @@ private fun AcademicYearEditorDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-
-                error?.let { ErrorBanner(it) }
             }
         },
         confirmButton = {
@@ -787,7 +777,6 @@ private fun GradeSectionEditorDialog(
     years: List<AcademicYear>,
     currentYearId: String?,
     busy: Boolean,
-    error: String?,
     onDismiss: () -> Unit,
     onSave: (yearId: String, grade: String, section: String) -> Unit
 ) {
@@ -883,8 +872,6 @@ private fun GradeSectionEditorDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-
-                error?.let { ErrorBanner(it) }
             }
         },
         confirmButton = {
@@ -917,7 +904,6 @@ private fun ConfirmationDialog(
     confirmLabel: String,
     destructive: Boolean,
     busy: Boolean,
-    error: String?,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
@@ -925,10 +911,7 @@ private fun ConfirmationDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                Text(message)
-                error?.let { ErrorBanner(it) }
-            }
+            Text(message)
         },
         confirmButton = {
             Button(
