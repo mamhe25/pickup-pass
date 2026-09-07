@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+<title id="title">PickupPass</title>
+<defs>
+  <linearGradient id="pp-bg" x1="0" y1="1" x2="1" y2="0">
+    <stop offset="0" stop-color="#1247F3"/>
+    <stop offset=".5" stop-color="#304AF2"/>
+    <stop offset="1" stop-color="#7955F4"/>
+  </linearGradient>
+  <radialGradient id="pp-shine" cx=".22" cy=".17" r=".92">
+    <stop offset="0" stop-color="#6574FF" stop-opacity=".3"/>
+    <stop offset=".67" stop-color="#6574FF" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="pp-ribbon" x1=".08" y1=".12" x2=".96" y2=".9">
+    <stop offset="0" stop-color="#A188F7"/>
+    <stop offset=".58" stop-color="#C7B8FB"/>
+    <stop offset="1" stop-color="#F0ECFF"/>
+  </linearGradient>
+</defs>
+<rect x="10" y="12" width="236" height="232" rx="54" fill="url(#pp-bg)"/>
+<rect x="10" y="12" width="236" height="232" rx="54" fill="url(#pp-shine)"/>
+<path fill="#fff" d="M76 55h77c31 0 51 20 51 49v12c0 29-20 49-51 49h-24v-36h22c11 0 18-7 18-17s-7-17-18-17H76q-8 0-8-8V63q0-8 8-8Z"/>
+<path fill="#fff" d="M91 120h21v76q0 15-15 15H68v-65q0-26 23-26Z"/>
+<path fill="url(#pp-ribbon)" opacity=".98" d="M112 129h39c11 0 18-7 18-17 0-8-4-14-11-17 23 4 38 19 38 39 0 19-17 31-43 31h-41Z"/>
+</svg>

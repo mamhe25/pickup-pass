@@ -48,8 +48,8 @@ body:has(.pp-appbar) {
   font-size: .78rem;
 }
 .pp-brandmark__badge {
-  background: var(--brand-gradient);
-  box-shadow: 0 7px 18px color-mix(in srgb, var(--primary) 28%, transparent);
+  background: transparent;
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--primary) 24%, transparent);
 }
 .pp-brandmark__name { letter-spacing: -.025em; }
 .pp-brandmark__tag {
@@ -251,8 +251,8 @@ label:has(> .pp-field) > .pp-field { margin-top:5px; font-weight:450; }
 
 /* ---- Login -------------------------------------------------------------- */
 .pp-auth-shell { width:min(100%,1040px); display:grid; grid-template-columns:1fr 430px; overflow:hidden; border:1px solid var(--border); border-radius:26px; background:var(--surface); box-shadow:0 26px 70px rgba(15,23,42,.13); }
-.pp-auth-story { min-height:560px; padding:48px; color:#fff; background:radial-gradient(360px 300px at 100% 100%,rgba(132,204,22,.28),transparent 72%),linear-gradient(145deg,#064E3B,#065F46 52%,#047857); position:relative; overflow:hidden; }
-.pp-auth-story::after{content:"";position:absolute;width:320px;height:320px;border-radius:999px;right:-120px;bottom:-120px;background:rgba(255,255,255,.07);box-shadow:0 0 90px rgba(16,185,129,.22)}
+.pp-auth-story { min-height:560px; padding:48px; color:#fff; background:radial-gradient(360px 300px at 100% 100%,rgba(109,93,251,.34),transparent 72%),linear-gradient(145deg,#12182F,#35409C 52%,#6D5DFB); position:relative; overflow:hidden; }
+.pp-auth-story::after{content:"";position:absolute;width:320px;height:320px;border-radius:999px;right:-120px;bottom:-120px;background:rgba(255,255,255,.07);box-shadow:0 0 90px rgba(109,93,251,.28)}
 .pp-auth-form { padding:46px 38px; display:flex; flex-direction:column; justify-content:center; }
 
 /* ---- Reveal animation: progressive enhancement only -------------------- */

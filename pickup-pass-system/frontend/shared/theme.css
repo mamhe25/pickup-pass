@@ -25,12 +25,12 @@
   color-scheme: light;
 
   /* ---- 1. Primitives — mirror Android Color.kt exactly ------------------ */
-  --indigo-50:  #ECFDF5;
-  --indigo-100: #D1FAE5;
-  --indigo-500: #10B981;
-  --indigo-600: #047857;  /* brand primary */
-  --indigo-700: #065F46;
-  --indigo-900: #064E3B;
+  --indigo-50:  #EEF0FF;
+  --indigo-100: #E1E5FF;
+  --indigo-500: #6570E8;
+  --indigo-600: #4652C7;  /* brand primary */
+  --indigo-700: #35409C;
+  --indigo-900: #1E275C;
 
   --green-500: #2DD4BF;
   --green-600: #0F766E;   /* success / "safely dismissed" */
@@ -106,7 +106,7 @@
 
   /* Brand gradient — the signature. Used with restraint: splash, hero,
      loading, empty-state accents. Never behind body text. */
-  --brand-gradient: linear-gradient(135deg, var(--indigo-900) 0%, var(--indigo-700) 52%, #10B981 100%);
+  --brand-gradient: linear-gradient(135deg, var(--indigo-900) 0%, var(--indigo-600) 52%, #6D5DFB 100%);
 
   /* ---- 3a. Radius — mirror Android Shapes.kt --------------------------- */
   --radius-xs: 8px;    /* chips, badges, small pills */

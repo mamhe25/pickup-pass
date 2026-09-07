@@ -1,3 +1,33 @@
+const PICKUPPASS_BRAND_COLOR = '#4652C7';
+const PICKUPPASS_MARK_URL = '/assets/pickuppass-mark.svg';
+
+function applyPickupPassBrandChrome() {
+  let themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (!themeMeta) {
+    themeMeta = document.createElement('meta');
+    themeMeta.name = 'theme-color';
+    document.head.appendChild(themeMeta);
+  }
+  themeMeta.content = PICKUPPASS_BRAND_COLOR;
+
+  let icon = document.querySelector('link[rel~="icon"]');
+  if (!icon) {
+    icon = document.createElement('link');
+    icon.rel = 'icon';
+    document.head.appendChild(icon);
+  }
+  icon.type = 'image/svg+xml';
+  icon.href = PICKUPPASS_MARK_URL;
+
+  let touch = document.querySelector('link[rel="apple-touch-icon"]');
+  if (!touch) {
+    touch = document.createElement('link');
+    touch.rel = 'apple-touch-icon';
+    document.head.appendChild(touch);
+  }
+  touch.href = PICKUPPASS_MARK_URL;
+}
+
 const THEME_KEY = 'pp.theme';
 
 export function applyThemePreference() {
@@ -51,4 +81,5 @@ export function enhancePortal() {
   });
 }
 
+applyPickupPassBrandChrome();
 applyThemePreference();
