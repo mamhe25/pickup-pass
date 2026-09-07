@@ -53,6 +53,17 @@ test("login routes every supported role to its protected home", async () => {
     "login page must remain viewport-contained"
   );
 
+  assert.match(
+    portalCss,
+    /\.pp-auth-input:autofill\s*\{[\s\S]*?1000px[\s\S]*?--pp-auth-input-bg/,
+    "saved credentials must retain the branded auth input surface"
+  );
+  assert.match(
+    portalCss,
+    /\.pp-auth-input:-webkit-autofill/,
+    "Chromium/WebKit autofill must retain the branded auth input surface"
+  );
+
   const routes = {
     parent: "./parent/students.html",
     teacher: "./teacher/scanner.html",

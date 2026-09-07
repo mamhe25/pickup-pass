@@ -615,6 +615,7 @@ label:has(> .pp-field) > .pp-field { margin-top:5px; font-weight:450; }
   stroke-linejoin: round;
 }
 .pp-auth-input {
+  --pp-auth-input-bg: color-mix(in srgb, var(--surface) 92%, var(--surface-variant));
   width: 100% !important;
   min-width: 0;
   max-width: 100%;
@@ -623,7 +624,9 @@ label:has(> .pp-field) > .pp-field { margin-top:5px; font-weight:450; }
   padding: 0 46px 0 46px !important;
   border-radius: 15px !important;
   border-color: var(--border-strong) !important;
-  background: color-mix(in srgb, var(--surface) 92%, var(--surface-variant)) !important;
+  background: var(--pp-auth-input-bg) !important;
+  color: var(--text) !important;
+  caret-color: var(--primary);
   font-size: .9rem !important;
   box-shadow: 0 1px 0 rgba(255,255,255,.035) inset;
 }
@@ -633,6 +636,41 @@ label:has(> .pp-field) > .pp-field { margin-top:5px; font-weight:450; }
 .pp-auth-input:focus {
   border-color: var(--primary) !important;
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent) !important;
+}
+
+/* Browser password managers/autofill must remain visually inside the
+   PickupPass auth theme instead of applying the browser's yellow/olive fill. */
+.pp-auth-input:autofill {
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--border-strong)) !important;
+  background: var(--pp-auth-input-bg) !important;
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
+  caret-color: var(--primary) !important;
+  box-shadow:
+    0 0 0 1000px var(--pp-auth-input-bg) inset !important;
+}
+
+.pp-auth-input:autofill:focus {
+  border-color: var(--primary) !important;
+  box-shadow:
+    0 0 0 1000px var(--pp-auth-input-bg) inset,
+    0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent) !important;
+}
+
+.pp-auth-input:-webkit-autofill {
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--border-strong)) !important;
+  -webkit-text-fill-color: var(--text) !important;
+  caret-color: var(--primary) !important;
+  -webkit-box-shadow:
+    0 0 0 1000px var(--pp-auth-input-bg) inset !important;
+  transition: background-color 9999s ease-out 0s;
+}
+
+.pp-auth-input:-webkit-autofill:focus {
+  border-color: var(--primary) !important;
+  -webkit-box-shadow:
+    0 0 0 1000px var(--pp-auth-input-bg) inset,
+    0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent) !important;
 }
 .pp-auth-password-toggle {
   position: absolute;
