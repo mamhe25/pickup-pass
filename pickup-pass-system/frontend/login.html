@@ -13,117 +13,182 @@
 <link rel="stylesheet" href="./shared/premium-completion.css">
 </head>
 <body class="pp-portal-body pp-auth-page">
-<div class="pp-auth-shell">
-  <section class="pp-auth-story">
+<main class="pp-auth-shell" aria-labelledby="loginTitle">
+  <section class="pp-auth-story" aria-label="PickupPass security overview">
+    <div class="pp-auth-story__glow pp-auth-story__glow--one" aria-hidden="true"></div>
+    <div class="pp-auth-story__glow pp-auth-story__glow--two" aria-hidden="true"></div>
+
     <div class="pp-auth-story__content">
-      <div class="pp-auth-brand">
-        <span class="pp-brandmark__badge pp-auth-brand__mark">
+      <a class="pp-auth-brand" href="./" aria-label="PickupPass home">
+        <span class="pp-brandmark__badge pp-auth-brand__mark" aria-hidden="true">
           <img src="./assets/pickuppass-mark.svg" alt="" />
         </span>
-        <div>
-          <div class="pp-brand-wordmark pp-auth-brand__name"><span class="pp-wordmark__pickup">Pickup</span><span class="pp-wordmark__pass">Pass</span></div>
-          <div class="pp-auth-brand__tagline">Safe Dismissal. Peace of Mind.</div>
-        </div>
-      </div>
+        <span>
+          <span class="pp-brand-wordmark pp-auth-brand__name"><span class="pp-wordmark__pickup">Pickup</span><span class="pp-wordmark__pass">Pass</span></span>
+          <span class="pp-auth-brand__tagline">Secure school dismissal</span>
+        </span>
+      </a>
 
       <div class="pp-auth-story__eyebrow">
-        Secure school dismissal
+        <span class="pp-auth-live-dot" aria-hidden="true"></span>
+        Verified access for every handoff
       </div>
 
       <h1 class="pp-auth-story__title">
-        One trusted portal for every pickup role.
+        Every pickup starts with trusted access.
       </h1>
 
       <p class="pp-auth-story__copy">
-        Parents manage authorized pickup. Staff verify and release students.
-        School administrators oversee safety, operations, reporting and billing
-        — all from the same protected platform.
+        One protected sign-in connects parents, staff, and administrators to the
+        right dismissal workflow — with identity checks, role controls, and
+        accountability built in.
       </p>
 
-      <div class="pp-auth-story__stats">
-        <div class="pp-auth-story__stat">
-          <div class="pp-auth-story__stat-value">QR</div>
-          <div class="pp-auth-story__stat-label">
-            Single-use secure pickup passes
-          </div>
+      <div class="pp-auth-trust-list" aria-label="PickupPass security features">
+        <div class="pp-auth-trust-item">
+          <span class="pp-auth-trust-item__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.1 2.8 7.5 7 8.8 4.2-1.3 7-4.7 7-8.8V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+          </span>
+          <span>
+            <strong>School-issued access</strong>
+            <small>Accounts are provisioned and controlled by your school.</small>
+          </span>
         </div>
-        <div class="pp-auth-story__stat">
-          <div class="pp-auth-story__stat-value">2FA</div>
-          <div class="pp-auth-story__stat-label">
-            Required for privileged administrator roles
-          </div>
+
+        <div class="pp-auth-trust-item">
+          <span class="pp-auth-trust-item__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3"/><rect x="5" y="11" width="14" height="10" rx="3"/><path d="M12 15v2"/></svg>
+          </span>
+          <span>
+            <strong>Protected administrator sign-in</strong>
+            <small>Two-factor authentication is required for privileged roles.</small>
+          </span>
         </div>
+
+        <div class="pp-auth-trust-item">
+          <span class="pp-auth-trust-item__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 5h14v14H5z"/><path d="M8 9h8M8 13h5M8 17h3"/></svg>
+          </span>
+          <span>
+            <strong>Auditable dismissal activity</strong>
+            <small>Critical release actions remain attributable and reviewable.</small>
+          </span>
+        </div>
+      </div>
+
+      <div class="pp-auth-story__footer">
+        <span class="pp-auth-story__footer-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.1 2.8 7.5 7 8.8 4.2-1.3 7-4.7 7-8.8V6l-7-3Z"/></svg>
+        </span>
+        <span>Designed for secure, accountable school release workflows.</span>
       </div>
     </div>
   </section>
 
   <section class="pp-auth-form">
-    <div class="pp-auth-form__intro">
-      <div class="pp-auth-form__eyebrow">
-        Welcome back
-      </div>
-      <h2 class="pp-auth-form__title">
-        Sign in to PickupPass
-      </h2>
-      <p class="pp-auth-form__subtitle">
-        Use the account provided by your school.
-      </p>
+    <div class="pp-auth-form__topline">
+      <a class="pp-auth-back" href="./">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        Back to PickupPass
+      </a>
+      <span class="pp-auth-secure-badge">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3"/><rect x="5" y="11" width="14" height="10" rx="3"/></svg>
+        Secure access
+      </span>
     </div>
 
-    <div id="securityNotice"
-         class="hidden pp-auth-notice"
-         role="status" aria-live="polite"></div>
-
-    <form id="loginForm" class="pp-auth-login-form">
-      <label>
-        Email address
-        <input
-          id="email"
-          type="email"
-          autocomplete="email"
-          required
-          class="pp-field"
-          placeholder="name@example.com">
-      </label>
-
-      <label>
-        Password
-        <input
-          id="password"
-          type="password"
-          autocomplete="current-password"
-          required
-          class="pp-field"
-          placeholder="Enter your password">
-      </label>
-
-      <p id="errorMsg" class="pp-alert pp-alert--danger hidden" role="alert"></p>
-
-      <button id="loginButton" type="submit" class="pp-btn pp-btn--primary pp-btn--block">
-        Sign in securely
-      </button>
-    </form>
-
-    <button id="forgotBtn" class="pp-btn pp-btn--ghost pp-btn--block pp-auth-forgot">
-      Forgot password?
-    </button>
-
-    <div class="pp-auth-admin-note">
-      <div class="pp-auth-admin-note__title">
-        Administrator account protection
+    <div class="pp-auth-form__body">
+      <div class="pp-auth-form__intro">
+        <div class="pp-auth-form__eyebrow">Welcome back</div>
+        <h2 id="loginTitle" class="pp-auth-form__title">Sign in to your account</h2>
+        <p class="pp-auth-form__subtitle">
+          Use the credentials provided by your school.
+        </p>
       </div>
-      <p class="pp-auth-admin-note__copy">
-        Platform Owner and School Admin accounts must use an authenticator app.
-        Parents and Teachers can enable the same protection from Account security.
-      </p>
+
+      <div id="securityNotice"
+           class="hidden pp-auth-notice"
+           role="status" aria-live="polite"></div>
+
+      <form id="loginForm" class="pp-auth-login-form">
+        <label class="pp-auth-field">
+          <span class="pp-auth-field__label">Email address</span>
+          <span class="pp-auth-field__control">
+            <span class="pp-auth-field__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg>
+            </span>
+            <input
+              id="email"
+              type="email"
+              autocomplete="email"
+              inputmode="email"
+              required
+              class="pp-field pp-auth-input"
+              placeholder="name@school.edu">
+          </span>
+        </label>
+
+        <label class="pp-auth-field">
+          <span class="pp-auth-field__heading">
+            <span class="pp-auth-field__label">Password</span>
+            <button id="forgotBtn" type="button" class="pp-auth-forgot">Forgot password?</button>
+          </span>
+          <span class="pp-auth-field__control">
+            <span class="pp-auth-field__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3"/><rect x="5" y="11" width="14" height="10" rx="3"/></svg>
+            </span>
+            <input
+              id="password"
+              type="password"
+              autocomplete="current-password"
+              required
+              class="pp-field pp-auth-input pp-auth-input--password"
+              placeholder="Enter your password">
+            <button
+              id="passwordToggle"
+              class="pp-auth-password-toggle"
+              type="button"
+              aria-label="Show password"
+              aria-pressed="false">
+              <svg class="pp-eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+              <svg class="pp-eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 16 16"/><path d="M10.7 6.1A10.4 10.4 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.1 2.8M6.6 6.7C4 8.4 2.5 12 2.5 12s3.5 6 9.5 6c1.4 0 2.7-.3 3.8-.8"/><path d="M9.9 9.8a3 3 0 0 0 4.3 4.3"/></svg>
+            </button>
+          </span>
+        </label>
+
+        <p id="errorMsg" class="pp-alert pp-alert--danger hidden" role="alert"></p>
+
+        <button id="loginButton" type="submit" class="pp-btn pp-btn--primary pp-auth-submit">
+          <span>Sign in securely</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </form>
+
+      <div class="pp-auth-admin-note">
+        <span class="pp-auth-admin-note__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.1 2.8 7.5 7 8.8 4.2-1.3 7-4.7 7-8.8V6l-7-3Z"/><path d="M9 12h6M12 9v6"/></svg>
+        </span>
+        <span>
+          <strong class="pp-auth-admin-note__title">Administrator protection</strong>
+          <span class="pp-auth-admin-note__copy">
+            Platform Owner and School Admin accounts require an authenticator app.
+          </span>
+        </span>
+      </div>
+
+      <div class="pp-auth-access-note">
+        <strong>Need access?</strong>
+        PickupPass accounts are issued by your school. Contact your school administrator if you need an account or cannot sign in.
+      </div>
     </div>
 
     <div class="pp-auth-footer-note">
-      Protected by Firebase Authentication and role-based access controls.
+      <span>Protected by Firebase Authentication</span>
+      <span aria-hidden="true">•</span>
+      <span>Role-based access control</span>
     </div>
   </section>
-</div>
-
+</main>
 <!-- Premium blocking TOTP challenge. It is intentionally non-dismissible by
      clicking outside: cancelling explicitly signs the incomplete session out. -->
 <div id="mfaDialog"
@@ -134,6 +199,10 @@
   <div class="pp-mfa-center">
     <div class="pp-mfa-card">
       <div class="pp-mfa-card__header">
+        <div class="pp-mfa-brand">
+          <img src="./assets/pickuppass-mark.svg" alt="" aria-hidden="true">
+          <span><span class="pp-wordmark__pickup">Pickup</span><span class="pp-wordmark__pass">Pass</span></span>
+        </div>
         <div class="pp-mfa-icon">
           <svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z" stroke="currentColor" stroke-width="1.8"/>
@@ -144,7 +213,7 @@
           Two-factor authentication
         </div>
         <h2 id="mfaTitle" class="pp-mfa-title">
-          Verify it’s you
+          Confirm your sign-in
         </h2>
         <p class="pp-mfa-copy">
           Open your authenticator app and enter the current 6-digit PickupPass code.
@@ -327,6 +396,16 @@ cancelMfa.addEventListener("click", async () => {
   mfaCode.value = "";
   await signOut(auth);
   document.getElementById("password").value = "";
+});
+
+const passwordToggle = document.getElementById("passwordToggle");
+const passwordInput = document.getElementById("password");
+
+passwordToggle.addEventListener("click", () => {
+  const showing = passwordInput.type === "text";
+  passwordInput.type = showing ? "password" : "text";
+  passwordToggle.setAttribute("aria-pressed", String(!showing));
+  passwordToggle.setAttribute("aria-label", showing ? "Show password" : "Hide password");
 });
 
 document.getElementById("forgotBtn").addEventListener("click", async () => {
