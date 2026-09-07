@@ -7,6 +7,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -39,9 +40,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -56,6 +59,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -139,8 +143,7 @@ fun PrimaryButton(
         onClick = onClick,
         enabled = enabled && !loading,
         modifier = modifier
-            .fillMaxWidth()
-            .height(52.dp),
+            .height(50.dp),
         shape = MaterialTheme.shapes.small,
         colors = ButtonDefaults.buttonColors(containerColor = containerColor)
     ) {
@@ -168,43 +171,49 @@ fun PremiumTopAppBar(
     onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
-    TopAppBar(
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            scrolledContainerColor = MaterialTheme.colorScheme.surface,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-            navigationIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        ),
-        title = {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                if (!subtitle.isNullOrBlank()) {
+    Column {
+        TopAppBar(
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+                scrolledContainerColor = MaterialTheme.colorScheme.surface,
+                titleContentColor = MaterialTheme.colorScheme.onSurface,
+                navigationIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+            title = {
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
+                    if (!subtitle.isNullOrBlank()) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
                 }
-            }
-        },
-        navigationIcon = {
-            if (onBack != null) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                    )
+            },
+            navigationIcon = {
+                if (onBack != null) {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                        )
+                    }
                 }
-            }
-        },
-        actions = actions,
-    )
+            },
+            actions = actions,
+        )
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f),
+        )
+    }
 }
 
 enum class FeedbackTone {
@@ -236,6 +245,8 @@ fun FeedbackCard(
     val accent: Color
     val icon: ImageVector
     val defaultTitle: String
+    val kicker: String
+    val actionLabel: String
     val liveRegionMode: LiveRegionMode
 
     when (tone) {
@@ -243,27 +254,32 @@ fun FeedbackCard(
             accent = if (isDark) Success500 else Success600
             icon = Icons.Filled.CheckCircle
             defaultTitle = "Success"
+            kicker = "Action completed"
+            actionLabel = "Done"
             liveRegionMode = LiveRegionMode.Polite
         }
-
         FeedbackTone.Error -> {
             accent = scheme.error
             icon = Icons.Filled.Error
             defaultTitle = "Something went wrong"
+            kicker = "Action not completed"
+            actionLabel = "Close"
             liveRegionMode = LiveRegionMode.Assertive
         }
-
         FeedbackTone.Warning -> {
             accent = if (isDark) Amber500 else Amber700
             icon = Icons.Filled.Warning
-            defaultTitle = "Action required"
+            defaultTitle = "Please review"
+            kicker = "Review required"
+            actionLabel = "Got it"
             liveRegionMode = LiveRegionMode.Polite
         }
-
         FeedbackTone.Info -> {
             accent = scheme.primary
             icon = Icons.Filled.Info
             defaultTitle = "Information"
+            kicker = "PickupPass update"
+            actionLabel = "Okay"
             liveRegionMode = LiveRegionMode.Polite
         }
     }
@@ -276,115 +292,342 @@ fun FeedbackCard(
         properties = DialogProperties(
             dismissOnBackPress = true,
             dismissOnClickOutside = true,
-            usePlatformDefaultWidth = false
-        )
+            usePlatformDefaultWidth = false,
+        ),
     ) {
-        Box(
-            modifier = Modifier
+        Surface(
+            color = scheme.surface,
+            contentColor = scheme.onSurface,
+            shape = MaterialTheme.shapes.large,
+            border = BorderStroke(1.dp, accent.copy(alpha = 0.16f)),
+            shadowElevation = 28.dp,
+            tonalElevation = 1.dp,
+            modifier = modifier
+                .padding(horizontal = Spacing.md)
+                .widthIn(max = 460.dp)
                 .fillMaxWidth()
-                .padding(horizontal = Spacing.lg),
-            contentAlignment = Alignment.Center
+                .semantics { liveRegion = liveRegionMode },
         ) {
-            Surface(
-                color = scheme.surface,
-                contentColor = scheme.onSurface,
-                shape = MaterialTheme.shapes.large,
-                border = BorderStroke(1.dp, accent.copy(alpha = 0.16f)),
-                shadowElevation = 24.dp,
-                tonalElevation = 1.dp,
-                modifier = modifier
-                    .widthIn(max = 440.dp)
-                    .fillMaxWidth()
-                    .semantics { liveRegion = liveRegionMode }
-            ) {
-                Box {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = Spacing.md,
+                            top = Spacing.md,
+                            end = Spacing.sm,
+                            bottom = Spacing.sm,
+                        ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    PickupPassBrandMark(size = 32.dp)
+                    Spacer(Modifier.width(Spacing.sm))
+                    Column(Modifier.weight(1f)) {
+                        PickupPassWordmark(
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Text(
+                            text = "SECURE ACTION FEEDBACK",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = scheme.onSurfaceVariant,
+                        )
+                    }
                     IconButton(
                         onClick = { visible = false },
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 8.dp, end = 8.dp)
-                            .size(40.dp)
+                        modifier = Modifier.size(40.dp),
                     ) {
-                        Surface(
-                            color = scheme.surfaceVariant.copy(alpha = 0.72f),
-                            shape = CircleShape,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Filled.Close,
-                                    contentDescription = "Close message",
-                                    tint = scheme.onSurfaceVariant,
-                                    modifier = Modifier.size(19.dp)
-                                )
-                            }
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Close message",
+                            tint = scheme.onSurfaceVariant,
+                            modifier = Modifier.size(19.dp),
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = scheme.outlineVariant)
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(Spacing.lg),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Surface(
+                        color = accent.copy(alpha = if (isDark) 0.20f else 0.10f),
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.size(64.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier.size(30.dp),
+                            )
                         }
                     }
 
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                start = Spacing.xl,
-                                top = 52.dp,
-                                end = Spacing.xl,
-                                bottom = Spacing.xl
-                            ),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
                     ) {
-                        Surface(
-                            color = accent.copy(alpha = if (isDark) 0.18f else 0.10f),
-                            shape = CircleShape,
-                            modifier = Modifier.size(76.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Surface(
-                                    color = accent.copy(alpha = if (isDark) 0.17f else 0.08f),
-                                    shape = CircleShape,
-                                    modifier = Modifier.size(58.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = icon,
-                                            contentDescription = null,
-                                            tint = accent,
-                                            modifier = Modifier.size(34.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(Modifier.height(Spacing.lg))
-
+                        Text(
+                            text = kicker.uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = accent,
+                        )
                         Text(
                             text = title ?: defaultTitle,
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.ExtraBold,
                             color = scheme.onSurface,
-                            textAlign = TextAlign.Center
                         )
-
-                        Spacer(Modifier.height(Spacing.sm))
-
                         Text(
                             text = message,
                             style = MaterialTheme.typography.bodyMedium,
                             color = scheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
                         )
+                    }
+                }
 
-                        Spacer(Modifier.height(Spacing.md))
-
-                        Surface(
-                            color = accent,
-                            shape = CircleShape,
-                            modifier = Modifier.size(width = 36.dp, height = 4.dp)
-                        ) {}
+                Surface(
+                    color = scheme.surfaceVariant.copy(alpha = 0.54f),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Spacing.md),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Button(
+                            onClick = { visible = false },
+                            shape = MaterialTheme.shapes.small,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = accent,
+                            ),
+                            modifier = Modifier.widthIn(min = 96.dp),
+                        ) {
+                            Text(actionLabel)
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun PremiumConfirmDialog(
+    title: String,
+    message: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    destructive: Boolean = false,
+    icon: ImageVector = Icons.Filled.Warning,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val accent = if (destructive) scheme.error else scheme.primary
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+            usePlatformDefaultWidth = false,
+        ),
+    ) {
+        Surface(
+            modifier = modifier
+                .padding(horizontal = Spacing.md)
+                .widthIn(max = 460.dp)
+                .fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            color = scheme.surface,
+            border = BorderStroke(1.dp, accent.copy(alpha = 0.16f)),
+            shadowElevation = 24.dp,
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(Spacing.lg),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Surface(
+                        modifier = Modifier.size(52.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        color = accent.copy(alpha = 0.10f),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier.size(25.dp),
+                            )
+                        }
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    ) {
+                        Text(
+                            text = if (destructive) "CONFIRM IMPORTANT ACTION" else "CONFIRM ACTION",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = accent,
+                        )
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                        )
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = scheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = scheme.outlineVariant)
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(Spacing.md),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    Spacer(Modifier.width(Spacing.sm))
+                    Button(
+                        onClick = onConfirm,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = accent,
+                        ),
+                        shape = MaterialTheme.shapes.small,
+                    ) {
+                        Text(confirmLabel)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PremiumHeroCard(
+    eyebrow: String,
+    title: String,
+    message: String,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = Color.Transparent,
+        shadowElevation = 4.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            scheme.primary,
+                            scheme.secondary,
+                        ),
+                    ),
+                )
+                .padding(Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (icon != null) {
+                Surface(
+                    modifier = Modifier.size(48.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color = scheme.onPrimary.copy(alpha = 0.12f),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = scheme.onPrimary,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
+                Text(
+                    text = eyebrow.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = scheme.onPrimary.copy(alpha = 0.80f),
+                )
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = scheme.onPrimary,
+                )
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onPrimary.copy(alpha = 0.82f),
+                )
+            }
+            trailing?.invoke()
+        }
+    }
+}
+
+@Composable
+fun PremiumSectionHeader(
+    title: String,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        trailing?.invoke()
     }
 }
 

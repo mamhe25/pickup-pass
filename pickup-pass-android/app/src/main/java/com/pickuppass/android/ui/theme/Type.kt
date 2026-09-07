@@ -40,22 +40,22 @@ val PickupPassTypography = Typography(
     headlineLarge = TextStyle(
         fontFamily = InterFontFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 30.sp,
-        lineHeight = 36.sp,
+        fontSize = 27.sp,
+        lineHeight = 33.sp,
         letterSpacing = (-0.35).sp
     ),
     headlineMedium = TextStyle(
         fontFamily = InterFontFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 26.sp,
-        lineHeight = 32.sp,
+        fontSize = 23.sp,
+        lineHeight = 29.sp,
         letterSpacing = (-0.25).sp
     ),
     headlineSmall = TextStyle(
         fontFamily = InterFontFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
+        fontSize = 19.sp,
+        lineHeight = 24.sp,
         letterSpacing = (-0.15).sp
     ),
     titleLarge = TextStyle(
