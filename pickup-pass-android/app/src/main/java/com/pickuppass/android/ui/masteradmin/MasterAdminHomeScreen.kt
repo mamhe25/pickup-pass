@@ -23,6 +23,7 @@ import com.pickuppass.android.data.model.MasterSchoolItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.PickupPassPullToRefresh
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.theme.Spacing
 
 private enum class MasterAdminSection(val label: String) {
@@ -56,22 +57,16 @@ fun MasterAdminScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("PickupPass Control Center")
-                        Text(
-                            "Platform owner",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
+            PremiumTopAppBar(
+                title = "PickupPass control center",
+                subtitle = "Platform owner",
                 actions = {
                     IconButton(onClick = onOpenProfile) {
                         Icon(Icons.Filled.AccountCircle, contentDescription = "My profile")
                     }
                 }
+            )
+
             )
         }
     ) { padding ->

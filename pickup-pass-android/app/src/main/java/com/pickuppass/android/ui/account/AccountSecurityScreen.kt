@@ -34,6 +34,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
 
@@ -96,29 +97,12 @@ fun AccountSecurityScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            "Account security",
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                        Text(
-                            "Sign-in & two-factor protection",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Account security",
+                subtitle = "Sign-in & two-factor protection",
+                onBack = onBack,
             )
         }
     ) { padding ->
@@ -133,6 +117,7 @@ fun AccountSecurityScreen(
                     .widthIn(max = 680.dp)
                     .align(Alignment.TopCenter)
                     .verticalScroll(rememberScrollState())
+                    .imePadding()
                     .padding(
                         start = Spacing.md,
                         top = Spacing.sm,

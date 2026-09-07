@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.PremiumConfirmDialog
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.theme.Spacing
 
@@ -46,23 +48,12 @@ fun AccountProfileScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("My profile", fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            uiState.roleLabel.ifBlank { "PickupPass account" },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+            PremiumTopAppBar(
+                title = "My profile",
+                subtitle = uiState.roleLabel.ifBlank { "PickupPass account" },
+                onBack = onBack,
             )
         }
     ) { padding ->
@@ -343,32 +334,20 @@ fun AccountProfileScreen(
     }
 
     if (confirmSignOut) {
-        AlertDialog(
-            onDismissRequest = { confirmSignOut = false },
-            title = { Text("Sign out of PickupPass?") },
-            text = { Text("You'll need to sign in again before using your PickupPass role on this device.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        confirmSignOut = false
-                        viewModel.signOut()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
-                    )
-                ) {
-                    Text("Sign out")
-                }
+        PremiumConfirmDialog(
+            title = "Sign out of PickupPass?",
+            message = "You'll need to sign in again before accessing PickupPass on this device.",
+            confirmLabel = "Sign out",
+            destructive = true,
+            icon = Icons.AutoMirrored.Filled.Logout,
+            onDismiss = { confirmSignOut = false },
+            onConfirm = {
+                confirmSignOut = false
+                viewModel.signOut()
             },
-            dismissButton = {
-                TextButton(onClick = { confirmSignOut = false }) {
-                    Text("Cancel")
-                }
-            }
         )
     }
-}
+}}
 
 @Composable
 private fun DetailRow(
