@@ -13,27 +13,56 @@
 </head>
 <body>
 <main class="account-page">
-  <a id="backLink" class="account-back" href="./login.html">
-    ← Back to PickupPass
-  </a>
+  <div class="account-topbar">
+    <a id="backLink" class="account-back" href="./login.html">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m15 18-6-6 6-6" />
+      </svg>
+      <span>Back to PickupPass</span>
+    </a>
+
+    <div class="account-brand" aria-label="PickupPass">
+      <img src="./assets/pickuppass-mark.svg" alt="" aria-hidden="true" />
+      <span><span class="pp-wordmark__pickup">Pickup</span><span class="pp-wordmark__pass">Pass</span></span>
+    </div>
+  </div>
 
   <header class="account-hero">
-    <div class="account-hero__icon" aria-hidden="true">✓</div>
-    <div>
-      <p class="account-eyebrow">ACCOUNT PROTECTION</p>
-      <h1>Account security</h1>
+    <div class="account-hero__copy">
+      <p class="account-eyebrow account-eyebrow--light">Account protection</p>
+      <h1>Keep your PickupPass account protected.</h1>
       <p>
-        Manage your sign-in credentials and authenticator-based
-        two-factor authentication.
+        Manage sign-in credentials, authenticator-based two-factor authentication,
+        and recovery details from one secure place.
       </p>
+
+      <div class="account-hero__chips" aria-label="Security capabilities">
+        <span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3"/><rect x="5" y="11" width="14" height="10" rx="3"/></svg>
+          Secure credentials
+        </span>
+        <span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.1 2.8 7.5 7 8.8 4.2-1.3 7-4.7 7-8.8V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+          Authenticator 2FA
+        </span>
+      </div>
+    </div>
+
+    <div class="account-hero__mark" aria-hidden="true">
+      <img src="./assets/pickuppass-mark.svg" alt="" />
     </div>
   </header>
 
   <section class="account-identity" aria-label="Current identity">
-    <div>
+    <div class="account-identity__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.7-4.2 3.4-6.5 8-6.5s7.3 2.3 8 6.5"/></svg>
+    </div>
+
+    <div class="account-identity__copy">
       <span class="account-label">Signed in as</span>
       <strong id="currentEmail">Loading…</strong>
     </div>
+
     <span id="emailVerifiedBadge" class="security-badge">
       Checking…
     </span>
@@ -43,13 +72,19 @@
 
   <section class="account-card account-card--security" aria-labelledby="mfaTitle">
     <div class="security-heading">
-      <div>
-        <p class="account-eyebrow">TWO-FACTOR AUTHENTICATION</p>
+      <div class="security-heading__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.1 2.8 7.5 7 8.8 4.2-1.3 7-4.7 7-8.8V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+      </div>
+
+      <div class="security-heading__copy">
+        <p class="account-eyebrow">Two-factor authentication</p>
         <h2 id="mfaTitle">Authenticator 2FA</h2>
         <p id="mfaDescription">
-          Add a rotating 6-digit authenticator code after your password.
+          Add a rotating 6-digit authenticator code after your password for an
+          extra layer of sign-in protection.
         </p>
       </div>
+
       <div class="security-badges">
         <span id="mfaPolicyBadge" class="security-badge">Loading…</span>
         <span id="mfaStateBadge" class="security-badge">Checking…</span>
@@ -61,8 +96,7 @@
       <div>
         <h3>Verify your sign-in email</h3>
         <p>
-          Firebase requires a verified email before an authenticator can be
-          enrolled.
+          Firebase requires a verified email before an authenticator can be enrolled.
         </p>
         <div class="button-row">
           <button id="sendMfaVerification" type="button">
@@ -80,8 +114,7 @@
       <div>
         <h3>Set up your authenticator</h3>
         <p>
-          Confirm your current password to generate a private PickupPass
-          setup key.
+          Confirm your current password to generate a private PickupPass setup key.
         </p>
         <label for="mfaPassword">Current password</label>
         <input
@@ -104,11 +137,10 @@
         <div>
           <h3>Add PickupPass to your authenticator</h3>
           <p>
-            Open a compatible authenticator app or enter the setup key
-            manually.
+            Open a compatible authenticator app or enter the setup key manually.
           </p>
           <div class="secret-box">
-            <span>SETUP KEY</span>
+            <span>Setup key</span>
             <code id="totpSetupKey"></code>
           </div>
           <a
@@ -167,8 +199,7 @@
     <div id="optionalDisablePanel" class="security-disable hidden">
       <h3>Disable 2FA</h3>
       <p>
-        Parent and Teacher accounts can opt out after confirming the current
-        password.
+        Parent and Teacher accounts can opt out after confirming the current password.
       </p>
       <label for="disableMfaPassword">Current password</label>
       <input
@@ -183,86 +214,115 @@
     <p id="mfaStatus" class="form-status" role="status" aria-live="polite"></p>
 
     <p class="security-footnote">
-      The TOTP setup secret is handled only by Firebase Authentication and
-      your authenticator app. PickupPass never sends it to the backend or
-      Firestore.
+      The TOTP setup secret is handled only by Firebase Authentication and your
+      authenticator app. PickupPass never sends it to the backend or Firestore.
     </p>
   </section>
 
-  <section class="account-card" aria-labelledby="emailTitle">
-    <h2 id="emailTitle">Change email</h2>
-    <p>
-      We’ll send a verification link to your new email. Your current email
-      stays active until you verify the new one.
-    </p>
-    <form id="emailForm">
-      <fieldset disabled>
-        <label for="newEmail">New email</label>
-        <input
-          id="newEmail"
-          name="email"
-          type="email"
-          autocomplete="email"
-          required
-          maxlength="254" />
+  <div class="account-credential-grid">
+    <section class="account-card account-card--credential" aria-labelledby="emailTitle">
+      <div class="account-card__heading">
+        <div class="account-card__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg>
+        </div>
+        <div>
+          <p class="account-eyebrow">Sign-in email</p>
+          <h2 id="emailTitle">Change email</h2>
+        </div>
+      </div>
 
-        <label for="emailPassword">Current password</label>
-        <input
-          id="emailPassword"
-          name="current-password"
-          type="password"
-          autocomplete="current-password"
-          required />
+      <p class="account-card__intro">
+        We’ll send a verification link to your new email. Your current email stays
+        active until the new address is verified.
+      </p>
 
-        <button type="submit">Send verification email</button>
-      </fieldset>
-      <p class="form-status" role="status" aria-live="polite"></p>
-    </form>
-  </section>
+      <form id="emailForm">
+        <fieldset disabled>
+          <label for="newEmail">New email</label>
+          <input
+            id="newEmail"
+            name="email"
+            type="email"
+            autocomplete="email"
+            required
+            maxlength="254" />
 
-  <section class="account-card" aria-labelledby="passwordTitle">
-    <h2 id="passwordTitle">Change password</h2>
-    <form id="passwordForm">
-      <fieldset disabled>
-        <label for="currentPassword">Current password</label>
-        <input
-          id="currentPassword"
-          type="password"
-          autocomplete="current-password"
-          required />
+          <label for="emailPassword">Current password</label>
+          <input
+            id="emailPassword"
+            name="current-password"
+            type="password"
+            autocomplete="current-password"
+            required />
 
-        <label for="newPassword">New password</label>
-        <input
-          id="newPassword"
-          type="password"
-          autocomplete="new-password"
-          minlength="8"
-          required
-          aria-describedby="passwordHelp" />
+          <button type="submit">Send verification email</button>
+        </fieldset>
+        <p class="form-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
 
-        <p id="passwordHelp" class="field-help">
-          Use at least 8 characters and meet your account’s password
-          requirements.
-        </p>
+    <section class="account-card account-card--credential" aria-labelledby="passwordTitle">
+      <div class="account-card__heading">
+        <div class="account-card__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3"/><rect x="5" y="11" width="14" height="10" rx="3"/></svg>
+        </div>
+        <div>
+          <p class="account-eyebrow">Password</p>
+          <h2 id="passwordTitle">Change password</h2>
+        </div>
+      </div>
 
-        <label for="confirmPassword">Confirm new password</label>
-        <input
-          id="confirmPassword"
-          type="password"
-          autocomplete="new-password"
-          minlength="8"
-          required />
+      <p class="account-card__intro">
+        Use a strong password you do not reuse on other services.
+      </p>
 
-        <button type="submit">Change password</button>
-      </fieldset>
-      <p class="form-status" role="status" aria-live="polite"></p>
-    </form>
-  </section>
+      <form id="passwordForm">
+        <fieldset disabled>
+          <label for="currentPassword">Current password</label>
+          <input
+            id="currentPassword"
+            type="password"
+            autocomplete="current-password"
+            required />
 
-  <p class="account-footer">
-    Forgot your password?
-    <a href="./login.html">Use password reset on the sign-in page.</a>
-  </p>
+          <label for="newPassword">New password</label>
+          <input
+            id="newPassword"
+            type="password"
+            autocomplete="new-password"
+            minlength="8"
+            required
+            aria-describedby="passwordHelp" />
+
+          <p id="passwordHelp" class="field-help">
+            Use at least 8 characters and meet your account’s password requirements.
+          </p>
+
+          <label for="confirmPassword">Confirm new password</label>
+          <input
+            id="confirmPassword"
+            type="password"
+            autocomplete="new-password"
+            minlength="8"
+            required />
+
+          <button type="submit">Change password</button>
+        </fieldset>
+        <p class="form-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </div>
+
+  <aside class="account-recovery-note">
+    <div class="account-recovery-note__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 8.5 6"/><path d="M20 3v6h-6"/></svg>
+    </div>
+    <div>
+      <strong>Forgot your password?</strong>
+      <p>Use the password reset flow on the sign-in page to recover access securely.</p>
+    </div>
+    <a href="./login.html">Open sign-in</a>
+  </aside>
 </main>
 
 <script type="module" src="./shared/account.js"></script>
