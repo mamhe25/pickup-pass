@@ -6,9 +6,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.pickuppass.android.ui.common.PickupPassBrandMark
+import com.pickuppass.android.ui.common.PickupPassWordmark
 import com.pickuppass.android.ui.common.PrimaryButton
 import com.pickuppass.android.ui.theme.Spacing
 
@@ -50,19 +52,19 @@ fun WelcomeScreen(
                 Modifier.height(Spacing.lg)
             )
 
-            BrandMark()
+            PickupPassBrandMark(
+                size = 82.dp,
+                contentDescription = "PickupPass"
+            )
 
             Spacer(
                 Modifier.height(Spacing.md)
             )
 
-            Text(
-                text = "PickupPass",
+            PickupPassWordmark(
                 style =
                     MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.ExtraBold,
-                color =
-                    MaterialTheme.colorScheme.onBackground
+                textAlign = TextAlign.Center
             )
 
             Spacer(
@@ -146,32 +148,6 @@ fun WelcomeScreen(
 
             Spacer(
                 Modifier.height(Spacing.md)
-            )
-        }
-    }
-}
-
-@Composable
-private fun BrandMark() {
-    Surface(
-        modifier = Modifier.size(78.dp),
-        shape = CircleShape,
-        color =
-            MaterialTheme.colorScheme.primaryContainer,
-        shadowElevation = 5.dp
-    ) {
-        Box(
-            contentAlignment =
-                Alignment.Center
-        ) {
-            Icon(
-                imageVector =
-                    Icons.Filled.Shield,
-                contentDescription = null,
-                modifier =
-                    Modifier.size(39.dp),
-                tint =
-                    MaterialTheme.colorScheme.primary
             )
         }
     }
@@ -387,7 +363,7 @@ private fun AccessHelpCard() {
         ) {
             Icon(
                 imageVector =
-                    Icons.Filled.Shield,
+                    Icons.Filled.Key,
                 contentDescription = null,
                 modifier =
                     Modifier.size(20.dp),

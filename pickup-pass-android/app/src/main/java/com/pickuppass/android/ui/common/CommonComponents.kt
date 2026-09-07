@@ -62,10 +62,15 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -73,6 +78,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.pickuppass.android.R
 import com.pickuppass.android.ui.theme.Amber500
 import com.pickuppass.android.ui.theme.Amber700
 import com.pickuppass.android.ui.theme.Spacing
@@ -82,6 +88,42 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private const val SMART_IMAGE_MAX_DIMENSION_PX = 1024
+
+@Composable
+fun PickupPassBrandMark(
+    modifier: Modifier = Modifier,
+    size: Dp = 72.dp,
+    contentDescription: String? = null,
+) {
+    Image(
+        painter = painterResource(R.drawable.pickuppass_logo_full),
+        contentDescription = contentDescription,
+        contentScale = ContentScale.Fit,
+        modifier = modifier.size(size),
+    )
+}
+
+@Composable
+fun PickupPassWordmark(
+    modifier: Modifier = Modifier,
+    style: TextStyle = MaterialTheme.typography.titleLarge,
+    textAlign: TextAlign? = null,
+) {
+    val dark = isSystemInDarkTheme()
+    val pickupColor = if (dark) Color(0xFFF7F8FF) else Color(0xFF243A9A)
+    val passColor = if (dark) Color(0xFFA89CFF) else Color(0xFF6D5DFB)
+
+    Text(
+        text = buildAnnotatedString {
+            withStyle(SpanStyle(color = pickupColor)) { append("Pickup") }
+            withStyle(SpanStyle(color = passColor)) { append("Pass") }
+        },
+        modifier = modifier,
+        style = style,
+        fontWeight = FontWeight.ExtraBold,
+        textAlign = textAlign,
+    )
+}
 
 @Composable
 fun PrimaryButton(

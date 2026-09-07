@@ -5,7 +5,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.QrCode2
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,6 +14,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.pickuppass.android.ui.common.PickupPassBrandMark
+import com.pickuppass.android.ui.common.PickupPassWordmark
 import com.pickuppass.android.ui.theme.Spacing
 
 private data class OnboardingPage(
@@ -96,39 +97,18 @@ fun OnboardingScreen(
                     verticalAlignment =
                         Alignment.CenterVertically
                 ) {
-                    Surface(
-                        modifier =
-                            Modifier.size(32.dp),
-                        shape = CircleShape,
-                        color =
-                            MaterialTheme.colorScheme.primaryContainer
-                    ) {
-                        Box(
-                            contentAlignment =
-                                Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector =
-                                    Icons.Filled.Shield,
-                                contentDescription = null,
-                                modifier =
-                                    Modifier.size(17.dp),
-                                tint =
-                                    MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-
-                    Spacer(
-                        Modifier.width(8.dp)
+                    PickupPassBrandMark(
+                        size = 34.dp,
+                        contentDescription = null
                     )
 
-                    Text(
-                        text = "PickupPass",
+                    Spacer(
+                        Modifier.width(9.dp)
+                    )
+
+                    PickupPassWordmark(
                         style =
-                            MaterialTheme.typography.titleSmall,
-                        fontWeight =
-                            FontWeight.ExtraBold
+                            MaterialTheme.typography.titleSmall
                     )
                 }
 
