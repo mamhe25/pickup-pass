@@ -111,6 +111,12 @@ test(
   async () => {
     const html = await page("parent/pickup-pass.html");
 
+    assert.doesNotMatch(
+      html,
+      /pp-backlink|← My Students/,
+      "student pickup pass should not duplicate My Students navigation"
+    );
+
     assert.match(
       html,
       /params\.get\(\s*["']studentId["']\s*\)/
