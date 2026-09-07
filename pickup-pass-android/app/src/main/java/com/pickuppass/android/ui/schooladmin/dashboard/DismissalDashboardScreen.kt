@@ -2,25 +2,49 @@ package com.pickuppass.android.ui.schooladmin.dashboard
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PeopleAlt
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -33,16 +57,22 @@ import com.pickuppass.android.data.model.DashboardStudent
 import com.pickuppass.android.data.model.GateActivityItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.PremiumTopAppBar
+import com.pickuppass.android.ui.theme.Amber100
+import com.pickuppass.android.ui.theme.Amber700
+import com.pickuppass.android.ui.theme.Blue50
+import com.pickuppass.android.ui.theme.Blue600
 import com.pickuppass.android.ui.theme.Spacing
+import com.pickuppass.android.ui.theme.Success100
+import com.pickuppass.android.ui.theme.Success600
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DismissalDashboardScreen(
     viewModel: DismissalDashboardViewModel = hiltViewModel(),
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val dashboard = state.dashboard
@@ -50,283 +80,261 @@ fun DismissalDashboardScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = "Dismissal Overview",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "School operations today",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
+            PremiumTopAppBar(
+                title = "School operations",
+                subtitle = "Live dismissal dashboard",
+                onBack = onBack,
                 actions = {
                     IconButton(
                         onClick = viewModel::refresh,
-                        enabled = !state.isRefreshing
+                        enabled = !state.isRefreshing,
                     ) {
                         if (state.isRefreshing) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
+                                modifier = Modifier.size(19.dp),
+                                strokeWidth = 2.dp,
                             )
                         } else {
                             Icon(
-                                Icons.Filled.Refresh,
-                                contentDescription = "Refresh dismissal data"
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = "Refresh dismissal data",
                             )
                         }
                     }
-                }
+                },
             )
-        }
+        },
     ) { padding ->
-        if (state.isLoading && dashboard == null) {
-            Box(
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize()
-            ) {
-                FullScreenLoading()
-            }
-            return@Scaffold
-        }
-
-        if (dashboard == null) {
-            Box(
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize()
-                    .padding(Spacing.md),
-                contentAlignment = Alignment.Center
-            ) {
-                EmptyDashboardState(
-                    message = state.error ?: "Dismissal data is not available yet.",
-                    onRetry = viewModel::refresh,
-                    refreshing = state.isRefreshing
-                )
-            }
-            return@Scaffold
-        }
-
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = Spacing.md,
-                top = Spacing.sm,
-                end = Spacing.md,
-                bottom = Spacing.xl
-            ),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md)
-        ) {
-            state.error?.let { message ->
-                item(key = "error") {
-                    ErrorBanner(message)
+        when {
+            state.isLoading && dashboard == null -> {
+                Box(
+                    modifier = Modifier
+                        .padding(padding)
+                        .fillMaxSize(),
+                ) {
+                    FullScreenLoading()
                 }
             }
 
-            item(key = "context") {
-                DashboardContextRow(
-                    businessDate = dashboard.businessDate,
-                    timeZone = dashboard.timeZone,
-                    refreshing = state.isRefreshing
-                )
-            }
-
-            item(key = "hero") {
-                DismissalHero(
-                    released = dashboard.releasedCount,
-                    total = dashboard.totalStudents,
-                    remaining = dashboard.remainingCount,
-                    rate = dashboard.releaseRatePercent,
-                    qr = dashboard.qrReleaseCount,
-                    manual = dashboard.manualOverrideCount
-                )
-            }
-
-            if (dashboard.manualOverrideCount > 0) {
-                item(key = "manual-attention") {
-                    ManualReleaseAttention(
-                        count = dashboard.manualOverrideCount
+            dashboard == null -> {
+                Box(
+                    modifier = Modifier
+                        .padding(padding)
+                        .fillMaxSize()
+                        .padding(Spacing.md),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    DashboardUnavailable(
+                        message = state.error ?: "Dismissal data is not available yet.",
+                        refreshing = state.isRefreshing,
+                        onRetry = viewModel::refresh,
                     )
                 }
             }
 
-            if (dashboard.gateActivity.isNotEmpty()) {
-                item(key = "gate-heading") {
-                    SectionHeader(
-                        title = "Gate activity",
-                        subtitle = "Today's releases by configured pickup gate",
-                        trailing = "${dashboard.gateActivity.size} ${pluralize(dashboard.gateActivity.size, "gate", "gates")}"
-                    )
-                }
-
-                items(
-                    items = dashboard.gateActivity,
-                    key = { "gate-${it.pickupGateId}" }
-                ) { gate ->
-                    GateActivityCard(gate)
-                }
-            }
-
-            item(key = "activity-heading") {
-                SectionHeader(
-                    title = if (state.showRemaining) "Still on campus" else "Recent releases",
-                    subtitle = if (state.showRemaining) {
-                        "Students not yet recorded as released today"
-                    } else {
-                        "Latest verified dismissal records"
-                    },
-                    trailing = if (state.showRemaining) {
-                        dashboard.remainingCount.toString()
-                    } else {
-                        dashboard.recentReleases.size.toString()
-                    }
-                )
-            }
-
-            item(key = "activity-toggle") {
-                ActivityToggle(
-                    showRemaining = state.showRemaining,
-                    onReleased = viewModel::showReleased,
-                    onRemaining = viewModel::showRemaining
-                )
-            }
-
-            if (state.showRemaining) {
-                if (dashboard.remainingStudents.isEmpty()) {
-                    item(key = "remaining-empty") {
-                        PositiveEmptyState(
-                            icon = Icons.Filled.CheckCircle,
-                            title = "Everyone is accounted for",
-                            message = "All listed students have been released for today."
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .padding(padding)
+                        .fillMaxSize()
+                        .widthIn(max = 920.dp),
+                    contentPadding = PaddingValues(
+                        start = Spacing.md,
+                        top = Spacing.md,
+                        end = Spacing.md,
+                        bottom = Spacing.xl,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    item(key = "context") {
+                        DashboardContext(
+                            businessDate = dashboard.businessDate,
+                            timeZone = dashboard.timeZone,
+                            refreshing = state.isRefreshing,
                         )
                     }
-                } else {
-                    items(
-                        items = dashboard.remainingStudents,
-                        key = { "remaining-${it.studentId}" }
-                    ) { student ->
-                        RemainingStudentCard(student)
+
+                    item(key = "hero") {
+                        ReleaseProgressCard(
+                            released = dashboard.releasedCount,
+                            total = dashboard.totalStudents,
+                            remaining = dashboard.remainingCount,
+                            rate = dashboard.releaseRatePercent,
+                        )
                     }
 
-                    if (dashboard.remainingTruncated) {
-                        item(key = "remaining-truncated") {
-                            SupportingNotice(
-                                "Showing the first 250 students. Use the roster for the complete list."
-                            )
+                    item(key = "metrics") {
+                        DashboardMetrics(
+                            released = dashboard.releasedCount,
+                            remaining = dashboard.remainingCount,
+                            qr = dashboard.qrReleaseCount,
+                            manual = dashboard.manualOverrideCount,
+                        )
+                    }
+
+                    if (dashboard.manualOverrideCount > 0) {
+                        item(key = "manual_attention") {
+                            ManualOverrideNotice(dashboard.manualOverrideCount)
                         }
                     }
-                }
-            } else {
-                if (dashboard.recentReleases.isEmpty()) {
-                    item(key = "releases-empty") {
-                        PositiveEmptyState(
-                            icon = Icons.Filled.Schedule,
-                            title = "No releases yet",
-                            message = "Verified dismissal records will appear here as students leave campus."
-                        )
-                    }
-                } else {
-                    items(
-                        items = dashboard.recentReleases,
-                        key = { "release-${it.exitLogId}" }
-                    ) { release ->
-                        ReleaseCard(
-                            release = release,
-                            timeZone = dashboard.timeZone
-                        )
-                    }
-                }
-            }
 
-            item(key = "operational-note") {
-                SupportingNotice(
-                    "Operational view only — PickupPass records verified releases; it does not create a parent arrival queue or require check-in."
-                )
+                    if (dashboard.gateActivity.isNotEmpty()) {
+                        item(key = "gate_header") {
+                            SectionHeader(
+                                title = "Gate activity",
+                                subtitle = "Today's verified releases by pickup gate",
+                                trailing = "${dashboard.gateActivity.size} ${pluralize(dashboard.gateActivity.size, "gate", "gates")}",
+                            )
+                        }
+
+                        items(
+                            items = dashboard.gateActivity,
+                            key = { "gate-${it.pickupGateId}" },
+                        ) { gate ->
+                            GateCard(gate)
+                        }
+                    }
+
+                    item(key = "activity_header") {
+                        SectionHeader(
+                            title = if (state.showRemaining) "Still on campus" else "Recent releases",
+                            subtitle = if (state.showRemaining) {
+                                "Students without a recorded release today"
+                            } else {
+                                "Latest verified dismissal records"
+                            },
+                            trailing = if (state.showRemaining) {
+                                dashboard.remainingCount.toString()
+                            } else {
+                                dashboard.recentReleases.size.toString()
+                            },
+                        )
+                    }
+
+                    item(key = "activity_toggle") {
+                        ActivityToggle(
+                            showRemaining = state.showRemaining,
+                            onReleased = viewModel::showReleased,
+                            onRemaining = viewModel::showRemaining,
+                        )
+                    }
+
+                    if (state.showRemaining) {
+                        if (dashboard.remainingStudents.isEmpty()) {
+                            item(key = "remaining_empty") {
+                                PositiveEmptyState(
+                                    icon = Icons.Filled.CheckCircle,
+                                    title = "Everyone is accounted for",
+                                    message = "All listed students have a recorded release for today.",
+                                )
+                            }
+                        } else {
+                            items(
+                                items = dashboard.remainingStudents,
+                                key = { "remaining-${it.studentId}" },
+                            ) { student ->
+                                RemainingStudentCard(student)
+                            }
+
+                            if (dashboard.remainingTruncated) {
+                                item(key = "remaining_truncated") {
+                                    SupportingNotice(
+                                        "Showing the first 250 students. Open the roster for the complete list.",
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        if (dashboard.recentReleases.isEmpty()) {
+                            item(key = "releases_empty") {
+                                PositiveEmptyState(
+                                    icon = Icons.Filled.Schedule,
+                                    title = "No releases yet",
+                                    message = "Verified dismissal records will appear here as students leave campus.",
+                                )
+                            }
+                        } else {
+                            items(
+                                items = dashboard.recentReleases,
+                                key = { "release-${it.exitLogId}" },
+                            ) { release ->
+                                ReleaseCard(release, dashboard.timeZone)
+                            }
+                        }
+                    }
+
+                    item(key = "operational_note") {
+                        SupportingNotice(
+                            "PickupPass records verified releases. It does not create a parent arrival queue or require check-in.",
+                        )
+                    }
+                }
             }
         }
+    }
+
+    // Screen-level feedback must never live inside a LazyColumn item. Keeping
+    // it here guarantees refresh failures are visible regardless of scroll position.
+    if (dashboard != null) {
+        state.error?.let { ErrorBanner(it) }
     }
 }
 
 @Composable
-private fun DashboardContextRow(
+private fun DashboardContext(
     businessDate: String,
     timeZone: String,
-    refreshing: Boolean
+    refreshing: Boolean,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "TODAY'S DISMISSAL",
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
             )
+            Spacer(Modifier.height(2.dp))
             Text(
                 text = "$businessDate · $timeZone",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
         }
 
         Surface(
             shape = CircleShape,
-            color = if (refreshing) {
-                MaterialTheme.colorScheme.secondaryContainer
-            } else {
-                MaterialTheme.colorScheme.primaryContainer
-            }
+            color = MaterialTheme.colorScheme.primaryContainer,
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
             ) {
                 if (refreshing) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(12.dp),
                         strokeWidth = 1.5.dp,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 } else {
                     Box(
                         modifier = Modifier
                             .size(7.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
+                            .background(MaterialTheme.colorScheme.primary),
                     )
                 }
                 Text(
-                    text = if (refreshing) "Refreshing" else "Current",
+                    text = if (refreshing) "Refreshing" else "Live",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = if (refreshing) {
-                        MaterialTheme.colorScheme.onSecondaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    }
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
             }
         }
@@ -334,113 +342,84 @@ private fun DashboardContextRow(
 }
 
 @Composable
-private fun DismissalHero(
+private fun ReleaseProgressCard(
     released: Int,
     total: Int,
     remaining: Int,
     rate: Double,
-    qr: Int,
-    manual: Int
 ) {
     val safeRate = rate.coerceIn(0.0, 100.0)
-    val shape = MaterialTheme.shapes.extraLarge
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(10.dp, shape)
-            .clip(shape)
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primary,
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.86f),
-                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.82f)
-                    )
-                )
-            )
-            .padding(Spacing.lg)
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
     ) {
-        Column {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.lg),
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.Top,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "RELEASE PROGRESS",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White.copy(alpha = 0.76f)
+                        text = "Release progress",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
                     )
                     Spacer(Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = released.toString(),
-                            style = MaterialTheme.typography.displaySmall,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = " of $total released",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White.copy(alpha = 0.72f),
-                            modifier = Modifier.padding(start = 6.dp, bottom = 5.dp)
-                        )
-                    }
+                    Text(
+                        text = "$released of $total students released",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
 
                 Surface(
                     shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.14f),
-                    contentColor = Color.White
+                    color = MaterialTheme.colorScheme.primaryContainer,
                 ) {
                     Text(
                         text = "${safeRate.toInt()}%",
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
             }
 
-            Spacer(Modifier.height(Spacing.md))
+            Spacer(Modifier.height(Spacing.lg))
 
             LinearProgressIndicator(
                 progress = { (safeRate / 100.0).toFloat() },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(7.dp)
+                    .height(8.dp)
                     .clip(CircleShape),
-                color = Color.White,
-                trackColor = Color.White.copy(alpha = 0.20f)
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.primaryContainer,
             )
 
             Spacer(Modifier.height(Spacing.md))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                HeroMetric(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Filled.Schedule,
-                    value = remaining.toString(),
-                    label = "Remaining"
+                Text(
+                    text = "$remaining remaining",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                HeroMetric(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Filled.CheckCircle,
-                    value = qr.toString(),
-                    label = "QR"
-                )
-                HeroMetric(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Filled.PeopleAlt,
-                    value = manual.toString(),
-                    label = "Manual"
+                Text(
+                    text = if (remaining == 0) "Dismissal complete" else "Dismissal in progress",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (remaining == 0) Success600 else MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -448,100 +427,135 @@ private fun DismissalHero(
 }
 
 @Composable
-private fun HeroMetric(
+private fun DashboardMetrics(
+    released: Int,
+    remaining: Int,
+    qr: Int,
+    manual: Int,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            MetricTile(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Filled.CheckCircle,
+                label = "Released",
+                value = released.toString(),
+                accent = Success600,
+                container = Success100,
+            )
+            MetricTile(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Filled.Schedule,
+                label = "Remaining",
+                value = remaining.toString(),
+                accent = MaterialTheme.colorScheme.primary,
+                container = MaterialTheme.colorScheme.primaryContainer,
+            )
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            MetricTile(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Filled.QrCode2,
+                label = "QR verified",
+                value = qr.toString(),
+                accent = Blue600,
+                container = Blue50,
+            )
+            MetricTile(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Filled.PeopleAlt,
+                label = "Manual",
+                value = manual.toString(),
+                accent = Amber700,
+                container = Amber100,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MetricTile(
     modifier: Modifier,
     icon: ImageVector,
+    label: String,
     value: String,
-    label: String
+    accent: Color,
+    container: Color,
 ) {
-    Surface(
+    OutlinedCard(
         modifier = modifier,
         shape = MaterialTheme.shapes.medium,
-        color = Color.White.copy(alpha = 0.11f),
-        contentColor = Color.White
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(17.dp),
-                tint = Color.White.copy(alpha = 0.82f)
-            )
-            Column {
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1
-                )
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.68f),
-                    maxLines = 1
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ManualReleaseAttention(count: Int) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.72f),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.24f)
-        )
-    ) {
-        Row(
-            modifier = Modifier.padding(Spacing.md),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Column(modifier = Modifier.padding(Spacing.md)) {
             Surface(
-                modifier = Modifier.size(42.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f)
+                modifier = Modifier.size(38.dp),
+                shape = MaterialTheme.shapes.small,
+                color = container,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.Filled.WarningAmber,
+                        imageVector = icon,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.size(21.dp)
+                        modifier = Modifier.size(20.dp),
+                        tint = accent,
+                    )
+                }
+            }
+            Spacer(Modifier.height(Spacing.md))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ManualOverrideNotice(count: Int) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = Amber100.copy(alpha = 0.68f),
+        border = BorderStroke(1.dp, Amber700.copy(alpha = 0.18f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = CircleShape,
+                color = Amber700.copy(alpha = 0.10f),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Filled.WarningAmber,
+                        contentDescription = null,
+                        tint = Amber700,
                     )
                 }
             }
             Spacer(Modifier.width(Spacing.sm))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Review manual releases",
+                    text = "$count manual ${pluralize(count, "release", "releases")}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                    color = Amber700,
                 )
                 Text(
-                    text = "$count ${pluralize(count, "manual release", "manual releases")} recorded today. Review only if this is unexpected.",
+                    text = "Manual overrides are audited. Review them if the count is unexpected.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.82f)
-                )
-            }
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.tertiary,
-                contentColor = MaterialTheme.colorScheme.onTertiary
-            ) {
-                Text(
-                    text = count.toString(),
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.ExtraBold
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -552,69 +566,66 @@ private fun ManualReleaseAttention(count: Int) {
 private fun SectionHeader(
     title: String,
     subtitle: String,
-    trailing: String
+    trailing: String,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom
+        verticalAlignment = Alignment.Bottom,
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.Bold,
             )
+            Spacer(Modifier.height(2.dp))
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Spacer(Modifier.width(Spacing.sm))
         Surface(
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceVariant
+            color = MaterialTheme.colorScheme.surfaceVariant,
         ) {
             Text(
                 text = trailing,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
 
 @Composable
-private fun GateActivityCard(gate: GateActivityItem) {
-    ElevatedCard(
+private fun GateCard(gate: GateActivityItem) {
+    OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(Spacing.md),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
                 modifier = Modifier.size(44.dp),
                 shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.primaryContainer
+                color = MaterialTheme.colorScheme.primaryContainer,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        text = gate.pickupGateName
-                            .trim()
-                            .firstOrNull()
-                            ?.uppercaseChar()
-                            ?.toString()
-                            ?: "G",
+                        text = gate.pickupGateName.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "G",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
             }
@@ -623,11 +634,11 @@ private fun GateActivityCard(gate: GateActivityItem) {
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = gate.pickupGateName.ifBlank { "Pickup Gate" },
+                    text = gate.pickupGateName.ifBlank { "Pickup gate" },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
                 if (gate.campusName.isNotBlank()) {
                     Text(
@@ -635,20 +646,14 @@ private fun GateActivityCard(gate: GateActivityItem) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    CompactMethodBadge(
-                        label = "QR ${gate.qrReleaseCount}",
-                        emphasized = false
-                    )
+                    MethodBadge("QR ${gate.qrReleaseCount}", false)
                     if (gate.manualOverrideCount > 0) {
-                        CompactMethodBadge(
-                            label = "Manual ${gate.manualOverrideCount}",
-                            emphasized = true
-                        )
+                        MethodBadge("Manual ${gate.manualOverrideCount}", true)
                     }
                 }
             }
@@ -657,13 +662,13 @@ private fun GateActivityCard(gate: GateActivityItem) {
                 Text(
                     text = "Released",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     text = gate.releaseCount.toString(),
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -671,28 +676,17 @@ private fun GateActivityCard(gate: GateActivityItem) {
 }
 
 @Composable
-private fun CompactMethodBadge(
-    label: String,
-    emphasized: Boolean
-) {
+private fun MethodBadge(label: String, manual: Boolean) {
     Surface(
         shape = CircleShape,
-        color = if (emphasized) {
-            MaterialTheme.colorScheme.tertiaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
-        }
+        color = if (manual) Amber100 else MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Text(
             text = label,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = if (emphasized) {
-                MaterialTheme.colorScheme.onTertiaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            }
+            fontWeight = FontWeight.SemiBold,
+            color = if (manual) Amber700 else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -701,65 +695,65 @@ private fun CompactMethodBadge(
 private fun ActivityToggle(
     showRemaining: Boolean,
     onReleased: () -> Unit,
-    onRemaining: () -> Unit
+    onRemaining: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f)
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Row(
             modifier = Modifier.padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            ActivityToggleButton(
+            ToggleButton(
                 modifier = Modifier.weight(1f),
                 selected = !showRemaining,
                 label = "Recent releases",
-                onClick = onReleased
+                onClick = onReleased,
             )
-            ActivityToggleButton(
+            ToggleButton(
                 modifier = Modifier.weight(1f),
                 selected = showRemaining,
                 label = "Still on campus",
-                onClick = onRemaining
+                onClick = onRemaining,
             )
         }
     }
 }
 
 @Composable
-private fun ActivityToggleButton(
+private fun ToggleButton(
     modifier: Modifier,
     selected: Boolean,
     label: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     if (selected) {
         Button(
             onClick = onClick,
             modifier = modifier.heightIn(min = 44.dp),
-            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
         ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                maxLines = 1
+                maxLines = 1,
             )
         }
     } else {
         TextButton(
             onClick = onClick,
             modifier = modifier.heightIn(min = 44.dp),
-            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
         ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -769,21 +763,19 @@ private fun ActivityToggleButton(
 private fun RemainingStudentCard(student: DashboardStudent) {
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
-        )
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(Spacing.md),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             InitialAvatar(
                 name = student.studentName,
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                container = MaterialTheme.colorScheme.secondaryContainer,
+                content = MaterialTheme.colorScheme.onSecondaryContainer,
             )
             Spacer(Modifier.width(Spacing.sm))
             Column(modifier = Modifier.weight(1f)) {
@@ -792,39 +784,26 @@ private fun RemainingStudentCard(student: DashboardStudent) {
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = studentAcademicLabel(student.grade, student.section),
+                    text = academicLabel(student.grade, student.section),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
             }
             Spacer(Modifier.width(Spacing.sm))
             Surface(
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceVariant
+                color = Amber100,
             ) {
-                Row(
+                Text(
+                    text = "On campus",
                     modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.tertiary)
-                    )
-                    Text(
-                        text = "On campus",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Amber700,
+                )
             }
         }
     }
@@ -833,21 +812,22 @@ private fun RemainingStudentCard(student: DashboardStudent) {
 @Composable
 private fun ReleaseCard(
     release: DashboardRelease,
-    timeZone: String
+    timeZone: String,
 ) {
-    ElevatedCard(
+    OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(modifier = Modifier.padding(Spacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 InitialAvatar(
                     name = release.studentName,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    container = Success100,
+                    content = Success600,
                 )
                 Spacer(Modifier.width(Spacing.sm))
                 Column(modifier = Modifier.weight(1f)) {
@@ -856,14 +836,12 @@ private fun ReleaseCard(
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = studentAcademicLabel(release.grade, release.section),
+                        text = academicLabel(release.grade, release.section),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Spacer(Modifier.width(Spacing.sm))
@@ -871,17 +849,17 @@ private fun ReleaseCard(
                     Text(
                         text = formatTimestamp(release.timestamp, timeZone),
                         style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
-                    CompactMethodBadge(
+                    MethodBadge(
                         label = if (release.method == "manual_override") "Manual" else "QR verified",
-                        emphasized = release.method == "manual_override"
+                        manual = release.method == "manual_override",
                     )
                 }
             }
 
             Spacer(Modifier.height(Spacing.sm))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.58f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(Spacing.sm))
 
             Text(
@@ -889,14 +867,14 @@ private fun ReleaseCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = "Approved by ${release.staffName}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             if (release.pickupGateName.isNotBlank()) {
                 Text(
@@ -904,7 +882,7 @@ private fun ReleaseCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -914,21 +892,20 @@ private fun ReleaseCard(
 @Composable
 private fun InitialAvatar(
     name: String,
-    containerColor: Color,
-    contentColor: Color
+    container: Color,
+    content: Color,
 ) {
-    val initial = name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "S"
     Surface(
         modifier = Modifier.size(42.dp),
         shape = CircleShape,
-        color = containerColor,
-        contentColor = contentColor
+        color = container,
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
-                text = initial,
+                text = name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "S",
                 style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.Bold,
+                color = content,
             )
         }
     }
@@ -938,31 +915,29 @@ private fun InitialAvatar(
 private fun PositiveEmptyState(
     icon: ImageVector,
     title: String,
-    message: String
+    message: String,
 ) {
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
-        )
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.lg, vertical = Spacing.xl),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Surface(
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(50.dp),
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer
+                color = Success100,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        tint = Success600,
                     )
                 }
             }
@@ -970,13 +945,13 @@ private fun PositiveEmptyState(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -987,40 +962,42 @@ private fun SupportingNotice(message: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.52f)
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Text(
             text = message,
-            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            modifier = Modifier.padding(Spacing.md),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
 
 @Composable
-private fun EmptyDashboardState(
+private fun DashboardUnavailable(
     message: String,
+    refreshing: Boolean,
     onRetry: () -> Unit,
-    refreshing: Boolean
 ) {
     ElevatedCard(
-        modifier = Modifier.widthIn(max = 460.dp)
+        modifier = Modifier.widthIn(max = 460.dp),
+        shape = MaterialTheme.shapes.large,
     ) {
         Column(
             modifier = Modifier.padding(Spacing.xl),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Surface(
-                modifier = Modifier.size(54.dp),
+                modifier = Modifier.size(56.dp),
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceVariant
+                color = MaterialTheme.colorScheme.primaryContainer,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.Filled.Schedule,
+                        imageVector = Icons.Filled.Schedule,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -1028,32 +1005,32 @@ private fun EmptyDashboardState(
             Text(
                 text = "Dismissal status unavailable",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(Spacing.sm))
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(Spacing.md))
             FilledTonalButton(
                 onClick = onRetry,
-                enabled = !refreshing
+                enabled = !refreshing,
             ) {
                 if (refreshing) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
+                        strokeWidth = 2.dp,
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.sm))
                 } else {
                     Icon(
-                        Icons.Filled.Refresh,
+                        imageVector = Icons.Filled.Refresh,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp),
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.sm))
                 }
                 Text(if (refreshing) "Refreshing…" else "Try again")
             }
@@ -1061,10 +1038,8 @@ private fun EmptyDashboardState(
     }
 }
 
-private fun studentAcademicLabel(grade: String, section: String): String {
-    val gradeLabel = grade.ifBlank { "—" }
-    val sectionLabel = section.ifBlank { "—" }
-    return "Grade $gradeLabel · Section $sectionLabel"
+private fun academicLabel(grade: String, section: String): String {
+    return "Grade ${grade.ifBlank { "—" }} · Section ${section.ifBlank { "—" }}"
 }
 
 private fun releaseLocationLabel(release: DashboardRelease): String {
@@ -1082,10 +1057,9 @@ private fun pluralize(count: Int, singular: String, plural: String): String {
 private fun formatTimestamp(value: String?, timeZone: String): String {
     if (value.isNullOrBlank()) return ""
     return try {
-        val instant = Instant.parse(value)
         DateTimeFormatter.ofPattern("h:mm a")
             .withZone(ZoneId.of(timeZone))
-            .format(instant)
+            .format(Instant.parse(value))
     } catch (_: Exception) {
         value.take(16).replace('T', ' ')
     }
