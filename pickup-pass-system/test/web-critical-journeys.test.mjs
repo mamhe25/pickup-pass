@@ -273,7 +273,8 @@ test("parent guardian navigation is student-scoped and account security lives un
   assert.match(students, /Manage guardians/);
   assert.match(overview, /location\.replace\("\.\/students\.html"\)/);
   assert.match(manager, /Managing guardian access for/);
-  assert.match(manager, /← My Students/);
+  assert.doesNotMatch(manager, /pp-backlink|← My Students/);
+  assert.match(manager, /data-active="students"/);
   assert.match(profile, /\.\.\/account\.html\?return=parent\/profile\.html/);
   assert.match(profile, /Manage security/);
   assert.match(profile, /id="devices"/);
