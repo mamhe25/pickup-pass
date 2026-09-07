@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -73,6 +72,8 @@ import coil.request.ImageRequest
 import com.pickuppass.android.ui.theme.Amber500
 import com.pickuppass.android.ui.theme.Amber700
 import com.pickuppass.android.ui.theme.Spacing
+import com.pickuppass.android.ui.theme.Success500
+import com.pickuppass.android.ui.theme.Success600
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -146,7 +147,7 @@ fun FeedbackCard(
 
     when (tone) {
         FeedbackTone.Success -> {
-            accent = scheme.secondary
+            accent = if (isDark) Success500 else Success600
             icon = Icons.Filled.CheckCircle
             defaultTitle = "Success"
             liveRegionMode = LiveRegionMode.Polite
@@ -194,7 +195,7 @@ fun FeedbackCard(
             Surface(
                 color = scheme.surface,
                 contentColor = scheme.onSurface,
-                shape = RoundedCornerShape(24.dp),
+                shape = MaterialTheme.shapes.large,
                 border = BorderStroke(1.dp, accent.copy(alpha = 0.16f)),
                 shadowElevation = 24.dp,
                 tonalElevation = 1.dp,
@@ -616,7 +617,7 @@ fun SuccessConfirmation(
     ) {
         Surface(
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
+            color = (if (isSystemInDarkTheme()) Success500 else Success600).copy(alpha = 0.14f),
             modifier = Modifier
                 .size(88.dp)
                 .graphicsLayer {
@@ -628,7 +629,7 @@ fun SuccessConfirmation(
                 Icon(
                     Icons.Filled.CheckCircle,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
+                    tint = if (isSystemInDarkTheme()) Success500 else Success600,
                     modifier = Modifier.size(52.dp)
                 )
             }

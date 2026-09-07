@@ -1,5 +1,6 @@
 package com.pickuppass.android.ui.schooladmin.academic
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -63,11 +64,16 @@ fun AcademicStructureScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("School Year & Sections", fontWeight = FontWeight.ExtraBold)
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            "School Year & Sections",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
                         Text(
                             "Academic structure",
                             style = MaterialTheme.typography.labelSmall,
@@ -79,7 +85,13 @@ fun AcademicStructureScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
+                )
             )
         }
     ) { padding ->
@@ -117,16 +129,48 @@ fun AcademicStructureScreen(
             ) {
                 item(key = "intro") {
                     Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .4f),
-                        shape = MaterialTheme.shapes.large
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = MaterialTheme.shapes.large,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        tonalElevation = 1.dp
                     ) {
-                        Column(Modifier.padding(Spacing.md)) {
-                            Text("One source of truth", fontWeight = FontWeight.Bold)
-                            Text(
-                                "Academic years and grade sections are reused by student records, teacher assignments, promotion, and reporting. Records still referenced by students or staff are archived instead of hard-deleted.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(Spacing.lg),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                shape = MaterialTheme.shapes.medium,
+                                modifier = Modifier.size(56.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Filled.School,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                            }
+
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+                            ) {
+                                Text(
+                                    "One source of truth",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "Keep academic years and grade sections consistent across students, teacher assignments, promotion and reporting. Referenced records are archived safely instead of being silently removed.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -984,7 +1028,9 @@ private fun MetricCard(
 ) {
     Surface(
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        tonalElevation = 1.dp,
         modifier = modifier
     ) {
         Column(Modifier.padding(Spacing.md)) {

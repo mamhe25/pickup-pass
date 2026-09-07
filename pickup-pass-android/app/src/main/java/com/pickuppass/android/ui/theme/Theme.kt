@@ -7,164 +7,104 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val LightColors =
-    lightColorScheme(
-        primary = Evergreen600,
-        onPrimary = Surface,
-        primaryContainer =
-            Evergreen100,
-        onPrimaryContainer =
-            Evergreen900,
+private val LightColors = lightColorScheme(
+    primary = Indigo600,
+    onPrimary = Surface,
+    primaryContainer = Indigo100,
+    onPrimaryContainer = Indigo900,
 
-        secondary = Teal700,
-        onSecondary = Surface,
-        secondaryContainer =
-            Teal100,
-        onSecondaryContainer =
-            Teal900,
+    secondary = Violet600,
+    onSecondary = Surface,
+    secondaryContainer = Violet100,
+    onSecondaryContainer = Violet900,
 
-        tertiary = Lime500,
-        onTertiary = Gray900,
+    tertiary = Amber500,
+    onTertiary = Gray900,
+    tertiaryContainer = Amber100,
+    onTertiaryContainer = Amber900,
 
-        error = Red600,
-        onError = Surface,
+    error = Red600,
+    onError = Surface,
+    errorContainer = Red50,
+    onErrorContainer = Red900,
 
-        background = Gray50,
-        onBackground = Gray900,
+    background = Color(0xFFF7F8FC),
+    onBackground = Gray900,
 
-        surface = Surface,
-        onSurface = Gray900,
+    surface = Surface,
+    onSurface = Gray900,
+    surfaceVariant = Gray100,
+    onSurfaceVariant = Gray600,
 
-        surfaceVariant = Gray100,
-        onSurfaceVariant = Gray700,
+    outline = Gray300,
+    outlineVariant = Gray200,
+    scrim = Midnight950,
+)
 
-        outline = Gray200,
-        outlineVariant = Gray200
-    )
+private val DarkColors = darkColorScheme(
+    primary = Indigo400,
+    onPrimary = Midnight950,
+    primaryContainer = Indigo800,
+    onPrimaryContainer = Indigo100,
 
-private val DarkColors =
-    darkColorScheme(
-        primary = Emerald400,
-        onPrimary =
-            ColorTokens.DeepEvergreen,
-        primaryContainer =
-            Evergreen900,
-        onPrimaryContainer =
-            Evergreen100,
+    secondary = Violet400,
+    onSecondary = Midnight950,
+    secondaryContainer = Color(0xFF342D74),
+    onSecondaryContainer = Violet100,
 
-        secondary = Teal400,
-        onSecondary =
-            ColorTokens.DeepTeal,
-        secondaryContainer =
-            Teal900,
-        onSecondaryContainer =
-            Teal100,
+    tertiary = Amber500,
+    onTertiary = Midnight950,
+    tertiaryContainer = Color(0xFF5C3B13),
+    onTertiaryContainer = Amber100,
 
-        tertiary = Lime500,
-        onTertiary = Gray900,
+    error = Red500,
+    onError = Midnight950,
+    errorContainer = Color(0xFF5A1F1B),
+    onErrorContainer = Color(0xFFFEE4E2),
 
-        error = Red500,
-        onError = Gray900,
+    background = Color(0xFF0E1326),
+    onBackground = Gray50,
 
-        background =
-            ColorTokens.DarkBackground,
-        onBackground = Gray50,
+    surface = Color(0xFF151B30),
+    onSurface = Gray50,
+    surfaceVariant = Color(0xFF202841),
+    onSurfaceVariant = Gray300,
 
-        surface =
-            ColorTokens.DarkSurface,
-        onSurface = Gray50,
-
-        surfaceVariant = Gray800,
-        onSurfaceVariant =
-            Gray300,
-
-        outline = Gray600,
-        outlineVariant = Gray700
-    )
-
-private object ColorTokens {
-    val DeepEvergreen =
-        androidx.compose.ui.graphics.Color(
-            0xFF022C22
-        )
-
-    val DeepTeal =
-        androidx.compose.ui.graphics.Color(
-            0xFF042F2E
-        )
-
-    val DarkBackground =
-        androidx.compose.ui.graphics.Color(
-            0xFF0B1412
-        )
-
-    val DarkSurface =
-        androidx.compose.ui.graphics.Color(
-            0xFF111C1A
-        )
-}
+    outline = Color(0xFF4A5574),
+    outlineVariant = Color(0xFF303A57),
+    scrim = Color.Black,
+)
 
 @Composable
 fun PickupPassTheme(
-    darkTheme: Boolean =
-        isSystemInDarkTheme(),
-    content:
-        @Composable () -> Unit
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
 ) {
-    val colorScheme =
-        if (darkTheme) {
-            DarkColors
-        } else {
-            LightColors
-        }
-
-    val view =
-        LocalView.current
+    val colorScheme = if (darkTheme) DarkColors else LightColors
+    val view = LocalView.current
 
     if (!view.isInEditMode) {
         SideEffect {
-            val window =
-                (view.context as Activity)
-                    .window
+            val window = (view.context as Activity).window
+            window.statusBarColor = colorScheme.background.toArgb()
+            window.navigationBarColor = colorScheme.background.toArgb()
 
-            window.statusBarColor =
-                colorScheme.background
-                    .toArgb()
-
-            window.navigationBarColor =
-                colorScheme.background
-                    .toArgb()
-
-            WindowCompat
-                .getInsetsController(
-                    window,
-                    view
-                )
-                .isAppearanceLightStatusBars =
-                !darkTheme
-
-            WindowCompat
-                .getInsetsController(
-                    window,
-                    view
-                )
-                .isAppearanceLightNavigationBars =
-                !darkTheme
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
         }
     }
 
     MaterialTheme(
-        colorScheme =
-            colorScheme,
-        typography =
-            PickupPassTypography,
-        shapes =
-            PickupPassShapes,
-        content =
-            content
+        colorScheme = colorScheme,
+        typography = PickupPassTypography,
+        shapes = PickupPassShapes,
+        content = content
     )
 }
