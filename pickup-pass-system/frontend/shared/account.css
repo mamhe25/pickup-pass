@@ -121,8 +121,8 @@ body {
   margin: 7px 0 0;
   max-width: 760px;
   color: #fff;
-  font-size: clamp(2rem, 5vw, 3.2rem);
-  line-height: 1.02;
+  font-size: var(--pp-heading-card-title-size);
+  line-height: var(--pp-heading-card-title-line-height);
   letter-spacing: -.05em;
   font-weight: 880;
 }
@@ -131,14 +131,14 @@ body {
   margin: 12px 0 0;
   max-width: 690px;
   color: rgba(255,255,255,.76);
-  font-size: .9rem;
+  font-size: var(--pp-heading-card-copy-size);
 }
 
 .account-eyebrow,
 .account-label {
   margin: 0;
   color: var(--primary);
-  font-size: .67rem;
+  font-size: var(--pp-heading-card-eyebrow-size);
   font-weight: 850;
   letter-spacing: .12em;
   text-transform: uppercase;
@@ -705,7 +705,7 @@ a:focus-visible {
   }
 
   .account-hero h1 {
-    font-size: 2rem;
+    font-size: var(--pp-heading-card-title-size);
   }
 
   .account-identity {

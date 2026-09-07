@@ -73,6 +73,13 @@
   --text-subtle:  var(--gray-400);  /* metadata, timestamps */
   --text-on-brand: var(--white);    /* text on primary/success/danger fills */
 
+  /* Shared in-app heading-card typography. Marketing and authentication
+     headlines intentionally use their own display scale. */
+  --pp-heading-card-title-size: clamp(1.45rem, 2.4vw, 1.85rem);
+  --pp-heading-card-eyebrow-size: .64rem;
+  --pp-heading-card-copy-size: .80rem;
+  --pp-heading-card-title-line-height: 1.08;
+
   /* Borders & dividers */
   --border:        var(--gray-200);  /* default hairline (Android outline) */
   --border-strong: var(--gray-300);  /* input borders, emphasis */

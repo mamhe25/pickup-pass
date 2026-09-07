@@ -31,7 +31,7 @@
 .pp-master-hero__eyebrow {
   margin: 0;
   color: rgba(255,255,255,.67);
-  font-size: .68rem;
+  font-size: var(--pp-heading-card-eyebrow-size);
   font-weight: 820;
   letter-spacing: .11em;
   text-transform: uppercase;
@@ -39,8 +39,8 @@
 
 .pp-master-hero h1 {
   margin: 7px 0 0;
-  font-size: clamp(1.8rem, 4vw, 2.65rem);
-  line-height: 1.06;
+  font-size: var(--pp-heading-card-title-size);
+  line-height: var(--pp-heading-card-title-line-height);
   letter-spacing: -.04em;
   font-weight: 860;
 }
@@ -49,7 +49,7 @@
   max-width: 700px;
   margin: 9px 0 0;
   color: rgba(255,255,255,.74);
-  font-size: .88rem;
+  font-size: var(--pp-heading-card-copy-size);
   line-height: 1.55;
 }
 
