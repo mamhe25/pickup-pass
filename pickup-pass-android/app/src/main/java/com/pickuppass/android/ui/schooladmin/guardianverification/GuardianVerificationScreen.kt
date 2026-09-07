@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.GuardianVerificationItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Green500
@@ -117,33 +118,10 @@ fun GuardianVerificationScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = "Guardian Verification",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Identity assurance & pickup access",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
-                )
+            PremiumTopAppBar(
+                title = "Guardian verification",
+                subtitle = "Identity assurance & pickup access",
+                onBack = onBack,
             )
         }
     ) { padding ->

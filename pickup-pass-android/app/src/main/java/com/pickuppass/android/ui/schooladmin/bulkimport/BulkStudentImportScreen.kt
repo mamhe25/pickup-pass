@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,22 +40,10 @@ fun BulkStudentImportScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Bulk Import Students", fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            "Validate before writing",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Bulk import students",
+                subtitle = "Validate before writing",
+                onBack = onBack,
             )
         }
     ) { padding ->

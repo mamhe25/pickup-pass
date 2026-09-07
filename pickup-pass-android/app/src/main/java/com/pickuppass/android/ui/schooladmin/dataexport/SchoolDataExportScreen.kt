@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.theme.Spacing
+import com.pickuppass.android.ui.common.PremiumTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,22 +52,10 @@ fun SchoolDataExportScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Data Backup & Export", fontWeight = FontWeight.ExtraBold)
-                        Text(
-                            "Tenant data portability",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+            PremiumTopAppBar(
+                title = "Data backup & export",
+                subtitle = "Tenant data portability",
+                onBack = onBack,
             )
         }
     ) { padding ->
