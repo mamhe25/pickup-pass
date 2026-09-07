@@ -29,6 +29,14 @@ import java.util.*;
 @RequestMapping("/api/school-admin/dismissal-dashboard")
 public class DismissalDashboardController {
 
+    /**
+     * Keep every Firestore RPC comfortably below gRPC/Netty direct-buffer
+     * pressure. Dashboard collections can contain large documents (notably
+     * user profile images stored as data URIs), so queries below also use
+     * server-side field projections.
+     */
+    private static final int FIRESTORE_PAGE_SIZE = 200;
+
     private final Firestore firestore;
     private final ZoneId schoolTimeZone;
 
@@ -56,9 +64,11 @@ public class DismissalDashboardController {
         String schoolId = admin.getSchoolId();
         String dateText = date.toString();
 
-        List<QueryDocumentSnapshot> studentDocs = firestore.collection("students")
-                .whereEqualTo("schoolId", schoolId)
-                .get().get().getDocuments();
+        List<QueryDocumentSnapshot> studentDocs = readPaged(
+                firestore.collection("students")
+                        .whereEqualTo("schoolId", schoolId)
+                        .select("status", "fullName", "grade", "section")
+        );
 
         Map<String, Map<String, Object>> studentsById = new HashMap<>();
         for (QueryDocumentSnapshot doc : studentDocs) {
@@ -72,19 +82,33 @@ public class DismissalDashboardController {
             studentsById.put(doc.getId(), item);
         }
 
-        List<QueryDocumentSnapshot> userDocs = firestore.collection("users")
-                .whereEqualTo("schoolId", schoolId)
-                .get().get().getDocuments();
+        List<QueryDocumentSnapshot> userDocs = readPaged(
+                firestore.collection("users")
+                        .whereEqualTo("schoolId", schoolId)
+                        .select("displayName", "email")
+        );
         Map<String, String> namesByUid = new HashMap<>();
         for (QueryDocumentSnapshot doc : userDocs) {
             namesByUid.put(doc.getId(), value(doc.getString("displayName"), value(doc.getString("email"), "Unknown user")));
         }
 
-        List<QueryDocumentSnapshot> releaseDocs = firestore.collection("exitLogs")
-                .whereEqualTo("schoolId", schoolId)
-                .whereEqualTo("businessDate", dateText)
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .get().get().getDocuments();
+        List<QueryDocumentSnapshot> releaseDocs = readPaged(
+                firestore.collection("exitLogs")
+                        .whereEqualTo("schoolId", schoolId)
+                        .whereEqualTo("businessDate", dateText)
+                        .orderBy("timestamp", Query.Direction.DESCENDING)
+                        .select(
+                                "studentId",
+                                "method",
+                                "pickupGateId",
+                                "pickupGateNameSnapshot",
+                                "campusId",
+                                "campusNameSnapshot",
+                                "parentUid",
+                                "verifiedByUid",
+                                "timestamp"
+                        )
+        );
 
         Set<String> releasedStudentIds = new HashSet<>();
         List<Map<String, Object>> recentReleases = new ArrayList<>();
@@ -94,9 +118,11 @@ public class DismissalDashboardController {
         int manualOverrideCount = 0;
 
         // Seed active configured gates so a quiet gate still appears with a zero count.
-        List<QueryDocumentSnapshot> activeGateDocs = firestore.collection("pickupGates")
-                .whereEqualTo("schoolId", schoolId)
-                .get().get().getDocuments();
+        List<QueryDocumentSnapshot> activeGateDocs = readPaged(
+                firestore.collection("pickupGates")
+                        .whereEqualTo("schoolId", schoolId)
+                        .select("active", "name", "campusId", "campusName")
+        );
         for (QueryDocumentSnapshot gateDoc : activeGateDocs) {
             if (Boolean.FALSE.equals(gateDoc.getBoolean("active"))) continue;
             String gateId = gateDoc.getId();
@@ -197,6 +223,35 @@ public class DismissalDashboardController {
         body.put("remainingStudents", remainingStudents);
         body.put("remainingTruncated", remainingTruncated);
         return ResponseEntity.ok(body);
+    }
+
+    /**
+     * Reads a query in bounded RPC pages instead of asking Firestore/gRPC to
+     * materialize an arbitrarily large QuerySnapshot in one direct buffer.
+     *
+     * Callers should project only the fields they actually need before passing
+     * the query here.
+     */
+    private List<QueryDocumentSnapshot> readPaged(Query query) throws Exception {
+        List<QueryDocumentSnapshot> results = new ArrayList<>();
+        DocumentSnapshot cursor = null;
+
+        while (true) {
+            Query pageQuery = cursor == null
+                    ? query.limit(FIRESTORE_PAGE_SIZE)
+                    : query.startAfter(cursor).limit(FIRESTORE_PAGE_SIZE);
+
+            List<QueryDocumentSnapshot> page = pageQuery.get().get().getDocuments();
+            results.addAll(page);
+
+            if (page.size() < FIRESTORE_PAGE_SIZE) {
+                break;
+            }
+
+            cursor = page.get(page.size() - 1);
+        }
+
+        return results;
     }
 
     private static final class MutableGateActivity {
