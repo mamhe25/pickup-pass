@@ -98,39 +98,433 @@ export async function authedFetch(path, options = {}) {
   return fetch(`${API_BASE_URL}${path}`, { ...options, headers });
 }
 
-/**
- * Consistent, non-blocking feedback for every app screen.  Unlike alert(),
- * this keeps the user in context, and unlike inline form text it stays
- * visible even when the action button is below the fold.
- */
-export function showToast(message, type = "success") {
-  // Canonical brand palette (matches shared/theme.css + Android Color.kt):
-  // green for success, amber for caution, red for error, cool gray for info.
-  const colors = {
-    success: "bg-green-600",
-    warning: "bg-amber-500",
-    error: "bg-red-600",
-    info: "bg-gray-800",
-  };
-  let region = document.getElementById("pickupPassToastRegion");
-  if (!region) {
-    region = document.createElement("div");
-    region.id = "pickupPassToastRegion";
-    region.className = "fixed inset-x-4 top-4 z-[100] mx-auto flex max-w-md flex-col gap-2 pointer-events-none";
-    region.setAttribute("aria-live", "polite");
-    document.body.appendChild(region);
+const FEEDBACK_STYLE_ID = "pickupPassFeedbackStyles";
+const FEEDBACK_REGION_ID = "pickupPassToastRegion";
+const RECENT_FEEDBACK_WINDOW_MS = 1400;
+const MAX_VISIBLE_FEEDBACK = 4;
+const recentFeedback = new Map();
+let feedbackSequence = 0;
+let inlineFeedbackBridgeInstalled = false;
+
+const feedbackMeta = {
+  success: {
+    title: "Completed",
+    icon: '<path d="M20 6 9 17l-5-5"/>',
+    duration: 4800,
+  },
+  warning: {
+    title: "Needs attention",
+    icon: '<path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+    duration: 6200,
+  },
+  error: {
+    title: "Couldn't complete action",
+    icon: '<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/>',
+    duration: 7200,
+  },
+  info: {
+    title: "Good to know",
+    icon: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/>',
+    duration: 5200,
+  },
+};
+
+function ensureFeedbackStyles() {
+  if (document.getElementById(FEEDBACK_STYLE_ID)) return;
+
+  const style = document.createElement("style");
+  style.id = FEEDBACK_STYLE_ID;
+  style.textContent = `
+    #${FEEDBACK_REGION_ID} {
+      position: fixed;
+      z-index: 1200;
+      top: max(16px, env(safe-area-inset-top));
+      right: max(16px, env(safe-area-inset-right));
+      width: min(420px, calc(100vw - 32px));
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .pp-feedback-toast {
+      --pp-feedback-accent: var(--primary, #047857);
+      --pp-feedback-soft: var(--primary-container, #d1fae5);
+      position: relative;
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) 32px;
+      gap: 12px;
+      align-items: start;
+      overflow: hidden;
+      padding: 14px 14px 13px;
+      border: 1px solid var(--border, #e5e7eb);
+      border: 1px solid color-mix(in srgb, var(--pp-feedback-accent) 24%, var(--border, #e5e7eb));
+      border-radius: 16px;
+      background: var(--surface, #fff);
+      background: color-mix(in srgb, var(--surface, #fff) 96%, var(--pp-feedback-soft));
+      color: var(--text, #1f2937);
+      box-shadow: 0 18px 45px rgb(15 23 42 / 0.16), 0 3px 10px rgb(15 23 42 / 0.08);
+      pointer-events: auto;
+      opacity: 0;
+      transform: translateY(-8px) scale(.985);
+      transition: opacity 180ms ease, transform 180ms ease;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .pp-feedback-toast.is-visible { opacity: 1; transform: translateY(0) scale(1); }
+    .pp-feedback-toast.is-leaving { opacity: 0; transform: translateY(-5px) scale(.99); }
+
+    .pp-feedback-toast--success {
+      --pp-feedback-accent: var(--success, #0f766e);
+      --pp-feedback-soft: var(--success-container, #ccfbf1);
+    }
+    .pp-feedback-toast--warning {
+      --pp-feedback-accent: var(--warning, #d97706);
+      --pp-feedback-soft: var(--warning-container, #fef3c7);
+    }
+    .pp-feedback-toast--error {
+      --pp-feedback-accent: var(--danger, #dc2626);
+      --pp-feedback-soft: var(--danger-container, #fee2e2);
+    }
+    .pp-feedback-toast--info {
+      --pp-feedback-accent: var(--primary, #047857);
+      --pp-feedback-soft: var(--primary-container, #d1fae5);
+    }
+
+    .pp-feedback-toast__icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--pp-feedback-accent);
+      background: var(--pp-feedback-soft);
+      background: color-mix(in srgb, var(--pp-feedback-accent) 12%, transparent);
+    }
+    .pp-feedback-toast__icon svg {
+      width: 21px;
+      height: 21px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .pp-feedback-toast__content { min-width: 0; padding-top: 1px; }
+    .pp-feedback-toast__title {
+      margin: 0 0 3px;
+      color: var(--pp-feedback-accent);
+      font: 700 0.875rem/1.25 var(--font-sans, Inter, system-ui, sans-serif);
+      letter-spacing: -0.01em;
+    }
+    .pp-feedback-toast__message {
+      margin: 0;
+      color: var(--text, #1f2937);
+      font: 500 0.875rem/1.45 var(--font-sans, Inter, system-ui, sans-serif);
+      overflow-wrap: anywhere;
+    }
+    .pp-feedback-toast__close {
+      width: 32px;
+      height: 32px;
+      border: 0;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      color: var(--text-muted, #64748b);
+      cursor: pointer;
+    }
+    .pp-feedback-toast__close:hover { background: var(--surface-variant, #f1f5f9); color: var(--text, #1f2937); }
+    .pp-feedback-toast__close:focus-visible { outline: 2px solid var(--pp-feedback-accent); outline-offset: 2px; }
+    .pp-feedback-toast__close svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+    .pp-feedback-toast__progress {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
+      background: var(--pp-feedback-soft);
+      background: color-mix(in srgb, var(--pp-feedback-accent) 16%, transparent);
+    }
+    .pp-feedback-toast__progress::after {
+      content: "";
+      display: block;
+      height: 100%;
+      width: 100%;
+      background: var(--pp-feedback-accent);
+      transform-origin: left center;
+      animation: pp-feedback-countdown var(--pp-feedback-duration, 5200ms) linear forwards;
+    }
+    .pp-feedback-toast:hover .pp-feedback-toast__progress::after,
+    .pp-feedback-toast:focus-within .pp-feedback-toast__progress::after {
+      animation-play-state: paused;
+    }
+
+    /* Existing inline alert elements remain valuable next to forms. Give them
+       the same premium visual hierarchy so inline and floating feedback never
+       look like two unrelated design systems. */
+    .pp-alert {
+      position: relative;
+      align-items: flex-start;
+      border-radius: 14px !important;
+      border-width: 1px !important;
+      box-shadow: 0 5px 18px rgb(15 23 42 / 0.06);
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    @keyframes pp-feedback-countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+    @media (max-width: 640px) {
+      #${FEEDBACK_REGION_ID} {
+        left: 12px;
+        right: 12px;
+        top: max(12px, env(safe-area-inset-top));
+        width: auto;
+      }
+      .pp-feedback-toast {
+        grid-template-columns: 38px minmax(0, 1fr) 30px;
+        gap: 10px;
+        padding: 13px 12px 12px;
+        border-radius: 15px;
+      }
+      .pp-feedback-toast__icon { width: 38px; height: 38px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .pp-feedback-toast { transition: none; transform: none; }
+      .pp-feedback-toast__progress::after { animation: none; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function normalizeFeedbackType(type) {
+  return Object.prototype.hasOwnProperty.call(feedbackMeta, type) ? type : "info";
+}
+
+function isDuplicateFeedback(message, type) {
+  const now = Date.now();
+  const key = `${type}\u0000${message}`;
+  const previous = recentFeedback.get(key) || 0;
+  recentFeedback.set(key, now);
+
+  for (const [candidate, timestamp] of recentFeedback.entries()) {
+    if (now - timestamp > RECENT_FEEDBACK_WINDOW_MS * 3) recentFeedback.delete(candidate);
   }
 
-  const toast = document.createElement("div");
-  toast.className = `${colors[type] || colors.info} pointer-events-auto rounded-xl px-4 py-3 text-sm font-medium text-white shadow-lg transition duration-200`;
-  toast.setAttribute("role", type === "error" ? "alert" : "status");
-  toast.textContent = message;
+  return now - previous < RECENT_FEEDBACK_WINDOW_MS;
+}
+
+function createFeedbackRegion() {
+  ensureFeedbackStyles();
+
+  let region = document.getElementById(FEEDBACK_REGION_ID);
+  if (!region) {
+    region = document.createElement("div");
+    region.id = FEEDBACK_REGION_ID;
+    region.setAttribute("aria-live", "polite");
+    region.setAttribute("aria-atomic", "false");
+    region.setAttribute("aria-label", "PickupPass notifications");
+    document.body.appendChild(region);
+  }
+  return region;
+}
+
+function dismissFeedback(toast) {
+  if (!toast || toast.dataset.dismissed === "true") return;
+  toast.dataset.dismissed = "true";
+  toast.classList.add("is-leaving");
+  window.setTimeout(() => toast.remove(), 190);
+}
+
+/**
+ * Canonical, non-blocking feedback for every web screen.
+ *
+ * Backwards-compatible with the historical showToast(message, type) API, but
+ * now renders a premium semantic card with an icon, state title, close affordance,
+ * timed progress, mobile-safe positioning, reduced-motion support and duplicate
+ * suppression. Callers can optionally provide a custom title/duration.
+ */
+export function showToast(message, type = "success", options = {}) {
+  const normalizedMessage = String(message ?? "").trim();
+  if (!normalizedMessage) return null;
+
+  const normalizedType = normalizeFeedbackType(type);
+  if (isDuplicateFeedback(normalizedMessage, normalizedType)) return null;
+
+  const meta = feedbackMeta[normalizedType];
+  const duration = Number.isFinite(options.duration)
+    ? Math.max(1800, options.duration)
+    : meta.duration;
+  const title = String(options.title || meta.title);
+  const region = createFeedbackRegion();
+
+  while (region.children.length >= MAX_VISIBLE_FEEDBACK) {
+    region.firstElementChild?.remove();
+  }
+
+  const toast = document.createElement("section");
+  const toastId = `pp-feedback-${++feedbackSequence}`;
+  toast.id = toastId;
+  toast.className = `pp-feedback-toast pp-feedback-toast--${normalizedType}`;
+  toast.style.setProperty("--pp-feedback-duration", `${duration}ms`);
+  toast.setAttribute("role", normalizedType === "error" ? "alert" : "status");
+  toast.setAttribute("aria-labelledby", `${toastId}-title`);
+  toast.setAttribute("aria-describedby", `${toastId}-message`);
+
+  const iconWrap = document.createElement("span");
+  iconWrap.className = "pp-feedback-toast__icon";
+  iconWrap.setAttribute("aria-hidden", "true");
+  iconWrap.innerHTML = `<svg viewBox="0 0 24 24">${meta.icon}</svg>`;
+
+  const content = document.createElement("div");
+  content.className = "pp-feedback-toast__content";
+
+  const heading = document.createElement("p");
+  heading.id = `${toastId}-title`;
+  heading.className = "pp-feedback-toast__title";
+  heading.textContent = title;
+
+  const body = document.createElement("p");
+  body.id = `${toastId}-message`;
+  body.className = "pp-feedback-toast__message";
+  body.textContent = normalizedMessage;
+
+  content.append(heading, body);
+
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "pp-feedback-toast__close";
+  close.setAttribute("aria-label", "Dismiss notification");
+  close.innerHTML = '<svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg>';
+  close.addEventListener("click", () => dismissFeedback(toast));
+
+  const progress = document.createElement("span");
+  progress.className = "pp-feedback-toast__progress";
+  progress.setAttribute("aria-hidden", "true");
+
+  toast.append(iconWrap, content, close, progress);
   region.appendChild(toast);
 
-  window.setTimeout(() => {
-    toast.classList.add("opacity-0", "-translate-y-1");
-    window.setTimeout(() => toast.remove(), 200);
-  }, type === "error" ? 6000 : 4500);
+  requestAnimationFrame(() => toast.classList.add("is-visible"));
+
+  let remaining = duration;
+  let startedAt = Date.now();
+  let timer = window.setTimeout(() => dismissFeedback(toast), remaining);
+
+  const pause = () => {
+    if (!timer) return;
+    window.clearTimeout(timer);
+    timer = null;
+    remaining = Math.max(400, remaining - (Date.now() - startedAt));
+  };
+  const resume = () => {
+    if (timer || toast.dataset.dismissed === "true") return;
+    startedAt = Date.now();
+    timer = window.setTimeout(() => dismissFeedback(toast), remaining);
+  };
+
+  toast.addEventListener("mouseenter", pause);
+  toast.addEventListener("mouseleave", resume);
+  toast.addEventListener("focusin", pause);
+  toast.addEventListener("focusout", resume);
+
+  return toast;
+}
+
+// Semantic alias for new code. Existing screens can keep importing showToast.
+export const showFeedback = showToast;
+
+function feedbackTypeFromAlert(alert) {
+  if (alert.classList.contains("pp-alert--danger")) return "error";
+  if (alert.classList.contains("pp-alert--warning")) return "warning";
+  if (alert.classList.contains("pp-alert--success")) return "success";
+  return "info";
+}
+
+function maybeBridgeInlineAlert(node) {
+  const alert = node?.nodeType === Node.ELEMENT_NODE
+    ? (node.matches?.(".pp-alert") ? node : node.closest?.(".pp-alert"))
+    : node?.parentElement?.closest?.(".pp-alert");
+
+  if (!alert || alert.dataset.ppNoPopup === "true") return;
+  if (alert.hidden || alert.classList.contains("hidden")) return;
+
+  const message = alert.textContent?.trim();
+  if (!message) return;
+
+  showToast(message, feedbackTypeFromAlert(alert));
+}
+
+const LEGACY_FEEDBACK_ID = /(?:^error|error$|^success|success$|^saveStatus$|^uploadStatus$|^actionStatus$|^formStatus$)/i;
+const BUSY_FEEDBACK_TEXT = /^(?:loading|saving|uploading|refreshing|sending|registering|checking|processing|approving|generating|downloading|creating|updating|deleting|revoking|signing|verifying)(?:\b|…|\.{3})/i;
+
+function legacyFeedbackType(element, message) {
+  const id = element.id || "";
+  if (/error/i.test(id) || /(?:failed|failure|error|could not|couldn't|unable to|invalid)/i.test(message)) return "error";
+  if (/warning|attention|couldn't be sent|could not be sent/i.test(message)) return "warning";
+  if (/success/i.test(id) || /(?:saved|updated|registered|created|completed|sent|approved|released|removed|deleted|linked)(?:\b|!)/i.test(message)) return "success";
+  return "info";
+}
+
+function maybeBridgeLegacyFeedback(node) {
+  const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+  if (!element || !element.id || !LEGACY_FEEDBACK_ID.test(element.id)) return;
+  if (element.closest?.(`#${FEEDBACK_REGION_ID}`)) return;
+  if (element.dataset.ppNoPopup === "true" || element.hidden || element.classList.contains("hidden")) return;
+
+  const message = element.textContent?.trim();
+  if (!message || message.length > 600 || BUSY_FEEDBACK_TEXT.test(message)) return;
+
+  showToast(message, legacyFeedbackType(element, message));
+}
+
+/**
+ * Legacy pages still expose action results by removing `.hidden` from a
+ * `.pp-alert`. Bridge those outcomes into the same floating feedback system so
+ * every role gets consistent feedback without requiring page-by-page rewrites.
+ * `data-pp-no-popup="true"` is an escape hatch for intentionally static notices.
+ */
+function installInlineFeedbackBridge() {
+  if (inlineFeedbackBridgeInstalled || !document.documentElement) return;
+  inlineFeedbackBridgeInstalled = true;
+
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type === "attributes") {
+        maybeBridgeInlineAlert(mutation.target);
+        maybeBridgeLegacyFeedback(mutation.target);
+      } else if (mutation.type === "characterData") {
+        maybeBridgeInlineAlert(mutation.target);
+        maybeBridgeLegacyFeedback(mutation.target);
+      } else if (mutation.type === "childList") {
+        maybeBridgeInlineAlert(mutation.target);
+        maybeBridgeLegacyFeedback(mutation.target);
+        mutation.addedNodes.forEach((node) => {
+          maybeBridgeInlineAlert(node);
+          maybeBridgeLegacyFeedback(node);
+        });
+      }
+    }
+  });
+
+  observer.observe(document.documentElement, {
+    subtree: true,
+    childList: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ["class", "hidden"],
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", installInlineFeedbackBridge, { once: true });
+} else {
+  installInlineFeedbackBridge();
 }
 
 export function setSubmitButtonBusy(button, isBusy, busyLabel) {

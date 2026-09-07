@@ -6,7 +6,9 @@ import android.util.Base64
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,13 +20,26 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,14 +53,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.pickuppass.android.ui.theme.Amber500
-import com.pickuppass.android.ui.theme.Amber900
+import com.pickuppass.android.ui.theme.Amber700
 import com.pickuppass.android.ui.theme.Spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -60,7 +81,7 @@ fun PrimaryButton(
     enabled: Boolean = true,
     loading: Boolean = false,
     containerColor: Color = MaterialTheme.colorScheme.primary,
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    icon: ImageVector? = null,
 ) {
     Button(
         onClick = onClick,
@@ -87,33 +108,131 @@ fun PrimaryButton(
     }
 }
 
+enum class FeedbackTone {
+    Success,
+    Error,
+    Warning,
+    Info,
+}
+
+/**
+ * Canonical PickupPass action-feedback surface.
+ *
+ * Use this for the outcome of a user action or a meaningful system response.
+ * It intentionally reads as a compact premium card instead of plain colored
+ * text, while remaining non-blocking and preserving the user's current task.
+ */
+@Composable
+fun FeedbackCard(
+    message: String,
+    tone: FeedbackTone,
+    modifier: Modifier = Modifier,
+    title: String? = null,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
+    val accent: Color
+    val icon: ImageVector
+    val defaultTitle: String
+    val liveRegionMode: LiveRegionMode
+
+    when (tone) {
+        FeedbackTone.Success -> {
+            accent = scheme.secondary
+            icon = Icons.Filled.CheckCircle
+            defaultTitle = "Completed"
+            liveRegionMode = LiveRegionMode.Polite
+        }
+
+        FeedbackTone.Error -> {
+            accent = scheme.error
+            icon = Icons.Filled.Error
+            defaultTitle = "Couldn't complete action"
+            liveRegionMode = LiveRegionMode.Assertive
+        }
+
+        FeedbackTone.Warning -> {
+            accent = if (isDark) Amber500 else Amber700
+            icon = Icons.Filled.Warning
+            defaultTitle = "Needs attention"
+            liveRegionMode = LiveRegionMode.Polite
+        }
+
+        FeedbackTone.Info -> {
+            accent = scheme.primary
+            icon = Icons.Filled.Info
+            defaultTitle = "Good to know"
+            liveRegionMode = LiveRegionMode.Polite
+        }
+    }
+
+    val containerColor = when (tone) {
+        FeedbackTone.Warning -> Amber500.copy(alpha = 0.08f)
+        else -> accent.copy(alpha = 0.055f)
+    }
+
+    Surface(
+        color = containerColor,
+        contentColor = scheme.onSurface,
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.24f)),
+        shadowElevation = 2.dp,
+        tonalElevation = 1.dp,
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics { liveRegion = liveRegionMode }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            verticalAlignment = Alignment.Top
+        ) {
+            Surface(
+                color = accent.copy(alpha = 0.13f),
+                shape = CircleShape,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(Spacing.sm))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = title ?: defaultTitle,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = accent
+                )
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = scheme.onSurface
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun ErrorBanner(
     message: String,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
-        shape = MaterialTheme.shapes.small,
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(Spacing.sm),
-            verticalAlignment = Alignment.Top
-        ) {
-            Icon(
-                Icons.Filled.Error,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error
-            )
-            Text(
-                text = message,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(start = Spacing.sm)
-            )
-        }
-    }
+    FeedbackCard(
+        message = message,
+        tone = FeedbackTone.Error,
+        modifier = modifier
+    )
 }
 
 /**
@@ -124,28 +243,11 @@ fun WarningBanner(
     message: String,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        color = Amber500.copy(alpha = 0.12f),
-        shape = MaterialTheme.shapes.small,
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(Spacing.sm),
-            verticalAlignment = Alignment.Top
-        ) {
-            Icon(
-                Icons.Filled.Warning,
-                contentDescription = null,
-                tint = Amber900
-            )
-            Text(
-                text = message,
-                color = Amber900,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(start = Spacing.sm)
-            )
-        }
-    }
+    FeedbackCard(
+        message = message,
+        tone = FeedbackTone.Warning,
+        modifier = modifier
+    )
 }
 
 @Composable
@@ -153,28 +255,23 @@ fun SuccessBanner(
     message: String,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-        shape = MaterialTheme.shapes.small,
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(Spacing.sm),
-            verticalAlignment = Alignment.Top
-        ) {
-            Icon(
-                Icons.Filled.CheckCircle,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.secondary
-            )
-            Text(
-                text = message,
-                color = MaterialTheme.colorScheme.secondary,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(start = Spacing.sm)
-            )
-        }
-    }
+    FeedbackCard(
+        message = message,
+        tone = FeedbackTone.Success,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun InfoBanner(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    FeedbackCard(
+        message = message,
+        tone = FeedbackTone.Info,
+        modifier = modifier
+    )
 }
 
 /**
@@ -269,7 +366,7 @@ private fun calculateSampleSize(
 fun GuardianAvatar(
     photoUrl: String?,
     modifier: Modifier = Modifier,
-    size: androidx.compose.ui.unit.Dp = 96.dp
+    size: Dp = 96.dp
 ) {
     Box(
         modifier = modifier
@@ -334,7 +431,7 @@ fun BrandedTitle(
     Column {
         Text(
             title,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            fontWeight = FontWeight.Bold,
             color = titleColor
         )
 
@@ -471,7 +568,7 @@ fun SuccessConfirmation(
         Text(
             title,
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center
         )
 

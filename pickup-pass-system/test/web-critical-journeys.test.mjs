@@ -9,6 +9,13 @@ async function page(relativePath) {
   );
 }
 
+async function shared(relativePath) {
+  return readFile(
+    new URL(`../frontend/shared/${relativePath}`, import.meta.url),
+    "utf8"
+  );
+}
+
 test("login routes every supported role to its protected home", async () => {
   const html = await page("login.html");
 
@@ -163,5 +170,23 @@ test(
       html,
       /batch\.update\([\s\S]*?\{\s*read:\s*true\s*\}\)/
     );
+  }
+);
+
+test(
+  "web action feedback is centralized, accessible, dismissible, and bridges legacy alerts",
+  async () => {
+    const js = await shared("firebase-init.js");
+
+    assert.match(js, /export function showToast\(message, type = "success", options = \{\}\)/);
+    assert.match(js, /export const showFeedback = showToast/);
+    assert.match(js, /pp-feedback-toast__close/);
+    assert.match(js, /prefers-reduced-motion/);
+    assert.match(js, /role", normalizedType === "error" \? "alert" : "status"/);
+    assert.match(js, /RECENT_FEEDBACK_WINDOW_MS/);
+    assert.match(js, /installInlineFeedbackBridge\(\)/);
+    assert.match(js, /\.pp-alert/);
+    assert.match(js, /LEGACY_FEEDBACK_ID/);
+    assert.match(js, /data-pp-no-popup/);
   }
 );
