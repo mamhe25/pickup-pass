@@ -92,7 +92,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-@androidx.compose.material3.ExperimentalMaterial3Api
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun DismissalDashboardScreen(
     viewModel: DismissalDashboardViewModel = hiltViewModel(),
@@ -481,7 +481,7 @@ private fun QuickActionCard(action: QuickAction, modifier: Modifier) {
     }
 }
 
-@androidx.compose.material3.ExperimentalMaterial3Api
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun AdminToolsSheet(
     onDismiss: () -> Unit,
