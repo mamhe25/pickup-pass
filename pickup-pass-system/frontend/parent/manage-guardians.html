@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<meta name="theme-color" content="#047857" />
+<meta name="theme-color" content="#4652C7" />
 <title>Guardians — PickupPass</title>
 
 <link rel="stylesheet" href="../shared/theme.css" />
@@ -20,7 +20,7 @@
 <script type="module" src="../shared/parent-nav.js"></script>
 
 <main class="pp-page pp-guardians-page">
-  <a href="./students.html" class="pp-backlink">← My Students</a>
+  <a href="./guardians.html" class="pp-backlink">← Guardians overview</a>
 
   <section class="pp-guardians-hero mt-3">
     <p class="pp-guardians-hero__eyebrow">Pickup authorization</p>
@@ -291,7 +291,7 @@ const studentId =
   sessionStorage.getItem("pendingGuardianStudentId");
 
 if (!studentId) {
-  location.href = "./students.html";
+  location.replace("./guardians.html");
 }
 
 let student = null;
@@ -436,10 +436,12 @@ async function load() {
 
   student = snap.data();
 
+  const studentName = student.fullName || "Student";
   ui.studentLabel.textContent =
-    `${student.fullName || "Student"} · ` +
+    `Managing guardian access for ${studentName} · ` +
     `Grade ${student.grade || "—"}` +
     `${student.section ? " · " + student.section : ""}`;
+  document.title = `Guardians for ${studentName} — PickupPass`;
 
   try {
     const response =
