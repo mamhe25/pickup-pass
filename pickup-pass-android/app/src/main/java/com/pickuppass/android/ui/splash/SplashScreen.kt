@@ -5,7 +5,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +14,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pickuppass.android.ui.common.PickupPassBrandMark
+import com.pickuppass.android.ui.common.PickupPassWordmark
 import com.pickuppass.android.ui.common.PrimaryButton
 import com.pickuppass.android.ui.theme.Spacing
 
@@ -89,40 +90,19 @@ private fun LoadingBrand() {
         horizontalAlignment =
             Alignment.CenterHorizontally
     ) {
-        Surface(
-            modifier =
-                Modifier.size(86.dp),
-            shape = CircleShape,
-            color =
-                MaterialTheme.colorScheme.primary,
-            shadowElevation = 7.dp
-        ) {
-            Box(
-                contentAlignment =
-                    Alignment.Center
-            ) {
-                Icon(
-                    imageVector =
-                        Icons.Filled.Shield,
-                    contentDescription = null,
-                    modifier =
-                        Modifier.size(43.dp),
-                    tint =
-                        MaterialTheme.colorScheme.onPrimary
-                )
-            }
-        }
+        PickupPassBrandMark(
+            size = 96.dp,
+            contentDescription = "PickupPass"
+        )
 
         Spacer(
             Modifier.height(Spacing.lg)
         )
 
-        Text(
-            text = "PickupPass",
+        PickupPassWordmark(
             style =
                 MaterialTheme.typography.headlineMedium,
-            fontWeight =
-                FontWeight.ExtraBold
+            textAlign = TextAlign.Center
         )
 
         Spacer(

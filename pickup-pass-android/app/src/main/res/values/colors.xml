@@ -5,6 +5,7 @@
     <color name="indigo_700">#35409C</color>
     <color name="indigo_900">#1E275C</color>
     <color name="midnight_950">#12182F</color>
+    <color name="splash_background">#F7F8FC</color>
     <color name="violet_600">#5E4EE8</color>
 
     <!-- Semantic colors: green is reserved for success, never branding. -->

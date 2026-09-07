@@ -37,6 +37,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.PickupPassBrandMark
+import com.pickuppass.android.ui.common.PickupPassWordmark
 import com.pickuppass.android.ui.common.PrimaryButton
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
@@ -110,22 +112,18 @@ fun LoginScreen(
                 ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Surface(
-                modifier = Modifier.size(68.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Filled.Shield,
-                        contentDescription = null,
-                        modifier = Modifier.size(34.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
+            PickupPassBrandMark(
+                size = 72.dp,
+                contentDescription = "PickupPass"
+            )
 
-            Spacer(Modifier.height(Spacing.md))
+            Spacer(Modifier.height(Spacing.sm))
+
+            PickupPassWordmark(
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            Spacer(Modifier.height(Spacing.lg))
 
             Text(
                 "Welcome back",
