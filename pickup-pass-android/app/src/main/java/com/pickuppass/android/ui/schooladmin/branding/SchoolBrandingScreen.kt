@@ -55,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.PremiumTopAppBar
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.schooladmin.dashboard.DismissalDashboardScreen
@@ -165,24 +166,6 @@ private fun BrandingSettings(
                 title = "School branding",
                 subtitle = "Identity & logo",
                 onBack = onBack,
-                actions = {
-                    IconButton(
-                        onClick = onRefresh,
-                        enabled = !uiState.isRefreshing && !uiState.isUploading,
-                    ) {
-                        if (uiState.isRefreshing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = "Refresh school branding",
-                            )
-                        }
-                    }
-                },
             )
         },
     ) { padding ->
@@ -197,31 +180,40 @@ private fun BrandingSettings(
             return@Scaffold
         }
 
-        LazyColumn(
+        PickupPassPullToRefresh(
+            refreshing = uiState.isRefreshing,
+            onRefresh = onRefresh,
+            enabled = !uiState.isRefreshing && !uiState.isUploading,
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
-                .widthIn(max = 760.dp),
-            contentPadding = PaddingValues(Spacing.md),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                .fillMaxSize(),
         ) {
-            item(key = "branding_intro") {
-                BrandingIntro()
-            }
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = 760.dp)
+                    .align(Alignment.TopCenter),
+                contentPadding = PaddingValues(Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            ) {
+                item(key = "branding_intro") {
+                    BrandingIntro()
+                }
 
-            item(key = "identity_card") {
-                SchoolIdentityCard(
-                    schoolName = uiState.schoolName,
-                    logoUrl = uiState.logoUrl,
-                    plan = uiState.plan,
-                    subscriptionStatus = uiState.subscriptionStatus,
-                    uploading = uiState.isUploading,
-                    onChooseLogo = { pickImage.launch("image/*") },
-                )
-            }
+                item(key = "identity_card") {
+                    SchoolIdentityCard(
+                        schoolName = uiState.schoolName,
+                        logoUrl = uiState.logoUrl,
+                        plan = uiState.plan,
+                        subscriptionStatus = uiState.subscriptionStatus,
+                        uploading = uiState.isUploading,
+                        onChooseLogo = { pickImage.launch("image/*") },
+                    )
+                }
 
-            item(key = "usage_note") {
-                BrandingUsageCard()
+                item(key = "usage_note") {
+                    BrandingUsageCard()
+                }
             }
         }
     }

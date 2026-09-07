@@ -81,6 +81,7 @@ import com.pickuppass.android.data.model.GateActivityItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.PremiumTopAppBar
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.theme.Amber100
 import com.pickuppass.android.ui.theme.Amber700
 import com.pickuppass.android.ui.theme.Blue50
@@ -147,22 +148,6 @@ fun DismissalDashboardScreen(
                 subtitle = if (isAdminHome) "Live dismissal · Admin console" else "Live dismissal dashboard",
                 onBack = onBack,
                 actions = {
-                    IconButton(
-                        onClick = viewModel::refresh,
-                        enabled = !state.isRefreshing,
-                    ) {
-                        if (state.isRefreshing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(19.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = "Refresh dismissal data",
-                            )
-                        }
-                    }
                     if (hasAdminTools) {
                         IconButton(onClick = { showAdminTools = true }) {
                             Icon(
@@ -211,11 +196,19 @@ fun DismissalDashboardScreen(
             }
 
             else -> {
-                LazyColumn(
+                PickupPassPullToRefresh(
+                    refreshing = state.isRefreshing,
+                    onRefresh = viewModel::refresh,
+                    enabled = !state.isRefreshing,
                     modifier = Modifier
                         .padding(padding)
-                        .fillMaxSize()
-                        .widthIn(max = 920.dp),
+                        .fillMaxSize(),
+                ) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .widthIn(max = 920.dp)
+                            .align(Alignment.TopCenter),
                     contentPadding = PaddingValues(
                         start = Spacing.md,
                         top = Spacing.md,
@@ -356,6 +349,7 @@ fun DismissalDashboardScreen(
                         SupportingNotice(
                             "PickupPass records verified releases. It does not create a parent arrival queue or require check-in.",
                         )
+                    }
                     }
                 }
             }

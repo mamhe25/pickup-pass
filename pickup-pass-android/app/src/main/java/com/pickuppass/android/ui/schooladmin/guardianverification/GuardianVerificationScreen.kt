@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.GuardianVerificationItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Green500
 import com.pickuppass.android.ui.theme.Green600
@@ -113,11 +114,6 @@ fun GuardianVerificationScreen(
             )
     }
 
-    val mutationBusy =
-        state.isLoading ||
-            state.policyBusy ||
-            state.busyUid != null
-
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -144,24 +140,6 @@ fun GuardianVerificationScreen(
                         )
                     }
                 },
-                actions = {
-                    IconButton(
-                        onClick = viewModel::load,
-                        enabled = !mutationBusy
-                    ) {
-                        if (state.isLoading && guardians.isNotEmpty()) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(19.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                Icons.Filled.Refresh,
-                                contentDescription = "Refresh guardian verification"
-                            )
-                        }
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     scrolledContainerColor = MaterialTheme.colorScheme.surface
@@ -180,16 +158,22 @@ fun GuardianVerificationScreen(
             return@Scaffold
         }
 
-        BoxWithConstraints(
+        PickupPassPullToRefresh(
+            refreshing = state.isLoading && guardians.isNotEmpty(),
+            onRefresh = viewModel::load,
+            enabled = !state.policyBusy && state.busyUid == null,
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .widthIn(max = 820.dp)
-                    .align(Alignment.TopCenter),
+            BoxWithConstraints(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .widthIn(max = 820.dp)
+                        .align(Alignment.TopCenter),
                 contentPadding = PaddingValues(
                     start = Spacing.md,
                     top = Spacing.md,
@@ -292,6 +276,7 @@ fun GuardianVerificationScreen(
 
                 item(key = "security-footnote") {
                     SecurityFootnote()
+                }
                 }
             }
         }
