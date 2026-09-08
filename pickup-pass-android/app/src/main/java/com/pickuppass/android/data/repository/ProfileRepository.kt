@@ -2,26 +2,27 @@ package com.pickuppass.android.data.repository
 
 import android.content.Context
 import android.net.Uri
-import android.util.Base64
-import com.google.firebase.firestore.FirebaseFirestore
+import com.pickuppass.android.data.model.GuardianPhotoUploadResponse
+import com.pickuppass.android.data.remote.PickupPassApi
 import com.pickuppass.android.util.ImageCompressor
-import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 /**
- * Deliberately does NOT use Firebase/Cloud Storage. The compressed avatar is
- * base64 encoded and stored directly as a data URI in the user's Firestore
- * profile document.
+ * Guardian verification photos are server-managed.
  *
- * `schoolId` remains in this stable repository contract because existing
- * callers supply it and it provides useful tenancy context for a future
- * storage/audit implementation. The current Firestore write is user-document
- * scoped, so it is intentionally unused here.
+ * The Android client only prepares a compact JPEG; the backend performs
+ * authoritative image/face-quality validation and writes the validated
+ * profile fields. This prevents modified clients from self-asserting that a
+ * random image is a valid pickup identity photo.
  */
 @Singleton
 class ProfileRepository @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val api: PickupPassApi
 ) {
     @Suppress("UNUSED_PARAMETER")
     suspend fun uploadAvatar(
@@ -29,16 +30,69 @@ class ProfileRepository @Inject constructor(
         uid: String,
         schoolId: String,
         imageUri: Uri
-    ): Result<String> = runCatching {
-        val compressedBytes = ImageCompressor.compress(context, imageUri)
-        val base64 = Base64.encodeToString(compressedBytes, Base64.NO_WRAP)
-        val dataUri = "data:image/jpeg;base64,$base64"
+    ): ApiResult<GuardianPhotoUploadResponse> {
+        return try {
+            val compressedBytes =
+                ImageCompressor.compress(
+                    context = context,
+                    uri = imageUri,
+                    targetSize = 600,
+                    maxBytes = 180 * 1024
+                )
 
-        firestore.collection("users")
-            .document(uid)
-            .update("photoUrl", dataUri)
-            .await()
+            val requestBody =
+                compressedBytes.toRequestBody(
+                    "image/jpeg".toMediaType()
+                )
+            val file =
+                MultipartBody.Part.createFormData(
+                    "file",
+                    "guardian-verification.jpg",
+                    requestBody
+                )
 
-        dataUri
+            val response =
+                api.uploadGuardianVerificationPhoto(file)
+            val body = response.body()
+
+            if (
+                response.isSuccessful &&
+                body?.status == "verified" &&
+                !body.photoUrl.isNullOrBlank()
+            ) {
+                ApiResult.Success(body)
+            } else {
+                ApiResult.Failure(
+                    body?.error
+                        ?: body?.message
+                        ?: parseError(
+                            response.errorBody()
+                                ?.string()
+                        )
+                        ?: "Verification photo could not be accepted"
+                )
+            }
+        } catch (e: Exception) {
+            ApiResult.Failure(
+                e.message ?: "Photo validation failed"
+            )
+        }
+    }
+
+    private fun parseError(raw: String?): String? {
+        val content = raw?.trim().orEmpty()
+        if (content.isBlank()) return null
+
+        return runCatching {
+            val json = JSONObject(content)
+            listOf("error", "message")
+                .firstNotNullOfOrNull { key ->
+                    json.optString(key)
+                        .trim()
+                        .takeIf {
+                            it.isNotBlank()
+                        }
+                }
+        }.getOrNull()
     }
 }
