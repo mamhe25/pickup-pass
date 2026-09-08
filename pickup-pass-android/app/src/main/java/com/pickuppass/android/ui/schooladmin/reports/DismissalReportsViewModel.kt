@@ -21,6 +21,7 @@ data class DismissalReportsUiState(
     val section: String = "",
     val isLoading: Boolean = false,
     val isExporting: Boolean = false,
+    val filtersDirty: Boolean = false,
     val error: String? = null,
     val success: String? = null,
     val successTitle: String? = null,
@@ -39,25 +40,25 @@ class DismissalReportsViewModel @Inject constructor(
     init { load() }
 
     fun setFrom(value: String) {
-        _uiState.value = _uiState.value.copy(from = value, error = null, success = null, successTitle = null)
+        _uiState.value = _uiState.value.copy(from = value, filtersDirty = true, error = null, success = null, successTitle = null)
     }
 
     fun setTo(value: String) {
-        _uiState.value = _uiState.value.copy(to = value, error = null, success = null, successTitle = null)
+        _uiState.value = _uiState.value.copy(to = value, filtersDirty = true, error = null, success = null, successTitle = null)
     }
 
     fun setGrade(value: String) {
-        _uiState.value = _uiState.value.copy(grade = value, error = null, success = null, successTitle = null)
+        _uiState.value = _uiState.value.copy(grade = value, filtersDirty = true, error = null, success = null, successTitle = null)
     }
 
     fun setSection(value: String) {
-        _uiState.value = _uiState.value.copy(section = value, error = null, success = null, successTitle = null)
+        _uiState.value = _uiState.value.copy(section = value, filtersDirty = true, error = null, success = null, successTitle = null)
     }
 
     fun load() {
         val s = _uiState.value
         if (!validRange(s.from, s.to)) {
-            _uiState.value = s.copy(error = "Use YYYY-MM-DD and make sure To is not before From.")
+            _uiState.value = s.copy(error = "The end date cannot be before the start date.")
             return
         }
         viewModelScope.launch {
@@ -71,7 +72,10 @@ class DismissalReportsViewModel @Inject constructor(
                 s.from, s.to, s.grade.trim().ifBlank { null }, s.section.trim().ifBlank { null }
             )) {
                 is ApiResult.Success -> _uiState.value = _uiState.value.copy(
-                    isLoading = false, summary = result.data, error = null
+                    isLoading = false,
+                    filtersDirty = false,
+                    summary = result.data,
+                    error = null
                 )
                 is ApiResult.Failure -> _uiState.value = _uiState.value.copy(
                     isLoading = false, error = result.message
@@ -82,8 +86,14 @@ class DismissalReportsViewModel @Inject constructor(
 
     fun exportCsv() {
         val s = _uiState.value
+        if (s.filtersDirty || s.summary == null) {
+            _uiState.value = s.copy(
+                error = "Run the report with the current filters before exporting."
+            )
+            return
+        }
         if (!validRange(s.from, s.to)) {
-            _uiState.value = s.copy(error = "Use YYYY-MM-DD and make sure To is not before From.")
+            _uiState.value = s.copy(error = "The end date cannot be before the start date.")
             return
         }
         viewModelScope.launch {
