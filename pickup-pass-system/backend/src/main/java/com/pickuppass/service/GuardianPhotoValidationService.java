@@ -48,7 +48,7 @@ public class GuardianPhotoValidationService {
         }
         if (bytes.length > MAX_UPLOAD_BYTES) {
             return ValidationResult.rejected(
-                    "Photo is too large. Choose an image under 1 MB.");
+                    "Photo is too large. Choose an image under 500 KB.");
         }
 
         final ImageMetadata metadata;
