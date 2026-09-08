@@ -658,7 +658,9 @@ class SchoolAdminRepository @Inject constructor(
                 UpdateStaffPickupGatesRequest(gateIds)
             )
             if (response.isSuccessful) ApiResult.Success(Unit)
-            else ApiResult.Failure("Could not save pickup-gate assignment")
+            else ApiResult.Failure(
+                apiError(response, "Could not save pickup-gate assignment")
+            )
         } catch (e: Exception) {
             ApiResult.Failure(e.message ?: "Network error")
         }
