@@ -123,6 +123,7 @@ fun DismissalReportsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
                             ) {
                                 SuggestionChip(
+                                    enabled = !state.isLoading && !state.isExporting,
                                     onClick = {
                                         val today = LocalDate.now()
                                         viewModel.setFrom(today.minusDays(6).toString())
@@ -131,6 +132,7 @@ fun DismissalReportsScreen(
                                     label = { Text("Last 7 days") }
                                 )
                                 SuggestionChip(
+                                    enabled = !state.isLoading && !state.isExporting,
                                     onClick = {
                                         val today = LocalDate.now()
                                         viewModel.setFrom(today.withDayOfMonth(1).toString())
@@ -139,6 +141,7 @@ fun DismissalReportsScreen(
                                     label = { Text("This month") }
                                 )
                                 SuggestionChip(
+                                    enabled = !state.isLoading && !state.isExporting,
                                     onClick = {
                                         val today = LocalDate.now()
                                         viewModel.setFrom(today.toString())
@@ -194,6 +197,22 @@ fun DismissalReportsScreen(
                                 )
                             }
 
+                            if (state.filtersDirty && state.summary != null) {
+                                Surface(
+                                    shape = MaterialTheme.shapes.medium,
+                                    color = MaterialTheme.colorScheme.secondaryContainer
+                                ) {
+                                    Text(
+                                        "Filters changed. Run the report to refresh the displayed results before exporting.",
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(Spacing.sm),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                            }
+
                             HorizontalDivider()
 
                             Row(
@@ -205,7 +224,8 @@ fun DismissalReportsScreen(
                                     onClick = viewModel::exportCsv,
                                     enabled = !state.isExporting &&
                                         !state.isLoading &&
-                                        state.summary != null
+                                        state.summary != null &&
+                                        !state.filtersDirty
                                 ) {
                                     if (state.isExporting) {
                                         CircularProgressIndicator(
