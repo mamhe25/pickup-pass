@@ -54,6 +54,7 @@ public class BroadcastService {
         List<String> recipientUids = new ArrayList<>();
         for (QueryDocumentSnapshot doc : schoolUsers) {
             if (doc.getId().equals(senderUid)) continue; // don't notify the sender of their own broadcast
+            if (Boolean.FALSE.equals(doc.getBoolean("isActive"))) continue;
             String role = doc.getString("role");
             if (role != null && audienceRoles.contains(role)) {
                 recipientUids.add(doc.getId());
