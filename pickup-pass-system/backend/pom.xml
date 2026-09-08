@@ -51,6 +51,13 @@
             <version>${firebase-admin.version}</version>
         </dependency>
 
+        <!-- Server-side guardian verification-photo validation. -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-vision</artifactId>
+            <version>3.94.0</version>
+        </dependency>
+
         <!-- Auth0 java-jwt: used to sign/verify the QR pickup tokens (HMAC256) -->
         <dependency>
             <groupId>com.auth0</groupId>
