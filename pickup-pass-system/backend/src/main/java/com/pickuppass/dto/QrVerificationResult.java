@@ -9,6 +9,8 @@ public class QrVerificationResult {
     private String studentId;
     private String parentUid;
     private DocumentReference tokenRef;
+    private boolean testMode;
+    private String operationalMode;
 
     public static QrVerificationResult fail(String message) {
         QrVerificationResult r = new QrVerificationResult();
@@ -17,12 +19,19 @@ public class QrVerificationResult {
         return r;
     }
 
-    public static QrVerificationResult success(String studentId, String parentUid, DocumentReference ref) {
+    public static QrVerificationResult success(
+            String studentId,
+            String parentUid,
+            DocumentReference ref,
+            boolean testMode,
+            String operationalMode) {
         QrVerificationResult r = new QrVerificationResult();
         r.valid = true;
         r.studentId = studentId;
         r.parentUid = parentUid;
         r.tokenRef = ref;
+        r.testMode = testMode;
+        r.operationalMode = operationalMode;
         return r;
     }
 
@@ -31,4 +40,6 @@ public class QrVerificationResult {
     public String getStudentId() { return studentId; }
     public String getParentUid() { return parentUid; }
     public DocumentReference getTokenRef() { return tokenRef; }
+    public boolean isTestMode() { return testMode; }
+    public String getOperationalMode() { return operationalMode; }
 }
