@@ -530,6 +530,7 @@ data class GuardianVerificationItem(
     val uid: String = "",
     val displayName: String = "",
     val email: String = "",
+    val photoUrl: String? = null,
     val status: String = "verified",
     val studentNames: List<String> = emptyList(),
     val verificationReason: String = "",
