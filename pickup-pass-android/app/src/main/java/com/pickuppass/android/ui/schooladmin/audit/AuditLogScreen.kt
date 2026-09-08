@@ -74,8 +74,8 @@ fun AuditLogScreen(
             enabled = !state.isLoading,
             modifier = Modifier.padding(padding).fillMaxSize(),
         ) {
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            LazyColumn(
+            Box(Modifier.fillMaxSize()) {
+                LazyColumn(
                 modifier = Modifier.fillMaxHeight().widthIn(max = 860.dp).align(Alignment.TopCenter)
                     .imePadding(),
                 contentPadding = PaddingValues(Spacing.md),
