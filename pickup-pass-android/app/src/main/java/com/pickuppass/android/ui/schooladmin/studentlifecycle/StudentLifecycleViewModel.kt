@@ -27,7 +27,8 @@ data class StudentLifecycleUiState(
     val targetAcademicYearId: String = "",
     val promotionPreview: PromotionResponse? = null,
     val error: String? = null,
-    val success: String? = null
+    val success: String? = null,
+    val successTitle: String? = null
 ) {
     val visibleStudents: List<StudentLifecycleItem>
         get() = students.filter { student ->
@@ -90,17 +91,39 @@ class StudentLifecycleViewModel @Inject constructor(
 
     fun setFilter(filter: String) { _uiState.value = _uiState.value.copy(filter = filter) }
     fun setSearch(search: String) { _uiState.value = _uiState.value.copy(search = search) }
+
+    fun clearFeedback() {
+        _uiState.value = _uiState.value.copy(
+            error = null,
+            success = null,
+            successTitle = null
+        )
+    }
     fun selectTargetAcademicYear(id: String) {
-        _uiState.value = _uiState.value.copy(targetAcademicYearId = id, promotionPreview = null, error = null, success = null)
+        _uiState.value = _uiState.value.copy(targetAcademicYearId = id, promotionPreview = null, error = null, success = null, successTitle = null, successTitle = null)
     }
 
     fun updateStatus(studentId: String, status: String, reason: String) {
         if (_uiState.value.isWorking) return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isWorking = true, error = null, success = null)
+            _uiState.value = _uiState.value.copy(isWorking = true, error = null, success = null, successTitle = null, successTitle = null)
             when (val result = repository.updateStudentStatus(studentId, status, reason)) {
                 is ApiResult.Success -> {
-                    _uiState.value = _uiState.value.copy(isWorking = false, success = "Student status changed to ${status.replaceFirstChar { it.uppercase() }}.")
+                    _uiState.value = _uiState.value.copy(
+                        isWorking = false,
+                        successTitle =
+                            if (status.equals("archived", ignoreCase = true)) {
+                                "Student archived"
+                            } else {
+                                "Student status updated"
+                            },
+                        success =
+                            if (status.equals("archived", ignoreCase = true)) {
+                                "The student was archived and removed from active pickup and roster views."
+                            } else {
+                                "Student status changed to ${status.replaceFirstChar { it.uppercase() }}."
+                            }
+                    )
                     load()
                 }
                 is ApiResult.Failure -> _uiState.value = _uiState.value.copy(isWorking = false, error = result.message)
@@ -118,7 +141,8 @@ class StudentLifecycleViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(
                 isWorking = true,
                 error = null,
-                success = null
+                success = null,
+                successTitle = null
             )
             when (
                 val result =
@@ -130,7 +154,8 @@ class StudentLifecycleViewModel @Inject constructor(
                 is ApiResult.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isWorking = false,
-                        success = "Student grade and section updated."
+                        successTitle = "Student reassigned",
+                        success = "The student's grade and section now match the current school-year setup."
                     )
                     load()
                 }
@@ -159,7 +184,7 @@ class StudentLifecycleViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isWorking = true, error = null, success = null, promotionPreview = null)
+            _uiState.value = _uiState.value.copy(isWorking = true, error = null, success = null, successTitle = null, promotionPreview = null)
             when (val result = repository.previewPromotion(target)) {
                 is ApiResult.Success -> _uiState.value = _uiState.value.copy(isWorking = false, promotionPreview = result.data)
                 is ApiResult.Failure -> _uiState.value = _uiState.value.copy(isWorking = false, error = result.message)
@@ -171,13 +196,14 @@ class StudentLifecycleViewModel @Inject constructor(
         val preview = _uiState.value.promotionPreview ?: return
         if (preview.unresolvedCount > 0 || _uiState.value.isWorking) return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isWorking = true, error = null, success = null)
+            _uiState.value = _uiState.value.copy(isWorking = true, error = null, success = null, successTitle = null, successTitle = null)
             when (val result = repository.executePromotion(preview.targetAcademicYearId)) {
                 is ApiResult.Success -> {
                     val body = result.data
                     _uiState.value = _uiState.value.copy(
                         isWorking = false,
                         promotionPreview = body,
+                        successTitle = "Promotion completed",
                         success = "Promoted ${body.promotedCount} student${if (body.promotedCount == 1) "" else "s"}."
                     )
                     load()

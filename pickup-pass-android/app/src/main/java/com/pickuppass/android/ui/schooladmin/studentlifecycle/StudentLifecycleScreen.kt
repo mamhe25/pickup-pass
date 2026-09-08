@@ -22,9 +22,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.GradeSection
 import com.pickuppass.android.data.model.StudentLifecycleItem
-import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.FeedbackCard
+import com.pickuppass.android.ui.common.FeedbackTone
 import com.pickuppass.android.ui.common.PremiumConfirmDialog
-import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.theme.Spacing
 
@@ -135,9 +135,6 @@ fun StudentLifecycleScreen(
                     }
                 }
 
-                state.error?.let { item { ErrorBanner(it) } }
-                state.success?.let { item { SuccessBanner(it) } }
-
                 if (!state.isLoading && state.visibleStudents.isEmpty()) {
                     item {
                         OutlinedCard(Modifier.fillMaxWidth()) {
@@ -167,6 +164,24 @@ fun StudentLifecycleScreen(
                 }
             }
         }
+    }
+
+    state.error?.let { message ->
+        FeedbackCard(
+            message = message,
+            tone = FeedbackTone.Error,
+            title = "Action not completed",
+            onDismiss = viewModel::clearFeedback
+        )
+    }
+
+    state.success?.let { message ->
+        FeedbackCard(
+            message = message,
+            tone = FeedbackTone.Success,
+            title = state.successTitle ?: "Success",
+            onDismiss = viewModel::clearFeedback
+        )
     }
 
     actionStudent?.let { student ->

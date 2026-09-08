@@ -299,6 +299,7 @@ fun FeedbackCard(
     tone: FeedbackTone,
     modifier: Modifier = Modifier,
     title: String? = null,
+    onDismiss: (() -> Unit)? = null,
 ) {
     if (message.isBlank()) return
 
@@ -347,10 +348,16 @@ fun FeedbackCard(
     }
 
     var visible by remember(message, tone) { mutableStateOf(true) }
+
+    fun dismiss() {
+        visible = false
+        onDismiss?.invoke()
+    }
+
     if (!visible) return
 
     Dialog(
-        onDismissRequest = { visible = false },
+        onDismissRequest = ::dismiss,
         properties = DialogProperties(
             dismissOnBackPress = true,
             dismissOnClickOutside = true,
@@ -395,7 +402,7 @@ fun FeedbackCard(
                         )
                     }
                     IconButton(
-                        onClick = { visible = false },
+                        onClick = ::dismiss,
                         modifier = Modifier.size(40.dp),
                     ) {
                         Icon(
@@ -466,7 +473,7 @@ fun FeedbackCard(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Button(
-                            onClick = { visible = false },
+                            onClick = ::dismiss,
                             shape = MaterialTheme.shapes.small,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = accent,
