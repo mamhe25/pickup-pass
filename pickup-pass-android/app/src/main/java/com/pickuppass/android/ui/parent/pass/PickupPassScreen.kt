@@ -28,7 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.FeedbackCard
+import com.pickuppass.android.ui.common.FeedbackTone
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.theme.Amber500
@@ -45,7 +46,8 @@ private const val URGENT_THRESHOLD_SECONDS = 60L
 fun PickupPassScreen(
     studentId: String,
     viewModel: PickupPassViewModel = hiltViewModel(),
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenProfile: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showExpandedQr by remember { mutableStateOf(false) }
@@ -88,26 +90,27 @@ fun PickupPassScreen(
                     Spacer(Modifier.height(Spacing.md))
                 }
 
-                PassCredential(
-                    uiState = uiState,
-                    onExpandQr = {
-                        if (
-                            uiState.qrBitmap != null &&
-                            uiState.secondsRemaining > 0 &&
-                            !uiState.isLoading
-                        ) {
-                            showExpandedQr = true
+                if (uiState.photoRequired) {
+                    PhotoRequiredPassCard(
+                        onOpenProfile = onOpenProfile
+                    )
+                } else {
+                    PassCredential(
+                        uiState = uiState,
+                        onExpandQr = {
+                            if (
+                                uiState.qrBitmap != null &&
+                                uiState.secondsRemaining > 0 &&
+                                !uiState.isLoading
+                            ) {
+                                showExpandedQr = true
+                            }
                         }
-                    }
-                )
+                    )
 
-                Spacer(Modifier.height(Spacing.md))
-
-                PassStatus(uiState)
-
-                uiState.error?.let {
                     Spacer(Modifier.height(Spacing.md))
-                    ErrorBanner(it)
+
+                    PassStatus(uiState)
                 }
 
                 Spacer(Modifier.height(Spacing.md))
@@ -120,40 +123,51 @@ fun PickupPassScreen(
 
                 Spacer(Modifier.height(Spacing.lg))
 
-                Button(
-                    onClick = { viewModel.generatePass(studentId) },
-                    enabled = !uiState.isLoading,
-                    modifier = Modifier.heightIn(min = 48.dp),
-                    contentPadding = PaddingValues(
-                        horizontal = 20.dp,
-                        vertical = 11.dp
-                    )
-                ) {
-                    if (uiState.isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        Spacer(Modifier.width(Spacing.sm))
-                        Text("Generating…")
-                    } else {
-                        Icon(
-                            Icons.Filled.Refresh,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(Spacing.sm))
-                        Text(
-                            if (
-                                uiState.qrBitmap != null &&
-                                uiState.secondsRemaining <= 0
-                            ) {
-                                "Generate new pass"
+                if (!uiState.photoRequired) {
+                    Button(
+                        onClick = {
+                            if (uiState.error != null) {
+                                viewModel.retry(studentId)
                             } else {
-                                "Regenerate pass"
+                                viewModel.generatePass(studentId)
                             }
+                        },
+                        enabled = !uiState.isLoading,
+                        modifier = Modifier.heightIn(min = 48.dp),
+                        contentPadding = PaddingValues(
+                            horizontal = 20.dp,
+                            vertical = 11.dp
                         )
+                    ) {
+                        if (uiState.isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                            Spacer(Modifier.width(Spacing.sm))
+                            Text("Generating…")
+                        } else {
+                            Icon(
+                                Icons.Filled.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(Spacing.sm))
+                            Text(
+                                when {
+                                    uiState.error != null ->
+                                        "Try again"
+
+                                    uiState.qrBitmap != null &&
+                                        uiState.secondsRemaining <= 0 ->
+                                        "Generate new pass"
+
+                                    else ->
+                                        "Regenerate pass"
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -175,6 +189,118 @@ fun PickupPassScreen(
             uiState = uiState,
             onDismiss = { showExpandedQr = false }
         )
+    }
+
+    uiState.error?.let { message ->
+        FeedbackCard(
+            message = message,
+            title = "Pickup pass unavailable",
+            tone = FeedbackTone.Error,
+            onDismiss = viewModel::clearError
+        )
+    }
+}
+
+@Composable
+private fun PhotoRequiredPassCard(
+    onOpenProfile: () -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor =
+                MaterialTheme.colorScheme.errorContainer
+        ),
+        elevation =
+            CardDefaults.elevatedCardElevation(
+                defaultElevation = 2.dp
+            )
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.lg),
+            horizontalAlignment =
+                Alignment.CenterHorizontally
+        ) {
+            Surface(
+                modifier = Modifier.size(64.dp),
+                shape = CircleShape,
+                color =
+                    MaterialTheme.colorScheme
+                        .surface.copy(alpha = 0.72f)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.Security,
+                        contentDescription = null,
+                        tint =
+                            MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(Spacing.md))
+
+            Text(
+                "Pickup pass locked",
+                style =
+                    MaterialTheme.typography
+                        .headlineSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color =
+                    MaterialTheme.colorScheme
+                        .onErrorContainer,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(Spacing.xs))
+
+            Text(
+                "An accepted verification photo is required before PickupPass can generate a QR. School staff need that photo to visually confirm the guardian at pickup.",
+                style =
+                    MaterialTheme.typography.bodyMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onErrorContainer.copy(
+                            alpha = 0.86f
+                        ),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(Spacing.md))
+
+            Button(
+                onClick = onOpenProfile,
+                modifier = Modifier.heightIn(
+                    min = 48.dp
+                )
+            ) {
+                Icon(
+                    Icons.Filled.VerifiedUser,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(Spacing.sm))
+                Text("Open My Profile")
+            }
+
+            Spacer(Modifier.height(Spacing.sm))
+
+            Text(
+                "In My Profile, choose a clear recent photo of yourself. PickupPass will validate that exactly one clear human face is visible before the photo is accepted.",
+                style =
+                    MaterialTheme.typography.bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onErrorContainer.copy(
+                            alpha = 0.76f
+                        ),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
