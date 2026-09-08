@@ -398,7 +398,8 @@ class SchoolAdminRepository @Inject constructor(
     suspend fun importStudents(
         bytes: ByteArray,
         filename: String,
-        dryRun: Boolean
+        dryRun: Boolean,
+        placementMappings: Map<String, String> = emptyMap()
     ): ApiResult<BulkStudentImportResponse> {
         return try {
             val contentType = when {
@@ -409,7 +410,9 @@ class SchoolAdminRepository @Inject constructor(
             val fileBody = bytes.toRequestBody(contentType)
             val filePart = MultipartBody.Part.createFormData("file", filename, fileBody)
             val dryRunBody = dryRun.toString().toRequestBody("text/plain".toMediaType())
-            val response = api.importStudents(filePart, dryRunBody)
+            val mappingsBody = JSONObject(placementMappings).toString()
+                .toRequestBody("application/json".toMediaType())
+            val response = api.importStudents(filePart, dryRunBody, mappingsBody)
             val body = response.body()
             if (response.isSuccessful && body != null) {
                 ApiResult.Success(body)
