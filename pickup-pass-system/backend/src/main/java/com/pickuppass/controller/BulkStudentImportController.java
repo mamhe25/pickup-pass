@@ -104,7 +104,12 @@ public class BulkStudentImportController {
             return ResponseEntity.badRequest().body(Map.of(
                     "error", "Configure at least one active grade section in the current academic year before importing students"));
         }
-        Map<String, String> placementMappings = parsePlacementMappings(placementMappingsRaw);
+        Map<String, String> placementMappings;
+        try {
+            placementMappings = parsePlacementMappings(placementMappingsRaw);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
         ValidationResult result = validate(rawRows, context, placementMappings);
 
         if (!dryRun && result.invalidRows == 0) {
@@ -241,16 +246,15 @@ public class BulkStudentImportController {
                 continue;
             }
 
+            GradeSectionPlacement effective = Objects.requireNonNull(placement);
             String fullName = NameFormatter.format(lastName, firstName, middleInitial, suffix);
-            String duplicateKey = duplicateKey(studentNumber, fullName, grade, section);
+            String duplicateKey = duplicateKey(
+                    studentNumber, fullName, effective.grade, effective.section);
             if (context.existingStudentKeys.contains(duplicateKey) || !keysSeenInFile.add(duplicateKey)) {
                 result.duplicateRows++;
                 continue;
             }
 
-            GradeSectionPlacement effective = placement != null
-                    ? placement
-                    : new GradeSectionPlacement(grade, section, "", context.currentAcademicYearId, context.currentAcademicYearName);
             ValidStudent student = new ValidStudent(studentNumber, lastName, firstName, middleInitial, suffix,
                     fullName, effective.grade, effective.section, effective.gradeSectionId,
                     effective.academicYearId, effective.academicYearName);
@@ -375,7 +379,7 @@ public class BulkStudentImportController {
 
     private static String duplicateKey(String studentNumber, String fullName, String grade, String section) {
         if (studentNumber != null && !studentNumber.isBlank()) return "id:" + normalize(studentNumber);
-        return "name:" + normalize(fullName) + "|" + normalize(grade) + "|" + normalize(section);
+        return "name:" + normalize(fullName) + "|" + normalizeGrade(grade) + "|" + normalize(section);
     }
 
     private static String sectionKey(String grade, String section) {
