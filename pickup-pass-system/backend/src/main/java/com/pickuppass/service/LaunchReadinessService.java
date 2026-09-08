@@ -6,6 +6,8 @@ import com.google.cloud.firestore.FieldValue;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.SetOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -32,6 +34,8 @@ import java.util.Set;
 @Service
 public class LaunchReadinessService {
 
+    private static final Logger log = LoggerFactory.getLogger(LaunchReadinessService.class);
+
     public static final String DRAFT = "draft";
     public static final String REVIEW_REQUESTED = "review_requested";
     public static final String APPROVED = "approved";
@@ -45,11 +49,14 @@ public class LaunchReadinessService {
 
     private final Firestore firestore;
     private final SubscriptionFeatureService subscriptionFeatureService;
+    private final PushNotificationService pushNotificationService;
 
     public LaunchReadinessService(Firestore firestore,
-                                  SubscriptionFeatureService subscriptionFeatureService) {
+                                  SubscriptionFeatureService subscriptionFeatureService,
+                                  PushNotificationService pushNotificationService) {
         this.firestore = firestore;
         this.subscriptionFeatureService = subscriptionFeatureService;
+        this.pushNotificationService = pushNotificationService;
     }
 
     public Map<String, Object> assess(String schoolId) throws Exception {
@@ -272,6 +279,13 @@ public class LaunchReadinessService {
         if (!Boolean.TRUE.equals(assessment.get("readyForReview"))) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Complete all required launch checks before requesting platform review");
         }
+
+        // Treat repeated requests as idempotent. The original review timestamp
+        // and platform-owner notification should not be duplicated by retries.
+        if (REVIEW_REQUESTED.equals(assessment.get("reviewStatus"))) {
+            return assessment;
+        }
+
         readinessRef(schoolId).set(Map.of(
                 "reviewStatus", REVIEW_REQUESTED,
                 "reviewRequestedAt", FieldValue.serverTimestamp(),
@@ -279,6 +293,10 @@ public class LaunchReadinessService {
                 "updatedAt", FieldValue.serverTimestamp()
         ), SetOptions.merge()).get();
         updateSchoolSummary(schoolId, REVIEW_REQUESTED);
+
+        String schoolName = String.valueOf(assessment.getOrDefault("schoolName", "A school"));
+        notifyPlatformOwnersOfReviewRequest(schoolId, schoolName);
+
         return assess(schoolId);
     }
 
@@ -308,6 +326,38 @@ public class LaunchReadinessService {
         readinessRef(schoolId).set(write, SetOptions.merge()).get();
         updateSchoolSummary(schoolId, DRAFT);
         return assess(schoolId);
+    }
+
+    private void notifyPlatformOwnersOfReviewRequest(String schoolId, String schoolName) {
+        try {
+            List<QueryDocumentSnapshot> owners = firestore.collection("users")
+                    .whereEqualTo("role", "master_admin")
+                    .get().get().getDocuments();
+
+            List<String> recipientUids = owners.stream()
+                    .filter(owner -> !Boolean.FALSE.equals(owner.getBoolean("isActive")))
+                    .map(DocumentSnapshot::getId)
+                    .distinct()
+                    .toList();
+
+            if (recipientUids.isEmpty()) {
+                log.warn("Launch review requested for school {} but no active master_admin recipient exists", schoolId);
+                return;
+            }
+
+            pushNotificationService.notifyUsers(
+                    recipientUids,
+                    schoolId,
+                    "Launch review requested",
+                    schoolName + " completed the required launch checks and is requesting platform-owner approval.",
+                    "launch_review_requested",
+                    null,
+                    schoolName);
+        } catch (Exception e) {
+            // Notification delivery is best effort. A provider/query failure
+            // must never roll back a valid launch-review transition.
+            log.warn("Could not notify platform owners about launch review for school {}: {}", schoolId, e.getMessage());
+        }
     }
 
     private void updateSchoolSummary(String schoolId, String status) throws Exception {
