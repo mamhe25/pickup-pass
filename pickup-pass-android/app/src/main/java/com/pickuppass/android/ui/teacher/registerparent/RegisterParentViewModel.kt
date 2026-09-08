@@ -68,15 +68,15 @@ class RegisterParentViewModel @Inject constructor(
                     val isWarning: Boolean
                     when {
                         result.data.status == "linked_existing" -> {
-                            message = "Primary guardian linked — $parentEmail already had an account."
+                            message = "Primary guardian linked — $parentEmail already had an account. QR pickup remains locked until the guardian has an accepted verification photo in My Profile."
                             isWarning = false
                         }
                         result.data.emailSent -> {
-                            message = "Primary guardian registered. Invite sent to $parentEmail."
+                            message = "Primary guardian registered. Invite sent to $parentEmail. The guardian must complete account setup and upload an accepted verification photo before QR pickup passes can be generated."
                             isWarning = false
                         }
                         else -> {
-                            message = "Primary guardian registered for $parentEmail, but the invite email couldn't be sent — ask them to use \"Forgot password?\" on the sign-in page with this email."
+                            message = "Primary guardian registered for $parentEmail, but the invite email couldn't be sent — ask them to use \"Forgot password?\" on the sign-in page. After signing in, they must upload an accepted verification photo before QR pickup passes can be generated."
                             isWarning = true
                         }
                     }
