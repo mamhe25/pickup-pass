@@ -310,9 +310,10 @@ fun LoginScreen(
                         }
 
                         PrimaryButton(
-                            text = "Sign in securely",
+                            text = "Sign in",
                             onClick = viewModel::signIn,
-                            loading = uiState.isLoading
+                            loading = uiState.isLoading,
+                            modifier = Modifier.widthIn(min = 132.dp)
                         )
                     }
                 }
