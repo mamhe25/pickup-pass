@@ -586,7 +586,7 @@ class SchoolAdminRepository @Inject constructor(
             val response = api.createCampus(CreateCampusRequest(name, address))
             val body = response.body()
             if (response.isSuccessful && body != null) ApiResult.Success(body)
-            else ApiResult.Failure("Could not create campus")
+            else ApiResult.Failure(apiError(response, "Could not create campus"))
         } catch (e: Exception) {
             ApiResult.Failure(e.message ?: "Network error")
         }
@@ -600,7 +600,7 @@ class SchoolAdminRepository @Inject constructor(
             val response = api.setCampusStatus(id, ActiveStatusRequest(active))
             val body = response.body()
             if (response.isSuccessful && body != null) ApiResult.Success(body)
-            else ApiResult.Failure("Could not update campus")
+            else ApiResult.Failure(apiError(response, "Could not update campus"))
         } catch (e: Exception) {
             ApiResult.Failure(e.message ?: "Network error")
         }
@@ -617,7 +617,7 @@ class SchoolAdminRepository @Inject constructor(
             )
             val body = response.body()
             if (response.isSuccessful && body != null) ApiResult.Success(body)
-            else ApiResult.Failure("Could not create pickup gate")
+            else ApiResult.Failure(apiError(response, "Could not create pickup gate"))
         } catch (e: Exception) {
             ApiResult.Failure(e.message ?: "Network error")
         }
@@ -631,7 +631,7 @@ class SchoolAdminRepository @Inject constructor(
             val response = api.setPickupGateStatus(id, ActiveStatusRequest(active))
             val body = response.body()
             if (response.isSuccessful && body != null) ApiResult.Success(body)
-            else ApiResult.Failure("Could not update pickup gate")
+            else ApiResult.Failure(apiError(response, "Could not update pickup gate"))
         } catch (e: Exception) {
             ApiResult.Failure(e.message ?: "Network error")
         }
