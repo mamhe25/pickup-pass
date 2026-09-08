@@ -455,6 +455,14 @@ private fun notificationPresentation(type: String): NotificationPresentation {
                 Icons.Filled.CheckCircle
             )
 
+        "launch_review" in normalized ||
+            "launch" in normalized &&
+                "review" in normalized ->
+            NotificationPresentation(
+                "Launch approval request",
+                Icons.Filled.VerifiedUser
+            )
+
         "guardian" in normalized ||
             "security" in normalized ||
             "verification" in normalized ->
@@ -514,9 +522,9 @@ private fun NotificationEmptyState(unreadOnly: Boolean) {
 
             Text(
                 if (unreadOnly) {
-                    "There are no unread family updates right now."
+                    "There are no unread notifications right now."
                 } else {
-                    "Pickup confirmations and school announcements will appear here."
+                    "PickupPass activity that needs your attention will appear here."
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -568,7 +576,7 @@ private fun NotificationSafetyNote() {
             )
             Spacer(Modifier.width(Spacing.sm))
             Text(
-                "Notification messages are informational. Student release still requires the normal PickupPass verification workflow.",
+                "Notifications surface important activity, but they do not bypass PickupPass authorization. Complete approvals, student release, billing, or other sensitive actions only through their normal protected workflows.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
