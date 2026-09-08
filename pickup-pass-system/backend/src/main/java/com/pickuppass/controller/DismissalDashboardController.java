@@ -106,6 +106,7 @@ public class DismissalDashboardController {
                                 "campusNameSnapshot",
                                 "parentUid",
                                 "verifiedByUid",
+                                "testMode",
                                 "timestamp"
                         )
         );
@@ -116,6 +117,7 @@ public class DismissalDashboardController {
         Map<String, MutableCampusActivity> campusActivity = new LinkedHashMap<>();
         int qrReleaseCount = 0;
         int manualOverrideCount = 0;
+        int prelaunchTestReleaseCount = 0;
 
         // Seed active configured gates so a quiet gate still appears with a zero count.
         List<QueryDocumentSnapshot> activeGateDocs = readPaged(
@@ -136,6 +138,11 @@ public class DismissalDashboardController {
         }
 
         for (QueryDocumentSnapshot doc : releaseDocs) {
+            if (Boolean.TRUE.equals(doc.getBoolean("testMode"))) {
+                prelaunchTestReleaseCount++;
+                continue;
+            }
+
             String studentId = doc.getString("studentId");
             if (studentId != null) releasedStudentIds.add(studentId);
 
@@ -217,6 +224,7 @@ public class DismissalDashboardController {
         body.put("releaseRatePercent", releaseRate);
         body.put("qrReleaseCount", qrReleaseCount);
         body.put("manualOverrideCount", manualOverrideCount);
+        body.put("prelaunchTestReleaseCount", prelaunchTestReleaseCount);
         body.put("gateActivity", gateActivityItems);
         body.put("campusActivity", campusActivityItems);
         body.put("recentReleases", recentReleases);
