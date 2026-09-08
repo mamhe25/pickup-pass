@@ -65,7 +65,7 @@ public class ParentProfileController {
 
         if (file.getSize() > GuardianPhotoValidationService.MAX_UPLOAD_BYTES) {
             return ResponseEntity.badRequest().body(
-                    Map.of("error", "Photo is too large. Choose an image under 1 MB."));
+                    Map.of("error", "Photo is too large. Choose an image under 500 KB."));
         }
 
         String contentType =
@@ -111,9 +111,7 @@ public class ParentProfileController {
         }
 
         String normalizedContentType =
-                "image/png".equals(contentType)
-                        ? "image/png"
-                        : "image/jpeg";
+                validation.mediaType();
         String dataUri =
                 "data:"
                         + normalizedContentType
