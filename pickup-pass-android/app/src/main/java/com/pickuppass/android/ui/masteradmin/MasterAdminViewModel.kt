@@ -15,6 +15,7 @@ import com.pickuppass.android.data.model.LaunchReadinessResponse
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.AuthRepository
 import com.pickuppass.android.data.repository.MasterAdminRepository
+import com.pickuppass.android.data.repository.NotificationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +52,7 @@ data class MasterAdminUiState(
     val launchReadinessLoading: Boolean = false,
     val launchReadinessSchoolId: String? = null,
     val launchReadiness: LaunchReadinessResponse? = null,
+    val unreadNotifications: Int = 0,
     val error: String? = null,
     val message: String? = null
 )
@@ -58,7 +60,8 @@ data class MasterAdminUiState(
 @HiltViewModel
 class MasterAdminViewModel @Inject constructor(
     private val repository: MasterAdminRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val notificationRepository: NotificationRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(MasterAdminUiState())
     val uiState: StateFlow<MasterAdminUiState> = _uiState
@@ -73,6 +76,12 @@ class MasterAdminViewModel @Inject constructor(
         val observabilityResult = repository.getObservabilityOverview()
         val securityResult = repository.getSecurityOverview()
         val disasterRecoveryResult = repository.getDisasterRecoveryOverview()
+        val unreadResult =
+            authRepository.currentUid()
+                ?.let {
+                    notificationRepository.getUnreadCount(it)
+                }
+                ?: Result.success(0)
         when (schoolsResult) {
             is ApiResult.Success -> {
                 val planData = when (plansResult) {
@@ -103,6 +112,10 @@ class MasterAdminViewModel @Inject constructor(
                     },
                     plans = planData?.plans ?: emptyMap(),
                     featureKeys = planData?.featureKeys ?: emptyList(),
+                    unreadNotifications =
+                        unreadResult.getOrDefault(
+                            _uiState.value.unreadNotifications
+                        ),
                     error = when {
                         plansResult is ApiResult.Failure -> plansResult.message
                         operationsResult is ApiResult.Failure -> operationsResult.message
@@ -119,8 +132,29 @@ class MasterAdminViewModel @Inject constructor(
                     is ApiResult.Success -> observabilityResult.data
                     is ApiResult.Failure -> _uiState.value.observability
                 },
+                unreadNotifications =
+                    unreadResult.getOrDefault(
+                        _uiState.value.unreadNotifications
+                    ),
                 error = schoolsResult.message
             )
+        }
+    }
+
+    fun refreshNotificationCount() {
+        viewModelScope.launch {
+            val uid =
+                authRepository.currentUid()
+                    ?: return@launch
+
+            notificationRepository
+                .getUnreadCount(uid)
+                .onSuccess { count ->
+                    _uiState.value =
+                        _uiState.value.copy(
+                            unreadNotifications = count
+                        )
+                }
         }
     }
 
