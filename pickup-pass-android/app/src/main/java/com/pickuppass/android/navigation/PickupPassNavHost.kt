@@ -311,9 +311,24 @@ fun PickupPassNavHost(
                         Screen.AccountProfile.route
                     )
                 },
+                onOpenNotifications = {
+                    navController.navigate(
+                        Screen.MasterAdminNotifications.route
+                    )
+                },
                 onSignedOut = {
                     navController
                         .navigateToLoginClearingBackStack()
+                }
+            )
+        }
+
+        composable(
+            Screen.MasterAdminNotifications.route
+        ) {
+            NotificationsScreen(
+                onBack = {
+                    navController.popBackStack()
                 }
             )
         }
