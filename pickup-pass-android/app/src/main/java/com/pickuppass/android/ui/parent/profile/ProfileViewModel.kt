@@ -19,8 +19,11 @@ data class ProfileUiState(
     val displayName: String = "",
     val email: String = "",
     val photoUrl: String? = null,
+    val photoValidationStatus: String = "missing",
     val error: String? = null,
-    val uploadSuccessMessage: String? = null
+    val errorTitle: String? = null,
+    val uploadSuccessMessage: String? = null,
+    val uploadSuccessTitle: String? = null
 )
 
 @HiltViewModel
@@ -61,13 +64,19 @@ class ProfileViewModel @Inject constructor(
                         displayName = profile?.displayName.orEmpty(),
                         email = profile?.email.orEmpty(),
                         photoUrl = profile?.photoUrl,
-                        error = null
+                        photoValidationStatus =
+                            profile?.photoValidationStatus
+                                .orEmpty()
+                                .ifBlank { "missing" },
+                        error = null,
+                        errorTitle = null
                     )
                 }
                 .onFailure {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = "Couldn't load your profile"
+                        error = "Couldn't load your profile",
+                        errorTitle = "Profile unavailable"
                     )
                 }
         }
@@ -82,7 +91,9 @@ class ProfileViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             isUploading = true,
             error = null,
-            uploadSuccessMessage = null
+            errorTitle = null,
+            uploadSuccessMessage = null,
+            uploadSuccessTitle = null
         )
 
         viewModelScope.launch {
@@ -90,7 +101,8 @@ class ProfileViewModel @Inject constructor(
             if (session == null || session.schoolId == null) {
                 _uiState.value = _uiState.value.copy(
                     isUploading = false,
-                    error = "Session expired — please sign in again"
+                    error = "Session expired — please sign in again",
+                    errorTitle = "Session expired"
                 )
                 return@launch
             }
@@ -101,18 +113,29 @@ class ProfileViewModel @Inject constructor(
                 session.schoolId,
                 uri
             )
-                .onSuccess { url ->
-                    _uiState.value = _uiState.value.copy(
-                        isUploading = false,
-                        photoUrl = url,
-                        uploadSuccessMessage = "Verification photo updated"
-                    )
-                }
-                .onFailure {
-                    _uiState.value = _uiState.value.copy(
-                        isUploading = false,
-                        error = "Upload failed: ${it.message ?: "unknown error"}"
-                    )
+                .let { result ->
+                    when (result) {
+                        is com.pickuppass.android.data.repository.ApiResult.Success -> {
+                            val response = result.data
+                            _uiState.value = _uiState.value.copy(
+                                isUploading = false,
+                                photoUrl = response.photoUrl,
+                                photoValidationStatus = "verified",
+                                uploadSuccessTitle = "Photo verified",
+                                uploadSuccessMessage =
+                                    response.message
+                                        ?: "Your verification photo is ready for school pickup checks."
+                            )
+                        }
+
+                        is com.pickuppass.android.data.repository.ApiResult.Failure -> {
+                            _uiState.value = _uiState.value.copy(
+                                isUploading = false,
+                                errorTitle = "Photo not accepted",
+                                error = result.message
+                            )
+                        }
+                    }
                 }
         }
     }
@@ -120,7 +143,9 @@ class ProfileViewModel @Inject constructor(
     fun clearFeedback() {
         _uiState.value = _uiState.value.copy(
             error = null,
-            uploadSuccessMessage = null
+            errorTitle = null,
+            uploadSuccessMessage = null,
+            uploadSuccessTitle = null
         )
     }
 
