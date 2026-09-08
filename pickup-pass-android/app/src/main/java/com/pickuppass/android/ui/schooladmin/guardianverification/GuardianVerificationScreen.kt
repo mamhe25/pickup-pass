@@ -828,6 +828,8 @@ private fun GuardianReviewCard(
                 StudentLinksSummary(guardian.studentNames)
             }
 
+            GuardianPhotoValidationContext(guardian)
+
             when {
                 isPending -> {
                     ReviewContext(
@@ -1418,6 +1420,94 @@ private fun VerifiedContext(
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuardianPhotoValidationContext(
+    guardian: GuardianVerificationItem
+) {
+    val scheme = MaterialTheme.colorScheme
+    val verified =
+        !guardian.photoUrl.isNullOrBlank() &&
+            guardian.photoValidationStatus.equals(
+                "verified",
+                ignoreCase = true
+            )
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color =
+            if (verified) {
+                successAccent().copy(alpha = 0.10f)
+            } else {
+                scheme.errorContainer.copy(alpha = 0.55f)
+            },
+        border = BorderStroke(
+            1.dp,
+            if (verified) {
+                successAccent().copy(alpha = 0.22f)
+            } else {
+                scheme.error.copy(alpha = 0.18f)
+            }
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                imageVector =
+                    if (verified) {
+                        Icons.Filled.CheckCircle
+                    } else {
+                        Icons.Filled.PhotoCamera
+                    },
+                contentDescription = null,
+                tint =
+                    if (verified) {
+                        successAccent()
+                    } else {
+                        scheme.error
+                    },
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text =
+                        if (verified) {
+                            "Verification photo validated"
+                        } else {
+                            "Verification photo required"
+                        },
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color =
+                        if (verified) {
+                            scheme.onSurface
+                        } else {
+                            scheme.onErrorContainer
+                        }
+                )
+                Text(
+                    text =
+                        if (verified) {
+                            "PickupPass accepted this guardian's photo for staff-side visual identity checks."
+                        } else {
+                            "QR pickup pass generation is blocked until the guardian uploads an accepted photo in My Profile."
+                        },
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        if (verified) {
+                            scheme.onSurfaceVariant
+                        } else {
+                            scheme.onErrorContainer.copy(alpha = 0.86f)
+                        }
                 )
             }
         }
