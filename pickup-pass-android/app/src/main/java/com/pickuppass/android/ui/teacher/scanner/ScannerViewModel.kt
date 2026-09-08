@@ -161,7 +161,14 @@ class ScannerViewModel @Inject constructor(
                                 student = student,
                                 guardian = guardian,
                                 qrToken = qrToken,
-                                guardianPhotoReady = isGuardianPhotoUsable(guardian.photoUrl),
+                                guardianPhotoReady =
+                                    guardian.photoValidationStatus.equals(
+                                        "verified",
+                                        ignoreCase = true
+                                    ) &&
+                                        isGuardianPhotoUsable(
+                                            guardian.photoUrl
+                                        ),
                                 testMode = result.data.testMode,
                                 operationalMode = result.data.operationalMode
                             )
@@ -183,9 +190,8 @@ class ScannerViewModel @Inject constructor(
 
         if (!current.guardianPhotoReady) {
             _uiState.value = ScannerUiState.Error(
-                "Guardian identity photo is unavailable or could not be decoded. " +
-                    "Do not approve a QR release. Use the school's manual " +
-                    "identity-verification process instead."
+                "Guardian verification photo is unavailable, unvalidated, or could not be decoded. " +
+                    "Do not approve this QR release. Ask the guardian to update My Profile and generate a fresh pass."
             )
             return
         }
@@ -223,10 +229,10 @@ class ScannerViewModel @Inject constructor(
     }
 
     /**
-     * Parent profile photos are intentionally stored as data:image/...;base64
-     * URIs in Firestore. Coil 2.x does not natively render that shape, so the
-     * scanner validates data URIs up front and the UI renders them through
-     * SmartImage. Non-data URLs are still accepted for forward compatibility.
+     * The server validates the guardian photo before QR issuance. The scanner
+     * still verifies that the stored image can be decoded before presenting it
+     * to staff, providing a second fail-closed check if profile data becomes
+     * malformed.
      */
     private fun isGuardianPhotoUsable(photoUrl: String?): Boolean {
         if (photoUrl.isNullOrBlank()) return false
