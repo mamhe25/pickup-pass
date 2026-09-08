@@ -18,7 +18,8 @@ data class GuardianVerificationUiState(
     val busyUid: String? = null,
     val policyBusy: Boolean = false,
     val error: String? = null,
-    val message: String? = null
+    val message: String? = null,
+    val messageTitle: String? = null
 )
 
 @HiltViewModel
@@ -44,12 +45,22 @@ class GuardianVerificationViewModel @Inject constructor(
 
     fun setPolicy(required: Boolean) = viewModelScope.launch {
         if (_uiState.value.policyBusy) return@launch
-        _uiState.value = _uiState.value.copy(policyBusy = true, error = null, message = null)
+        _uiState.value = _uiState.value.copy(
+            policyBusy = true,
+            error = null,
+            message = null,
+            messageTitle = null
+        )
         when (val result = repository.updateGuardianVerificationPolicy(required)) {
             is ApiResult.Success -> _uiState.value = _uiState.value.copy(
                 policyBusy = false,
                 verificationRequired = required,
-                message = if (required) "Guardian verification is now required for pickup" else "Guardian verification requirement disabled"
+                messageTitle = if (required) "Verification required" else "Verification optional",
+                message = if (required) {
+                    "New guardians must now pass school verification before they can authorize pickup."
+                } else {
+                    "New guardians no longer require a separate school verification step before pickup authorization."
+                }
             )
             is ApiResult.Failure -> _uiState.value = _uiState.value.copy(policyBusy = false, error = result.message)
         }
@@ -57,17 +68,48 @@ class GuardianVerificationViewModel @Inject constructor(
 
     fun updateStatus(guardian: GuardianVerificationItem, status: String, reason: String) = viewModelScope.launch {
         if (_uiState.value.busyUid != null) return@launch
-        _uiState.value = _uiState.value.copy(busyUid = guardian.uid, error = null, message = null)
+        _uiState.value = _uiState.value.copy(
+            busyUid = guardian.uid,
+            error = null,
+            message = null,
+            messageTitle = null
+        )
         when (val result = repository.updateGuardianVerificationStatus(guardian.uid, status, reason)) {
             is ApiResult.Success -> {
                 val suffix = if (result.data.invalidatedTokens > 0) " · ${result.data.invalidatedTokens} active QR pass(es) invalidated" else ""
                 _uiState.value = _uiState.value.copy(
                     busyUid = null,
-                    guardians = _uiState.value.guardians.map { if (it.uid == guardian.uid) it.copy(status = status, verificationReason = reason) else it },
-                    message = "${guardian.displayName} marked ${status.replaceFirstChar { it.uppercase() }}$suffix"
+                    guardians = _uiState.value.guardians.map {
+                        if (it.uid == guardian.uid) {
+                            it.copy(
+                                status = status,
+                                verificationReason = reason
+                            )
+                        } else {
+                            it
+                        }
+                    },
+                    messageTitle = if (status.equals("verified", ignoreCase = true)) {
+                        "Guardian verified"
+                    } else {
+                        "Pickup access suspended"
+                    },
+                    message = if (status.equals("verified", ignoreCase = true)) {
+                        "${guardian.displayName} can now authorize pickup.$suffix"
+                    } else {
+                        "${guardian.displayName} can no longer authorize pickup.$suffix"
+                    }
                 )
             }
             is ApiResult.Failure -> _uiState.value = _uiState.value.copy(busyUid = null, error = result.message)
         }
+    }
+
+    fun clearFeedback() {
+        _uiState.value = _uiState.value.copy(
+            error = null,
+            message = null,
+            messageTitle = null
+        )
     }
 }
