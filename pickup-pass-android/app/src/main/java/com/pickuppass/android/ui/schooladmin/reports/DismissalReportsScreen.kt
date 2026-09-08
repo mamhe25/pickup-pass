@@ -18,10 +18,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pickuppass.android.ui.common.ErrorBanner
-import com.pickuppass.android.ui.theme.Spacing
+import com.pickuppass.android.ui.common.FeedbackCard
+import com.pickuppass.android.ui.common.FeedbackTone
+import com.pickuppass.android.ui.common.PremiumHeroCard
+import com.pickuppass.android.ui.common.PremiumSectionHeader
 import com.pickuppass.android.ui.common.PremiumTopAppBar
+import com.pickuppass.android.ui.theme.Spacing
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,6 +37,8 @@ fun DismissalReportsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var pendingBytes by remember { mutableStateOf<ByteArray?>(null) }
+    var showFromPicker by remember { mutableStateOf(false) }
+    var showToPicker by remember { mutableStateOf(false) }
 
     val saveCsv = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv")
@@ -39,7 +46,19 @@ fun DismissalReportsScreen(
         val bytes = pendingBytes
         if (uri != null && bytes != null) {
             try {
-                context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                val saved = context.contentResolver.openOutputStream(uri)?.use {
+                    it.write(bytes)
+                    true
+                } ?: false
+
+                if (saved) {
+                    viewModel.setSuccess(
+                        title = "Report exported",
+                        message = "The dismissal CSV was saved successfully to the selected location."
+                    )
+                } else {
+                    viewModel.setError("Could not open the selected location to save the CSV file.")
+                }
             } catch (_: Exception) {
                 viewModel.setError("Could not save the CSV file.")
             }
@@ -64,36 +83,43 @@ fun DismissalReportsScreen(
             )
         }
     ) { padding ->
-        BoxWithConstraints(Modifier.padding(padding).fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+        ) {
             LazyColumn(
-                modifier = Modifier.fillMaxHeight().widthIn(max = 860.dp).align(Alignment.TopCenter)
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = 860.dp)
+                    .align(Alignment.TopCenter)
                     .imePadding(),
                 contentPadding = PaddingValues(Spacing.md),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 item {
-                    Surface(
-                        shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .38f)
-                    ) {
-                        Column(Modifier.padding(Spacing.md)) {
-                            Text("Tenant-isolated reporting", fontWeight = FontWeight.Bold)
-                            Text(
-                                "Review completed pickups and export records for the selected date range and optional grade/section scope.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    PremiumHeroCard(
+                        eyebrow = "School operations",
+                        title = "Dismissal intelligence",
+                        message = "Review completed student releases, spot daily activity patterns, and export tenant-isolated records for school operations."
+                    )
                 }
 
                 item {
                     ElevatedCard(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                            Text("Report filters", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Column(
+                            Modifier.padding(Spacing.md),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+                        ) {
+                            PremiumSectionHeader(
+                                title = "Report filters",
+                                subtitle = "Choose a date range, then optionally narrow results by grade or section."
+                            )
 
                             Row(
-                                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
                             ) {
                                 SuggestionChip(
@@ -122,109 +148,211 @@ fun DismissalReportsScreen(
                                 )
                             }
 
-                            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
-                                OutlinedTextField(
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                DateFilterButton(
+                                    label = "From",
                                     value = state.from,
-                                    onValueChange = viewModel::setFrom,
-                                    label = { Text("From") },
-                                    supportingText = { Text("YYYY-MM-DD") },
-                                    singleLine = true,
-                                    modifier = Modifier.weight(1f)
+                                    enabled = !state.isLoading && !state.isExporting,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { showFromPicker = true }
                                 )
-                                OutlinedTextField(
+                                DateFilterButton(
+                                    label = "To",
                                     value = state.to,
-                                    onValueChange = viewModel::setTo,
-                                    label = { Text("To") },
-                                    supportingText = { Text("YYYY-MM-DD") },
-                                    singleLine = true,
-                                    modifier = Modifier.weight(1f)
+                                    enabled = !state.isLoading && !state.isExporting,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { showToPicker = true }
                                 )
                             }
 
-                            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
                                 OutlinedTextField(
                                     value = state.grade,
                                     onValueChange = viewModel::setGrade,
-                                    label = { Text("Grade") },
-                                    placeholder = { Text("Optional") },
+                                    label = { Text("Grade filter") },
+                                    placeholder = { Text("All grades") },
+                                    supportingText = { Text("Optional") },
                                     singleLine = true,
+                                    enabled = !state.isLoading && !state.isExporting,
                                     modifier = Modifier.weight(1f)
                                 )
                                 OutlinedTextField(
                                     value = state.section,
                                     onValueChange = viewModel::setSection,
-                                    label = { Text("Section") },
-                                    placeholder = { Text("Optional") },
+                                    label = { Text("Section filter") },
+                                    placeholder = { Text("All sections") },
+                                    supportingText = { Text("Optional") },
                                     singleLine = true,
+                                    enabled = !state.isLoading && !state.isExporting,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
 
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            HorizontalDivider()
+
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 OutlinedButton(
                                     onClick = viewModel::exportCsv,
-                                    enabled = !state.isExporting && !state.isLoading
+                                    enabled = !state.isExporting &&
+                                        !state.isLoading &&
+                                        state.summary != null
                                 ) {
-                                    if (state.isExporting) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                                    else Icon(Icons.Filled.Download, null, modifier = Modifier.size(18.dp))
+                                    if (state.isExporting) {
+                                        CircularProgressIndicator(
+                                            Modifier.size(18.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Filled.Download,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                     Spacer(Modifier.width(Spacing.xs))
-                                    Text("Export CSV")
+                                    Text(if (state.isExporting) "Preparing…" else "Export CSV")
                                 }
+
                                 Spacer(Modifier.width(Spacing.sm))
+
                                 Button(
                                     onClick = viewModel::load,
                                     enabled = !state.isLoading && !state.isExporting
                                 ) {
-                                    if (state.isLoading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                                    else Icon(Icons.Filled.Refresh, null, modifier = Modifier.size(18.dp))
+                                    if (state.isLoading) {
+                                        CircularProgressIndicator(
+                                            Modifier.size(18.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Filled.Refresh,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                     Spacer(Modifier.width(Spacing.xs))
-                                    Text("Run report")
+                                    Text(if (state.isLoading) "Running…" else "Run report")
                                 }
                             }
                         }
                     }
                 }
 
-                state.error?.let { item { ErrorBanner(it) } }
+                if (state.isLoading && state.summary == null) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(Spacing.xl),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                }
 
                 state.summary?.let { report ->
                     item {
-                        Column {
-                            Text("Summary", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text(
-                                "${report.from} to ${report.to} · ${report.timeZone}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        PremiumSectionHeader(
+                            title = "Report summary",
+                            subtitle = report.from + " to " + report.to + " · " + report.timeZone
+                        )
+                    }
+
+                    item {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                        ) {
+                            ReportCard(
+                                "Releases",
+                                report.totalReleases.toString(),
+                                Modifier.weight(1f)
+                            )
+                            ReportCard(
+                                "Students",
+                                report.uniqueStudentsReleased.toString(),
+                                Modifier.weight(1f)
                             )
                         }
                     }
 
                     item {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                            ReportCard("Releases", report.totalReleases.toString(), Modifier.weight(1f))
-                            ReportCard("Students", report.uniqueStudentsReleased.toString(), Modifier.weight(1f))
-                        }
-                    }
-                    item {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                            ReportCard("QR", report.qrReleases.toString(), Modifier.weight(1f))
-                            ReportCard("Overrides", report.manualOverrides.toString(), Modifier.weight(1f))
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                        ) {
+                            ReportCard(
+                                "QR verified",
+                                report.qrReleases.toString(),
+                                Modifier.weight(1f)
+                            )
+                            ReportCard(
+                                "Manual overrides",
+                                report.manualOverrides.toString(),
+                                Modifier.weight(1f)
+                            )
                         }
                     }
 
                     item {
                         ElevatedCard(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                                Text("Daily totals", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Column(
+                                Modifier.padding(Spacing.md),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                            ) {
+                                PremiumSectionHeader(
+                                    title = "Daily release activity",
+                                    subtitle = "Relative release volume across the selected range."
+                                )
+
                                 if (report.dailyCounts.isEmpty()) {
-                                    Text("No releases in this range.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Surface(
+                                        shape = MaterialTheme.shapes.medium,
+                                        color = MaterialTheme.colorScheme.surfaceVariant
+                                    ) {
+                                        Text(
+                                            "No completed releases were recorded for this range.",
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(Spacing.md),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 } else {
-                                    val max = report.dailyCounts.values.maxOrNull()?.coerceAtLeast(1) ?: 1
+                                    val max = report.dailyCounts.values
+                                        .maxOrNull()
+                                        ?.coerceAtLeast(1)
+                                        ?: 1
+
                                     report.dailyCounts.forEach { (date, count) ->
-                                        Column {
-                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                Text(date)
-                                                Text(count.toString(), fontWeight = FontWeight.Bold)
+                                        Column(
+                                            verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+                                        ) {
+                                            Row(
+                                                Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    date,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Text(
+                                                    count.toString(),
+                                                    fontWeight = FontWeight.Bold
+                                                )
                                             }
                                             LinearProgressIndicator(
                                                 progress = { count.toFloat() / max.toFloat() },
@@ -240,15 +368,41 @@ fun DismissalReportsScreen(
                     if (report.gradeSectionCounts.isNotEmpty()) {
                         item {
                             OutlinedCard(Modifier.fillMaxWidth()) {
-                                Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                                    Text("Grade / section distribution", fontWeight = FontWeight.Bold)
+                                Column(
+                                    Modifier.padding(Spacing.md),
+                                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                                ) {
+                                    PremiumSectionHeader(
+                                        title = "Grade & section distribution",
+                                        subtitle = "Highest-volume groups in the selected report."
+                                    )
+
                                     report.gradeSectionCounts.entries
                                         .sortedByDescending { it.value }
                                         .take(12)
-                                        .forEach { (label, count) ->
-                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                Text(label)
-                                                Text(count.toString(), fontWeight = FontWeight.SemiBold)
+                                        .forEachIndexed { index, (label, count) ->
+                                            if (index > 0) {
+                                                HorizontalDivider(
+                                                    color = MaterialTheme.colorScheme.outlineVariant
+                                                )
+                                            }
+                                            Row(
+                                                Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = Spacing.xs),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    label,
+                                                    modifier = Modifier.weight(1f),
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                                Spacer(Modifier.width(Spacing.sm))
+                                                Text(
+                                                    count.toString(),
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
                                             }
                                         }
                                 }
@@ -259,14 +413,152 @@ fun DismissalReportsScreen(
             }
         }
     }
+
+    if (showFromPicker) {
+        ReportDatePicker(
+            selectedDate = state.from,
+            onDismiss = { showFromPicker = false },
+            onSelected = viewModel::setFrom
+        )
+    }
+
+    if (showToPicker) {
+        ReportDatePicker(
+            selectedDate = state.to,
+            onDismiss = { showToPicker = false },
+            onSelected = viewModel::setTo
+        )
+    }
+
+    state.error?.let { message ->
+        FeedbackCard(
+            message = message,
+            tone = FeedbackTone.Error,
+            title = "Report action not completed",
+            onDismiss = viewModel::clearFeedback
+        )
+    }
+
+    state.success?.let { message ->
+        FeedbackCard(
+            message = message,
+            tone = FeedbackTone.Success,
+            title = state.successTitle ?: "Action completed",
+            onDismiss = viewModel::clearFeedback
+        )
+    }
 }
 
 @Composable
-private fun ReportCard(label: String, value: String, modifier: Modifier = Modifier) {
-    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceVariant, modifier = modifier) {
-        Column(Modifier.fillMaxWidth().padding(Spacing.md)) {
-            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
-            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun DateFilterButton(
+    label: String,
+    value: String,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.heightIn(min = 64.dp),
+        contentPadding = PaddingValues(
+            horizontal = Spacing.md,
+            vertical = Spacing.sm
+        )
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text(
+                label.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReportDatePicker(
+    selectedDate: String,
+    onDismiss: () -> Unit,
+    onSelected: (String) -> Unit
+) {
+    val initialSelectedDateMillis = remember(selectedDate) {
+        runCatching {
+            LocalDate.parse(selectedDate)
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli()
+        }.getOrNull()
+    }
+    val pickerState = rememberDatePickerState(
+        initialSelectedDateMillis = initialSelectedDateMillis
+    )
+
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    pickerState.selectedDateMillis?.let { millis ->
+                        val selected = Instant
+                            .ofEpochMilli(millis)
+                            .atZone(ZoneOffset.UTC)
+                            .toLocalDate()
+                            .toString()
+                        onSelected(selected)
+                    }
+                    onDismiss()
+                },
+                enabled = pickerState.selectedDateMillis != null
+            ) {
+                Text("Apply")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    ) {
+        DatePicker(state = pickerState)
+    }
+}
+
+@Composable
+private fun ReportCard(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = modifier
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(Spacing.md)
+        ) {
+            Text(
+                value,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
