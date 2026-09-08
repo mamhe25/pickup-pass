@@ -41,10 +41,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
-@OptIn(
-    ExperimentalMaterial3Api::class,
-    ExperimentalLayoutApi::class
-)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SchoolBillingScreen(
     onBack: () -> Unit,
@@ -678,11 +675,7 @@ private fun SubscriptionOverviewCard(
                     color = scheme.primary
                 )
 
-                FlowRow(
-                    horizontalArrangement =
-                        Arrangement.spacedBy(
-                            Spacing.xs
-                        ),
+                Column(
                     verticalArrangement =
                         Arrangement.spacedBy(
                             Spacing.xs
@@ -694,13 +687,35 @@ private fun SubscriptionOverviewCard(
                             it.key
                         }
                         .take(8)
-                        .forEach {
-                            FeatureChip(
-                                name =
-                                    it.key.pretty(),
-                                enabled =
-                                    it.value
-                            )
+                        .chunked(2)
+                        .forEach { rowItems ->
+                            Row(
+                                modifier =
+                                    Modifier.fillMaxWidth(),
+                                horizontalArrangement =
+                                    Arrangement.spacedBy(
+                                        Spacing.xs
+                                    )
+                            ) {
+                                rowItems.forEach {
+                                    FeatureChip(
+                                        name =
+                                            it.key.pretty(),
+                                        enabled =
+                                            it.value,
+                                        modifier =
+                                            Modifier.weight(1f)
+                                    )
+                                }
+
+                                if (
+                                    rowItems.size == 1
+                                ) {
+                                    Spacer(
+                                        Modifier.weight(1f)
+                                    )
+                                }
+                            }
                         }
                 }
             }
@@ -720,11 +735,7 @@ private fun SubscriptionOverviewCard(
                     color = scheme.primary
                 )
 
-                FlowRow(
-                    horizontalArrangement =
-                        Arrangement.spacedBy(
-                            Spacing.xs
-                        ),
+                Column(
                     verticalArrangement =
                         Arrangement.spacedBy(
                             Spacing.xs
@@ -736,13 +747,35 @@ private fun SubscriptionOverviewCard(
                             it.key
                         }
                         .take(8)
-                        .forEach {
-                            LimitChip(
-                                name =
-                                    it.key.pretty(),
-                                value =
-                                    it.value
-                            )
+                        .chunked(2)
+                        .forEach { rowItems ->
+                            Row(
+                                modifier =
+                                    Modifier.fillMaxWidth(),
+                                horizontalArrangement =
+                                    Arrangement.spacedBy(
+                                        Spacing.xs
+                                    )
+                            ) {
+                                rowItems.forEach {
+                                    LimitChip(
+                                        name =
+                                            it.key.pretty(),
+                                        value =
+                                            it.value,
+                                        modifier =
+                                            Modifier.weight(1f)
+                                    )
+                                }
+
+                                if (
+                                    rowItems.size == 1
+                                ) {
+                                    Spacer(
+                                        Modifier.weight(1f)
+                                    )
+                                }
+                            }
                         }
                 }
             }
@@ -838,11 +871,13 @@ private fun SubscriptionDetail(
 @Composable
 private fun FeatureChip(
     name: String,
-    enabled: Boolean
+    enabled: Boolean,
+    modifier: Modifier = Modifier
 ) {
     val scheme = MaterialTheme.colorScheme
 
     Surface(
+        modifier = modifier,
         shape = MaterialTheme.shapes.small,
         color =
             if (enabled) {
@@ -879,9 +914,11 @@ private fun FeatureChip(
 @Composable
 private fun LimitChip(
     name: String,
-    value: Int
+    value: Int,
+    modifier: Modifier = Modifier
 ) {
     Surface(
+        modifier = modifier,
         shape = MaterialTheme.shapes.small,
         color =
             MaterialTheme.colorScheme
