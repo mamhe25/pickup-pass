@@ -53,8 +53,7 @@ fun BulkStudentImportScreen(
     }
 
     val preview = state.preview
-    val importCompleted =
-        preview?.importedRows?.let { it > 0 } == true
+    val importCompleted = state.importFinished
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -94,7 +93,7 @@ fun BulkStudentImportScreen(
                         eyebrow = "Roster onboarding",
                         title = "Import students safely",
                         message = "PickupPass validates the entire roster first. No student record is written until the dry run is clean and you explicitly confirm the import.",
-                        icon = Icons.Filled.GroupAdd
+                        icon = Icons.Filled.UploadFile
                     )
                 }
 
@@ -452,7 +451,6 @@ fun BulkStudentImportScreen(
                 }
 
                 if (
-                    state.error != null &&
                     state.filename.isNotBlank() &&
                     preview == null &&
                     !state.isWorking
@@ -529,7 +527,7 @@ fun BulkStudentImportScreen(
                 buildImportConfirmationMessage(result),
             confirmLabel = "Import students",
             destructive = false,
-            icon = Icons.Filled.GroupAdd,
+            icon = Icons.Filled.UploadFile,
             onDismiss = {
                 if (!state.isWorking) {
                     confirmImport = false
@@ -1082,25 +1080,17 @@ private fun StudentPreviewCard(
     }
 }
 
-@Composable
-private fun BroadcastEmptyState() {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "No data",
-            textAlign = TextAlign.Center
-        )
-    }
-}
-
 private fun validationSubtitle(
     result: com.pickuppass.android.data.model.BulkStudentImportResponse
 ): String {
     return when {
-        result.importedRows > 0 ->
+        !result.dryRun && result.importedRows > 0 ->
             "The confirmed roster was written successfully."
+
+        !result.dryRun &&
+            result.importedRows == 0 &&
+            result.duplicateRows > 0 ->
+            "The final validation found no new students to write."
 
         result.invalidRows > 0 ->
             "Resolve the validation issues before importing."
