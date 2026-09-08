@@ -302,6 +302,11 @@ public class LaunchReadinessService {
 
     public Map<String, Object> approve(String schoolId, String actorUid, String note) throws Exception {
         Map<String, Object> assessment = assess(schoolId);
+        if (!REVIEW_REQUESTED.equals(assessment.get("reviewStatus"))) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The school must request platform launch review before it can be approved");
+        }
         if (!Boolean.TRUE.equals(assessment.get("readyForReview"))) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This school still has required launch blockers");
         }
