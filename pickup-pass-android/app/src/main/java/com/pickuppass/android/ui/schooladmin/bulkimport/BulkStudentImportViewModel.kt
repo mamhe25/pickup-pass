@@ -21,6 +21,7 @@ data class BulkStudentImportUiState(
     val filename: String = "",
     val isWorking: Boolean = false,
     val workingMessage: String = "",
+    val importFinished: Boolean = false,
     val preview: BulkStudentImportResponse? = null,
     val error: String? = null,
     val errorTitle: String? = null,
@@ -151,19 +152,72 @@ class BulkStudentImportViewModel @Inject constructor(
                 is ApiResult.Success -> {
                     val body = result.data
 
-                    selectedBytes = null
-                    selectedFilename = ""
+                    when {
+                        body.invalidRows > 0 -> {
+                            _uiState.value =
+                                _uiState.value.copy(
+                                    isWorking = false,
+                                    workingMessage = "",
+                                    importFinished = false,
+                                    preview = body,
+                                    errorTitle =
+                                        "Final validation blocked import",
+                                    error =
+                                        "No students were written because the roster no longer passes validation. Review the updated row errors, correct the file, and upload it again."
+                                )
+                        }
 
-                    _uiState.value =
-                        _uiState.value.copy(
-                            isWorking = false,
-                            workingMessage = "",
-                            preview = body,
-                            successTitle =
-                                "Student import completed",
-                            success =
-                                buildImportSuccessMessage(body)
-                        )
+                        body.importedRows > 0 -> {
+                            selectedBytes = null
+                            selectedFilename = ""
+
+                            _uiState.value =
+                                _uiState.value.copy(
+                                    isWorking = false,
+                                    workingMessage = "",
+                                    importFinished = true,
+                                    preview = body,
+                                    successTitle =
+                                        "Student import completed",
+                                    success =
+                                        buildImportSuccessMessage(
+                                            body
+                                        )
+                                )
+                        }
+
+                        body.validRows == 0 &&
+                            body.duplicateRows > 0 -> {
+                            selectedBytes = null
+                            selectedFilename = ""
+
+                            _uiState.value =
+                                _uiState.value.copy(
+                                    isWorking = false,
+                                    workingMessage = "",
+                                    importFinished = true,
+                                    preview = body,
+                                    successTitle =
+                                        "No new students to import",
+                                    success =
+                                        "The roster was revalidated, but every valid row is now a duplicate. No new student records were created."
+                                )
+                        }
+
+                        else -> {
+                            _uiState.value =
+                                _uiState.value.copy(
+                                    isWorking = false,
+                                    workingMessage = "",
+                                    importFinished = false,
+                                    preview = body,
+                                    errorTitle =
+                                        "Import result could not be confirmed",
+                                    error =
+                                        "PickupPass did not receive a confirmed student write. No success was reported; review the roster and try validation again."
+                                )
+                        }
+                    }
                 }
 
                 is ApiResult.Failure -> {
