@@ -38,6 +38,7 @@ data class PickupPassUiState(
     val pickupPolicyText: String = "Any currently valid QR can be presented for pickup.",
     val guardianPhotoChecked: Boolean = false,
     val guardianPhotoReady: Boolean = false,
+    val photoRequired: Boolean = false,
     val testMode: Boolean = false,
     val operationalMode: String = "production",
     val error: String? = null
@@ -114,8 +115,9 @@ class PickupPassViewModel @Inject constructor(
             _uiState.value =
                 _uiState.value.copy(
                     isLoading = false,
-                    guardianPhotoChecked = true,
+                    guardianPhotoChecked = false,
                     guardianPhotoReady = false,
+                    photoRequired = false,
                     error = "Your session could not be verified. Sign in again before generating a pickup pass."
                 )
             return false
@@ -137,6 +139,7 @@ class PickupPassViewModel @Inject constructor(
                         _uiState.value.copy(
                             guardianPhotoChecked = true,
                             guardianPhotoReady = ready,
+                            photoRequired = !ready,
                             error = null
                         )
                     ready
@@ -145,8 +148,9 @@ class PickupPassViewModel @Inject constructor(
                     _uiState.value =
                         _uiState.value.copy(
                             isLoading = false,
-                            guardianPhotoChecked = true,
+                            guardianPhotoChecked = false,
                             guardianPhotoReady = false,
+                            photoRequired = false,
                             error = "PickupPass couldn't verify your photo eligibility. Check your connection and try again."
                         )
                     false
@@ -197,8 +201,7 @@ class PickupPassViewModel @Inject constructor(
     fun generatePass(studentId: String) {
         if (studentId.isBlank() || generationInProgress) return
         if (
-            _uiState.value.guardianPhotoChecked &&
-            !_uiState.value.guardianPhotoReady
+            _uiState.value.photoRequired
         ) {
             _uiState.value =
                 _uiState.value.copy(
@@ -282,6 +285,20 @@ class PickupPassViewModel @Inject constructor(
                 generationInProgress = false
             }
         }
+    }
+
+    fun retry(studentId: String) {
+        if (generationInProgress) return
+        loadedStudentId = null
+        _uiState.value =
+            _uiState.value.copy(
+                isLoading = true,
+                guardianPhotoChecked = false,
+                guardianPhotoReady = false,
+                photoRequired = false,
+                error = null
+            )
+        initialize(studentId)
     }
 
     fun clearError() {
