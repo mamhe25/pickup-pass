@@ -22,6 +22,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pickuppass.android.data.model.BulkPlacementIssue
+import com.pickuppass.android.data.model.GradeSection
 import com.pickuppass.android.ui.common.FeedbackCard
 import com.pickuppass.android.ui.common.FeedbackTone
 import com.pickuppass.android.ui.common.PremiumConfirmDialog
@@ -47,6 +49,31 @@ fun BulkStudentImportScreen(
     ) { uri ->
         uri?.let {
             viewModel.selectFile(context, it)
+        }
+    }
+
+    val templateSaver = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver
+                    .openOutputStream(uri)
+                    ?.use { output ->
+                        output.write(
+                            viewModel
+                                .buildTemplateCsv()
+                                .toByteArray(Charsets.UTF_8)
+                        )
+                    }
+                    ?: error("Could not open the selected save location")
+            }.onSuccess {
+                viewModel.templateSaved()
+            }.onFailure {
+                viewModel.templateSaveFailed(
+                    it.message ?: "Could not save roster template"
+                )
+            }
         }
     }
 
@@ -105,6 +132,23 @@ fun BulkStudentImportScreen(
                     )
                 }
 
+                item(key = "academic-structure") {
+                    AcademicStructureSourceCard(
+                        loading = state.structureLoading,
+                        currentYearName =
+                            state.currentAcademicYearName,
+                        sections = state.activeSections,
+                        enabled = !state.isWorking,
+                        onRefresh =
+                            viewModel::loadAcademicStructure,
+                        onDownloadTemplate = {
+                            templateSaver.launch(
+                                viewModel.templateFilename()
+                            )
+                        }
+                    )
+                }
+
                 item(key = "format") {
                     RosterFormatCard()
                 }
@@ -113,6 +157,12 @@ fun BulkStudentImportScreen(
                     SelectedRosterCard(
                         filename = state.filename,
                         working = state.isWorking,
+                        structureReady =
+                            !state.structureLoading &&
+                                state.currentAcademicYearName
+                                    .isNotBlank() &&
+                                state.activeSections
+                                    .isNotEmpty(),
                         importCompleted = importCompleted,
                         onChoose = {
                             viewModel.clearFeedback()
@@ -220,7 +270,102 @@ fun BulkStudentImportScreen(
 
                     if (
                         !importCompleted &&
-                        result.invalidRows > 0
+                        result.placementIssues.isNotEmpty()
+                    ) {
+                        item(key = "mapping-header") {
+                            PremiumSectionHeader(
+                                title = "Map roster placements",
+                                subtitle =
+                                    "These Grade → Section values could not be matched safely. Common formatting differences such as 7 vs Grade 7 are normalized automatically; only unresolved values appear here."
+                            )
+                        }
+
+                        items(
+                            items = result.placementIssues,
+                            key = { "mapping-" + it.key }
+                        ) { issue ->
+                            PlacementMappingCard(
+                                issue = issue,
+                                sections =
+                                    state.activeSections,
+                                selectedGradeSectionId =
+                                    state.placementMappings[
+                                        issue.key
+                                    ],
+                                enabled = !state.isWorking,
+                                onSelect = {
+                                    gradeSectionId ->
+                                    viewModel
+                                        .setPlacementMapping(
+                                            issue.key,
+                                            gradeSectionId
+                                        )
+                                }
+                            )
+                        }
+
+                        item(key = "mapping-action") {
+                            val mappingsComplete =
+                                result.placementIssues.all {
+                                    !state.placementMappings[
+                                        it.key
+                                    ].isNullOrBlank()
+                                }
+
+                            Row(
+                                modifier =
+                                    Modifier.fillMaxWidth(),
+                                horizontalArrangement =
+                                    Arrangement.End
+                            ) {
+                                Button(
+                                    onClick =
+                                        viewModel::
+                                            applyPlacementMappings,
+                                    enabled =
+                                        mappingsComplete &&
+                                            !state.isWorking,
+                                    modifier =
+                                        Modifier.heightIn(
+                                            min = 48.dp
+                                        )
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Refresh,
+                                        contentDescription = null,
+                                        modifier =
+                                            Modifier.size(18.dp)
+                                    )
+                                    Spacer(
+                                        Modifier.width(
+                                            Spacing.xs
+                                        )
+                                    )
+                                    Text(
+                                        "Apply mappings & revalidate"
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    val displayedErrors =
+                        if (
+                            result.placementIssues
+                                .isNotEmpty()
+                        ) {
+                            result.errors.filterNot {
+                                it.field ==
+                                    "grade/section"
+                            }
+                        } else {
+                            result.errors
+                        }
+
+                    if (
+                        !importCompleted &&
+                        result.invalidRows > 0 &&
+                        result.placementIssues.isEmpty()
                     ) {
                         item(key = "invalid-notice") {
                             ValidationNotice(
@@ -290,7 +435,7 @@ fun BulkStudentImportScreen(
                         }
                     }
 
-                    if (result.errors.isNotEmpty()) {
+                    if (displayedErrors.isNotEmpty()) {
                         item(key = "errors-header") {
                             PremiumSectionHeader(
                                 title = "Rows to fix",
@@ -301,7 +446,7 @@ fun BulkStudentImportScreen(
 
                         items(
                             items =
-                                result.errors.take(30),
+                                displayedErrors.take(30),
                             key = {
                                 it.row.toString() +
                                     ":" +
@@ -317,13 +462,13 @@ fun BulkStudentImportScreen(
                             )
                         }
 
-                        if (result.errors.size > 30) {
+                        if (displayedErrors.size > 30) {
                             item(key = "errors-more") {
                                 Text(
                                     text =
                                         "There are " +
                                             (
-                                                result.errors.size -
+                                                displayedErrors.size -
                                                     30
                                                 ) +
                                             " additional reported validation issues.",
@@ -501,7 +646,7 @@ fun BulkStudentImportScreen(
                                 Modifier.width(Spacing.sm)
                             )
                             Text(
-                                text = "The server validates the file again immediately before writing. Invalid rows block the import, while duplicate rows are skipped. A single import is limited to 5,000 rows and 10 MB.",
+                                text = "Academic Structure is the source of truth. Every imported student is linked to the current academic year and a configured Grade → Section ID. The server revalidates mappings immediately before writing; invalid rows block the import and duplicates are skipped.",
                                 style =
                                     MaterialTheme.typography
                                         .bodySmall,
@@ -663,6 +808,293 @@ private fun StepChip(
 }
 
 @Composable
+private fun AcademicStructureSourceCard(
+    loading: Boolean,
+    currentYearName: String,
+    sections: List<GradeSection>,
+    enabled: Boolean,
+    onRefresh: () -> Unit,
+    onDownloadTemplate: () -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    val ready =
+        !loading &&
+            currentYearName.isNotBlank() &&
+            sections.isNotEmpty()
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        border = BorderStroke(
+            1.dp,
+            if (ready) {
+                scheme.primary.copy(alpha = 0.22f)
+            } else {
+                scheme.error.copy(alpha = 0.22f)
+            }
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement =
+                Arrangement.spacedBy(Spacing.sm)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "Academic Structure source",
+                        style =
+                            MaterialTheme.typography
+                                .titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text =
+                            when {
+                                loading ->
+                                    "Loading the current academic year…"
+
+                                currentYearName.isBlank() ->
+                                    "No current academic year is configured."
+
+                                sections.isEmpty() ->
+                                    currentYearName +
+                                        " has no active Grade → Section setup."
+
+                                else ->
+                                    currentYearName +
+                                        " · " +
+                                        sections.size +
+                                        " active Grade → Section" +
+                                        if (sections.size == 1) {
+                                            ""
+                                        } else {
+                                            "s"
+                                        }
+                            },
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+
+                if (loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
+
+            if (ready) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    color = scheme.primaryContainer
+                        .copy(alpha = 0.35f)
+                ) {
+                    Text(
+                        text =
+                            sections.take(8)
+                                .joinToString(" · ") {
+                                    "Grade " +
+                                        it.gradeLevel +
+                                        " → " +
+                                        it.sectionName
+                                } +
+                                if (sections.size > 8) {
+                                    " · +" +
+                                        (sections.size - 8) +
+                                        " more"
+                                } else {
+                                    ""
+                                },
+                        modifier =
+                            Modifier.padding(Spacing.sm),
+                        style =
+                            MaterialTheme.typography
+                                .bodySmall,
+                        color =
+                            scheme.onPrimaryContainer
+                    )
+                }
+
+                Text(
+                    text =
+                        "Bulk Import stores the configured gradeSectionId and academicYearId on every new student. Use the template to avoid spelling and formatting mismatches.",
+                    style =
+                        MaterialTheme.typography.bodySmall,
+                    color =
+                        scheme.onSurfaceVariant
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.End
+                ) {
+                    OutlinedButton(
+                        onClick = onDownloadTemplate,
+                        enabled = enabled
+                    ) {
+                        Icon(
+                            Icons.Filled.Description,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(Spacing.xs))
+                        Text("Download CSV template")
+                    }
+                }
+            } else if (!loading) {
+                ValidationNotice(
+                    tone = ValidationNoticeTone.Error,
+                    title =
+                        "Academic Structure required",
+                    message =
+                        "Set a current academic year and configure at least one active Grade → Section before importing students."
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.End
+                ) {
+                    OutlinedButton(
+                        onClick = onRefresh,
+                        enabled = enabled
+                    ) {
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(Spacing.xs))
+                        Text("Refresh structure")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlacementMappingCard(
+    issue: BulkPlacementIssue,
+    sections: List<GradeSection>,
+    selectedGradeSectionId: String?,
+    enabled: Boolean,
+    onSelect: (String) -> Unit
+) {
+    var expanded by remember(issue.key) {
+        mutableStateOf(false)
+    }
+
+    val selected =
+        sections.firstOrNull {
+            it.id == selectedGradeSectionId
+        }
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement =
+                Arrangement.spacedBy(Spacing.sm)
+        ) {
+            Text(
+                text =
+                    "Roster: Grade " +
+                        issue.grade +
+                        " → " +
+                        issue.section,
+                style =
+                    MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text =
+                    issue.rowCount.toString() +
+                        " row" +
+                        if (issue.rowCount == 1) {
+                            " uses this value."
+                        } else {
+                            "s use this value."
+                        },
+                style =
+                    MaterialTheme.typography.bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+
+            Box(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        expanded = true
+                    },
+                    enabled = enabled,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text =
+                            selected?.let {
+                                "Map to Grade " +
+                                    it.gradeLevel +
+                                    " → " +
+                                    it.sectionName
+                            }
+                                ?: "Choose configured placement",
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow =
+                            TextOverflow.Ellipsis
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = {
+                        expanded = false
+                    }
+                ) {
+                    sections.forEach { section ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Grade " +
+                                        section.gradeLevel +
+                                        " → " +
+                                        section.sectionName
+                                )
+                            },
+                            onClick = {
+                                expanded = false
+                                onSelect(section.id)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun RosterFormatCard() {
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -708,6 +1140,7 @@ private fun RosterFormatCard() {
 private fun SelectedRosterCard(
     filename: String,
     working: Boolean,
+    structureReady: Boolean,
     importCompleted: Boolean,
     onChoose: () -> Unit,
     onReset: () -> Unit
@@ -790,7 +1223,7 @@ private fun SelectedRosterCard(
             } else {
                 FilledTonalButton(
                     onClick = onChoose,
-                    enabled = !working
+                    enabled = !working && structureReady
                 ) {
                     Icon(
                         Icons.Filled.UploadFile,
