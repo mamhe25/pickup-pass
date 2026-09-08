@@ -143,7 +143,7 @@ fun ProfileScreen(
                 )
 
                 Text(
-                    "PickupPass checks photo quality and that one human face is visible. It does not perform facial recognition or automatically decide a person's identity. School staff still make the final visual verification at pickup.",
+                    "PickupPass uses Google Cloud Vision through the secure backend to check photo quality and that one human face is visible. It does not perform facial recognition or automatically decide a person's identity. School staff still make the final visual verification at pickup.",
                     modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
