@@ -22,6 +22,8 @@ data class DismissalReportsUiState(
     val isLoading: Boolean = false,
     val isExporting: Boolean = false,
     val error: String? = null,
+    val success: String? = null,
+    val successTitle: String? = null,
     val summary: DismissalReportSummary? = null,
     val exportPayload: ReportExportPayload? = null
 )
@@ -36,10 +38,21 @@ class DismissalReportsViewModel @Inject constructor(
 
     init { load() }
 
-    fun setFrom(value: String) { _uiState.value = _uiState.value.copy(from = value) }
-    fun setTo(value: String) { _uiState.value = _uiState.value.copy(to = value) }
-    fun setGrade(value: String) { _uiState.value = _uiState.value.copy(grade = value) }
-    fun setSection(value: String) { _uiState.value = _uiState.value.copy(section = value) }
+    fun setFrom(value: String) {
+        _uiState.value = _uiState.value.copy(from = value, error = null, success = null, successTitle = null)
+    }
+
+    fun setTo(value: String) {
+        _uiState.value = _uiState.value.copy(to = value, error = null, success = null, successTitle = null)
+    }
+
+    fun setGrade(value: String) {
+        _uiState.value = _uiState.value.copy(grade = value, error = null, success = null, successTitle = null)
+    }
+
+    fun setSection(value: String) {
+        _uiState.value = _uiState.value.copy(section = value, error = null, success = null, successTitle = null)
+    }
 
     fun load() {
         val s = _uiState.value
@@ -48,7 +61,12 @@ class DismissalReportsViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(
+                isLoading = true,
+                error = null,
+                success = null,
+                successTitle = null
+            )
             when (val result = repository.getDismissalReportSummary(
                 s.from, s.to, s.grade.trim().ifBlank { null }, s.section.trim().ifBlank { null }
             )) {
@@ -69,7 +87,12 @@ class DismissalReportsViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isExporting = true, error = null)
+            _uiState.value = _uiState.value.copy(
+                isExporting = true,
+                error = null,
+                success = null,
+                successTitle = null
+            )
             when (val result = repository.exportDismissalReportCsv(
                 s.from, s.to, s.grade.trim().ifBlank { null }, s.section.trim().ifBlank { null }
             )) {
@@ -87,8 +110,33 @@ class DismissalReportsViewModel @Inject constructor(
         }
     }
 
-    fun consumeExport() { _uiState.value = _uiState.value.copy(exportPayload = null) }
-    fun setError(message: String) { _uiState.value = _uiState.value.copy(error = message) }
+    fun consumeExport() {
+        _uiState.value = _uiState.value.copy(exportPayload = null)
+    }
+
+    fun setError(message: String) {
+        _uiState.value = _uiState.value.copy(
+            error = message,
+            success = null,
+            successTitle = null
+        )
+    }
+
+    fun setSuccess(title: String, message: String) {
+        _uiState.value = _uiState.value.copy(
+            error = null,
+            success = message,
+            successTitle = title
+        )
+    }
+
+    fun clearFeedback() {
+        _uiState.value = _uiState.value.copy(
+            error = null,
+            success = null,
+            successTitle = null
+        )
+    }
 
     private fun validRange(from: String, to: String): Boolean = try {
         val f = LocalDate.parse(from)
