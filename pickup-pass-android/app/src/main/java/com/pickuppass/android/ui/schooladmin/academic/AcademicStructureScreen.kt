@@ -1,5 +1,6 @@
 package com.pickuppass.android.ui.schooladmin.academic
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,15 +18,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.AcademicYear
 import com.pickuppass.android.data.model.GradeSection
-import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.FeedbackCard
+import com.pickuppass.android.ui.common.FeedbackTone
 import com.pickuppass.android.ui.common.FullScreenLoading
-import com.pickuppass.android.ui.common.SuccessBanner
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.theme.Spacing
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import java.time.LocalDate
@@ -84,20 +87,18 @@ fun AcademicStructureScreen(
             return@Scaffold
         }
 
-        Box(
-            Modifier
+        PickupPassPullToRefresh(
+            refreshing = state.isRefreshing,
+            onRefresh = viewModel::load,
+            enabled = !state.isSaving && !state.isRefreshing,
+            modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            // Action feedback must be composed at screen level, not as a LazyColumn
-            // item. LazyColumn disposes off-screen items, which previously meant a
-            // success/error dialog could not exist until the user scrolled back up.
-            when {
-                state.error != null -> ErrorBanner(state.error!!)
-                state.message != null -> SuccessBanner(state.message!!)
-            }
-
-            LazyColumn(
+            Box(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                LazyColumn(
                 modifier = Modifier
                     .fillMaxHeight()
                     .widthIn(max = 820.dp)
@@ -176,7 +177,7 @@ fun AcademicStructureScreen(
                         title = "Academic years",
                         subtitle = "Edit dates, switch the current year, archive history, or remove unused setup records.",
                         actionLabel = "Add year",
-                        enabled = !state.isSaving,
+                        enabled = !state.isSaving && !state.isRefreshing,
                         onAction = {
                             viewModel.clearFeedback()
                             showCreateYear = true
@@ -195,7 +196,7 @@ fun AcademicStructureScreen(
                     items(state.years, key = { "year-${it.id}" }) { year ->
                         AcademicYearCard(
                             year = year,
-                            busy = state.isSaving,
+                            busy = state.isSaving || state.isRefreshing,
                             onEdit = {
                                 viewModel.clearFeedback()
                                 editingYear = year
@@ -221,7 +222,9 @@ fun AcademicStructureScreen(
                         title = "Grade & sections",
                         subtitle = "Rename sections safely, archive retired sections, or remove configuration that has never been used.",
                         actionLabel = "Add section",
-                        enabled = state.years.any { it.status.lowercase() != "archived" } && !state.isSaving,
+                        enabled = state.years.any { it.status.lowercase() != "archived" } &&
+                            !state.isSaving &&
+                            !state.isRefreshing,
                         onAction = {
                             viewModel.clearFeedback()
                             showCreateSection = true
@@ -250,7 +253,7 @@ fun AcademicStructureScreen(
                         GradeSectionCard(
                             section = section,
                             currentYearId = state.currentYearId,
-                            busy = state.isSaving,
+                            busy = state.isSaving || state.isRefreshing,
                             onEdit = {
                                 viewModel.clearFeedback()
                                 editingSection = section
@@ -286,6 +289,7 @@ fun AcademicStructureScreen(
                     }
                 }
             }
+            }
         }
     }
 
@@ -293,7 +297,7 @@ fun AcademicStructureScreen(
         AcademicYearEditorDialog(
             title = "Add academic year",
             initial = null,
-            busy = state.isSaving,
+            busy = state.isSaving || state.isRefreshing,
             allowSetCurrent = true,
             defaultSetCurrent = state.years.isEmpty(),
             onDismiss = {
@@ -312,7 +316,7 @@ fun AcademicStructureScreen(
         AcademicYearEditorDialog(
             title = "Edit academic year",
             initial = year,
-            busy = state.isSaving,
+            busy = state.isSaving || state.isRefreshing,
             allowSetCurrent = false,
             onDismiss = {
                 if (!state.isSaving) {
@@ -336,7 +340,7 @@ fun AcademicStructureScreen(
             },
             confirmLabel = if (active) "Reactivate" else "Archive",
             destructive = !active,
-            busy = state.isSaving,
+            busy = state.isSaving || state.isRefreshing,
             onDismiss = {
                 if (!state.isSaving) {
                     yearStatusAction = null
@@ -353,7 +357,7 @@ fun AcademicStructureScreen(
             message = "${year.name} will be permanently removed only when no grade section or student record currently references it. Historical dismissal snapshots are not deleted.",
             confirmLabel = "Delete unused year",
             destructive = true,
-            busy = state.isSaving,
+            busy = state.isSaving || state.isRefreshing,
             onDismiss = {
                 if (!state.isSaving) {
                     deletingYear = null
@@ -370,7 +374,7 @@ fun AcademicStructureScreen(
             initial = null,
             years = state.years.filter { it.status.lowercase() != "archived" },
             currentYearId = state.currentYearId,
-            busy = state.isSaving,
+            busy = state.isSaving || state.isRefreshing,
             onDismiss = {
                 if (!state.isSaving) {
                     showCreateSection = false
@@ -389,7 +393,7 @@ fun AcademicStructureScreen(
             initial = section,
             years = state.years,
             currentYearId = state.currentYearId,
-            busy = state.isSaving,
+            busy = state.isSaving || state.isRefreshing,
             onDismiss = {
                 if (!state.isSaving) {
                     editingSection = null
@@ -412,7 +416,7 @@ fun AcademicStructureScreen(
             },
             confirmLabel = if (active) "Reactivate" else "Archive",
             destructive = !active,
-            busy = state.isSaving,
+            busy = state.isSaving || state.isRefreshing,
             onDismiss = {
                 if (!state.isSaving) {
                     sectionStatusAction = null
@@ -429,7 +433,7 @@ fun AcademicStructureScreen(
             message = "Grade ${section.gradeLevel} → ${section.sectionName} will be deleted only if no student record or current teacher assignment references it. Historical dismissal snapshots are not deleted.",
             confirmLabel = "Delete unused section",
             destructive = true,
-            busy = state.isSaving,
+            busy = state.isSaving || state.isRefreshing,
             onDismiss = {
                 if (!state.isSaving) {
                     deletingSection = null
@@ -437,6 +441,24 @@ fun AcademicStructureScreen(
                 }
             },
             onConfirm = { viewModel.deleteSection(section.id) }
+        )
+    }
+
+    state.error?.let { message ->
+        FeedbackCard(
+            message = message,
+            tone = FeedbackTone.Error,
+            title = state.errorTitle ?: "Academic structure action not completed",
+            onDismiss = viewModel::clearFeedback
+        )
+    }
+
+    state.message?.let { message ->
+        FeedbackCard(
+            message = message,
+            tone = FeedbackTone.Success,
+            title = state.messageTitle ?: "Academic structure updated",
+            onDismiss = viewModel::clearFeedback
         )
     }
 }
@@ -708,6 +730,32 @@ private fun AcademicYearEditorDialog(
     var current by remember(initial?.id, defaultSetCurrent) {
         mutableStateOf(initial?.isCurrent ?: defaultSetCurrent)
     }
+    val context = LocalContext.current
+
+    fun chooseDate(
+        currentValue: String,
+        onSelected: (String) -> Unit
+    ) {
+        val initialDate = runCatching {
+            LocalDate.parse(currentValue)
+        }.getOrNull() ?: LocalDate.now()
+
+        DatePickerDialog(
+            context,
+            { _, year, month, day ->
+                onSelected(
+                    LocalDate.of(
+                        year,
+                        month + 1,
+                        day
+                    ).toString()
+                )
+            },
+            initialDate.year,
+            initialDate.monthValue - 1,
+            initialDate.dayOfMonth
+        ).show()
+    }
 
     val dateError = remember(start, end) {
         validateDates(start, end)
@@ -728,27 +776,50 @@ private fun AcademicYearEditorDialog(
                     enabled = !busy,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = start,
-                    onValueChange = { start = it.take(10) },
-                    label = { Text("Start date") },
-                    placeholder = { Text("YYYY-MM-DD") },
-                    supportingText = { Text("Optional · YYYY-MM-DD") },
-                    singleLine = true,
-                    isError = dateError != null,
-                    enabled = !busy,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = end,
-                    onValueChange = { end = it.take(10) },
-                    label = { Text("End date") },
-                    placeholder = { Text("YYYY-MM-DD") },
-                    supportingText = { Text(dateError ?: "Optional · YYYY-MM-DD") },
-                    singleLine = true,
-                    isError = dateError != null,
-                    enabled = !busy,
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    AcademicDateButton(
+                        label = "Start",
+                        value = start,
+                        enabled = !busy,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            chooseDate(start) {
+                                start = it
+                            }
+                        },
+                        onClear = {
+                            start = ""
+                        }
+                    )
+
+                    AcademicDateButton(
+                        label = "End",
+                        value = end,
+                        enabled = !busy,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            chooseDate(end) {
+                                end = it
+                            }
+                        },
+                        onClear = {
+                            end = ""
+                        }
+                    )
+                }
+
+                Text(
+                    text = dateError
+                        ?: "Dates are optional. PickupPass stores them in YYYY-MM-DD format.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (dateError != null) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
 
                 if (allowSetCurrent) {
@@ -789,6 +860,59 @@ private fun AcademicYearEditorDialog(
             }
         }
     )
+}
+
+@Composable
+private fun AcademicDateButton(
+    label: String,
+    value: String,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+    onClear: () -> Unit
+) {
+    OutlinedCard(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+        ) {
+            Text(
+                text = label.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            OutlinedButton(
+                onClick = onClick,
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    Icons.Filled.Schedule,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(Spacing.xs))
+                Text(
+                    text = value.ifBlank { "Choose date" },
+                    maxLines = 1
+                )
+            }
+
+            if (value.isNotBlank()) {
+                TextButton(
+                    onClick = onClear,
+                    enabled = enabled,
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text("Clear")
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
