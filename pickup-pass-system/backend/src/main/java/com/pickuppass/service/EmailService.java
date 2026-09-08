@@ -42,8 +42,11 @@ public class EmailService {
                 "Your school has registered you as an authorized pickup contact in the " +
                 "Digital Pickup Pass System. Set your password to activate your account:\n\n" +
                 resetLink + "\n\n" +
-                "Once activated, you'll be able to upload a profile photo and generate a " +
-                "secure QR pass for school pickups.\n\n" +
+                "Once activated, open My Profile and upload a clear verification photo. " +
+                "PickupPass checks that one clear human face is visible before the photo is accepted. " +
+                "QR pickup passes stay locked until an accepted verification photo is on your account.\n\n" +
+                "Use a recent front-facing photo of yourself with good lighting and no mask, dark sunglasses, " +
+                "group photo, screenshot, pet, scenery, or cartoon.\n\n" +
                 "If you weren't expecting this, please contact your school office."
         );
         return trySend(message, toEmail);
