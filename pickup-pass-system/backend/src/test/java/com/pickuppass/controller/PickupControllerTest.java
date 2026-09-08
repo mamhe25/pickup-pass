@@ -4,6 +4,7 @@ import com.pickuppass.dto.QrVerificationResult;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.IdempotencyService;
+import com.pickuppass.service.LaunchModeService;
 import com.pickuppass.service.PickupMetricsService;
 import com.pickuppass.service.PushNotificationService;
 import com.pickuppass.service.QrVerificationService;
@@ -29,7 +30,10 @@ class PickupControllerTest {
         IdempotencyService idempotency = mock(IdempotencyService.class);
         SubscriptionFeatureService features = mock(SubscriptionFeatureService.class);
         TenantUsageService usage = mock(TenantUsageService.class);
-        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features, usage);
+        LaunchModeService launchMode = mock(LaunchModeService.class);
+        when(launchMode.resolve("school1")).thenReturn(
+                new LaunchModeService.LaunchMode(false, LaunchModeService.PRODUCTION, "approved"));
+        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features, usage, launchMode);
         FirebaseUserDetails staff = new FirebaseUserDetails("staff1", "staff@test.com", "school1", "teacher");
         PickupController.VerifyRequest req = new PickupController.VerifyRequest();
         req.setQrToken("bad-token");
@@ -56,11 +60,14 @@ class PickupControllerTest {
         IdempotencyService idempotency = mock(IdempotencyService.class);
         SubscriptionFeatureService features = mock(SubscriptionFeatureService.class);
         TenantUsageService usage = mock(TenantUsageService.class);
-        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features, usage);
+        LaunchModeService launchMode = mock(LaunchModeService.class);
+        when(launchMode.resolve("school1")).thenReturn(
+                new LaunchModeService.LaunchMode(false, LaunchModeService.PRODUCTION, "approved"));
+        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features, usage, launchMode);
         FirebaseUserDetails staff = new FirebaseUserDetails("staff1", "staff@test.com", "school1", "teacher");
         PickupController.VerifyRequest req = new PickupController.VerifyRequest();
         req.setQrToken("good-token");
-        QrVerificationResult result = QrVerificationResult.success("student1", "guardian1", null);
+        QrVerificationResult result = QrVerificationResult.success("student1", "guardian1", null, false, LaunchModeService.PRODUCTION);
 
         when(idempotency.fingerprint("good-token\n")).thenReturn("fp-good");
         when(idempotency.findExisting("school1", "staff1", "pickup.approve", "request-2", "fp-good"))
@@ -72,7 +79,7 @@ class PickupControllerTest {
 
         assertEquals(200, response.getStatusCode().value());
         verify(idempotency).storeResult("school1", "staff1", "pickup.approve", "request-2", "fp-good", "log1");
-        verify(push).notifyGuardiansOfPickup("student1", "guardian1");
+        verify(push).notifyGuardiansOfPickup("student1", "guardian1", false);
         verify(audit).record(eq(staff), eq("pickup.approved"), eq("exitLog"), eq("log1"), anyMap());
     }
 
@@ -85,7 +92,10 @@ class PickupControllerTest {
         IdempotencyService idempotency = mock(IdempotencyService.class);
         SubscriptionFeatureService features = mock(SubscriptionFeatureService.class);
         TenantUsageService usage = mock(TenantUsageService.class);
-        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features, usage);
+        LaunchModeService launchMode = mock(LaunchModeService.class);
+        when(launchMode.resolve("school1")).thenReturn(
+                new LaunchModeService.LaunchMode(false, LaunchModeService.PRODUCTION, "approved"));
+        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features, usage, launchMode);
         FirebaseUserDetails staff = new FirebaseUserDetails("staff1", "staff@test.com", "school1", "teacher");
         PickupController.VerifyRequest req = new PickupController.VerifyRequest();
         req.setQrToken("good-token");
@@ -110,7 +120,10 @@ class PickupControllerTest {
         IdempotencyService idempotency = mock(IdempotencyService.class);
         SubscriptionFeatureService features = mock(SubscriptionFeatureService.class);
         TenantUsageService usage = mock(TenantUsageService.class);
-        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features, usage);
+        LaunchModeService launchMode = mock(LaunchModeService.class);
+        when(launchMode.resolve("school1")).thenReturn(
+                new LaunchModeService.LaunchMode(false, LaunchModeService.PRODUCTION, "approved"));
+        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features, usage, launchMode);
         FirebaseUserDetails admin = new FirebaseUserDetails("admin1", "admin@test.com", "school1", "school_admin");
         PickupController.ManualOverrideRequest req = new PickupController.ManualOverrideRequest();
         req.setStudentId("student1");
@@ -121,14 +134,22 @@ class PickupControllerTest {
         when(idempotency.fingerprint(source)).thenReturn("fp-manual");
         when(idempotency.findExisting("school1", "admin1", "pickup.manual_override", "manual-1", "fp-manual"))
                 .thenReturn(Optional.empty());
-        when(qr.manualOverride("student1", "guardian1", "Parent phone battery is dead", "admin1", "school1", null))
-                .thenReturn("log2");
+        when(qr.manualOverride(
+                "student1",
+                "guardian1",
+                "Parent phone battery is dead",
+                "admin1",
+                "school1",
+                null,
+                false,
+                LaunchModeService.PRODUCTION
+        )).thenReturn("log2");
 
         ResponseEntity<?> response = controller.manualOverride(req, "manual-1", null, admin);
 
         assertEquals(200, response.getStatusCode().value());
         verify(idempotency).storeResult("school1", "admin1", "pickup.manual_override", "manual-1", "fp-manual", "log2");
-        verify(push).notifyGuardiansOfPickup("student1", "guardian1");
+        verify(push).notifyGuardiansOfPickup("student1", "guardian1", false);
         verify(audit).record(eq(admin), eq("pickup.manual_override"), eq("exitLog"), eq("log2"), anyMap());
     }
 }
