@@ -5,21 +5,28 @@ import androidx.lifecycle.viewModelScope
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.SchoolAdminRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 data class PickupPolicyUiState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val isSaving: Boolean = false,
     val restrictedToTimeWindow: Boolean = false,
     val startTime: String = "14:00",
     val endTime: String = "18:00",
     val allowManualOverride: Boolean = true,
     val timeZone: String = "Asia/Manila",
+    val isDirty: Boolean = false,
     val error: String? = null,
-    val successMessage: String? = null
+    val errorTitle: String? = null,
+    val successMessage: String? = null,
+    val successTitle: String? = null
 )
 
 @HiltViewModel
@@ -30,84 +37,313 @@ class PickupPolicyViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(PickupPolicyUiState())
     val uiState: StateFlow<PickupPolicyUiState> = _uiState
 
-    init { load() }
+    private var loadInProgress = false
+
+    private var baselineRestricted = false
+    private var baselineStartTime = "14:00"
+    private var baselineEndTime = "18:00"
+    private var baselineManualOverride = true
+
+    init {
+        load(initial = true)
+    }
+
+    fun refresh() {
+        load(initial = false)
+    }
 
     fun setRestricted(value: Boolean) {
-        _uiState.value = _uiState.value.copy(restrictedToTimeWindow = value, successMessage = null)
+        if (_uiState.value.isSaving || _uiState.value.isRefreshing) return
+
+        _uiState.value = _uiState.value.copy(
+            restrictedToTimeWindow = value,
+            error = null,
+            errorTitle = null,
+            successMessage = null,
+            successTitle = null
+        )
+        updateDirty()
     }
 
     fun setStartTime(value: String) {
-        _uiState.value = _uiState.value.copy(startTime = value.take(5), successMessage = null)
+        if (_uiState.value.isSaving || _uiState.value.isRefreshing) return
+
+        _uiState.value = _uiState.value.copy(
+            startTime = value,
+            error = null,
+            errorTitle = null,
+            successMessage = null,
+            successTitle = null
+        )
+        updateDirty()
     }
 
     fun setEndTime(value: String) {
-        _uiState.value = _uiState.value.copy(endTime = value.take(5), successMessage = null)
+        if (_uiState.value.isSaving || _uiState.value.isRefreshing) return
+
+        _uiState.value = _uiState.value.copy(
+            endTime = value,
+            error = null,
+            errorTitle = null,
+            successMessage = null,
+            successTitle = null
+        )
+        updateDirty()
     }
 
     fun setManualOverride(value: Boolean) {
-        _uiState.value = _uiState.value.copy(allowManualOverride = value, successMessage = null)
+        if (_uiState.value.isSaving || _uiState.value.isRefreshing) return
+
+        _uiState.value = _uiState.value.copy(
+            allowManualOverride = value,
+            error = null,
+            errorTitle = null,
+            successMessage = null,
+            successTitle = null
+        )
+        updateDirty()
     }
 
     fun save() {
         val current = _uiState.value
-        if (current.restrictedToTimeWindow && (!isValidTime(current.startTime) || !isValidTime(current.endTime))) {
-            _uiState.value = current.copy(error = "Use 24-hour HH:mm format, for example 14:30.", successMessage = null)
+        if (current.isSaving || loadInProgress) return
+
+        val validationError = validate(current)
+        if (validationError != null) {
+            _uiState.value = current.copy(
+                errorTitle = validationError.first,
+                error = validationError.second,
+                successMessage = null,
+                successTitle = null
+            )
             return
         }
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSaving = true, error = null, successMessage = null)
-            val mode = if (_uiState.value.restrictedToTimeWindow) "time_window" else "unrestricted"
-            when (val result = repository.updatePickupPolicy(
-                mode = mode,
-                earliestPickupTime = _uiState.value.startTime.takeIf { mode == "time_window" },
-                latestPickupTime = _uiState.value.endTime.takeIf { mode == "time_window" },
-                allowManualOverride = _uiState.value.allowManualOverride
-            )) {
+            val snapshot = _uiState.value
+            val mode =
+                if (snapshot.restrictedToTimeWindow) {
+                    "time_window"
+                } else {
+                    "unrestricted"
+                }
+
+            _uiState.value = snapshot.copy(
+                isSaving = true,
+                error = null,
+                errorTitle = null,
+                successMessage = null,
+                successTitle = null
+            )
+
+            when (
+                val result = repository.updatePickupPolicy(
+                    mode = mode,
+                    earliestPickupTime =
+                        snapshot.startTime.takeIf {
+                            mode == "time_window"
+                        },
+                    latestPickupTime =
+                        snapshot.endTime.takeIf {
+                            mode == "time_window"
+                        },
+                    allowManualOverride =
+                        snapshot.allowManualOverride
+                )
+            ) {
                 is ApiResult.Success -> {
-                    val p = result.data
+                    val policy = result.data
+
+                    val restricted =
+                        policy.mode == "time_window"
+                    val start =
+                        policy.earliestPickupTime
+                            .ifBlank { snapshot.startTime }
+                    val end =
+                        policy.latestPickupTime
+                            .ifBlank { snapshot.endTime }
+
+                    baselineRestricted = restricted
+                    baselineStartTime = start
+                    baselineEndTime = end
+                    baselineManualOverride =
+                        policy.allowManualOverride
+
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        restrictedToTimeWindow = p.mode == "time_window",
-                        startTime = p.earliestPickupTime.ifBlank { _uiState.value.startTime },
-                        endTime = p.latestPickupTime.ifBlank { _uiState.value.endTime },
-                        allowManualOverride = p.allowManualOverride,
-                        timeZone = p.timeZone,
+                        restrictedToTimeWindow = restricted,
+                        startTime = start,
+                        endTime = end,
+                        allowManualOverride =
+                            policy.allowManualOverride,
+                        timeZone = policy.timeZone,
+                        isDirty = false,
                         error = null,
-                        successMessage = "Pickup policy saved."
+                        errorTitle = null,
+                        successTitle = "Pickup policy updated",
+                        successMessage =
+                            if (restricted) {
+                                "QR pickup is now limited to " +
+                                    start +
+                                    "–" +
+                                    end +
+                                    " (" +
+                                    policy.timeZone +
+                                    "). Manual override is " +
+                                    if (
+                                        policy.allowManualOverride
+                                    ) {
+                                        "available."
+                                    } else {
+                                        "disabled."
+                                    }
+                            } else {
+                                "Valid QR pickup is unrestricted by school hours. Manual override is " +
+                                    if (
+                                        policy.allowManualOverride
+                                    ) {
+                                        "available."
+                                    } else {
+                                        "disabled."
+                                    }
+                            }
                     )
                 }
-                is ApiResult.Failure -> {
-                    _uiState.value = _uiState.value.copy(isSaving = false, error = result.message)
-                }
-            }
-        }
-    }
 
-    private fun load() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            when (val result = repository.getPickupPolicy()) {
-                is ApiResult.Success -> {
-                    val p = result.data
+                is ApiResult.Failure -> {
                     _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        restrictedToTimeWindow = p.mode == "time_window",
-                        startTime = p.earliestPickupTime.ifBlank { "14:00" },
-                        endTime = p.latestPickupTime.ifBlank { "18:00" },
-                        allowManualOverride = p.allowManualOverride,
-                        timeZone = p.timeZone
+                        isSaving = false,
+                        errorTitle = "Policy not saved",
+                        error = result.message
                     )
-                }
-                is ApiResult.Failure -> {
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = result.message)
                 }
             }
         }
     }
 
-    private fun isValidTime(value: String): Boolean {
-        if (!Regex("^([01]\\d|2[0-3]):[0-5]\\d$").matches(value)) return false
-        return true
+    fun clearFeedback() {
+        _uiState.value = _uiState.value.copy(
+            error = null,
+            errorTitle = null,
+            successMessage = null,
+            successTitle = null
+        )
+    }
+
+    private fun load(initial: Boolean) {
+        if (loadInProgress || _uiState.value.isSaving) return
+        loadInProgress = true
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isLoading = initial,
+                isRefreshing = !initial,
+                error = null,
+                errorTitle = null
+            )
+
+            try {
+                when (val result = repository.getPickupPolicy()) {
+                    is ApiResult.Success -> {
+                        val policy = result.data
+
+                        val restricted =
+                            policy.mode == "time_window"
+                        val start =
+                            policy.earliestPickupTime
+                                .ifBlank { "14:00" }
+                        val end =
+                            policy.latestPickupTime
+                                .ifBlank { "18:00" }
+
+                        baselineRestricted = restricted
+                        baselineStartTime = start
+                        baselineEndTime = end
+                        baselineManualOverride =
+                            policy.allowManualOverride
+
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            isRefreshing = false,
+                            restrictedToTimeWindow = restricted,
+                            startTime = start,
+                            endTime = end,
+                            allowManualOverride =
+                                policy.allowManualOverride,
+                            timeZone = policy.timeZone,
+                            isDirty = false,
+                            error = null,
+                            errorTitle = null
+                        )
+                    }
+
+                    is ApiResult.Failure -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            isRefreshing = false,
+                            errorTitle =
+                                if (initial) {
+                                    "Pickup policy unavailable"
+                                } else {
+                                    "Policy not refreshed"
+                                },
+                            error = result.message
+                        )
+                    }
+                }
+            } finally {
+                loadInProgress = false
+            }
+        }
+    }
+
+    private fun updateDirty() {
+        val state = _uiState.value
+
+        _uiState.value = state.copy(
+            isDirty =
+                state.restrictedToTimeWindow !=
+                    baselineRestricted ||
+                    state.startTime != baselineStartTime ||
+                    state.endTime != baselineEndTime ||
+                    state.allowManualOverride !=
+                    baselineManualOverride
+        )
+    }
+
+    private fun validate(
+        state: PickupPolicyUiState
+    ): Pair<String, String>? {
+        if (!state.restrictedToTimeWindow) {
+            return null
+        }
+
+        val start = parseTime(state.startTime)
+        val end = parseTime(state.endTime)
+
+        if (start == null || end == null) {
+            return "Invalid dismissal time" to
+                "Choose valid pickup start and end times."
+        }
+
+        if (!start.isBefore(end)) {
+            return "Invalid dismissal window" to
+                "Pickup start time must be earlier than the end time."
+        }
+
+        return null
+    }
+
+    private fun parseTime(value: String): LocalTime? {
+        return try {
+            LocalTime.parse(value, HH_MM)
+        } catch (_: DateTimeParseException) {
+            null
+        }
+    }
+
+    private companion object {
+        val HH_MM: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("HH:mm")
     }
 }
