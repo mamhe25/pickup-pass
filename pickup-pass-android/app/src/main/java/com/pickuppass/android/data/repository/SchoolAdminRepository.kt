@@ -819,8 +819,7 @@ class SchoolAdminRepository @Inject constructor(
             ApiResult.Success(body)
         } else {
             ApiResult.Failure(
-                response.errorBody()?.string()?.take(300)
-                    ?: "Could not load launch readiness"
+                apiError(response, "Could not load launch readiness")
             )
         }
     } catch (e: Exception) {
@@ -838,8 +837,7 @@ class SchoolAdminRepository @Inject constructor(
             ApiResult.Success(body)
         } else {
             ApiResult.Failure(
-                response.errorBody()?.string()?.take(300)
-                    ?: "Could not update launch checks"
+                apiError(response, "Could not update launch checks")
             )
         }
     } catch (e: Exception) {
@@ -853,8 +851,7 @@ class SchoolAdminRepository @Inject constructor(
             ApiResult.Success(body)
         } else {
             ApiResult.Failure(
-                response.errorBody()?.string()?.take(300)
-                    ?: "Could not request launch review"
+                apiError(response, "Could not request launch review")
             )
         }
     } catch (e: Exception) {
