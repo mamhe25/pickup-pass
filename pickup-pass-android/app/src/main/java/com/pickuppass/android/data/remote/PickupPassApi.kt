@@ -84,7 +84,8 @@ interface PickupPassApi {
     @POST("school-admin/students/import")
     suspend fun importStudents(
         @Part file: MultipartBody.Part,
-        @Part("dryRun") dryRun: RequestBody
+        @Part("dryRun") dryRun: RequestBody,
+        @Part("placementMappings") placementMappings: RequestBody
     ): Response<BulkStudentImportResponse>
 
     @POST("master-admin/schools/{schoolId}/status")
