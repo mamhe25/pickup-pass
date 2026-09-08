@@ -7,6 +7,8 @@ import com.pickuppass.android.data.model.*
 import com.pickuppass.android.data.remote.PickupPassApi
 import org.json.JSONObject
 import retrofit2.Response
+import java.io.OutputStream
+import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -754,21 +756,56 @@ class SchoolAdminRepository @Inject constructor(
     suspend fun getSchoolDataExportStatus(): ApiResult<SchoolDataExportStatusResponse> = try {
         val response = api.getSchoolDataExportStatus()
         val body = response.body()
-        if (response.isSuccessful && body != null) ApiResult.Success(body)
-        else ApiResult.Failure("Could not load data-export status")
+        if (response.isSuccessful && body != null) {
+            ApiResult.Success(body)
+        } else {
+            ApiResult.Failure(
+                apiError(response, "Could not load data-export status")
+            )
+        }
     } catch (e: Exception) {
         ApiResult.Failure(e.message ?: "Network error")
     }
 
-    suspend fun downloadSchoolDataExport(): ApiResult<ByteArray> = try {
+    suspend fun downloadSchoolDataExport(
+        outputStream: OutputStream
+    ): ApiResult<SchoolDataExportDownloadResult> = try {
         val response = api.downloadSchoolDataExport()
         val body = response.body()
+
         if (response.isSuccessful && body != null) {
-            ApiResult.Success(body.bytes())
+            val digest = MessageDigest.getInstance("SHA-256")
+            var totalBytes = 0L
+
+            body.byteStream().use { input ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+
+                    outputStream.write(buffer, 0, read)
+                    digest.update(buffer, 0, read)
+                    totalBytes += read
+                }
+            }
+
+            outputStream.flush()
+
+            val sha256 = digest.digest()
+                .joinToString(separator = "") {
+                    "%02x".format(it.toInt() and 0xff)
+                }
+
+            ApiResult.Success(
+                SchoolDataExportDownloadResult(
+                    bytesWritten = totalBytes,
+                    sha256 = sha256
+                )
+            )
         } else {
             ApiResult.Failure(
-                response.errorBody()?.string()?.take(300)
-                    ?: "Could not create school data export"
+                apiError(response, "Could not create school data export")
             )
         }
     } catch (e: Exception) {
