@@ -66,10 +66,13 @@ public class StaffPickupGateController {
             m.put("email", safe(doc.getString("email")));
             m.put("role", role);
             m.put("isActive", doc.getBoolean("isActive") == null || Boolean.TRUE.equals(doc.getBoolean("isActive")));
-            List<String> assigned = stringList(doc.get("assignedPickupGateIds"));
+            List<String> configuredAssigned = stringList(doc.get("assignedPickupGateIds"));
+            boolean allGates = configuredAssigned.isEmpty();
+            List<String> assigned = new ArrayList<>(configuredAssigned);
             assigned.removeIf(id -> !activeGateIds.contains(id));
             m.put("assignedPickupGateIds", assigned);
-            m.put("allGates", assigned.isEmpty());
+            m.put("allGates", allGates);
+            m.put("unavailableAssignedGateCount", configuredAssigned.size() - assigned.size());
             staff.add(m);
         }
         staff.sort(Comparator.comparing(m -> safeObj(m.get("displayName")).toLowerCase(Locale.ROOT)));
