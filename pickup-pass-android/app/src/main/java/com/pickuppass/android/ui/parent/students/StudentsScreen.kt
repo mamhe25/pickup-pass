@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Security
@@ -38,6 +37,7 @@ import com.pickuppass.android.data.model.Student
 import com.pickuppass.android.ui.common.BrandedTitle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.NotificationActionButton
 import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.common.PremiumSectionHeader
 import com.pickuppass.android.ui.common.PremiumTopAppBar
@@ -73,25 +73,10 @@ fun StudentsScreen(
                 title = "My Students",
                 subtitle = uiState.school?.schoolName?.takeIf { it.isNotBlank() } ?: "Family pickup",
                 actions = {
-                    IconButton(onClick = onOpenNotifications) {
-                        BadgedBox(
-                            badge = {
-                                if (uiState.unreadNotificationCount > 0) {
-                                    Badge {
-                                        Text(
-                                            if (uiState.unreadNotificationCount > 9) "9+"
-                                            else uiState.unreadNotificationCount.toString()
-                                        )
-                                    }
-                                }
-                            }
-                        ) {
-                            Icon(
-                                Icons.Filled.Notifications,
-                                contentDescription = "Notifications"
-                            )
-                        }
-                    }
+                    NotificationActionButton(
+                        unreadCount = uiState.unreadNotificationCount,
+                        onClick = onOpenNotifications,
+                    )
 
                     ParentProfileButton(
                         displayName = uiState.parentDisplayName,

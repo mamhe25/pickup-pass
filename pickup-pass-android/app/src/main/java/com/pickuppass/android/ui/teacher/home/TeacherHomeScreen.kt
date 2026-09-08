@@ -10,13 +10,10 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -45,6 +42,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.NotificationActionButton
 import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.theme.Spacing
@@ -83,28 +81,10 @@ fun TeacherHomeScreen(
                 title = "Teacher home",
                 subtitle = uiState.school?.schoolName?.takeIf { it.isNotBlank() } ?: "PickupPass",
                 actions = {
-                    IconButton(onClick = onOpenNotifications) {
-                        BadgedBox(
-                            badge = {
-                                if (uiState.unreadNotifications > 0) {
-                                    Badge {
-                                        Text(
-                                            if (uiState.unreadNotifications > 99) {
-                                                "99+"
-                                            } else {
-                                                uiState.unreadNotifications.toString()
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        ) {
-                            Icon(
-                                Icons.Filled.Notifications,
-                                contentDescription = "Notifications"
-                            )
-                        }
-                    }
+                    NotificationActionButton(
+                        unreadCount = uiState.unreadNotifications,
+                        onClick = onOpenNotifications,
+                    )
 
                     IconButton(onClick = onOpenProfile) {
                         Icon(

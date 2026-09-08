@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Warning
@@ -159,6 +160,67 @@ fun PrimaryButton(
             Text(text, style = MaterialTheme.typography.labelLarge)
         } else {
             Text(text, style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+@Composable
+fun NotificationActionButton(
+    unreadCount: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val displayCount =
+        when {
+            unreadCount > 99 -> "99+"
+            unreadCount > 0 -> unreadCount.toString()
+            else -> ""
+        }
+
+    Box(
+        modifier = modifier.size(56.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.size(48.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Notifications,
+                contentDescription =
+                    if (unreadCount > 0) {
+                        "Notifications, $unreadCount unread"
+                    } else {
+                        "Notifications"
+                    },
+                modifier = Modifier.size(26.dp),
+            )
+        }
+
+        if (displayCount.isNotEmpty()) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 2.dp, end = 1.dp)
+                    .height(20.dp)
+                    .widthIn(min = 20.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
+                shadowElevation = 1.dp,
+            ) {
+                Box(
+                    modifier = Modifier.padding(horizontal = 5.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = displayCount,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                    )
+                }
+            }
         }
     }
 }
