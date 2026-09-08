@@ -97,6 +97,7 @@ public class GuardianProvisioningService {
         profile.put("middleInitial", middleInitial != null ? middleInitial.trim() : "");
         profile.put("suffix", suffix != null ? suffix.trim() : "");
         profile.put("isActive", true);
+        profile.put("photoValidationStatus", "missing");
         profile.put("createdAt", FieldValue.serverTimestamp());
         firestore.collection("users").document(created.getUid()).set(profile).get();
 
