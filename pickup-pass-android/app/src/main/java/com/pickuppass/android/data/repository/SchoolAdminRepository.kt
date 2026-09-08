@@ -677,8 +677,13 @@ class SchoolAdminRepository @Inject constructor(
     suspend fun getBillingCenter(): ApiResult<SchoolBillingCenterResponse> = try {
         val response = api.getSchoolBillingCenter()
         val body = response.body()
-        if (response.isSuccessful && body != null) ApiResult.Success(body)
-        else ApiResult.Failure("Could not load billing center")
+        if (response.isSuccessful && body != null) {
+            ApiResult.Success(body)
+        } else {
+            ApiResult.Failure(
+                apiError(response, "Could not load billing center")
+            )
+        }
     } catch (e: Exception) {
         ApiResult.Failure(e.message ?: "Network error")
     }
@@ -704,8 +709,10 @@ class SchoolAdminRepository @Inject constructor(
             ApiResult.Success(body)
         } else {
             ApiResult.Failure(
-                response.errorBody()?.string()?.take(300)
-                    ?: "Could not submit GCash payment notice"
+                apiError(
+                    response,
+                    "Could not submit GCash payment notice"
+                )
             )
         }
     } catch (e: Exception) {
@@ -717,8 +724,13 @@ class SchoolAdminRepository @Inject constructor(
     ): ApiResult<ByteArray> = try {
         val response = api.downloadSchoolInvoicePdf(invoiceId)
         val body = response.body()
-        if (response.isSuccessful && body != null) ApiResult.Success(body.bytes())
-        else ApiResult.Failure("Could not download invoice PDF")
+        if (response.isSuccessful && body != null) {
+            ApiResult.Success(body.bytes())
+        } else {
+            ApiResult.Failure(
+                apiError(response, "Could not download invoice PDF")
+            )
+        }
     } catch (e: Exception) {
         ApiResult.Failure(e.message ?: "Network error")
     }
@@ -728,8 +740,13 @@ class SchoolAdminRepository @Inject constructor(
     ): ApiResult<ByteArray> = try {
         val response = api.downloadSchoolReceiptPdf(invoiceId)
         val body = response.body()
-        if (response.isSuccessful && body != null) ApiResult.Success(body.bytes())
-        else ApiResult.Failure("Could not download payment receipt")
+        if (response.isSuccessful && body != null) {
+            ApiResult.Success(body.bytes())
+        } else {
+            ApiResult.Failure(
+                apiError(response, "Could not download payment receipt")
+            )
+        }
     } catch (e: Exception) {
         ApiResult.Failure(e.message ?: "Network error")
     }
