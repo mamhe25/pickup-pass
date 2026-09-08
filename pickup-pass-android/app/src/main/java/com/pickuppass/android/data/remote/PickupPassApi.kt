@@ -24,6 +24,13 @@ interface PickupPassApi {
     @POST("parent/generate-token")
     suspend fun generateToken(@Body body: GenerateTokenRequest): Response<PickupTokenResponse>
 
+    @Multipart
+    @POST("parent/profile/verification-photo")
+    suspend fun uploadGuardianVerificationPhoto(
+        @Part file: MultipartBody.Part
+    ): Response<GuardianPhotoUploadResponse>
+
+
     @GET("parent/students/{studentId}/guardian-profiles")
     suspend fun getGuardianProfiles(
         @Path("studentId") studentId: String
