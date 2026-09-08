@@ -6,6 +6,8 @@ import com.google.cloud.firestore.FieldValue;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.WriteBatch;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.SubscriptionFeatureService;
@@ -52,13 +54,16 @@ public class BulkStudentImportController {
     private final AuditService auditService;
     private final SubscriptionFeatureService subscriptionFeatureService;
     private final TenantUsageService tenantUsageService;
+    private final ObjectMapper objectMapper;
 
     public BulkStudentImportController(Firestore firestore, AuditService auditService,
-                                       SubscriptionFeatureService subscriptionFeatureService, TenantUsageService tenantUsageService) {
+                                       SubscriptionFeatureService subscriptionFeatureService, TenantUsageService tenantUsageService,
+                                       ObjectMapper objectMapper) {
         this.firestore = firestore;
         this.auditService = auditService;
         this.subscriptionFeatureService = subscriptionFeatureService;
         this.tenantUsageService = tenantUsageService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping(value = "/import", consumes = "multipart/form-data")
@@ -66,6 +71,7 @@ public class BulkStudentImportController {
     public ResponseEntity<?> importStudents(
             @RequestPart("file") MultipartFile file,
             @RequestPart(value = "dryRun", required = false) String dryRunRaw,
+            @RequestPart(value = "placementMappings", required = false) String placementMappingsRaw,
             @AuthenticationPrincipal FirebaseUserDetails admin) throws Exception {
 
         subscriptionFeatureService.requireFeature(admin.getSchoolId(), "bulk_student_import");
@@ -90,7 +96,8 @@ public class BulkStudentImportController {
         }
 
         ImportContext context = loadContext(admin.getSchoolId());
-        ValidationResult result = validate(rawRows, context, admin.getSchoolId());
+        Map<String, String> placementMappings = parsePlacementMappings(placementMappingsRaw);
+        ValidationResult result = validate(rawRows, context, placementMappings);
 
         if (!dryRun && result.invalidRows == 0) {
             tenantUsageService.reserve(admin.getSchoolId(), TenantUsageService.STUDENTS, result.validStudents.size());
@@ -107,7 +114,8 @@ public class BulkStudentImportController {
                     "totalRows", result.totalRows,
                     "importedRows", imported,
                     "duplicateRows", result.duplicateRows,
-                    "academicYearId", context.currentAcademicYearId));
+                    "academicYearId", context.currentAcademicYearId,
+                    "placementMappingCount", placementMappings.size()));
         }
 
         return ResponseEntity.ok(result.toResponse(dryRun));
@@ -185,7 +193,8 @@ public class BulkStudentImportController {
         }
     }
 
-    private ValidationResult validate(List<Map<String, String>> rows, ImportContext context, String schoolId) {
+    private ValidationResult validate(List<Map<String, String>> rows, ImportContext context,
+                                      Map<String, String> placementMappings) {
         ValidationResult result = new ValidationResult();
         result.totalRows = rows.size();
         Set<String> keysSeenInFile = new HashSet<>();
@@ -208,9 +217,14 @@ public class BulkStudentImportController {
             if (grade.isBlank()) rowErrors.add(new ImportError(sheetRow, "grade", "Grade is required"));
             if (section.isBlank()) rowErrors.add(new ImportError(sheetRow, "section", "Section is required"));
 
+            String sourcePlacementKey = sectionKey(grade, section);
             GradeSectionPlacement placement = context.resolve(grade, section);
+            if (placement == null && placementMappings.containsKey(sourcePlacementKey)) {
+                placement = context.sectionsById.get(placementMappings.get(sourcePlacementKey));
+            }
             if (!context.sectionsByKey.isEmpty() && placement == null) {
                 rowErrors.add(new ImportError(sheetRow, "grade/section", "Grade and section are not active in the current school year"));
+                result.addPlacementIssue(grade, section);
             }
 
             if (!rowErrors.isEmpty()) {
@@ -252,6 +266,7 @@ public class BulkStudentImportController {
         }
 
         Map<String, GradeSectionPlacement> sections = new HashMap<>();
+        Map<String, GradeSectionPlacement> sectionsById = new HashMap<>();
         for (QueryDocumentSnapshot doc : firestore.collection("gradeSections")
                 .whereEqualTo("schoolId", schoolId).get().get().getDocuments()) {
             if (Boolean.FALSE.equals(doc.getBoolean("active"))) continue;
@@ -259,8 +274,10 @@ public class BulkStudentImportController {
             if (!currentYearId.isBlank() && !currentYearId.equals(academicYearId)) continue;
             String grade = safe(doc.getString("gradeLevel"));
             String section = safe(doc.getString("sectionName"));
-            sections.put(sectionKey(grade, section), new GradeSectionPlacement(
-                    grade, section, doc.getId(), academicYearId, safe(doc.getString("academicYearName"))));
+            GradeSectionPlacement placement = new GradeSectionPlacement(
+                    grade, section, doc.getId(), academicYearId, safe(doc.getString("academicYearName")));
+            sections.put(sectionKey(grade, section), placement);
+            sectionsById.put(doc.getId(), placement);
         }
 
         Set<String> existing = new HashSet<>();
@@ -273,7 +290,7 @@ public class BulkStudentImportController {
             existing.add(duplicateKey(studentNumber, fullName, grade, section));
         }
 
-        return new ImportContext(currentYearId, currentYearName, sections, existing);
+        return new ImportContext(currentYearId, currentYearName, sections, sectionsById, existing);
     }
 
     private int writeStudents(List<ValidStudent> students, FirebaseUserDetails admin, ImportContext context) throws Exception {
@@ -354,11 +371,46 @@ public class BulkStudentImportController {
     }
 
     private static String sectionKey(String grade, String section) {
-        return normalize(grade) + "|" + normalize(section);
+        return normalizeGrade(grade) + "|" + normalize(section);
+    }
+
+    private static String normalizeGrade(String value) {
+        String normalized = normalize(value);
+        return normalized
+                .replaceFirst("^grade", "")
+                .replaceFirst("^year", "")
+                .replaceFirst("^level", "");
     }
 
     private static String normalize(String v) {
         return safe(v).toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+    }
+
+    private Map<String, String> parsePlacementMappings(String raw) {
+        if (raw == null || raw.isBlank()) return Map.of();
+        try {
+            Map<String, String> parsed = objectMapper.readValue(
+                    raw, new TypeReference<Map<String, String>>() {});
+            Map<String, String> normalized = new HashMap<>();
+            parsed.forEach((key, value) -> {
+                if (key != null && value != null && !value.isBlank()) {
+                    normalized.put(key.trim(), value.trim());
+                }
+            });
+            return normalized;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid grade/section mapping data");
+        }
+    }
+
+    private record PlacementIssue(String key, String grade, String section, int rowCount) {
+        Map<String, Object> toMap() {
+            return Map.of(
+                    "key", key,
+                    "grade", grade,
+                    "section", section,
+                    "rowCount", rowCount);
+        }
     }
 
     private static String safe(String v) { return v == null ? "" : v.trim(); }
@@ -367,13 +419,17 @@ public class BulkStudentImportController {
         final String currentAcademicYearId;
         final String currentAcademicYearName;
         final Map<String, GradeSectionPlacement> sectionsByKey;
+        final Map<String, GradeSectionPlacement> sectionsById;
         final Set<String> existingStudentKeys;
 
         ImportContext(String currentAcademicYearId, String currentAcademicYearName,
-                      Map<String, GradeSectionPlacement> sectionsByKey, Set<String> existingStudentKeys) {
+                      Map<String, GradeSectionPlacement> sectionsByKey,
+                      Map<String, GradeSectionPlacement> sectionsById,
+                      Set<String> existingStudentKeys) {
             this.currentAcademicYearId = currentAcademicYearId;
             this.currentAcademicYearName = currentAcademicYearName;
             this.sectionsByKey = sectionsByKey;
+            this.sectionsById = sectionsById;
             this.existingStudentKeys = existingStudentKeys;
         }
 
@@ -389,8 +445,19 @@ public class BulkStudentImportController {
         int duplicateRows;
         int importedRows;
         final List<ImportError> errors = new ArrayList<>();
+        final Map<String, PlacementIssue> placementIssues = new LinkedHashMap<>();
         final List<Map<String, String>> sample = new ArrayList<>();
         final List<ValidStudent> validStudents = new ArrayList<>();
+
+        void addPlacementIssue(String grade, String section) {
+            String key = sectionKey(grade, section);
+            PlacementIssue current = placementIssues.get(key);
+            if (current == null) {
+                placementIssues.put(key, new PlacementIssue(key, grade, section, 1));
+            } else {
+                placementIssues.put(key, new PlacementIssue(key, current.grade, current.section, current.rowCount + 1));
+            }
+        }
 
         void addErrors(List<ImportError> newErrors) {
             for (ImportError error : newErrors) {
@@ -409,6 +476,7 @@ public class BulkStudentImportController {
             body.put("importedRows", importedRows);
             body.put("readyToImport", invalidRows == 0 && validRows > 0);
             body.put("errors", errors.stream().map(ImportError::toMap).toList());
+            body.put("placementIssues", placementIssues.values().stream().map(PlacementIssue::toMap).toList());
             body.put("sample", sample);
             return body;
         }
