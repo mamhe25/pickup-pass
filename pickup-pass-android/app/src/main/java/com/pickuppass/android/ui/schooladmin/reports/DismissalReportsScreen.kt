@@ -326,6 +326,32 @@ fun DismissalReportsScreen(
                         }
                     }
 
+                    if (report.prelaunchTestReleasesExcluded > 0) {
+                        item(key = "prelaunch_test_exclusion") {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.large,
+                                color = MaterialTheme.colorScheme.tertiaryContainer
+                            ) {
+                                Text(
+                                    text =
+                                        report.prelaunchTestReleasesExcluded.toString() +
+                                            " pre-launch test " +
+                                            if (report.prelaunchTestReleasesExcluded == 1) {
+                                                "release was"
+                                            } else {
+                                                "releases were"
+                                            } +
+                                            " excluded from this production report and CSV export. " +
+                                            "Test records remain available in Dismissal History for audit review.",
+                                    modifier = Modifier.padding(Spacing.md),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+                    }
+
                     item {
                         ElevatedCard(Modifier.fillMaxWidth()) {
                             Column(
