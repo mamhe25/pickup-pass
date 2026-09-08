@@ -145,6 +145,7 @@ fun PickupPolicyScreen(
 
                     item(key = "current-summary") {
                         PolicySummaryCard(
+                            isDirty = state.isDirty,
                             restricted =
                                 state.restrictedToTimeWindow,
                             startTime = state.startTime,
@@ -509,6 +510,7 @@ fun PickupPolicyScreen(
 
 @Composable
 private fun PolicySummaryCard(
+    isDirty: Boolean,
     restricted: Boolean,
     startTime: String,
     endTime: String,
@@ -532,7 +534,7 @@ private fun PolicySummaryCard(
                 Arrangement.spacedBy(Spacing.sm)
         ) {
             Text(
-                text = "CURRENT POLICY",
+                text = if (isDirty) "POLICY PREVIEW" else "CURRENT POLICY",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.ExtraBold,
                 color = scheme.primary
