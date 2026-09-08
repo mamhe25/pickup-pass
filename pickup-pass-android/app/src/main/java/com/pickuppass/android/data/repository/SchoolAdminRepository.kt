@@ -186,8 +186,13 @@ class SchoolAdminRepository @Inject constructor(
                 )
             )
             val body = response.body()
-            if (response.isSuccessful && body != null) ApiResult.Success(body)
-            else ApiResult.Failure(body?.let { null } ?: "Could not save pickup policy")
+            if (response.isSuccessful && body != null) {
+                ApiResult.Success(body)
+            } else {
+                ApiResult.Failure(
+                    apiError(response, "Could not save pickup policy")
+                )
+            }
         } catch (e: Exception) {
             ApiResult.Failure(e.message ?: "Network error")
         }
