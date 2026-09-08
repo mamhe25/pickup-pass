@@ -1213,6 +1213,11 @@ data class SchoolDataExportStatusResponse(
     val message: String = ""
 )
 
+data class SchoolDataExportDownloadResult(
+    val bytesWritten: Long = 0,
+    val sha256: String = ""
+)
+
 data class MasterDataExportAccessRequest(val enabled: Boolean)
 
 
