@@ -53,6 +53,13 @@ public class PushNotificationService {
     }
 
     public void notifyGuardiansOfPickup(String studentId, String pickedUpByUid) {
+        notifyGuardiansOfPickup(studentId, pickedUpByUid, false);
+    }
+
+    public void notifyGuardiansOfPickup(
+            String studentId,
+            String pickedUpByUid,
+            boolean testMode) {
         try {
             DocumentSnapshot studentSnap = firestore.collection("students").document(studentId).get().get();
             if (!studentSnap.exists()) return;
@@ -65,10 +72,25 @@ public class PushNotificationService {
 
             String pickerName = resolveDisplayName(pickedUpByUid);
 
-            String title = studentName + " has been picked up";
-            String body = pickerName + " just picked up " + studentName + " from school.";
+            String title =
+                    testMode
+                            ? "TEST · " + studentName + " release completed"
+                            : studentName + " has been picked up";
+            String body =
+                    testMode
+                            ? "Pre-launch test only. " + pickerName + " completed a simulated release for "
+                                    + studentName + ". This is not a production dismissal."
+                            : pickerName + " just picked up " + studentName + " from school.";
 
-            notifyUsers(guardianUids, schoolId, title, body, "pickup_confirmation", studentId, null);
+            notifyUsers(
+                    guardianUids,
+                    schoolId,
+                    title,
+                    body,
+                    testMode ? "prelaunch_test_release" : "pickup_confirmation",
+                    studentId,
+                    null
+            );
         } catch (Exception e) {
             log.warn("Pickup notification failed for student {}: {}", studentId, e.getMessage());
         }
