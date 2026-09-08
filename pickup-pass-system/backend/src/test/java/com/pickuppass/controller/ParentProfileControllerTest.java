@@ -94,7 +94,8 @@ class ParentProfileControllerTest {
                 .thenReturn(
                         GuardianPhotoValidationService.ValidationResult.accepted(
                                 0.96f,
-                                0.31
+                                0.31,
+                                "image/jpeg"
                         )
                 );
 
