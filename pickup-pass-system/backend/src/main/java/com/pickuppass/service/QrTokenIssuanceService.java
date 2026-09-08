@@ -43,18 +43,21 @@ public class QrTokenIssuanceService {
     private final int tokenTtlMinutes;
     private final int dismissalWindowMinutes;
     private final GuardianAuthorizationService guardianAuthorizationService;
+    private final LaunchModeService launchModeService;
 
     public QrTokenIssuanceService(
             Firestore firestore,
             @Value("${qr.signing.secret}") String secret,
             @Value("${qr.token-ttl-minutes:15}") int tokenTtlMinutes,
             @Value("${qr.dismissal-window-minutes:120}") int dismissalWindowMinutes,
-            GuardianAuthorizationService guardianAuthorizationService) {
+            GuardianAuthorizationService guardianAuthorizationService,
+            LaunchModeService launchModeService) {
         this.firestore = firestore;
         this.hmacAlgorithm = Algorithm.HMAC256(secret);
         this.tokenTtlMinutes = tokenTtlMinutes;
         this.dismissalWindowMinutes = dismissalWindowMinutes;
         this.guardianAuthorizationService = guardianAuthorizationService;
+        this.launchModeService = launchModeService;
     }
 
     public PickupTokenResponse issueToken(String parentUid, String schoolId, String studentId)
@@ -82,6 +85,9 @@ public class QrTokenIssuanceService {
             throw new ForbiddenException(guardianDecision.reason());
         }
 
+        LaunchModeService.LaunchMode launchMode =
+                launchModeService.resolve(schoolId);
+
         // 2. Invalidate any still-unused, still-fresh token previously issued
         //    for this parent+student pair, so only one active QR code exists
         //    at a time (prevents sharing an old screenshot alongside a new one).
@@ -104,6 +110,9 @@ public class QrTokenIssuanceService {
         tokenDoc.put("parentUid", parentUid);
         tokenDoc.put("nonce", nonce);
         tokenDoc.put("used", false);
+        tokenDoc.put("testMode", launchMode.testMode());
+        tokenDoc.put("operationalMode", launchMode.operationalMode());
+        tokenDoc.put("launchStatusSnapshot", launchMode.launchStatus());
         tokenDoc.put("issuedAt", FieldValue.serverTimestamp());
         tokenDoc.put("dismissalDeadline", Date.from(dismissalDeadline));
 
@@ -126,7 +135,13 @@ public class QrTokenIssuanceService {
                 .withExpiresAt(Date.from(jwtExpiry))
                 .sign(hmacAlgorithm);
 
-        return new PickupTokenResponse(jwt, Date.from(jwtExpiry), Date.from(dismissalDeadline));
+        return new PickupTokenResponse(
+                jwt,
+                Date.from(jwtExpiry),
+                Date.from(dismissalDeadline),
+                launchMode.testMode(),
+                launchMode.operationalMode()
+        );
     }
 
     private String generateShortId() {
