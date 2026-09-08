@@ -35,6 +35,8 @@ data class PickupPassUiState(
     val secondsRemaining: Long = 0,
     val validityWindowSeconds: Long = 0,
     val pickupPolicyText: String = "Any currently valid QR can be presented for pickup.",
+    val testMode: Boolean = false,
+    val operationalMode: String = "production",
     val error: String? = null
 )
 
@@ -137,7 +139,9 @@ class PickupPassViewModel @Inject constructor(
             qrBitmap = null,
             expiresAt = null,
             secondsRemaining = 0,
-            validityWindowSeconds = 0
+            validityWindowSeconds = 0,
+            testMode = false,
+            operationalMode = "production"
         )
 
         viewModelScope.launch {
@@ -173,6 +177,8 @@ class PickupPassViewModel @Inject constructor(
                             expiresAt = expiresAt,
                             secondsRemaining = initialRemaining,
                             validityWindowSeconds = initialRemaining,
+                            testMode = result.data.testMode,
+                            operationalMode = result.data.operationalMode,
                             error = if (initialRemaining > 0) null
                             else "The newly issued pass was already expired. Please generate another pass."
                         )
