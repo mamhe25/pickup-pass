@@ -5,6 +5,7 @@ import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.PickupMetricsService;
 import com.pickuppass.service.IdempotencyService;
+import com.pickuppass.service.LaunchModeService;
 import com.pickuppass.service.PushNotificationService;
 import com.pickuppass.service.QrVerificationService;
 import com.pickuppass.service.SubscriptionFeatureService;
@@ -31,6 +32,7 @@ public class PickupController {
     private final IdempotencyService idempotencyService;
     private final SubscriptionFeatureService subscriptionFeatureService;
     private final TenantUsageService tenantUsageService;
+    private final LaunchModeService launchModeService;
 
     public PickupController(QrVerificationService qrService,
                             PushNotificationService pushNotificationService,
@@ -38,7 +40,8 @@ public class PickupController {
                             PickupMetricsService metrics,
                             IdempotencyService idempotencyService,
                             SubscriptionFeatureService subscriptionFeatureService,
-                            TenantUsageService tenantUsageService) {
+                            TenantUsageService tenantUsageService,
+                            LaunchModeService launchModeService) {
         this.qrService = qrService;
         this.pushNotificationService = pushNotificationService;
         this.auditService = auditService;
@@ -46,6 +49,7 @@ public class PickupController {
         this.idempotencyService = idempotencyService;
         this.subscriptionFeatureService = subscriptionFeatureService;
         this.tenantUsageService = tenantUsageService;
+        this.launchModeService = launchModeService;
     }
 
     @GetMapping("/gates")
@@ -69,7 +73,9 @@ public class PickupController {
             return ResponseEntity.ok(Map.of(
                     "valid", true,
                     "studentId", result.getStudentId(),
-                    "parentUid", result.getParentUid()
+                    "parentUid", result.getParentUid(),
+                    "testMode", result.isTestMode(),
+                    "operationalMode", result.getOperationalMode()
             ));
         } catch (Exception e) {
             metrics.verificationFailed();
@@ -90,10 +96,15 @@ public class PickupController {
         var replay = idempotencyService.findExisting(staff.getSchoolId(), staff.getUid(),
                 "pickup.approve", idempotencyKey, fingerprint);
         if (replay.isPresent()) {
+            LaunchModeService.LaunchMode mode =
+                    launchModeService.resolve(staff.getSchoolId());
             return ResponseEntity.ok(Map.of(
                     "status", "release_approved",
                     "exitLogId", replay.get(),
-                    "idempotentReplay", true));
+                    "idempotentReplay", true,
+                    "testMode", mode.testMode(),
+                    "operationalMode", mode.operationalMode()
+            ));
         }
         try {
             QrVerificationResult result = qrService.verify(req.getQrToken(), staff.getSchoolId());
@@ -103,15 +114,32 @@ public class PickupController {
             }
             String exitLogId = qrService.markUsedAndLog(result, staff.getUid(), staff.getSchoolId(), pickupGateId);
             // Pickup success is authoritative even when push delivery fails internally.
-            pushNotificationService.notifyGuardiansOfPickup(result.getStudentId(), result.getParentUid());
+            pushNotificationService.notifyGuardiansOfPickup(
+                    result.getStudentId(),
+                    result.getParentUid(),
+                    result.isTestMode()
+            );
             auditService.record(staff, "pickup.approved", "exitLog", exitLogId,
-                    Map.of("studentId", result.getStudentId(), "method", "qr_scan",
-                            "pickupGateId", pickupGateId == null ? "" : pickupGateId.trim()));
+                    Map.of(
+                            "studentId", result.getStudentId(),
+                            "method", "qr_scan",
+                            "pickupGateId", pickupGateId == null ? "" : pickupGateId.trim(),
+                            "testMode", result.isTestMode(),
+                            "operationalMode", result.getOperationalMode()
+                    ));
             idempotencyService.storeResult(staff.getSchoolId(), staff.getUid(),
                     "pickup.approve", idempotencyKey, fingerprint, exitLogId);
             metrics.approvalSucceeded();
-            tenantUsageService.recordQrPickup(staff.getSchoolId());
-            return ResponseEntity.ok(Map.of("status", "release_approved", "exitLogId", exitLogId, "idempotentReplay", false));
+            if (!result.isTestMode()) {
+                tenantUsageService.recordQrPickup(staff.getSchoolId());
+            }
+            return ResponseEntity.ok(Map.of(
+                    "status", "release_approved",
+                    "exitLogId", exitLogId,
+                    "idempotentReplay", false,
+                    "testMode", result.isTestMode(),
+                    "operationalMode", result.getOperationalMode()
+            ));
         } catch (Exception e) {
             metrics.approvalFailed();
             throw e;
@@ -133,30 +161,57 @@ public class PickupController {
         var replay = idempotencyService.findExisting(staff.getSchoolId(), staff.getUid(),
                 "pickup.manual_override", idempotencyKey, fingerprint);
         if (replay.isPresent()) {
+            LaunchModeService.LaunchMode mode =
+                    launchModeService.resolve(staff.getSchoolId());
             return ResponseEntity.ok(Map.of(
                     "status", "release_approved",
                     "method", "manual_override",
                     "exitLogId", replay.get(),
-                    "idempotentReplay", true));
+                    "idempotentReplay", true,
+                    "testMode", mode.testMode(),
+                    "operationalMode", mode.operationalMode()
+            ));
         }
         try {
-            String exitLogId = qrService.manualOverride(req.getStudentId(), req.getGuardianUid(), req.getReason(),
-                    staff.getUid(), staff.getSchoolId(), pickupGateId);
-            pushNotificationService.notifyGuardiansOfPickup(req.getStudentId(), req.getGuardianUid());
+            LaunchModeService.LaunchMode mode =
+                    launchModeService.resolve(staff.getSchoolId());
+            String exitLogId = qrService.manualOverride(
+                    req.getStudentId(),
+                    req.getGuardianUid(),
+                    req.getReason(),
+                    staff.getUid(),
+                    staff.getSchoolId(),
+                    pickupGateId,
+                    mode.testMode(),
+                    mode.operationalMode()
+            );
+            pushNotificationService.notifyGuardiansOfPickup(
+                    req.getStudentId(),
+                    req.getGuardianUid(),
+                    mode.testMode()
+            );
             auditService.record(staff, "pickup.manual_override", "exitLog", exitLogId, Map.of(
                     "studentId", req.getStudentId(),
                     "guardianUid", req.getGuardianUid(),
                     "reason", req.getReason().trim(),
-                    "pickupGateId", pickupGateId == null ? "" : pickupGateId.trim()));
+                    "pickupGateId", pickupGateId == null ? "" : pickupGateId.trim(),
+                    "testMode", mode.testMode(),
+                    "operationalMode", mode.operationalMode()
+            ));
             idempotencyService.storeResult(staff.getSchoolId(), staff.getUid(),
                     "pickup.manual_override", idempotencyKey, fingerprint, exitLogId);
             metrics.manualOverrideSucceeded();
-            tenantUsageService.recordManualPickup(staff.getSchoolId());
+            if (!mode.testMode()) {
+                tenantUsageService.recordManualPickup(staff.getSchoolId());
+            }
             return ResponseEntity.ok(Map.of(
                     "status", "release_approved",
                     "method", "manual_override",
                     "exitLogId", exitLogId,
-                    "idempotentReplay", false));
+                    "idempotentReplay", false,
+                    "testMode", mode.testMode(),
+                    "operationalMode", mode.operationalMode()
+            ));
         } catch (Exception e) {
             metrics.manualOverrideFailed();
             throw e;
