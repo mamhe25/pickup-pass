@@ -133,6 +133,14 @@ public class QrVerificationService {
         if (studentStatus != null && !studentStatus.isBlank() && !"active".equalsIgnoreCase(studentStatus)) {
             return QrVerificationResult.fail("Student pickup access is not active");
         }
+
+        DocumentSnapshot guardianProfile =
+                firestore.collection("users").document(parentUid).get().get();
+        if (!hasValidatedGuardianPhoto(guardianProfile, scanningSchoolId)) {
+            return QrVerificationResult.fail(
+                    "Guardian verification photo is missing or no longer valid. Generate a new pass after updating My Profile.");
+        }
+
         if (hasDismissalLock(scanningSchoolId, studentId, currentMode.testMode())) {
             return QrVerificationResult.fail(
                     currentMode.testMode()
@@ -173,6 +181,7 @@ public class QrVerificationService {
         DocumentReference lockRef = firestore.collection("dismissalLocks").document(lockId);
         DocumentReference exitLogRef = firestore.collection("exitLogs").document();
         DocumentReference studentRef = firestore.collection("students").document(result.getStudentId());
+        DocumentReference guardianRef = firestore.collection("users").document(result.getParentUid());
         DocumentReference schoolRef = firestore.collection("schools").document(schoolId);
         ExitSnapshot snapshot = loadExitSnapshot(result.getStudentId(), result.getParentUid(), verifiedByUid, schoolId);
         PickupGateSnapshot gateSnapshot = resolvePickupGate(schoolId, pickupGateId, true, verifiedByUid);
@@ -204,6 +213,12 @@ public class QrVerificationService {
                                 ? "This student already has a pre-launch test release today"
                                 : "Student has already been dismissed today");
             }
+            DocumentSnapshot guardianTx = tx.get(guardianRef).get();
+            if (!hasValidatedGuardianPhoto(guardianTx, schoolId)) {
+                return TransactionDecision.forbidden(
+                        "Guardian verification photo is missing or no longer valid");
+            }
+
             DocumentSnapshot studentTx = tx.get(studentRef).get();
             GuardianAuthorizationService.AuthorizationDecision authTx =
                     guardianAuthorizationService.check(studentTx, result.getParentUid());
@@ -434,6 +449,25 @@ public class QrVerificationService {
                 displayName(staff, "Unknown staff")
         );
     }
+    private boolean hasValidatedGuardianPhoto(
+            DocumentSnapshot guardian,
+            String schoolId) {
+        if (guardian == null || !guardian.exists()) return false;
+        if (schoolId != null
+                && !schoolId.equals(guardian.getString("schoolId"))) {
+            return false;
+        }
+        if (Boolean.FALSE.equals(guardian.getBoolean("isActive"))) {
+            return false;
+        }
+        String photoUrl = guardian.getString("photoUrl");
+        String status = guardian.getString("photoValidationStatus");
+        return photoUrl != null
+                && !photoUrl.isBlank()
+                && "verified".equalsIgnoreCase(
+                        status == null ? "" : status);
+    }
+
     private String displayName(DocumentSnapshot user, String fallback) {
         if (user == null || !user.exists()) return fallback;
         return stringValue(user.getString("displayName"), stringValue(user.getString("email"), fallback));
