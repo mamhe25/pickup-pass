@@ -103,11 +103,17 @@ class PickupControllerTest {
         when(idempotency.fingerprint("good-token\n")).thenReturn("fp-good");
         when(idempotency.findExisting("school1", "staff1", "pickup.approve", "request-3", "fp-good"))
                 .thenReturn(Optional.of("existing-log"));
+        when(qr.releaseModeForExitLog("existing-log", "school1"))
+                .thenReturn(new QrVerificationService.ReleaseMode(
+                        false,
+                        LaunchModeService.PRODUCTION
+                ));
 
         ResponseEntity<?> response = controller.approve(req, "request-3", null, staff);
 
         assertEquals(200, response.getStatusCode().value());
-        verifyNoInteractions(qr, push, audit);
+        verify(qr).releaseModeForExitLog("existing-log", "school1");
+        verifyNoInteractions(push, audit);
         verify(idempotency, never()).storeResult(anyString(), anyString(), anyString(), any(), anyString(), anyString());
     }
 
