@@ -447,6 +447,12 @@ private fun notificationPresentation(type: String): NotificationPresentation {
                 Icons.Filled.Campaign
             )
 
+        "prelaunch_test" in normalized ->
+            NotificationPresentation(
+                "Pre-launch test release",
+                Icons.Filled.CheckCircle
+            )
+
         "release" in normalized ||
             "pickup" in normalized ||
             "dismiss" in normalized ->
