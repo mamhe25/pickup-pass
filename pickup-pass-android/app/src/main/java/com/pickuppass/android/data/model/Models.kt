@@ -433,6 +433,13 @@ data class BulkImportSampleStudent(
     val section: String = ""
 )
 
+data class BulkPlacementIssue(
+    val key: String = "",
+    val grade: String = "",
+    val section: String = "",
+    val rowCount: Int = 0
+)
+
 data class BulkStudentImportResponse(
     val dryRun: Boolean = true,
     val totalRows: Int = 0,
@@ -442,6 +449,7 @@ data class BulkStudentImportResponse(
     val importedRows: Int = 0,
     val readyToImport: Boolean = false,
     val errors: List<BulkImportError> = emptyList(),
+    val placementIssues: List<BulkPlacementIssue> = emptyList(),
     val sample: List<BulkImportSampleStudent> = emptyList(),
     val error: String? = null
 )
