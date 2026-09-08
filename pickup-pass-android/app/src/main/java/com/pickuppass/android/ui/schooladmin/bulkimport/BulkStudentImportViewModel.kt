@@ -6,6 +6,7 @@ import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pickuppass.android.data.model.BulkStudentImportResponse
+import com.pickuppass.android.data.model.GradeSection
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.SchoolAdminRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,6 +24,10 @@ data class BulkStudentImportUiState(
     val workingMessage: String = "",
     val importFinished: Boolean = false,
     val preview: BulkStudentImportResponse? = null,
+    val structureLoading: Boolean = true,
+    val currentAcademicYearName: String = "",
+    val activeSections: List<GradeSection> = emptyList(),
+    val placementMappings: Map<String, String> = emptyMap(),
     val error: String? = null,
     val errorTitle: String? = null,
     val success: String? = null,
@@ -42,6 +47,66 @@ class BulkStudentImportViewModel @Inject constructor(
     private var selectedBytes: ByteArray? = null
     private var selectedFilename: String = ""
 
+    init {
+        loadAcademicStructure()
+    }
+
+    fun loadAcademicStructure() {
+        if (_uiState.value.isWorking) return
+
+        viewModelScope.launch {
+            _uiState.value =
+                _uiState.value.copy(
+                    structureLoading = true,
+                    error = null,
+                    errorTitle = null
+                )
+
+            when (val result = repository.getAcademicStructure()) {
+                is ApiResult.Success -> {
+                    val current = result.data.currentAcademicYear
+                    val activeSections =
+                        if (current == null) {
+                            emptyList()
+                        } else {
+                            result.data.gradeSections
+                                .filter {
+                                    it.active &&
+                                        it.academicYearId ==
+                                            current.id
+                                }
+                                .sortedWith(
+                                    compareBy<GradeSection>(
+                                        { it.gradeLevel.lowercase() },
+                                        { it.sectionName.lowercase() }
+                                    )
+                                )
+                        }
+
+                    _uiState.value =
+                        _uiState.value.copy(
+                            structureLoading = false,
+                            currentAcademicYearName =
+                                current?.name.orEmpty(),
+                            activeSections = activeSections
+                        )
+                }
+
+                is ApiResult.Failure -> {
+                    _uiState.value =
+                        _uiState.value.copy(
+                            structureLoading = false,
+                            currentAcademicYearName = "",
+                            activeSections = emptyList(),
+                            errorTitle =
+                                "Academic structure unavailable",
+                            error = result.message
+                        )
+                }
+            }
+        }
+    }
+
     fun selectFile(
         context: Context,
         uri: Uri
@@ -50,9 +115,17 @@ class BulkStudentImportViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.value =
-                BulkStudentImportUiState(
+                _uiState.value.copy(
+                    filename = "",
                     isWorking = true,
-                    workingMessage = "Reading roster…"
+                    workingMessage = "Reading roster…",
+                    importFinished = false,
+                    preview = null,
+                    placementMappings = emptyMap(),
+                    error = null,
+                    errorTitle = null,
+                    success = null,
+                    successTitle = null
                 )
 
             try {
@@ -93,7 +166,12 @@ class BulkStudentImportViewModel @Inject constructor(
                 selectedFilename = ""
 
                 _uiState.value =
-                    BulkStudentImportUiState(
+                    _uiState.value.copy(
+                        filename = "",
+                        isWorking = false,
+                        workingMessage = "",
+                        preview = null,
+                        placementMappings = emptyMap(),
                         errorTitle =
                             "Roster could not be opened",
                         error =
@@ -102,6 +180,48 @@ class BulkStudentImportViewModel @Inject constructor(
                     )
             }
         }
+    }
+
+    fun setPlacementMapping(
+        sourceKey: String,
+        gradeSectionId: String
+    ) {
+        if (_uiState.value.isWorking) return
+
+        _uiState.value =
+            _uiState.value.copy(
+                placementMappings =
+                    _uiState.value.placementMappings +
+                        (sourceKey to gradeSectionId),
+                error = null,
+                errorTitle = null
+            )
+    }
+
+    fun applyPlacementMappings() {
+        val preview = _uiState.value.preview ?: return
+        val unresolved = preview.placementIssues
+
+        if (unresolved.isEmpty()) return
+
+        val missing =
+            unresolved.any {
+                _uiState.value
+                    .placementMappings[it.key]
+                    .isNullOrBlank()
+            }
+
+        if (missing) {
+            _uiState.value =
+                _uiState.value.copy(
+                    errorTitle = "Mapping incomplete",
+                    error =
+                        "Map every unresolved Grade → Section value before revalidating the roster."
+                )
+            return
+        }
+
+        retryValidation()
     }
 
     fun retryValidation() {
@@ -124,6 +244,7 @@ class BulkStudentImportViewModel @Inject constructor(
         if (
             !preview.readyToImport ||
             preview.invalidRows > 0 ||
+            preview.placementIssues.isNotEmpty() ||
             _uiState.value.isWorking
         ) {
             return
@@ -144,16 +265,19 @@ class BulkStudentImportViewModel @Inject constructor(
             when (
                 val result =
                     repository.importStudents(
-                        bytes,
-                        selectedFilename,
-                        dryRun = false
+                        bytes = bytes,
+                        filename = selectedFilename,
+                        dryRun = false,
+                        placementMappings =
+                            _uiState.value.placementMappings
                     )
             ) {
                 is ApiResult.Success -> {
                     val body = result.data
 
                     when {
-                        body.invalidRows > 0 -> {
+                        body.invalidRows > 0 ||
+                            body.placementIssues.isNotEmpty() -> {
                             _uiState.value =
                                 _uiState.value.copy(
                                     isWorking = false,
@@ -163,7 +287,7 @@ class BulkStudentImportViewModel @Inject constructor(
                                     errorTitle =
                                         "Final validation blocked import",
                                     error =
-                                        "No students were written because the roster no longer passes validation. Review the updated row errors, correct the file, and upload it again."
+                                        "No students were written because the roster no longer matches the current Academic Structure. Review the updated validation result and map any unresolved placement before trying again."
                                 )
                         }
 
@@ -214,7 +338,7 @@ class BulkStudentImportViewModel @Inject constructor(
                                     errorTitle =
                                         "Import result could not be confirmed",
                                     error =
-                                        "PickupPass did not receive a confirmed student write. No success was reported; review the roster and try validation again."
+                                        "PickupPass did not receive a confirmed student write. Review the roster and validate it again."
                                 )
                         }
                     }
@@ -239,7 +363,73 @@ class BulkStudentImportViewModel @Inject constructor(
 
         selectedBytes = null
         selectedFilename = ""
-        _uiState.value = BulkStudentImportUiState()
+
+        _uiState.value =
+            _uiState.value.copy(
+                filename = "",
+                isWorking = false,
+                workingMessage = "",
+                importFinished = false,
+                preview = null,
+                placementMappings = emptyMap(),
+                error = null,
+                errorTitle = null,
+                success = null,
+                successTitle = null
+            )
+    }
+
+    fun buildTemplateCsv(): String {
+        val sections = _uiState.value.activeSections
+
+        return buildString {
+            appendLine(
+                "studentNumber,lastName,firstName,middleInitial,suffix,grade,section"
+            )
+
+            sections.forEach { section ->
+                append(",,,,,")
+                append(csvEscape(section.gradeLevel))
+                append(",")
+                append(csvEscape(section.sectionName))
+                appendLine()
+            }
+        }
+    }
+
+    fun templateFilename(): String {
+        val raw =
+            _uiState.value.currentAcademicYearName
+                .ifBlank { "current-year" }
+
+        val safe =
+            raw.lowercase()
+                .replace(Regex("[^a-z0-9]+"), "-")
+                .trim('-')
+                .ifBlank { "current-year" }
+
+        return "pickuppass-roster-template-" +
+            safe +
+            ".csv"
+    }
+
+    fun templateSaved() {
+        _uiState.value =
+            _uiState.value.copy(
+                successTitle = "Roster template saved",
+                success =
+                    "The CSV template uses the active Grade → Section combinations from the current Academic Structure.",
+                error = null,
+                errorTitle = null
+            )
+    }
+
+    fun templateSaveFailed(message: String) {
+        _uiState.value =
+            _uiState.value.copy(
+                errorTitle = "Template not saved",
+                error = message
+            )
     }
 
     fun clearFeedback() {
@@ -260,7 +450,7 @@ class BulkStudentImportViewModel @Inject constructor(
                 filename = selectedFilename,
                 isWorking = true,
                 workingMessage =
-                    "Validating roster without writing data…",
+                    "Validating roster against Academic Structure…",
                 preview = null,
                 error = null,
                 errorTitle = null,
@@ -271,9 +461,11 @@ class BulkStudentImportViewModel @Inject constructor(
         when (
             val result =
                 repository.importStudents(
-                    bytes,
-                    selectedFilename,
-                    dryRun = true
+                    bytes = bytes,
+                    filename = selectedFilename,
+                    dryRun = true,
+                    placementMappings =
+                        _uiState.value.placementMappings
                 )
         ) {
             is ApiResult.Success -> {
@@ -309,7 +501,7 @@ class BulkStudentImportViewModel @Inject constructor(
                 } else {
                     "s"
                 } +
-                " imported."
+                " imported into the current Academic Structure."
 
         return if (body.duplicateRows > 0) {
             imported +
@@ -423,6 +615,20 @@ class BulkStudentImportViewModel @Inject constructor(
             }
 
             return output.toByteArray()
+        }
+    }
+
+    private fun csvEscape(value: String): String {
+        val escaped = value.replace(""", """")
+        return if (
+            escaped.contains(",") ||
+            escaped.contains(""") ||
+            escaped.contains("\n") ||
+            escaped.contains("\r")
+        ) {
+            """ + escaped + """
+        } else {
+            escaped
         }
     }
 
