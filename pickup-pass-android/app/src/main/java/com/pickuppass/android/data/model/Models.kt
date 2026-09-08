@@ -105,12 +105,22 @@ data class UserProfile(
     val displayName: String = "",
     val email: String = "",
     val photoUrl: String? = null,
+    val photoValidationStatus: String = "missing",
+    val photoValidatedAt: com.google.firebase.Timestamp? = null,
     val role: String = "",
     val schoolId: String = "",
     val isActive: Boolean = true,
 )
 
 // ---- Backend API request/response bodies (see Spring Boot controllers) ----
+
+data class GuardianPhotoUploadResponse(
+    val status: String = "",
+    val photoUrl: String? = null,
+    val message: String? = null,
+    val photoValidationStatus: String? = null,
+    val error: String? = null
+)
 
 data class GenerateTokenRequest(val studentId: String)
 
