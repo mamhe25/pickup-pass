@@ -100,13 +100,13 @@ class StudentLifecycleViewModel @Inject constructor(
         )
     }
     fun selectTargetAcademicYear(id: String) {
-        _uiState.value = _uiState.value.copy(targetAcademicYearId = id, promotionPreview = null, error = null, success = null, successTitle = null, successTitle = null)
+        _uiState.value = _uiState.value.copy(targetAcademicYearId = id, promotionPreview = null, error = null, success = null, successTitle = null)
     }
 
     fun updateStatus(studentId: String, status: String, reason: String) {
         if (_uiState.value.isWorking) return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isWorking = true, error = null, success = null, successTitle = null, successTitle = null)
+            _uiState.value = _uiState.value.copy(isWorking = true, error = null, success = null, successTitle = null)
             when (val result = repository.updateStudentStatus(studentId, status, reason)) {
                 is ApiResult.Success -> {
                     _uiState.value = _uiState.value.copy(
@@ -196,7 +196,7 @@ class StudentLifecycleViewModel @Inject constructor(
         val preview = _uiState.value.promotionPreview ?: return
         if (preview.unresolvedCount > 0 || _uiState.value.isWorking) return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isWorking = true, error = null, success = null, successTitle = null, successTitle = null)
+            _uiState.value = _uiState.value.copy(isWorking = true, error = null, success = null, successTitle = null)
             when (val result = repository.executePromotion(preview.targetAcademicYearId)) {
                 is ApiResult.Success -> {
                     val body = result.data
