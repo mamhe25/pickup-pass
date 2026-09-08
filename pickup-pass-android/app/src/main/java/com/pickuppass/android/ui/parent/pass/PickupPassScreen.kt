@@ -83,6 +83,11 @@ fun PickupPassScreen(
                     ),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                if (uiState.testMode) {
+                    PrelaunchTestPassNotice()
+                    Spacer(Modifier.height(Spacing.md))
+                }
+
                 PassCredential(
                     uiState = uiState,
                     onExpandQr = {
@@ -467,6 +472,41 @@ private fun QrSection(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrelaunchTestPassNotice() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.tertiaryContainer
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.md),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                Icons.Filled.Security,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Column {
+                Text(
+                    "PRE-LAUNCH TEST PASS",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "This school has not been approved for production launch yet. This QR uses the real guardian verification flow, but a successful release is recorded as test activity and excluded from normal dismissal totals.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                )
             }
         }
     }
