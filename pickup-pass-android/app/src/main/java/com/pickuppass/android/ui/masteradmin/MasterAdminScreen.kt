@@ -1173,7 +1173,12 @@ private fun LaunchReadinessDialog(
                                 "approved_needs_attention" -> "Approved, but new blockers need attention"
                                 "review_requested" -> "School requested platform review"
                                 "review_requested_needs_attention" -> "Review requested, but new blockers exist"
-                                else -> "School setup is still in progress"
+                                else ->
+                                    if (readiness.readyForReview) {
+                                        "School is ready but has not requested platform review"
+                                    } else {
+                                        "School setup is still in progress"
+                                    }
                             },
                             fontWeight = FontWeight.SemiBold
                         )
@@ -1204,12 +1209,31 @@ private fun LaunchReadinessDialog(
         },
         confirmButton = {
             if (readiness?.launchApproved == true) {
-                Button(onClick = { onReopen(note) }, enabled = !saving) { Text("Reopen Review") }
-            } else {
+                Button(
+                    onClick = { onReopen(note) },
+                    enabled = !saving
+                ) {
+                    Text("Reopen Review")
+                }
+            } else if (
+                readiness?.reviewStatus ==
+                "review_requested"
+            ) {
                 Button(
                     onClick = { onApprove(note) },
-                    enabled = readiness?.readyForReview == true && !saving
-                ) { Text("Approve Launch") }
+                    enabled =
+                        readiness.readyForReview &&
+                            !saving
+                ) {
+                    Text("Approve Launch")
+                }
+            } else {
+                Button(
+                    onClick = {},
+                    enabled = false
+                ) {
+                    Text("Awaiting review request")
+                }
             }
         },
         dismissButton = {
