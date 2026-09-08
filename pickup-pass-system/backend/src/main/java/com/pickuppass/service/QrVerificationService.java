@@ -173,6 +173,7 @@ public class QrVerificationService {
         DocumentReference lockRef = firestore.collection("dismissalLocks").document(lockId);
         DocumentReference exitLogRef = firestore.collection("exitLogs").document();
         DocumentReference studentRef = firestore.collection("students").document(result.getStudentId());
+        DocumentReference schoolRef = firestore.collection("schools").document(schoolId);
         ExitSnapshot snapshot = loadExitSnapshot(result.getStudentId(), result.getParentUid(), verifiedByUid, schoolId);
         PickupGateSnapshot gateSnapshot = resolvePickupGate(schoolId, pickupGateId, true, verifiedByUid);
 
@@ -181,9 +182,27 @@ public class QrVerificationService {
             if (!token.exists() || Boolean.TRUE.equals(token.getBoolean("used"))) {
                 return TransactionDecision.conflict("QR code was already used or superseded");
             }
+
+            DocumentSnapshot schoolTx = tx.get(schoolRef).get();
+            boolean transactionTestMode =
+                    schoolTx.exists()
+                            && !"approved".equalsIgnoreCase(
+                                    stringValue(
+                                            schoolTx.getString("launchStatus"),
+                                            "draft"
+                                    )
+                            );
+            if (!schoolTx.exists() || transactionTestMode != result.isTestMode()) {
+                return TransactionDecision.conflict(
+                        "The school's launch mode changed during verification. Generate a new pickup pass.");
+            }
+
             DocumentSnapshot lock = tx.get(lockRef).get();
             if (lock.exists()) {
-                return TransactionDecision.conflict("Student has already been dismissed today");
+                return TransactionDecision.conflict(
+                        result.isTestMode()
+                                ? "This student already has a pre-launch test release today"
+                                : "Student has already been dismissed today");
             }
             DocumentSnapshot studentTx = tx.get(studentRef).get();
             GuardianAuthorizationService.AuthorizationDecision authTx =
@@ -278,13 +297,31 @@ public class QrVerificationService {
         );
         DocumentReference lockRef = firestore.collection("dismissalLocks").document(lockId);
         DocumentReference exitLogRef = firestore.collection("exitLogs").document();
+        DocumentReference schoolRef = firestore.collection("schools").document(schoolId);
         ExitSnapshot snapshot = loadExitSnapshot(studentId, guardianUid, verifiedByUid, schoolId);
         PickupGateSnapshot gateSnapshot = resolvePickupGate(schoolId, pickupGateId, true, verifiedByUid);
 
         TransactionDecision decision = firestore.runTransaction(tx -> {
+            DocumentSnapshot schoolTx = tx.get(schoolRef).get();
+            boolean transactionTestMode =
+                    schoolTx.exists()
+                            && !"approved".equalsIgnoreCase(
+                                    stringValue(
+                                            schoolTx.getString("launchStatus"),
+                                            "draft"
+                                    )
+                            );
+            if (!schoolTx.exists() || transactionTestMode != testMode) {
+                return TransactionDecision.conflict(
+                        "The school's launch mode changed before this release was recorded. Retry the release.");
+            }
+
             DocumentSnapshot lock = tx.get(lockRef).get();
             if (lock.exists()) {
-                return TransactionDecision.conflict("Student has already been dismissed today");
+                return TransactionDecision.conflict(
+                        testMode
+                                ? "This student already has a pre-launch test release today"
+                                : "Student has already been dismissed today");
             }
             DocumentSnapshot studentTx = tx.get(studentRef).get();
             GuardianAuthorizationService.AuthorizationDecision guardianDecisionTx =
