@@ -29,6 +29,7 @@ data class LoginUiState(
     val password: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
+    val sessionEndReason: SessionEndReason? = null,
     val resetEmailSent: Boolean = false,
 
     // Existing MFA sign-in challenge.
@@ -64,7 +65,8 @@ class LoginViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(
         LoginUiState(
-            error = sessionExpiryManager.consumePendingReason()?.toLoginMessage()
+            sessionEndReason =
+                sessionExpiryManager.consumePendingReason()
         )
     )
     val uiState: StateFlow<LoginUiState> = _uiState
@@ -113,6 +115,7 @@ class LoginViewModel @Inject constructor(
             _uiState.value = state.copy(
                 isLoading = true,
                 error = null,
+                sessionEndReason = null,
                 mfaError = null,
                 setupCompleteMessage = null
             )
@@ -548,12 +551,4 @@ class LoginViewModel @Inject constructor(
                 ?: "Two-factor authentication could not be updated. Please try again."
     }
 
-    private fun SessionEndReason.toLoginMessage(): String = when (this) {
-        SessionEndReason.EXPIRED_OR_REVOKED ->
-            "Your session expired or was revoked. Please sign in again."
-        SessionEndReason.ACCOUNT_DISABLED ->
-            "Your account has been disabled. Contact your school administrator."
-        SessionEndReason.UNAUTHORIZED ->
-            "Your account no longer has access to this app."
     }
-}

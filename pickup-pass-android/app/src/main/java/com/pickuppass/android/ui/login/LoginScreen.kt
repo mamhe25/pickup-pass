@@ -36,7 +36,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pickuppass.android.session.SessionEndReason
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.FeedbackCard
+import com.pickuppass.android.ui.common.FeedbackTone
 import com.pickuppass.android.ui.common.PickupPassBrandMark
 import com.pickuppass.android.ui.common.PickupPassWordmark
 import com.pickuppass.android.ui.common.PrimaryButton
@@ -220,6 +223,45 @@ fun LoginScreen(
                     )
 
                     Spacer(Modifier.height(Spacing.md))
+
+                    uiState.sessionEndReason?.let { reason ->
+                        val title: String
+                        val message: String
+                        val tone: FeedbackTone
+
+                        when (reason) {
+                            SessionEndReason.EXPIRED_OR_REVOKED -> {
+                                title = "You've been signed out"
+                                message =
+                                    "This device's session expired or was signed out from another device. Sign in again to continue."
+                                tone = FeedbackTone.Info
+                            }
+
+                            SessionEndReason.ACCOUNT_DISABLED -> {
+                                title = "Account access disabled"
+                                message =
+                                    "Your account has been disabled. Contact your school administrator for help."
+                                tone = FeedbackTone.Warning
+                            }
+
+                            SessionEndReason.UNAUTHORIZED -> {
+                                title = "Account access changed"
+                                message =
+                                    "Your account no longer has access to PickupPass. Contact your school administrator if you think this is a mistake."
+                                tone = FeedbackTone.Warning
+                            }
+                        }
+
+                        FeedbackCard(
+                            message = message,
+                            tone = tone,
+                            title = title,
+                            modifier =
+                                Modifier.padding(
+                                    bottom = Spacing.md
+                                )
+                        )
+                    }
 
                     AnimatedVisibility(
                         visible = uiState.error != null,
