@@ -187,23 +187,35 @@ fun SchoolBillingScreen(
                             eyebrow =
                                 "School subscription",
                             title =
-                                subscriptionHeroTitle(
-                                    state.entitlements
-                                ),
+                                if (state.entitlementsLoaded) {
+                                    subscriptionHeroTitle(
+                                        state.entitlements
+                                    )
+                                } else {
+                                    "Subscription & billing"
+                                },
                             message =
-                                subscriptionHeroMessage(
-                                    state.entitlements
-                                ),
+                                if (state.entitlementsLoaded) {
+                                    subscriptionHeroMessage(
+                                        state.entitlements
+                                    )
+                                } else {
+                                    "Review invoices, payment verification, and subscription records. Plan entitlement details are temporarily unavailable."
+                                },
                             icon =
                                 Icons.Filled.VerifiedUser
                         )
                     }
 
                     item(key = "subscription") {
-                        SubscriptionOverviewCard(
-                            entitlements =
-                                state.entitlements
-                        )
+                        if (state.entitlementsLoaded) {
+                            SubscriptionOverviewCard(
+                                entitlements =
+                                    state.entitlements
+                            )
+                        } else {
+                            SubscriptionUnavailableCard()
+                        }
                     }
 
                     item(key = "billing-metrics") {
@@ -466,6 +478,46 @@ fun SchoolBillingScreen(
                     ?: "Billing action completed",
             onDismiss = viewModel::clearFeedback
         )
+    }
+}
+
+@Composable
+private fun SubscriptionUnavailableCard() {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.md),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                Icons.Filled.VerifiedUser,
+                contentDescription = null,
+                tint =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "Plan details unavailable",
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text =
+                        "PickupPass could not confirm the current entitlement snapshot. Billing records below are still available; pull to refresh to try again.",
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+            }
+        }
     }
 }
 
