@@ -85,6 +85,7 @@ class NotificationRepository @Inject constructor(
                 title = doc.getString("title") ?: "Notification",
                 body = doc.getString("body") ?: "",
                 type = doc.getString("type") ?: "",
+                schoolId = doc.getString("schoolId"),
                 studentId = doc.getString("studentId"),
                 senderName = doc.getString("senderName"),
                 read = doc.getBoolean("read") ?: false,
