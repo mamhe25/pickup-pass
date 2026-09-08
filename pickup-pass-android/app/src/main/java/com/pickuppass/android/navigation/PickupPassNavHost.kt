@@ -444,6 +444,11 @@ fun PickupPassNavHost(
                 onBack = {
                     navController
                         .popBackStack()
+                },
+                onOpenProfile = {
+                    navController.navigate(
+                        Screen.ParentProfile.route
+                    )
                 }
             )
         }
