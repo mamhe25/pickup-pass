@@ -225,18 +225,46 @@ public class LaunchReadinessService {
     }
 
     public Map<String, Object> saveManualChecks(String schoolId, Map<String, Boolean> updates, String actorUid) throws Exception {
-        if (updates == null || updates.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one manual check is required");
+        if (updates == null || updates.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one manual check is required");
+        }
+
+        Map<String, Boolean> sanitized = new LinkedHashMap<>();
+        for (String key : MANUAL_CHECK_KEYS) {
+            sanitized.put(key, Boolean.TRUE.equals(updates.get(key)));
+        }
+
         for (String key : updates.keySet()) {
-            if (!MANUAL_CHECK_KEYS.contains(key)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported manual check: " + key);
+            if (!MANUAL_CHECK_KEYS.contains(key)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported manual check: " + key);
+            }
         }
+
         Map<String, Object> write = new HashMap<>();
-        for (Map.Entry<String, Boolean> entry : updates.entrySet()) {
-            write.put("manualChecks." + entry.getKey(), Boolean.TRUE.equals(entry.getValue()));
-        }
+        // Store manualChecks as the nested map that assess()/manualChecks() reads.
+        // Using dotted keys with set(..., merge) creates literal field names rather
+        // than the nested object expected by the readiness reader.
+        write.put("manualChecks", sanitized);
         write.put("manualChecksUpdatedAt", FieldValue.serverTimestamp());
         write.put("manualChecksUpdatedBy", actorUid);
+
         readinessRef(schoolId).set(write, SetOptions.merge()).get();
-        return assess(schoolId);
+
+        Map<String, Object> assessment = assess(schoolId);
+        @SuppressWarnings("unchecked")
+        Map<String, Boolean> persisted =
+                (Map<String, Boolean>) assessment.getOrDefault("manualChecks", Map.of());
+
+        for (Map.Entry<String, Boolean> entry : sanitized.entrySet()) {
+            if (!Boolean.valueOf(Boolean.TRUE.equals(entry.getValue()))
+                    .equals(Boolean.valueOf(Boolean.TRUE.equals(persisted.get(entry.getKey()))))) {
+                throw new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Launch check update could not be verified");
+            }
+        }
+
+        return assessment;
     }
 
     public Map<String, Object> requestReview(String schoolId, String actorUid) throws Exception {
