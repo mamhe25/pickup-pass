@@ -96,6 +96,14 @@ public class BulkStudentImportController {
         }
 
         ImportContext context = loadContext(admin.getSchoolId());
+        if (context.currentAcademicYearId.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Set a current academic year before importing students"));
+        }
+        if (context.sectionsByKey.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Configure at least one active grade section in the current academic year before importing students"));
+        }
         Map<String, String> placementMappings = parsePlacementMappings(placementMappingsRaw);
         ValidationResult result = validate(rawRows, context, placementMappings);
 
