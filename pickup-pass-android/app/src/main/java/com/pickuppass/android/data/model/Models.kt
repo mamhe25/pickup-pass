@@ -652,7 +652,8 @@ data class StaffPickupGateAssignment(
     val role: String = "teacher",
     val isActive: Boolean = true,
     val assignedPickupGateIds: List<String> = emptyList(),
-    val allGates: Boolean = true
+    val allGates: Boolean = true,
+    val unavailableAssignedGateCount: Int = 0
 )
 
 data class StaffPickupGateResponse(
