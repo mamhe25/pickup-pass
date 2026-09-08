@@ -166,24 +166,6 @@ fun StudentLifecycleScreen(
         }
     }
 
-    state.error?.let { message ->
-        FeedbackCard(
-            message = message,
-            tone = FeedbackTone.Error,
-            title = "Action not completed",
-            onDismiss = viewModel::clearFeedback
-        )
-    }
-
-    state.success?.let { message ->
-        FeedbackCard(
-            message = message,
-            tone = FeedbackTone.Success,
-            title = state.successTitle ?: "Success",
-            onDismiss = viewModel::clearFeedback
-        )
-    }
-
     actionStudent?.let { student ->
         StudentActionsSheet(
             student = student,
@@ -248,6 +230,12 @@ fun StudentLifecycleScreen(
         )
     }
 
+    LaunchedEffect(state.successTitle) {
+        if (state.successTitle == "Promotion completed") {
+            showPromotion = false
+        }
+    }
+
     if (showPromotion) {
         PromotionDialog(
             state = state,
@@ -255,6 +243,27 @@ fun StudentLifecycleScreen(
             onSelectYear = viewModel::selectTargetAcademicYear,
             onPreview = viewModel::previewPromotion,
             onExecute = viewModel::executePromotion
+        )
+    }
+
+    // Keep terminal action feedback last so the canonical feedback modal is
+    // always topmost, including promotion preview/execute failures that occur
+    // while the promotion dialog is still open.
+    state.error?.let { message ->
+        FeedbackCard(
+            message = message,
+            tone = FeedbackTone.Error,
+            title = "Action not completed",
+            onDismiss = viewModel::clearFeedback
+        )
+    }
+
+    state.success?.let { message ->
+        FeedbackCard(
+            message = message,
+            tone = FeedbackTone.Success,
+            title = state.successTitle ?: "Success",
+            onDismiss = viewModel::clearFeedback
         )
     }
 }
