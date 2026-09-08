@@ -23,6 +23,7 @@ data class SchoolBillingUiState(
     val actionLabel: String = "",
     val entitlements: TenantEntitlementsResponse =
         TenantEntitlementsResponse(),
+    val entitlementsLoaded: Boolean = false,
     val instructions: SchoolBillingPaymentInstructions =
         SchoolBillingPaymentInstructions(),
     val invoices: List<SchoolBillingInvoiceItem> = emptyList(),
@@ -110,6 +111,9 @@ class SchoolBillingViewModel @Inject constructor(
                                 billingResult.data
                                     .paymentNotices,
                             entitlements = entitlements,
+                            entitlementsLoaded =
+                                entitlementResult
+                                    is ApiResult.Success,
                             error =
                                 if (
                                     entitlementResult
