@@ -619,14 +619,14 @@ class BulkStudentImportViewModel @Inject constructor(
     }
 
     private fun csvEscape(value: String): String {
-        val escaped = value.replace(""", """")
+        val escaped = value.replace("\"", "\"\"")
         return if (
             escaped.contains(",") ||
-            escaped.contains(""") ||
+            escaped.contains("\"") ||
             escaped.contains("\n") ||
             escaped.contains("\r")
         ) {
-            """ + escaped + """
+            "\"" + escaped + "\""
         } else {
             escaped
         }
