@@ -11,10 +11,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,11 +30,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.FeedbackCard
+import com.pickuppass.android.ui.common.FeedbackTone
 import com.pickuppass.android.ui.common.PremiumConfirmDialog
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SmartImage
-import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -97,9 +99,18 @@ fun ProfileScreen(
                     email = uiState.email
                 )
 
+                PickupPassPhotoEligibilityCard(
+                    photoValidationStatus =
+                        uiState.photoValidationStatus,
+                    hasPhoto =
+                        !uiState.photoUrl.isNullOrBlank()
+                )
+
                 IdentityPhotoCard(
                     photoUrl = uiState.photoUrl,
                     displayName = uiState.displayName,
+                    photoValidationStatus =
+                        uiState.photoValidationStatus,
                     isUploading = uiState.isUploading,
                     onChoosePhoto = {
                         if (!uiState.isUploading) {
@@ -114,8 +125,7 @@ fun ProfileScreen(
                     }
                 )
 
-                uiState.uploadSuccessMessage?.let { SuccessBanner(it) }
-                uiState.error?.let { ErrorBanner(it) }
+                PhotoGuidelinesCard()
 
                 AccountDetailsCard(
                     displayName = uiState.displayName,
@@ -133,7 +143,7 @@ fun ProfileScreen(
                 )
 
                 Text(
-                    "Your verification photo is used only as part of the authorized pickup workflow. A valid PickupPass and school confirmation are still required.",
+                    "PickupPass checks photo quality and that one human face is visible. It does not perform facial recognition or automatically decide a person's identity. School staff still make the final visual verification at pickup.",
                     modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -163,6 +173,24 @@ fun ProfileScreen(
             photoUrl = uiState.photoUrl,
             displayName = uiState.displayName,
             onDismiss = { showPhotoViewer = false }
+        )
+    }
+
+    uiState.uploadSuccessMessage?.let { message ->
+        FeedbackCard(
+            message = message,
+            title = uiState.uploadSuccessTitle ?: "Photo verified",
+            tone = FeedbackTone.Success,
+            onDismiss = viewModel::clearFeedback
+        )
+    }
+
+    uiState.error?.let { message ->
+        FeedbackCard(
+            message = message,
+            title = uiState.errorTitle ?: "Photo or profile issue",
+            tone = FeedbackTone.Error,
+            onDismiss = viewModel::clearFeedback
         )
     }
 }
@@ -223,9 +251,186 @@ private fun ProfileHero(
 }
 
 @Composable
+private fun PickupPassPhotoEligibilityCard(
+    photoValidationStatus: String,
+    hasPhoto: Boolean
+) {
+    val verified =
+        hasPhoto &&
+            photoValidationStatus.equals(
+                "verified",
+                ignoreCase = true
+            )
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color =
+            if (verified) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.errorContainer
+            },
+        border = BorderStroke(
+            1.dp,
+            if (verified) {
+                MaterialTheme.colorScheme.secondary.copy(alpha = 0.24f)
+            } else {
+                MaterialTheme.colorScheme.error.copy(alpha = 0.24f)
+            }
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.md),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                imageVector =
+                    if (verified) {
+                        Icons.Filled.CheckCircle
+                    } else {
+                        Icons.Filled.Security
+                    },
+                contentDescription = null,
+                tint =
+                    if (verified) {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onErrorContainer
+                    }
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Column {
+                Text(
+                    text =
+                        if (verified) {
+                            "Pickup pass photo ready"
+                        } else {
+                            "Pickup pass locked until photo verification"
+                        },
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color =
+                        if (verified) {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onErrorContainer
+                        }
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text =
+                        if (verified) {
+                            "You can generate pickup QR passes when your other guardian permissions are valid."
+                        } else {
+                            "Add an accepted verification photo first. PickupPass will block QR generation until the photo passes validation."
+                        },
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        if (verified) {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onErrorContainer
+                        }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PhotoGuidelinesCard() {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
+            Text(
+                "Tips for a photo that passes",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                "PickupPass validates the image before saving it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            PhotoTipRow(
+                good = true,
+                text = "Only you are in the photo — no group pictures."
+            )
+            PhotoTipRow(
+                good = true,
+                text = "Face the camera directly with your full face visible."
+            )
+            PhotoTipRow(
+                good = true,
+                text = "Use even front lighting and a sharp, recent photo."
+            )
+            PhotoTipRow(
+                good = true,
+                text = "Keep your face large enough to recognize, with your full head visible."
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = Spacing.xs)
+            )
+
+            PhotoTipRow(
+                good = false,
+                text = "Avoid masks, dark sunglasses, heavy shadows, blur, and strong side angles."
+            )
+            PhotoTipRow(
+                good = false,
+                text = "Do not upload pets, scenery, IDs, screenshots, cartoons, or another person's photo."
+            )
+        }
+    }
+}
+
+@Composable
+private fun PhotoTipRow(
+    good: Boolean,
+    text: String
+) {
+    Row(
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            imageVector =
+                if (good) {
+                    Icons.Filled.CheckCircle
+                } else {
+                    Icons.Filled.WarningAmber
+                },
+            contentDescription = null,
+            tint =
+                if (good) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
+            modifier = Modifier.size(19.dp)
+        )
+        Spacer(Modifier.width(Spacing.sm))
+        Text(
+            text = text,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
 private fun IdentityPhotoCard(
     photoUrl: String?,
     displayName: String,
+    photoValidationStatus: String,
     isUploading: Boolean,
     onChoosePhoto: () -> Unit,
     onViewPhoto: () -> Unit
@@ -251,11 +456,68 @@ private fun IdentityPhotoCard(
             )
             Spacer(Modifier.height(Spacing.xs))
             Text(
-                "Use a clear, recent photo of your face. Avoid sunglasses, masks, or group photos.",
+                "School staff compare this photo with the guardian who presents the pickup pass.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
+
+            Spacer(Modifier.height(Spacing.sm))
+
+            Surface(
+                shape = CircleShape,
+                color =
+                    if (
+                        photoValidationStatus.equals(
+                            "verified",
+                            ignoreCase = true
+                        )
+                    ) {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.errorContainer
+                    }
+            ) {
+                Row(
+                    modifier = Modifier.padding(
+                        horizontal = 10.dp,
+                        vertical = 6.dp
+                    ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector =
+                            if (
+                                photoValidationStatus.equals(
+                                    "verified",
+                                    ignoreCase = true
+                                )
+                            ) {
+                                Icons.Filled.CheckCircle
+                            } else {
+                                Icons.Filled.WarningAmber
+                            },
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text =
+                            if (
+                                photoValidationStatus.equals(
+                                    "verified",
+                                    ignoreCase = true
+                                )
+                            ) {
+                                "Photo verified"
+                            } else {
+                                "Photo required"
+                            },
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
 
             Spacer(Modifier.height(Spacing.lg))
 
@@ -344,7 +606,7 @@ private fun IdentityPhotoCard(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(Modifier.width(Spacing.sm))
-                    Text("Saving photo…")
+                    Text("Validating photo…")
                 } else {
                     Icon(
                         Icons.Filled.CameraAlt,
