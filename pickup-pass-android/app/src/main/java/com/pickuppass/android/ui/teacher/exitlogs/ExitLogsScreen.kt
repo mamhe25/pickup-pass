@@ -54,20 +54,30 @@ fun ExitLogsScreen(
             uiState.staffFilter
         ).count { !it.isNullOrBlank() }
 
+    val productionLogs =
+        uiState.allLogs.filterNot {
+            it.testMode
+        }
+
+    val testRecordCount =
+        uiState.allLogs.count {
+            it.testMode
+        }
+
     val todayCount =
-        uiState.allLogs.count { log ->
+        productionLogs.count { log ->
             log.timestampMillis?.let(::isToday) == true
         }
 
     val uniqueStudents =
-        uiState.allLogs
+        productionLogs
             .map { it.studentName.trim() }
             .filter { it.isNotBlank() }
             .distinct()
             .size
 
     val approverCount =
-        uiState.allLogs
+        productionLogs
             .map { it.staffName.trim() }
             .filter { it.isNotBlank() }
             .distinct()
@@ -103,6 +113,12 @@ fun ExitLogsScreen(
                     uniqueStudents = uniqueStudents,
                     approverCount = approverCount
                 )
+
+                if (testRecordCount > 0) {
+                    PrelaunchHistoryNotice(
+                        count = testRecordCount
+                    )
+                }
 
                 CompactToolbar(
                     searchTerm = uiState.searchTerm,
@@ -235,6 +251,41 @@ fun ExitLogsScreen(
                 }
             )
         }
+    }
+}
+
+@Composable
+private fun PrelaunchHistoryNotice(
+    count: Int
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = Spacing.md,
+                vertical = 4.dp
+            ),
+        shape = MaterialTheme.shapes.large,
+        color =
+            MaterialTheme.colorScheme
+                .tertiaryContainer
+    ) {
+        Text(
+            text =
+                "$count pre-launch test " +
+                    if (count == 1) {
+                        "record is"
+                    } else {
+                        "records are"
+                    } +
+                    " shown in history for audit purposes. TEST records are excluded from the production summary, live dismissal dashboard, and dismissal reports.",
+            modifier = Modifier.padding(Spacing.sm),
+            style =
+                MaterialTheme.typography.bodySmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onTertiaryContainer
+        )
     }
 }
 
@@ -515,6 +566,35 @@ private fun CompactExitLogRow(
                     )
 
                     Spacer(Modifier.width(7.dp))
+
+                    if (log.testMode) {
+                        Surface(
+                            shape = CircleShape,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .tertiaryContainer
+                        ) {
+                            Text(
+                                text = "TEST",
+                                modifier = Modifier.padding(
+                                    horizontal = 7.dp,
+                                    vertical = 3.dp
+                                ),
+                                style =
+                                    MaterialTheme.typography
+                                        .labelSmall,
+                                fontWeight =
+                                    FontWeight.ExtraBold,
+                                color =
+                                    MaterialTheme.colorScheme
+                                        .onTertiaryContainer
+                            )
+                        }
+
+                        Spacer(
+                            Modifier.width(6.dp)
+                        )
+                    }
 
                     Text(
                         text =
