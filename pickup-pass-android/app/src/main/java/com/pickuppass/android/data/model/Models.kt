@@ -77,6 +77,8 @@ data class ExitLogEntry(
     val section: String = "",
     val guardianName: String = "",
     val staffName: String = "",
+    val testMode: Boolean = false,
+    val operationalMode: String = "production",
     val timestampMillis: Long? = null,
 )
 
@@ -92,6 +94,7 @@ data class SchoolInfo(
     var id: String = "",
     val schoolName: String = "",
     val status: String = "",
+    val launchStatus: String = "draft",
     val logoUrl: String? = null,
     val pickupPolicy: PickupPolicyInfo? = null,
 )
@@ -114,7 +117,9 @@ data class GenerateTokenRequest(val studentId: String)
 data class PickupTokenResponse(
     val qrToken: String,
     val expiresAt: String,   // ISO-8601
-    val dismissalDeadline: String
+    val dismissalDeadline: String,
+    val testMode: Boolean = false,
+    val operationalMode: String = "production"
 )
 
 data class VerifyRequest(val qrToken: String)
@@ -123,13 +128,17 @@ data class VerifyResponse(
     val valid: Boolean,
     val studentId: String? = null,
     val parentUid: String? = null,
-    val reason: String? = null
+    val reason: String? = null,
+    val testMode: Boolean = false,
+    val operationalMode: String = "production"
 )
 
 data class ApproveResponse(
     val status: String? = null,
     val valid: Boolean = true,
-    val reason: String? = null
+    val reason: String? = null,
+    val testMode: Boolean = false,
+    val operationalMode: String = "production"
 )
 
 data class GuardianProfileSummary(
@@ -280,6 +289,8 @@ data class ManualOverrideResponse(
     val status: String? = null,
     val method: String? = null,
     val exitLogId: String? = null,
+    val testMode: Boolean = false,
+    val operationalMode: String = "production",
     val error: String? = null
 )
 
@@ -370,6 +381,7 @@ data class DismissalDashboardResponse(
     val releaseRatePercent: Double = 0.0,
     val qrReleaseCount: Int = 0,
     val manualOverrideCount: Int = 0,
+    val prelaunchTestReleaseCount: Int = 0,
     val gateActivity: List<GateActivityItem> = emptyList(),
     val campusActivity: List<CampusActivityItem> = emptyList(),
     val recentReleases: List<DashboardRelease> = emptyList(),
@@ -528,6 +540,7 @@ data class DismissalReportSummary(
     val uniqueStudentsReleased: Int = 0,
     val qrReleases: Int = 0,
     val manualOverrides: Int = 0,
+    val prelaunchTestReleasesExcluded: Int = 0,
     val dailyCounts: Map<String, Int> = emptyMap(),
     val gradeSectionCounts: Map<String, Int> = emptyMap()
 )
