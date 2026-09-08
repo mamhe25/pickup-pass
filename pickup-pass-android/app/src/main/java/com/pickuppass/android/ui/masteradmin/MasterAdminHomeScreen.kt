@@ -19,10 +19,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.MasterSchoolItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.NotificationActionButton
 import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.theme.Spacing
@@ -40,6 +44,7 @@ private enum class MasterAdminSection(val label: String) {
 fun MasterAdminScreen(
     viewModel: MasterAdminViewModel = hiltViewModel(),
     onOpenProfile: () -> Unit,
+    onOpenNotifications: () -> Unit,
     onSignedOut: () -> Unit
 ) {
     var section by remember { mutableStateOf(MasterAdminSection.OVERVIEW) }
@@ -49,6 +54,7 @@ fun MasterAdminScreen(
         MasterAdminAdvancedConsole(
             viewModel = viewModel,
             onOpenProfile = onOpenProfile,
+            onOpenNotifications = onOpenNotifications,
             onSignedOut = onSignedOut,
             onBackToOverview = { section = MasterAdminSection.OVERVIEW }
         )
@@ -56,6 +62,27 @@ fun MasterAdminScreen(
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(
+        lifecycleOwner,
+        viewModel
+    ) {
+        val observer =
+            LifecycleEventObserver {
+                    _,
+                    event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    viewModel.refreshNotificationCount()
+                }
+            }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -75,6 +102,10 @@ fun MasterAdminScreen(
                         { section = MasterAdminSection.OVERVIEW }
                     },
                 actions = {
+                    NotificationActionButton(
+                        unreadCount = state.unreadNotifications,
+                        onClick = onOpenNotifications,
+                    )
                     IconButton(onClick = { showPlatformTools = true }) {
                         Icon(
                             Icons.Filled.Apps,
