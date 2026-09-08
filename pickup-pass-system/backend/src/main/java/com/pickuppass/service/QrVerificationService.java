@@ -33,16 +33,19 @@ public class QrVerificationService {
     private final ZoneId schoolTimeZone;
     private final int dismissalWindowMinutes;
     private final GuardianAuthorizationService guardianAuthorizationService;
+    private final LaunchModeService launchModeService;
     public QrVerificationService(Firestore firestore,
                                   @Value("${qr.signing.secret}") String secret,
                                   @Value("${app.school-time-zone:Asia/Manila}") String schoolTimeZone,
                                   @Value("${qr.dismissal-window-minutes:120}") int dismissalWindowMinutes,
-                                  GuardianAuthorizationService guardianAuthorizationService) {
+                                  GuardianAuthorizationService guardianAuthorizationService,
+                                  LaunchModeService launchModeService) {
         this.firestore = firestore;
         this.hmacAlgorithm = Algorithm.HMAC256(secret);
         this.schoolTimeZone = ZoneId.of(schoolTimeZone);
         this.dismissalWindowMinutes = dismissalWindowMinutes;
         this.guardianAuthorizationService = guardianAuthorizationService;
+        this.launchModeService = launchModeService;
     }
     public QrVerificationResult verify(String qrToken, String scanningSchoolId)
             throws ExecutionException, InterruptedException {
@@ -88,6 +91,29 @@ public class QrVerificationService {
                 || !parentUid.equals(tokenSnap.getString("parentUid"))) {
             return QrVerificationResult.fail("QR token ledger mismatch");
         }
+
+        Boolean tokenTestMode = tokenSnap.getBoolean("testMode");
+        if (tokenTestMode == null) {
+            return QrVerificationResult.fail(
+                    "This pickup pass was issued before launch-mode tracking was enabled. Generate a new pass.");
+        }
+
+        LaunchModeService.LaunchMode currentMode =
+                launchModeService.resolve(scanningSchoolId);
+        if (tokenTestMode.booleanValue() != currentMode.testMode()) {
+            return QrVerificationResult.fail(
+                    "The school's launch mode changed after this pass was generated. Generate a new pickup pass.");
+        }
+
+        String tokenOperationalMode = stringValue(
+                tokenSnap.getString("operationalMode"),
+                tokenTestMode ? LaunchModeService.PRELAUNCH_TEST : LaunchModeService.PRODUCTION
+        );
+        if (!tokenOperationalMode.equals(currentMode.operationalMode())) {
+            return QrVerificationResult.fail(
+                    "Pickup pass mode does not match the school's current launch mode. Generate a new pass.");
+        }
+
         Timestamp dismissalDeadline = tokenSnap.getTimestamp("dismissalDeadline");
         if (dismissalDeadline != null && dismissalDeadline.toDate().getTime() < System.currentTimeMillis()) {
             return QrVerificationResult.fail("Dismissal window has expired");
@@ -107,15 +133,24 @@ public class QrVerificationService {
         if (studentStatus != null && !studentStatus.isBlank() && !"active".equalsIgnoreCase(studentStatus)) {
             return QrVerificationResult.fail("Student pickup access is not active");
         }
-        if (hasDismissalLock(scanningSchoolId, studentId)) {
-            return QrVerificationResult.fail("Student has already been dismissed today");
+        if (hasDismissalLock(scanningSchoolId, studentId, currentMode.testMode())) {
+            return QrVerificationResult.fail(
+                    currentMode.testMode()
+                            ? "This student already has a pre-launch test release today"
+                            : "Student has already been dismissed today");
         }
         GuardianAuthorizationService.AuthorizationDecision guardianDecision =
                 guardianAuthorizationService.check(studentSnap, parentUid);
         if (!guardianDecision.allowed()) {
             return QrVerificationResult.fail(guardianDecision.reason());
         }
-        return QrVerificationResult.success(studentId, parentUid, tokenRef);
+        return QrVerificationResult.success(
+                studentId,
+                parentUid,
+                tokenRef,
+                currentMode.testMode(),
+                currentMode.operationalMode()
+        );
     }
     /**
      * Atomically redeems the QR token, acquires today's per-student dismissal lock,
@@ -129,7 +164,12 @@ public class QrVerificationService {
     public String markUsedAndLog(QrVerificationResult result, String verifiedByUid, String schoolId, String pickupGateId)
             throws ExecutionException, InterruptedException {
         String businessDate = LocalDate.now(schoolTimeZone).toString();
-        String lockId = safeId(schoolId) + "_" + businessDate + "_" + safeId(result.getStudentId());
+        String lockId = dismissalLockId(
+                schoolId,
+                businessDate,
+                result.getStudentId(),
+                result.isTestMode()
+        );
         DocumentReference lockRef = firestore.collection("dismissalLocks").document(lockId);
         DocumentReference exitLogRef = firestore.collection("exitLogs").document();
         DocumentReference studentRef = firestore.collection("students").document(result.getStudentId());
@@ -157,11 +197,24 @@ public class QrVerificationService {
             lockData.put("businessDate", businessDate);
             lockData.put("exitLogId", exitLogRef.getId());
             lockData.put("pickupGateId", gateSnapshot.gateId());
+            lockData.put("testMode", result.isTestMode());
+            lockData.put("operationalMode", result.getOperationalMode());
             lockData.put("createdAt", FieldValue.serverTimestamp());
-            Map<String, Object> log = buildExitLog(schoolId, result.getStudentId(), result.getParentUid(),
-                    verifiedByUid, "qr_scan", businessDate, null, snapshot, gateSnapshot);
+            Map<String, Object> log = buildExitLog(
+                    schoolId,
+                    result.getStudentId(),
+                    result.getParentUid(),
+                    verifiedByUid,
+                    "qr_scan",
+                    businessDate,
+                    null,
+                    snapshot,
+                    gateSnapshot,
+                    result.isTestMode(),
+                    result.getOperationalMode()
+            );
             tx.update(result.getTokenRef(), "used", true, "usedAt", FieldValue.serverTimestamp());
-            if (authTx.temporary()) {
+            if (authTx.temporary() && !result.isTestMode()) {
                 tx.update(studentRef,
                         "guardianUids", FieldValue.arrayRemove(result.getParentUid()),
                         "guardians." + result.getParentUid(), FieldValue.delete());
@@ -183,6 +236,23 @@ public class QrVerificationService {
     public String manualOverride(String studentId, String guardianUid, String reason,
                                  String verifiedByUid, String schoolId, String pickupGateId)
             throws ExecutionException, InterruptedException {
+        LaunchModeService.LaunchMode mode = launchModeService.resolve(schoolId);
+        return manualOverride(
+                studentId,
+                guardianUid,
+                reason,
+                verifiedByUid,
+                schoolId,
+                pickupGateId,
+                mode.testMode(),
+                mode.operationalMode()
+        );
+    }
+
+    public String manualOverride(String studentId, String guardianUid, String reason,
+                                 String verifiedByUid, String schoolId, String pickupGateId,
+                                 boolean testMode, String operationalMode)
+            throws ExecutionException, InterruptedException {
         if (reason == null || reason.trim().length() < 5) {
             throw new IllegalArgumentException("A clear manual override reason is required");
         }
@@ -200,7 +270,12 @@ public class QrVerificationService {
             throw new ForbiddenException(guardianDecision.reason());
         }
         String businessDate = LocalDate.now(schoolTimeZone).toString();
-        String lockId = safeId(schoolId) + "_" + businessDate + "_" + safeId(studentId);
+        String lockId = dismissalLockId(
+                schoolId,
+                businessDate,
+                studentId,
+                testMode
+        );
         DocumentReference lockRef = firestore.collection("dismissalLocks").document(lockId);
         DocumentReference exitLogRef = firestore.collection("exitLogs").document();
         ExitSnapshot snapshot = loadExitSnapshot(studentId, guardianUid, verifiedByUid, schoolId);
@@ -223,10 +298,23 @@ public class QrVerificationService {
             lockData.put("businessDate", businessDate);
             lockData.put("exitLogId", exitLogRef.getId());
             lockData.put("pickupGateId", gateSnapshot.gateId());
+            lockData.put("testMode", testMode);
+            lockData.put("operationalMode", operationalMode);
             lockData.put("createdAt", FieldValue.serverTimestamp());
-            Map<String, Object> log = buildExitLog(schoolId, studentId, guardianUid,
-                    verifiedByUid, "manual_override", businessDate, reason.trim(), snapshot, gateSnapshot);
-            if (guardianDecisionTx.temporary()) {
+            Map<String, Object> log = buildExitLog(
+                    schoolId,
+                    studentId,
+                    guardianUid,
+                    verifiedByUid,
+                    "manual_override",
+                    businessDate,
+                    reason.trim(),
+                    snapshot,
+                    gateSnapshot,
+                    testMode,
+                    operationalMode
+            );
+            if (guardianDecisionTx.temporary() && !testMode) {
                 tx.update(studentRef,
                         "guardianUids", FieldValue.arrayRemove(guardianUid),
                         "guardians." + guardianUid, FieldValue.delete());
@@ -241,7 +329,9 @@ public class QrVerificationService {
     }
     private Map<String, Object> buildExitLog(String schoolId, String studentId, String parentUid,
                                               String verifiedByUid, String method, String businessDate,
-                                              String overrideReason, ExitSnapshot snapshot, PickupGateSnapshot gateSnapshot) {
+                                              String overrideReason, ExitSnapshot snapshot,
+                                              PickupGateSnapshot gateSnapshot, boolean testMode,
+                                              String operationalMode) {
         Map<String, Object> log = new HashMap<>();
         log.put("schoolId", schoolId);
         log.put("studentId", studentId);
@@ -250,6 +340,8 @@ public class QrVerificationService {
         log.put("timestamp", FieldValue.serverTimestamp());
         log.put("businessDate", businessDate);
         log.put("method", method);
+        log.put("testMode", testMode);
+        log.put("operationalMode", operationalMode);
         log.put("studentNameSnapshot", snapshot.studentName());
         log.put("studentNumberSnapshot", snapshot.studentNumber());
         log.put("gradeSnapshot", snapshot.grade());
@@ -319,11 +411,21 @@ public class QrVerificationService {
         }
     }
 
-    private boolean hasDismissalLock(String schoolId, String studentId)
+    private boolean hasDismissalLock(String schoolId, String studentId, boolean testMode)
             throws ExecutionException, InterruptedException {
         String businessDate = LocalDate.now(schoolTimeZone).toString();
-        String lockId = safeId(schoolId) + "_" + businessDate + "_" + safeId(studentId);
+        String lockId = dismissalLockId(schoolId, businessDate, studentId, testMode);
         return firestore.collection("dismissalLocks").document(lockId).get().get().exists();
+    }
+
+    private String dismissalLockId(
+            String schoolId,
+            String businessDate,
+            String studentId,
+            boolean testMode) {
+        String productionId =
+                safeId(schoolId) + "_" + businessDate + "_" + safeId(studentId);
+        return testMode ? "test_" + productionId : productionId;
     }
 
     public List<Map<String, Object>> activePickupGates(String schoolId)
