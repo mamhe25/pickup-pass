@@ -20,8 +20,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pickuppass.android.data.model.GradeSection
 import com.pickuppass.android.data.model.StudentLifecycleItem
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.PremiumConfirmDialog
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.theme.Spacing
@@ -35,7 +37,10 @@ fun StudentLifecycleScreen(
     onBack: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var actionStudent by remember { mutableStateOf<StudentLifecycleItem?>(null) }
     var statusStudent by remember { mutableStateOf<StudentLifecycleItem?>(null) }
+    var placementStudent by remember { mutableStateOf<StudentLifecycleItem?>(null) }
+    var archiveStudent by remember { mutableStateOf<StudentLifecycleItem?>(null) }
     var showPromotion by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -57,7 +62,7 @@ fun StudentLifecycleScreen(
             )
         }
     ) { padding ->
-        BoxWithConstraints(Modifier.padding(padding).fillMaxSize()) {
+        Box(Modifier.padding(padding).fillMaxSize()) {
             LazyColumn(
                 modifier = Modifier.fillMaxHeight().widthIn(max = 820.dp).align(Alignment.TopCenter)
                     .imePadding(),
@@ -72,7 +77,7 @@ fun StudentLifecycleScreen(
                         Column(Modifier.padding(Spacing.md)) {
                             Text("Preserve student history", fontWeight = FontWeight.Bold)
                             Text(
-                                "Use lifecycle statuses instead of deleting records. Only Active students can use PickupPass QR pickup.",
+                                "Reassign students to current grade/sections, or archive obsolete records without losing guardian and dismissal history.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -157,11 +162,63 @@ fun StudentLifecycleScreen(
                     StudentLifecycleCard(
                         student = student,
                         enabled = !state.isWorking,
-                        onClick = { statusStudent = student }
+                        onClick = { actionStudent = student }
                     )
                 }
             }
         }
+    }
+
+    actionStudent?.let { student ->
+        StudentActionsSheet(
+            student = student,
+            onDismiss = { actionStudent = null },
+            onReassign = {
+                actionStudent = null
+                placementStudent = student
+            },
+            onChangeStatus = {
+                actionStudent = null
+                statusStudent = student
+            },
+            onArchive = {
+                actionStudent = null
+                archiveStudent = student
+            }
+        )
+    }
+
+    placementStudent?.let { student ->
+        PlacementDialog(
+            student = student,
+            sections = state.gradeSections,
+            busy = state.isWorking,
+            onDismiss = { placementStudent = null },
+            onSave = { gradeSectionId ->
+                viewModel.reassignStudent(
+                    student.studentId,
+                    gradeSectionId
+                )
+                placementStudent = null
+            }
+        )
+    }
+
+    archiveStudent?.let { student ->
+        PremiumConfirmDialog(
+            title = "Archive student?",
+            message =
+                student.fullName +
+                    " will be removed from active pickup and teacher roster views. " +
+                    "Guardian links and dismissal history will be preserved.",
+            confirmLabel = "Archive",
+            destructive = true,
+            onDismiss = { archiveStudent = null },
+            onConfirm = {
+                archiveStudent = null
+                viewModel.archiveStudent(student.studentId)
+            }
+        )
     }
 
     statusStudent?.let { student ->
@@ -240,6 +297,255 @@ private fun StudentLifecycleCard(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StudentActionsSheet(
+    student: StudentLifecycleItem,
+    onDismiss: () -> Unit,
+    onReassign: () -> Unit,
+    onChangeStatus: () -> Unit,
+    onArchive: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = Spacing.md,
+                    end = Spacing.md,
+                    bottom = Spacing.xl
+                ),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
+            Text(
+                "MANAGE STUDENT",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                student.fullName,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                "Grade " + student.grade +
+                    " · " + student.section +
+                    " · " + student.status.pretty(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            HorizontalDivider()
+
+            OutlinedCard(
+                onClick = onReassign,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(Spacing.md)) {
+                    Text(
+                        "Reassign grade & section",
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Move this student into a current configured section so assigned teachers and roster filters match.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            OutlinedCard(
+                onClick = onChangeStatus,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(Spacing.md)) {
+                    Text(
+                        "Change lifecycle status",
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Mark active, inactive, transferred, graduated, or archived.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            if (!student.status.equals("archived", ignoreCase = true)) {
+                TextButton(
+                    onClick = onArchive,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text(
+                        "Archive student",
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PlacementDialog(
+    student: StudentLifecycleItem,
+    sections: List<GradeSection>,
+    busy: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var selectedId by remember(student.studentId) {
+        mutableStateOf(
+            student.gradeSectionId
+                .takeIf { current ->
+                    sections.any { it.id == current }
+                }
+                .orEmpty()
+        )
+    }
+    var expanded by remember { mutableStateOf(false) }
+    val selected =
+        sections.firstOrNull { it.id == selectedId }
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Reassign grade & section") },
+        text = {
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(Spacing.sm)
+            ) {
+                Text(
+                    student.fullName,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Current record: Grade " +
+                        student.grade +
+                        " · " +
+                        student.section,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (
+                    student.gradeSectionId.isBlank() ||
+                    sections.none {
+                        it.id == student.gradeSectionId
+                    }
+                ) {
+                    Surface(
+                        color =
+                            MaterialTheme.colorScheme
+                                .tertiaryContainer,
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Text(
+                            "This student uses an older placement. Choose one of the active sections from the current school year.",
+                            modifier =
+                                Modifier.padding(Spacing.sm),
+                            style =
+                                MaterialTheme.typography.bodySmall,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onTertiaryContainer
+                        )
+                    }
+                }
+
+                if (sections.isEmpty()) {
+                    Text(
+                        "No active sections are configured for the current academic year.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else {
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = {
+                            if (!busy) expanded = !expanded
+                        }
+                    ) {
+                        OutlinedTextField(
+                            value =
+                                selected?.displayName.orEmpty(),
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("New grade & section") },
+                            placeholder = {
+                                Text("Choose current section")
+                            },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults
+                                    .TrailingIcon(expanded)
+                            },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = {
+                                expanded = false
+                            }
+                        ) {
+                            sections.forEach { section ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(section.displayName)
+                                    },
+                                    onClick = {
+                                        selectedId = section.id
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    "Saving updates the student's grade, section, structured section ID, and current academic year together.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(selectedId) },
+                enabled =
+                    !busy &&
+                        selectedId.isNotBlank() &&
+                        selectedId != student.gradeSectionId
+            ) {
+                if (busy) {
+                    CircularProgressIndicator(
+                        Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Save placement")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !busy
+            ) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
