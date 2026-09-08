@@ -62,8 +62,9 @@ data class NotificationItem(
     val title: String = "",
     val body: String = "",
     val type: String = "",
+    val schoolId: String? = null,
     val studentId: String? = null,
-    val senderName: String? = null, // only set for type == "broadcast"
+    val senderName: String? = null,
     val read: Boolean = false,
     val createdAtMillis: Long? = null,
 )
