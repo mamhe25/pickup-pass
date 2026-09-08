@@ -96,8 +96,11 @@ public class PickupController {
         var replay = idempotencyService.findExisting(staff.getSchoolId(), staff.getUid(),
                 "pickup.approve", idempotencyKey, fingerprint);
         if (replay.isPresent()) {
-            LaunchModeService.LaunchMode mode =
-                    launchModeService.resolve(staff.getSchoolId());
+            QrVerificationService.ReleaseMode mode =
+                    qrService.releaseModeForExitLog(
+                            replay.get(),
+                            staff.getSchoolId()
+                    );
             return ResponseEntity.ok(Map.of(
                     "status", "release_approved",
                     "exitLogId", replay.get(),
@@ -161,8 +164,11 @@ public class PickupController {
         var replay = idempotencyService.findExisting(staff.getSchoolId(), staff.getUid(),
                 "pickup.manual_override", idempotencyKey, fingerprint);
         if (replay.isPresent()) {
-            LaunchModeService.LaunchMode mode =
-                    launchModeService.resolve(staff.getSchoolId());
+            QrVerificationService.ReleaseMode mode =
+                    qrService.releaseModeForExitLog(
+                            replay.get(),
+                            staff.getSchoolId()
+                    );
             return ResponseEntity.ok(Map.of(
                     "status", "release_approved",
                     "method", "manual_override",
