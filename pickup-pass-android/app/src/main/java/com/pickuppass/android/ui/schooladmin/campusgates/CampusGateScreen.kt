@@ -8,7 +8,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Route
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,6 +37,7 @@ fun CampusGateScreen(
     onBack: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val interactionEnabled = !state.saving && !state.refreshing
 
     var addCampus by remember { mutableStateOf(false) }
     var addGate by remember { mutableStateOf(false) }
@@ -72,7 +72,7 @@ fun CampusGateScreen(
         PickupPassPullToRefresh(
             refreshing = state.refreshing,
             onRefresh = viewModel::load,
-            enabled = !state.saving,
+            enabled = interactionEnabled,
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
@@ -98,7 +98,7 @@ fun CampusGateScreen(
                             eyebrow = "Dismissal infrastructure",
                             title = "Release locations",
                             message = "Control the campuses and pickup gates that staff can use during secure student dismissal.",
-                            icon = Icons.Filled.Route
+                            icon = Icons.Filled.Place
                         )
                     }
 
@@ -151,7 +151,7 @@ fun CampusGateScreen(
                             title = "Campuses",
                             subtitle = "School sites that contain pickup locations.",
                             action = "Add campus",
-                            enabled = !state.saving &&
+                            enabled = interactionEnabled &&
                                 (state.multiCampusEnabled ||
                                     state.campuses.none { it.active }),
                             onClick = { addCampus = true }
@@ -179,7 +179,7 @@ fun CampusGateScreen(
                                 campus = campus,
                                 totalGates = campusGates.size,
                                 activeGates = campusGates.count { it.active },
-                                enabled = !state.saving,
+                                enabled = interactionEnabled,
                                 onToggle = {
                                     campusToggle = campus to it
                                 }
@@ -192,7 +192,7 @@ fun CampusGateScreen(
                             title = "Pickup gates",
                             subtitle = "Release points available to dismissal staff.",
                             action = "Add gate",
-                            enabled = !state.saving,
+                            enabled = interactionEnabled,
                             onClick = { addGate = true }
                         )
                     }
@@ -218,7 +218,7 @@ fun CampusGateScreen(
                             GateCard(
                                 gate = gate,
                                 campusActive = campusActive,
-                                enabled = !state.saving,
+                                enabled = interactionEnabled,
                                 onToggle = {
                                     gateToggle = gate to it
                                 }
