@@ -9,12 +9,16 @@ import com.google.cloud.vision.v1.Image;
 import com.google.cloud.vision.v1.ImageAnnotatorClient;
 import com.google.cloud.vision.v1.Likelihood;
 import com.google.protobuf.ByteString;
+import jakarta.annotation.PreDestroy;
 import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import java.io.ByteArrayInputStream;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Validates guardian verification photos before they can be stored as an
@@ -27,13 +31,15 @@ import java.util.List;
 @Service
 public class GuardianPhotoValidationService {
 
-    public static final int MAX_UPLOAD_BYTES = 1_000_000;
+    public static final int MAX_UPLOAD_BYTES = 500_000;
     public static final int MIN_DIMENSION_PX = 300;
     public static final int MAX_DIMENSION_PX = 4096;
     private static final double MIN_FACE_AREA_RATIO = 0.15;
     private static final double MAX_FACE_AREA_RATIO = 0.88;
     private static final float MIN_DETECTION_CONFIDENCE = 0.70f;
     private static final float MAX_ABS_POSE_DEGREES = 30f;
+
+    private volatile ImageAnnotatorClient visionClient;
 
     public ValidationResult validate(byte[] bytes) {
         if (bytes == null || bytes.length == 0) {
@@ -45,20 +51,20 @@ public class GuardianPhotoValidationService {
                     "Photo is too large. Choose an image under 1 MB.");
         }
 
-        final BufferedImage decoded;
+        final ImageMetadata metadata;
         try {
-            decoded = ImageIO.read(new ByteArrayInputStream(bytes));
+            metadata = inspectImage(bytes);
         } catch (Exception e) {
             return ValidationResult.rejected(
                     "The selected file could not be read as an image.");
         }
-        if (decoded == null) {
+        if (metadata == null) {
             return ValidationResult.rejected(
-                    "The selected file is not a supported image.");
+                    "The selected file is not a supported JPEG or PNG image.");
         }
 
-        int width = decoded.getWidth();
-        int height = decoded.getHeight();
+        int width = metadata.width();
+        int height = metadata.height();
         if (width < MIN_DIMENSION_PX || height < MIN_DIMENSION_PX) {
             return ValidationResult.rejected(
                     "Use a higher-resolution photo. Minimum size is 300 × 300 pixels.");
@@ -68,7 +74,7 @@ public class GuardianPhotoValidationService {
                     "Photo dimensions are too large. Use an image up to 4096 × 4096 pixels.");
         }
 
-        try (ImageAnnotatorClient vision = ImageAnnotatorClient.create()) {
+        try {
             Image image = Image.newBuilder()
                     .setContent(ByteString.copyFrom(bytes))
                     .build();
@@ -84,7 +90,7 @@ public class GuardianPhotoValidationService {
                     .build();
 
             BatchAnnotateImagesResponse response =
-                    vision.batchAnnotateImages(List.of(request));
+                    visionClient().batchAnnotateImages(List.of(request));
             if (response.getResponsesCount() != 1) {
                 return ValidationResult.unavailable(
                         "Photo validation is temporarily unavailable. Please try again.");
@@ -141,13 +147,81 @@ public class GuardianPhotoValidationService {
 
             return ValidationResult.accepted(
                     face.getDetectionConfidence(),
-                    faceAreaRatio
+                    faceAreaRatio,
+                    metadata.mediaType()
             );
         } catch (Exception e) {
             return ValidationResult.unavailable(
                     "Photo validation is temporarily unavailable. Please try again.");
         }
     }
+
+    private ImageMetadata inspectImage(byte[] bytes) throws Exception {
+        try (ImageInputStream stream =
+                     ImageIO.createImageInputStream(
+                             new ByteArrayInputStream(bytes))) {
+            if (stream == null) return null;
+
+            Iterator<ImageReader> readers =
+                    ImageIO.getImageReaders(stream);
+            if (!readers.hasNext()) return null;
+
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(stream, true, true);
+                String format =
+                        reader.getFormatName()
+                                .toLowerCase(Locale.ROOT);
+                String mediaType =
+                        switch (format) {
+                            case "jpeg", "jpg" ->
+                                    "image/jpeg";
+                            case "png" ->
+                                    "image/png";
+                            default ->
+                                    null;
+                        };
+                if (mediaType == null) return null;
+
+                return new ImageMetadata(
+                        reader.getWidth(0),
+                        reader.getHeight(0),
+                        mediaType
+                );
+            } finally {
+                reader.dispose();
+            }
+        }
+    }
+
+    private ImageAnnotatorClient visionClient() throws Exception {
+        ImageAnnotatorClient current = visionClient;
+        if (current != null) return current;
+
+        synchronized (this) {
+            current = visionClient;
+            if (current == null) {
+                current = ImageAnnotatorClient.create();
+                visionClient = current;
+            }
+            return current;
+        }
+    }
+
+    @PreDestroy
+    public void closeVisionClient() {
+        ImageAnnotatorClient current = visionClient;
+        if (current != null) {
+            current.close();
+            visionClient = null;
+        }
+    }
+
+    private record ImageMetadata(
+            int width,
+            int height,
+            String mediaType
+    ) { }
 
     private boolean isLikely(Likelihood likelihood) {
         return likelihood == Likelihood.LIKELY
@@ -189,26 +263,43 @@ public class GuardianPhotoValidationService {
             boolean validatorUnavailable,
             String message,
             float detectionConfidence,
-            double faceAreaRatio) {
+            double faceAreaRatio,
+            String mediaType) {
 
         public static ValidationResult accepted(
                 float detectionConfidence,
-                double faceAreaRatio) {
+                double faceAreaRatio,
+                String mediaType) {
             return new ValidationResult(
                     true,
                     false,
                     "Verification photo accepted",
                     detectionConfidence,
-                    faceAreaRatio
+                    faceAreaRatio,
+                    mediaType
             );
         }
 
         public static ValidationResult rejected(String message) {
-            return new ValidationResult(false, false, message, 0f, 0.0);
+            return new ValidationResult(
+                    false,
+                    false,
+                    message,
+                    0f,
+                    0.0,
+                    null
+            );
         }
 
         public static ValidationResult unavailable(String message) {
-            return new ValidationResult(false, true, message, 0f, 0.0);
+            return new ValidationResult(
+                    false,
+                    true,
+                    message,
+                    0f,
+                    0.0,
+                    null
+            );
         }
     }
 }
