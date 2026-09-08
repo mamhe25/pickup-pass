@@ -69,6 +69,7 @@ public class GuardianVerificationController {
             item.put("uid", entry.getKey());
             item.put("displayName", displayName(user));
             item.put("email", Objects.toString(user.getString("email"), ""));
+            item.put("photoUrl", Objects.toString(user.getString("photoUrl"), ""));
             item.put("status", status);
             item.put("studentNames", new ArrayList<>(entry.getValue()));
             item.put("verificationReason", Objects.toString(user.getString("guardianVerificationReason"), ""));
