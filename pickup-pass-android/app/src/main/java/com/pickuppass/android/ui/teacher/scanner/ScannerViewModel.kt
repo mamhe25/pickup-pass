@@ -27,11 +27,16 @@ sealed class ScannerUiState {
         val guardian: UserProfile,
         val qrToken: String,
         val guardianPhotoReady: Boolean,
+        val testMode: Boolean = false,
+        val operationalMode: String = "production",
         val isApproving: Boolean = false
     ) : ScannerUiState()
 
     data class Error(val message: String) : ScannerUiState()
-    data class Approved(val gateLabel: String = "") : ScannerUiState()
+    data class Approved(
+        val gateLabel: String = "",
+        val testMode: Boolean = false
+    ) : ScannerUiState()
 }
 
 @HiltViewModel
@@ -156,7 +161,9 @@ class ScannerViewModel @Inject constructor(
                                 student = student,
                                 guardian = guardian,
                                 qrToken = qrToken,
-                                guardianPhotoReady = isGuardianPhotoUsable(guardian.photoUrl)
+                                guardianPhotoReady = isGuardianPhotoUsable(guardian.photoUrl),
+                                testMode = result.data.testMode,
+                                operationalMode = result.data.operationalMode
                             )
                         }
                     }
@@ -196,7 +203,10 @@ class ScannerViewModel @Inject constructor(
             when (val result = pickupRepository.approve(current.qrToken, gate?.id)) {
                 is ApiResult.Success -> {
                     _uiState.value =
-                        ScannerUiState.Approved(gate?.displayName.orEmpty())
+                        ScannerUiState.Approved(
+                            gateLabel = gate?.displayName.orEmpty(),
+                            testMode = result.data.testMode
+                        )
                 }
 
                 is ApiResult.Failure -> {
