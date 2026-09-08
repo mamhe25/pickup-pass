@@ -841,6 +841,9 @@ fun PickupPassNavHost(
                             "branding" ->
                                 Screen.SchoolAdminBranding.route
 
+                            "billing" ->
+                                Screen.SchoolAdminBilling.route
+
                             else ->
                                 null
                         }
