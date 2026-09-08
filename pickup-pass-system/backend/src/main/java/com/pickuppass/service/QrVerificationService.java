@@ -327,6 +327,31 @@ public class QrVerificationService {
         decision.throwIfRejected();
         return exitLogRef.getId();
     }
+    public ReleaseMode releaseModeForExitLog(String exitLogId, String schoolId)
+            throws ExecutionException, InterruptedException {
+        DocumentSnapshot log =
+                firestore.collection("exitLogs")
+                        .document(exitLogId)
+                        .get()
+                        .get();
+
+        if (!log.exists() || !schoolId.equals(log.getString("schoolId"))) {
+            throw new NotFoundException("Pickup release record not found");
+        }
+
+        boolean testMode = Boolean.TRUE.equals(log.getBoolean("testMode"));
+        String operationalMode = stringValue(
+                log.getString("operationalMode"),
+                testMode ? LaunchModeService.PRELAUNCH_TEST : LaunchModeService.PRODUCTION
+        );
+        return new ReleaseMode(testMode, operationalMode);
+    }
+
+    public record ReleaseMode(
+            boolean testMode,
+            String operationalMode
+    ) { }
+
     private Map<String, Object> buildExitLog(String schoolId, String studentId, String parentUid,
                                               String verifiedByUid, String method, String businessDate,
                                               String overrideReason, ExitSnapshot snapshot,
