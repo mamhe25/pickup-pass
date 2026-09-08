@@ -372,7 +372,16 @@ public class QrVerificationService {
             throws ExecutionException, InterruptedException {
         String requested = pickupGateId == null ? "" : pickupGateId.trim();
         if (requested.isBlank()) {
-            if (requireWhenConfigured && !activePickupGates(schoolId, staffUid).isEmpty()) {
+            List<Map<String, Object>> activeAllowedGates = activePickupGates(schoolId, staffUid);
+            if (staffUid != null && !staffUid.isBlank()) {
+                DocumentSnapshot staff = firestore.collection("users").document(staffUid).get().get();
+                Object raw = staff.exists() ? staff.get("assignedPickupGateIds") : null;
+                if (raw instanceof java.util.List<?> list && !list.isEmpty() && activeAllowedGates.isEmpty()) {
+                    throw new ForbiddenException(
+                            "No active pickup gates are currently assigned to your account");
+                }
+            }
+            if (requireWhenConfigured && !activeAllowedGates.isEmpty()) {
                 throw new IllegalArgumentException("Select a pickup gate before approving release");
             }
             return PickupGateSnapshot.none();
