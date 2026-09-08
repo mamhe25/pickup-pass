@@ -64,11 +64,10 @@ service cloud.firestore {
           || isSchoolStaff(resource.data.schoolId));
 
       allow create: if false;
-      allow update: if isSignedIn()
-        && request.auth.uid == userId
-        && request.resource.data.diff(resource.data)
-          .affectedKeys()
-          .hasOnly(['photoUrl']);
+      // Verification photos and all other profile identity fields are
+      // server-managed. This prevents modified clients from bypassing the
+      // guardian-photo validation pipeline.
+      allow update: if false;
       allow delete: if false;
     }
 
