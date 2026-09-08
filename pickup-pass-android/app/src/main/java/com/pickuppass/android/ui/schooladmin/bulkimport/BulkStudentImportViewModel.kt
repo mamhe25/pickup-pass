@@ -84,13 +84,6 @@ class BulkStudentImportViewModel @Inject constructor(
                 }
 
                 selectedBytes = selected.bytes
-                .also { selectedBytes = null }
-                .copyOf()
-                .also {
-                    selectedBytes = it
-                }
-                .let { selectedBytes }
-
                 selectedFilename = selected.name
 
                 previewSelectedFile()
