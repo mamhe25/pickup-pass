@@ -322,7 +322,7 @@ describe("Firestore tenant isolation", () => {
   );
 
   test(
-    "guardian can update only their own photo field",
+    "guardian profile identity writes are server managed",
     async () => {
       const db = dbFor(
         "guardian-a",
@@ -330,10 +330,18 @@ describe("Firestore tenant isolation", () => {
         "parent"
       );
 
-      await assertSucceeds(
+      await assertFails(
         updateDoc(
           doc(db, "users/guardian-a"),
           { photoUrl: "new" }
+        )
+      );
+      await assertFails(
+        updateDoc(
+          doc(db, "users/guardian-a"),
+          {
+            photoValidationStatus: "verified"
+          }
         )
       );
       await assertFails(
