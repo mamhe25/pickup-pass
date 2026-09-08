@@ -909,13 +909,13 @@ private fun BroadcastHistoryCard(
                                 " · " +
                                 item.recipientCount +
                                 " recipient" +
-                                if (
-                                    item.recipientCount == 1
-                                ) {
-                                    ""
-                                } else {
-                                    "s"
-                                },
+                                (
+                                    if (item.recipientCount == 1) {
+                                        ""
+                                    } else {
+                                        "s"
+                                    }
+                                    ),
                         style =
                             MaterialTheme.typography.bodySmall,
                         color = scheme.onSurfaceVariant
@@ -948,7 +948,7 @@ private fun BroadcastHistoryCard(
                 }
             }
 
-            if (item.status == "scheduled") {
+            if (item.status.equals("scheduled", ignoreCase = true)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
