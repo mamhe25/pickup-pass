@@ -103,8 +103,16 @@ class SchoolBroadcastViewModel @Inject constructor(
                         isSubmitting = false,
                         successTitle = "Announcement sent",
                         successMessage =
-                            "Delivered to " + count + " " +
-                                if (count == 1) "recipient." else "recipients.",
+                            "Delivered to " +
+                                count +
+                                " " +
+                                (
+                                    if (count == 1) {
+                                        "recipient."
+                                    } else {
+                                        "recipients."
+                                    }
+                                    ),
                         composerResetToken =
                             _uiState.value.composerResetToken + 1
                     )
