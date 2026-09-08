@@ -97,6 +97,9 @@ sealed class Screen(
     data object MasterAdminHome :
         Screen("master-admin/home")
 
+    data object MasterAdminNotifications :
+        Screen("master-admin/notifications")
+
     data object SchoolAdminBranding :
         Screen("school-admin/branding")
 
