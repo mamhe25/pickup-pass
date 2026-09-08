@@ -424,7 +424,9 @@ class SchoolBillingViewModel @Inject constructor(
                             "Payment submitted, refresh failed",
                         error =
                             "The payment notice was submitted, but the latest billing data could not be loaded. " +
-                                result.message
+                                result.message,
+                        message = null,
+                        messageTitle = null
                     )
             }
         }
