@@ -135,20 +135,36 @@ class LaunchReadinessViewModel @Inject constructor(
                     )
             ) {
                 is ApiResult.Success -> {
-                    _uiState.value =
-                        _uiState.value.copy(
-                            saving = false,
-                            savingAction = null,
-                            readiness = result.data,
-                            messageTitle =
-                                "On-site check updated",
-                            message =
-                                if (checked) {
-                                    "The launch requirement is now confirmed. PickupPass recalculated readiness using the latest school configuration."
-                                } else {
-                                    "The launch requirement was marked incomplete. PickupPass recalculated readiness and may now require attention before launch."
-                                }
-                        )
+                    val persisted =
+                        result.data.manualChecks[key] == true
+
+                    if (persisted != checked) {
+                        _uiState.value =
+                            _uiState.value.copy(
+                                saving = false,
+                                savingAction = null,
+                                readiness = result.data,
+                                errorTitle =
+                                    "Launch check was not persisted",
+                                error =
+                                    "PickupPass received a successful response, but the saved readiness value did not match your selection. The change was not confirmed; refresh after the backend update is deployed."
+                            )
+                    } else {
+                        _uiState.value =
+                            _uiState.value.copy(
+                                saving = false,
+                                savingAction = null,
+                                readiness = result.data,
+                                messageTitle =
+                                    "On-site check updated",
+                                message =
+                                    if (checked) {
+                                        "The launch requirement is now confirmed. PickupPass recalculated readiness using the latest school configuration."
+                                    } else {
+                                        "The launch requirement was marked incomplete. PickupPass recalculated readiness and may now require attention before launch."
+                                    }
+                            )
+                    }
                 }
 
                 is ApiResult.Failure -> {
