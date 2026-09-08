@@ -104,6 +104,22 @@ class PickupPolicyViewModel @Inject constructor(
         updateDirty()
     }
 
+    fun resetChanges() {
+        if (_uiState.value.isSaving || _uiState.value.isRefreshing) return
+
+        _uiState.value = _uiState.value.copy(
+            restrictedToTimeWindow = baselineRestricted,
+            startTime = baselineStartTime,
+            endTime = baselineEndTime,
+            allowManualOverride = baselineManualOverride,
+            isDirty = false,
+            error = null,
+            errorTitle = null,
+            successMessage = null,
+            successTitle = null
+        )
+    }
+
     fun save() {
         val current = _uiState.value
         if (current.isSaving || loadInProgress) return
