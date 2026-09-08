@@ -43,6 +43,7 @@ fun AcademicStructureScreen(
 
     var showCreateYear by remember { mutableStateOf(false) }
     var editingYear by remember { mutableStateOf<AcademicYear?>(null) }
+    var currentYearAction by remember { mutableStateOf<AcademicYear?>(null) }
     var yearStatusAction by remember { mutableStateOf<Pair<AcademicYear, Boolean>?>(null) }
     var deletingYear by remember { mutableStateOf<AcademicYear?>(null) }
 
@@ -57,6 +58,7 @@ fun AcademicStructureScreen(
             "section-created" -> showCreateSection = false
             else -> {
                 if (action?.startsWith("year-updated:") == true) editingYear = null
+                if (action?.startsWith("year-current:") == true) currentYearAction = null
                 if (action?.startsWith("year-status:") == true) yearStatusAction = null
                 if (action?.startsWith("year-deleted:") == true) deletingYear = null
                 if (action?.startsWith("section-updated:") == true) editingSection = null
@@ -203,7 +205,7 @@ fun AcademicStructureScreen(
                             },
                             onSetCurrent = {
                                 viewModel.clearFeedback()
-                                viewModel.setCurrentYear(year.id)
+                                currentYearAction = year
                             },
                             onSetActive = { active ->
                                 viewModel.clearFeedback()
@@ -326,6 +328,26 @@ fun AcademicStructureScreen(
             },
             onSave = { name, start, end, _ ->
                 viewModel.updateYear(year.id, name, start, end)
+            }
+        )
+    }
+
+    currentYearAction?.let { year ->
+        ConfirmationDialog(
+            title = "Set current academic year?",
+            message = year.name +
+                " will become the school's operational academic year. The previously current year will remain in history but will no longer be marked current.",
+            confirmLabel = "Set as current",
+            destructive = false,
+            busy = state.isSaving || state.isRefreshing,
+            onDismiss = {
+                if (!state.isSaving && !state.isRefreshing) {
+                    currentYearAction = null
+                    viewModel.clearFeedback()
+                }
+            },
+            onConfirm = {
+                viewModel.setCurrentYear(year.id)
             }
         )
     }
