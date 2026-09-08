@@ -29,9 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.FeedbackCard
+import com.pickuppass.android.ui.common.FeedbackTone
 import com.pickuppass.android.ui.common.PremiumTopAppBar
-import com.pickuppass.android.ui.common.SuccessBanner
-import com.pickuppass.android.ui.common.WarningBanner
 import com.pickuppass.android.ui.theme.Spacing
 
 private const val MIDDLE_INITIAL_LIMIT = 4
@@ -298,37 +298,6 @@ fun RegisterParentScreen(
                 }
             }
 
-            AnimatedVisibility(
-                visible = uiState.error != null,
-                enter = fadeIn() + expandVertically()
-            ) {
-                uiState.error?.let { message ->
-                    ErrorBanner(
-                        message,
-                        modifier = Modifier.padding(bottom = Spacing.sm)
-                    )
-                }
-            }
-
-            AnimatedVisibility(
-                visible = uiState.successMessage != null,
-                enter = fadeIn() + expandVertically()
-            ) {
-                uiState.successMessage?.let { message ->
-                    if (uiState.successIsWarning) {
-                        WarningBanner(
-                            message,
-                            modifier = Modifier.padding(bottom = Spacing.sm)
-                        )
-                    } else {
-                        SuccessBanner(
-                            message,
-                            modifier = Modifier.padding(bottom = Spacing.sm)
-                        )
-                    }
-                }
-            }
-
             Button(
                 onClick = {
                     val error = validateDraft(lastName, firstName, normalizedEmail)
@@ -385,6 +354,34 @@ fun RegisterParentScreen(
                     relationship = relationship
                 )
             }
+        )
+    }
+
+    uiState.successMessage?.let { message ->
+        FeedbackCard(
+            message = message,
+            title =
+                if (uiState.successIsWarning) {
+                    "Guardian registered — follow-up needed"
+                } else {
+                    "Primary guardian registered"
+                },
+            tone =
+                if (uiState.successIsWarning) {
+                    FeedbackTone.Warning
+                } else {
+                    FeedbackTone.Success
+                },
+            onDismiss = viewModel::clearFeedback
+        )
+    }
+
+    uiState.error?.let { message ->
+        FeedbackCard(
+            message = message,
+            title = "Guardian registration failed",
+            tone = FeedbackTone.Error,
+            onDismiss = viewModel::clearFeedback
         )
     }
 }
@@ -507,7 +504,7 @@ private fun RegistrationOutcomeCard() {
                 )
                 Spacer(Modifier.height(5.dp))
                 Text(
-                    text = "The guardian must complete account setup and upload their identity photo before using the secure pickup workflow.",
+                    text = "The guardian must complete account setup and upload an accepted verification photo. QR pickup pass generation stays locked until PickupPass validates that photo.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
