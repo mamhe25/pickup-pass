@@ -94,7 +94,8 @@ class QrVerificationServiceTest {
                 SECRET,
                 "Asia/Manila",
                 120,
-                mock(GuardianAuthorizationService.class));
+                mock(GuardianAuthorizationService.class),
+                mock(LaunchModeService.class));
     }
 
     private DocumentSnapshot schoolDocument() {
