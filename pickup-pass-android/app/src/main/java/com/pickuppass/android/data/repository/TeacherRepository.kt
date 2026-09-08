@@ -218,6 +218,8 @@ class TeacherRepository @Inject constructor(
                 section = student["section"] as? String ?: "",
                 guardianName = guardian["displayName"] as? String ?: "Unknown Guardian",
                 staffName = staff["displayName"] as? String ?: "Unknown Staff",
+                testMode = doc.getBoolean("testMode") == true,
+                operationalMode = doc.getString("operationalMode") ?: "production",
                 timestampMillis = doc.getTimestamp("timestamp")?.toDate()?.time,
             )
         }
