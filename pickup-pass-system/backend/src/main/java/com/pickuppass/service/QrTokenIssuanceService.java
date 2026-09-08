@@ -85,6 +85,28 @@ public class QrTokenIssuanceService {
             throw new ForbiddenException(guardianDecision.reason());
         }
 
+        DocumentSnapshot guardianProfile =
+                firestore.collection("users").document(parentUid).get().get();
+        if (!guardianProfile.exists()
+                || !schoolId.equals(guardianProfile.getString("schoolId"))
+                || Boolean.FALSE.equals(guardianProfile.getBoolean("isActive"))) {
+            throw new ForbiddenException(
+                    "Guardian profile is unavailable or inactive");
+        }
+
+        String photoUrl = guardianProfile.getString("photoUrl");
+        String photoValidationStatus =
+                guardianProfile.getString("photoValidationStatus");
+        if (photoUrl == null
+                || photoUrl.isBlank()
+                || !"verified".equalsIgnoreCase(
+                        photoValidationStatus == null
+                                ? ""
+                                : photoValidationStatus)) {
+            throw new ForbiddenException(
+                    "Add a valid verification photo in My Profile before generating a pickup pass");
+        }
+
         LaunchModeService.LaunchMode launchMode =
                 launchModeService.resolve(schoolId);
 
