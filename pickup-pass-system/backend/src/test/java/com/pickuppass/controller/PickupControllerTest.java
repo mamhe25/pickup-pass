@@ -84,6 +84,89 @@ class PickupControllerTest {
     }
 
     @Test
+    void prelaunchQrReleaseIsRecordedAsTestWithoutProductionUsage() throws Exception {
+        QrVerificationService qr = mock(QrVerificationService.class);
+        PushNotificationService push = mock(PushNotificationService.class);
+        AuditService audit = mock(AuditService.class);
+        PickupMetricsService metrics = mock(PickupMetricsService.class);
+        IdempotencyService idempotency = mock(IdempotencyService.class);
+        SubscriptionFeatureService features = mock(SubscriptionFeatureService.class);
+        TenantUsageService usage = mock(TenantUsageService.class);
+        LaunchModeService launchMode = mock(LaunchModeService.class);
+        PickupController controller =
+                new PickupController(
+                        qr,
+                        push,
+                        audit,
+                        metrics,
+                        idempotency,
+                        features,
+                        usage,
+                        launchMode
+                );
+        FirebaseUserDetails staff =
+                new FirebaseUserDetails(
+                        "staff1",
+                        "staff@test.com",
+                        "school1",
+                        "teacher"
+                );
+        PickupController.VerifyRequest req =
+                new PickupController.VerifyRequest();
+        req.setQrToken("test-token");
+
+        QrVerificationResult result =
+                QrVerificationResult.success(
+                        "student1",
+                        "guardian1",
+                        null,
+                        true,
+                        LaunchModeService.PRELAUNCH_TEST
+                );
+
+        when(idempotency.fingerprint("test-token\n"))
+                .thenReturn("fp-test");
+        when(idempotency.findExisting(
+                "school1",
+                "staff1",
+                "pickup.approve",
+                "test-request",
+                "fp-test"
+        )).thenReturn(Optional.empty());
+        when(qr.verify("test-token", "school1"))
+                .thenReturn(result);
+        when(qr.markUsedAndLog(
+                result,
+                "staff1",
+                "school1",
+                null
+        )).thenReturn("test-log");
+
+        ResponseEntity<?> response =
+                controller.approve(
+                        req,
+                        "test-request",
+                        null,
+                        staff
+                );
+
+        assertEquals(200, response.getStatusCode().value());
+        verify(push).notifyGuardiansOfPickup(
+                "student1",
+                "guardian1",
+                true
+        );
+        verify(usage, never()).recordQrPickup(anyString());
+        verify(audit).record(
+                eq(staff),
+                eq("pickup.approved"),
+                eq("exitLog"),
+                eq("test-log"),
+                anyMap()
+        );
+    }
+
+    @Test
     void approveReturnsStoredResultForSafeNetworkRetry() throws Exception {
         QrVerificationService qr = mock(QrVerificationService.class);
         PushNotificationService push = mock(PushNotificationService.class);
