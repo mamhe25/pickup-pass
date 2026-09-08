@@ -41,7 +41,10 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalLayoutApi::class
+)
 @Composable
 fun SchoolBillingScreen(
     onBack: () -> Unit,
@@ -649,6 +652,48 @@ private fun SubscriptionOverviewCard(
                         }
                 }
             }
+
+            if (
+                entitlements.limits.isNotEmpty()
+            ) {
+                HorizontalDivider()
+
+                Text(
+                    text = "PLAN LIMITS",
+                    style =
+                        MaterialTheme.typography
+                            .labelSmall,
+                    fontWeight =
+                        FontWeight.ExtraBold,
+                    color = scheme.primary
+                )
+
+                FlowRow(
+                    horizontalArrangement =
+                        Arrangement.spacedBy(
+                            Spacing.xs
+                        ),
+                    verticalArrangement =
+                        Arrangement.spacedBy(
+                            Spacing.xs
+                        )
+                ) {
+                    entitlements.limits
+                        .entries
+                        .sortedBy {
+                            it.key
+                        }
+                        .take(8)
+                        .forEach {
+                            LimitChip(
+                                name =
+                                    it.key.pretty(),
+                                value =
+                                    it.value
+                            )
+                        }
+                }
+            }
         }
     }
 }
@@ -775,6 +820,40 @@ private fun FeatureChip(
                 } else {
                     scheme.onSurfaceVariant
                 }
+        )
+    }
+}
+
+@Composable
+private fun LimitChip(
+    name: String,
+    value: Int
+) {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color =
+            MaterialTheme.colorScheme
+                .surfaceVariant
+    ) {
+        Text(
+            text =
+                name +
+                    ": " +
+                    if (value < 0) {
+                        "Unlimited"
+                    } else {
+                        value.toString()
+                    },
+            modifier = Modifier.padding(
+                horizontal = 8.dp,
+                vertical = 5.dp
+            ),
+            style =
+                MaterialTheme.typography
+                    .labelSmall,
+            color =
+                MaterialTheme.colorScheme
+                    .onSurfaceVariant
         )
     }
 }
