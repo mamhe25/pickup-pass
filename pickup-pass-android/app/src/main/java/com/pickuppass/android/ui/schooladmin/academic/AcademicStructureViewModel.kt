@@ -7,17 +7,20 @@ import com.pickuppass.android.data.model.GradeSection
 import com.pickuppass.android.data.repository.ApiResult
 import com.pickuppass.android.data.repository.SchoolAdminRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.LocalDate
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import javax.inject.Inject
 
 data class AcademicStructureUiState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val isSaving: Boolean = false,
     val error: String? = null,
+    val errorTitle: String? = null,
     val message: String? = null,
+    val messageTitle: String? = null,
     val completedAction: String? = null,
     val years: List<AcademicYear> = emptyList(),
     val sections: List<GradeSection> = emptyList(),
@@ -29,36 +32,73 @@ class AcademicStructureViewModel @Inject constructor(
     private val repository: SchoolAdminRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(AcademicStructureUiState())
-    val uiState: StateFlow<AcademicStructureUiState> = _uiState
+    private val _uiState =
+        MutableStateFlow(AcademicStructureUiState())
+    val uiState: StateFlow<AcademicStructureUiState> =
+        _uiState
+
+    private var loadInProgress = false
 
     init {
-        load()
+        load(initial = true)
     }
 
     fun load() {
-        if (_uiState.value.isLoading && _uiState.value.years.isNotEmpty()) return
+        load(initial = false)
+    }
+
+    private fun load(initial: Boolean) {
+        if (loadInProgress || _uiState.value.isSaving) return
+
+        loadInProgress = true
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
-                isLoading = true,
+                isLoading = initial,
+                isRefreshing = !initial,
                 error = null,
+                errorTitle = null,
                 completedAction = null
             )
-            when (val result = repository.getAcademicStructure()) {
-                is ApiResult.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        years = result.data.academicYears,
-                        sections = result.data.gradeSections,
-                        currentYearId = result.data.currentAcademicYear?.id
-                    )
+
+            try {
+                when (
+                    val result =
+                        repository.getAcademicStructure()
+                ) {
+                    is ApiResult.Success -> {
+                        _uiState.value =
+                            _uiState.value.copy(
+                                isLoading = false,
+                                isRefreshing = false,
+                                years =
+                                    result.data.academicYears,
+                                sections =
+                                    result.data.gradeSections,
+                                currentYearId =
+                                    result.data
+                                        .currentAcademicYear
+                                        ?.id
+                            )
+                    }
+
+                    is ApiResult.Failure -> {
+                        _uiState.value =
+                            _uiState.value.copy(
+                                isLoading = false,
+                                isRefreshing = false,
+                                errorTitle =
+                                    if (initial) {
+                                        "Academic structure unavailable"
+                                    } else {
+                                        "Academic structure not refreshed"
+                                    },
+                                error = result.message
+                            )
+                    }
                 }
-                is ApiResult.Failure -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = result.message
-                    )
-                }
+            } finally {
+                loadInProgress = false
             }
         }
     }
@@ -69,11 +109,19 @@ class AcademicStructureViewModel @Inject constructor(
         endDate: String,
         current: Boolean
     ) {
-        val validation = validateYear(name, startDate, endDate)
+        val validation =
+            validateYear(name, startDate, endDate)
+
         if (validation != null) {
-            _uiState.value = _uiState.value.copy(error = validation, message = null)
+            _uiState.value = _uiState.value.copy(
+                errorTitle = "Academic year not saved",
+                error = validation,
+                message = null,
+                messageTitle = null
+            )
             return
         }
+
         runAction(
             completedAction = "year-created",
             successMessage = "Academic year created"
@@ -93,13 +141,21 @@ class AcademicStructureViewModel @Inject constructor(
         startDate: String,
         endDate: String
     ) {
-        val validation = validateYear(name, startDate, endDate)
+        val validation =
+            validateYear(name, startDate, endDate)
+
         if (validation != null) {
-            _uiState.value = _uiState.value.copy(error = validation, message = null)
+            _uiState.value = _uiState.value.copy(
+                errorTitle = "Academic year not saved",
+                error = validation,
+                message = null,
+                messageTitle = null
+            )
             return
         }
+
         runAction(
-            completedAction = "year-updated:$id",
+            completedAction = "year-updated:" + id,
             successMessage = "Academic year updated"
         ) {
             repository.updateAcademicYear(
@@ -113,29 +169,36 @@ class AcademicStructureViewModel @Inject constructor(
 
     fun setCurrentYear(id: String) {
         runAction(
-            completedAction = "year-current:$id",
+            completedAction = "year-current:" + id,
             successMessage = "Current school year updated"
         ) {
             repository.setCurrentAcademicYear(id)
         }
     }
 
-    fun setYearActive(id: String, active: Boolean) {
+    fun setYearActive(
+        id: String,
+        active: Boolean
+    ) {
         runAction(
-            completedAction = "year-status:$id",
-            successMessage = if (active) {
-                "Academic year reactivated"
-            } else {
-                "Academic year archived"
-            }
+            completedAction = "year-status:" + id,
+            successMessage =
+                if (active) {
+                    "Academic year reactivated"
+                } else {
+                    "Academic year archived"
+                }
         ) {
-            repository.setAcademicYearActive(id, active)
+            repository.setAcademicYearActive(
+                id,
+                active
+            )
         }
     }
 
     fun deleteYear(id: String) {
         runAction(
-            completedAction = "year-deleted:$id",
+            completedAction = "year-deleted:" + id,
             successMessage = "Academic year deleted"
         ) {
             repository.deleteAcademicYear(id)
@@ -147,13 +210,21 @@ class AcademicStructureViewModel @Inject constructor(
         grade: String,
         section: String
     ) {
-        if (academicYearId.isBlank() || grade.isBlank() || section.isBlank()) {
+        if (
+            academicYearId.isBlank() ||
+            grade.isBlank() ||
+            section.isBlank()
+        ) {
             _uiState.value = _uiState.value.copy(
-                error = "Choose an academic year and enter both grade and section",
-                message = null
+                errorTitle = "Grade section not saved",
+                error =
+                    "Choose an academic year and enter both grade and section",
+                message = null,
+                messageTitle = null
             )
             return
         }
+
         runAction(
             completedAction = "section-created",
             successMessage = "Grade section added"
@@ -173,13 +244,17 @@ class AcademicStructureViewModel @Inject constructor(
     ) {
         if (grade.isBlank() || section.isBlank()) {
             _uiState.value = _uiState.value.copy(
-                error = "Grade level and section name are required",
-                message = null
+                errorTitle = "Grade section not saved",
+                error =
+                    "Grade level and section name are required",
+                message = null,
+                messageTitle = null
             )
             return
         }
+
         runAction(
-            completedAction = "section-updated:$id",
+            completedAction = "section-updated:" + id,
             successMessage = "Grade section updated"
         ) {
             repository.updateGradeSection(
@@ -190,22 +265,29 @@ class AcademicStructureViewModel @Inject constructor(
         }
     }
 
-    fun setSectionActive(id: String, active: Boolean) {
+    fun setSectionActive(
+        id: String,
+        active: Boolean
+    ) {
         runAction(
-            completedAction = "section-status:$id",
-            successMessage = if (active) {
-                "Grade section reactivated"
-            } else {
-                "Grade section archived"
-            }
+            completedAction = "section-status:" + id,
+            successMessage =
+                if (active) {
+                    "Grade section reactivated"
+                } else {
+                    "Grade section archived"
+                }
         ) {
-            repository.setGradeSectionActive(id, active)
+            repository.setGradeSectionActive(
+                id,
+                active
+            )
         }
     }
 
     fun deleteSection(id: String) {
         runAction(
-            completedAction = "section-deleted:$id",
+            completedAction = "section-deleted:" + id,
             successMessage = "Grade section deleted"
         ) {
             repository.deleteGradeSection(id)
@@ -215,7 +297,9 @@ class AcademicStructureViewModel @Inject constructor(
     fun clearFeedback() {
         _uiState.value = _uiState.value.copy(
             error = null,
+            errorTitle = null,
             message = null,
+            messageTitle = null,
             completedAction = null
         )
     }
@@ -225,28 +309,41 @@ class AcademicStructureViewModel @Inject constructor(
         successMessage: String,
         block: suspend () -> ApiResult<Unit>
     ) {
-        if (_uiState.value.isSaving) return
+        if (
+            _uiState.value.isSaving ||
+            loadInProgress
+        ) {
+            return
+        }
 
-        // Set synchronously before launching so rapid taps cannot queue the
-        // same destructive/update operation twice.
         _uiState.value = _uiState.value.copy(
             isSaving = true,
             error = null,
+            errorTitle = null,
             message = null,
+            messageTitle = null,
             completedAction = null
         )
 
         viewModelScope.launch {
             when (val result = block()) {
-                is ApiResult.Success -> reloadAfterAction(
-                    completedAction = completedAction,
-                    successMessage = successMessage
-                )
-                is ApiResult.Failure -> {
-                    _uiState.value = _uiState.value.copy(
-                        isSaving = false,
-                        error = result.message
+                is ApiResult.Success -> {
+                    reloadAfterAction(
+                        completedAction =
+                            completedAction,
+                        successMessage =
+                            successMessage
                     )
+                }
+
+                is ApiResult.Failure -> {
+                    _uiState.value =
+                        _uiState.value.copy(
+                            isSaving = false,
+                            errorTitle =
+                                "Academic structure action not completed",
+                            error = result.message
+                        )
                 }
             }
         }
@@ -256,53 +353,141 @@ class AcademicStructureViewModel @Inject constructor(
         completedAction: String,
         successMessage: String
     ) {
-        when (val result = repository.getAcademicStructure()) {
+        when (
+            val result =
+                repository.getAcademicStructure()
+        ) {
             is ApiResult.Success -> {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    isSaving = false,
-                    years = result.data.academicYears,
-                    sections = result.data.gradeSections,
-                    currentYearId = result.data.currentAcademicYear?.id,
-                    error = null,
-                    message = successMessage,
-                    completedAction = completedAction
-                )
+                _uiState.value =
+                    _uiState.value.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        isSaving = false,
+                        years =
+                            result.data.academicYears,
+                        sections =
+                            result.data.gradeSections,
+                        currentYearId =
+                            result.data
+                                .currentAcademicYear
+                                ?.id,
+                        error = null,
+                        errorTitle = null,
+                        messageTitle =
+                            successTitleFor(
+                                completedAction
+                            ),
+                        message = successMessage,
+                        completedAction =
+                            completedAction
+                    )
             }
+
             is ApiResult.Failure -> {
-                _uiState.value = _uiState.value.copy(
-                    isSaving = false,
-                    error = "$successMessage, but the refreshed list could not be loaded. ${result.message}",
-                    message = null,
-                    completedAction = completedAction
-                )
+                _uiState.value =
+                    _uiState.value.copy(
+                        isSaving = false,
+                        errorTitle =
+                            "Saved, but refresh failed",
+                        error =
+                            successMessage +
+                                ", but the refreshed list could not be loaded. " +
+                                result.message,
+                        message = null,
+                        messageTitle = null,
+                        completedAction =
+                            completedAction
+                    )
             }
         }
     }
+
+    private fun successTitleFor(
+        completedAction: String
+    ): String =
+        when {
+            completedAction.startsWith(
+                "year-created"
+            ) ->
+                "Academic year created"
+
+            completedAction.startsWith(
+                "year-updated"
+            ) ->
+                "Academic year updated"
+
+            completedAction.startsWith(
+                "year-current"
+            ) ->
+                "Current school year updated"
+
+            completedAction.startsWith(
+                "year-status"
+            ) ->
+                "Academic year status updated"
+
+            completedAction.startsWith(
+                "year-deleted"
+            ) ->
+                "Academic year deleted"
+
+            completedAction.startsWith(
+                "section-created"
+            ) ->
+                "Grade section created"
+
+            completedAction.startsWith(
+                "section-updated"
+            ) ->
+                "Grade section updated"
+
+            completedAction.startsWith(
+                "section-status"
+            ) ->
+                "Grade section status updated"
+
+            completedAction.startsWith(
+                "section-deleted"
+            ) ->
+                "Grade section deleted"
+
+            else ->
+                "Academic structure updated"
+        }
 
     private fun validateYear(
         name: String,
         startDate: String,
         endDate: String
     ): String? {
-        if (name.isBlank()) return "Academic year name is required"
+        if (name.isBlank()) {
+            return "Academic year name is required"
+        }
 
         val start = startDate.trim()
         val end = endDate.trim()
 
         val startParsed = try {
-            start.takeIf { it.isNotBlank() }?.let(LocalDate::parse)
+            start.takeIf {
+                it.isNotBlank()
+            }?.let(LocalDate::parse)
         } catch (_: Exception) {
             return "Start date must use YYYY-MM-DD"
         }
 
         val endParsed = try {
-            end.takeIf { it.isNotBlank() }?.let(LocalDate::parse)
+            end.takeIf {
+                it.isNotBlank()
+            }?.let(LocalDate::parse)
         } catch (_: Exception) {
             return "End date must use YYYY-MM-DD"
         }
 
-        if (startParsed != null && endParsed != null && startParsed.isAfter(endParsed)) {
+        if (
+            startParsed != null &&
+            endParsed != null &&
+            startParsed.isAfter(endParsed)
+        ) {
             return "Start date cannot be after end date"
         }
 
