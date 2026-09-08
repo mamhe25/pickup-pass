@@ -139,8 +139,11 @@ fun ScannerScreen(
                 }
 
                 uiState is ScannerUiState.Approved -> {
+                    val approved =
+                        uiState as ScannerUiState.Approved
                     ApprovedOverlay(
-                        gateLabel = (uiState as ScannerUiState.Approved).gateLabel,
+                        gateLabel = approved.gateLabel,
+                        testMode = approved.testMode,
                         onDone = viewModel::resetToScanning
                     )
                 }
@@ -152,7 +155,13 @@ fun ScannerScreen(
                         pickupGates = pickupGates,
                         selectedPickupGate = selectedPickupGate,
                         gateLoading = gateLoading,
-                        gateError = gateError
+                        gateError = gateError,
+                        prelaunchTestMode =
+                            !school?.launchStatus
+                                .equals(
+                                    "approved",
+                                    ignoreCase = true
+                                )
                     )
                 }
             }
@@ -167,7 +176,8 @@ private fun ScanAndVerifyContent(
     pickupGates: List<PickupGateItem>,
     selectedPickupGate: PickupGateItem?,
     gateLoading: Boolean,
-    gateError: String?
+    gateError: String?,
+    prelaunchTestMode: Boolean
 ) {
     val gateReady =
         !gateLoading &&
@@ -182,15 +192,30 @@ private fun ScanAndVerifyContent(
                     onQrDetected = viewModel::onQrCodeScanned
                 )
 
-                ScannerTopChrome(
-                    gates = pickupGates,
-                    selected = selectedPickupGate,
-                    loading = gateLoading,
-                    error = gateError,
-                    onSelect = viewModel::selectPickupGate,
-                    onRetry = viewModel::loadPickupGates,
-                    modifier = Modifier.align(Alignment.TopCenter)
-                )
+                Column(
+                    modifier =
+                        Modifier.align(
+                            Alignment.TopCenter
+                        )
+                ) {
+                    ScannerTopChrome(
+                        gates = pickupGates,
+                        selected = selectedPickupGate,
+                        loading = gateLoading,
+                        error = gateError,
+                        onSelect = viewModel::selectPickupGate,
+                        onRetry = viewModel::loadPickupGates
+                    )
+
+                    if (prelaunchTestMode) {
+                        PrelaunchScannerNotice(
+                            modifier = Modifier
+                                .padding(
+                                    horizontal = Spacing.sm
+                                )
+                        )
+                    }
+                }
 
                 ScanningOverlay(
                     gateReady = gateReady,
@@ -636,6 +661,11 @@ private fun VerifiedReviewContent(
                     .fillMaxWidth()
                     .padding(12.dp)
             ) {
+                if (state.testMode) {
+                    PrelaunchScannerNotice()
+                    Spacer(Modifier.height(10.dp))
+                }
+
                 VerificationHeader(selectedPickupGate)
                 Spacer(Modifier.height(10.dp))
 
@@ -694,11 +724,17 @@ private fun VerifiedReviewContent(
                         )
                         Spacer(Modifier.width(7.dp))
                         Text(
-                            text = if (state.guardianPhotoReady) {
-                                "Release student"
-                            } else {
-                                "Release blocked"
-                            },
+                            text =
+                                when {
+                                    !state.guardianPhotoReady ->
+                                        "Release blocked"
+
+                                    state.testMode ->
+                                        "Record test release"
+
+                                    else ->
+                                        "Release student"
+                                },
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.ExtraBold,
                             maxLines = 1
@@ -1341,6 +1377,7 @@ private fun ErrorPanel(
 @Composable
 private fun ApprovedOverlay(
     gateLabel: String,
+    testMode: Boolean,
     onDone: () -> Unit
 ) {
     val scale = remember { Animatable(0.4f) }
@@ -1394,14 +1431,22 @@ private fun ApprovedOverlay(
 
                 Spacer(Modifier.height(Spacing.md))
                 Text(
-                    "Release Logged",
+                    if (testMode) {
+                        "Test Release Logged"
+                    } else {
+                        "Release Logged"
+                    },
                     color = Color.White,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold
                 )
                 Spacer(Modifier.height(Spacing.xs))
                 Text(
-                    "Student handoff recorded successfully.",
+                    if (testMode) {
+                        "Pre-launch test recorded successfully. It is excluded from production dismissal totals."
+                    } else {
+                        "Student handoff recorded successfully."
+                    },
                     color = Gray300,
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center
@@ -1417,6 +1462,61 @@ private fun ApprovedOverlay(
                         textAlign = TextAlign.Center
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrelaunchScannerNotice(
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color =
+            MaterialTheme.colorScheme
+                .tertiaryContainer
+    ) {
+        Row(
+            modifier =
+                Modifier.padding(
+                    horizontal = Spacing.md,
+                    vertical = Spacing.sm
+                ),
+            verticalAlignment =
+                Alignment.Top
+        ) {
+            Icon(
+                Icons.Filled.Security,
+                contentDescription = null,
+                tint =
+                    MaterialTheme.colorScheme
+                        .onTertiaryContainer,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Column {
+                Text(
+                    "PRE-LAUNCH TEST MODE",
+                    style =
+                        MaterialTheme.typography
+                            .labelSmall,
+                    fontWeight =
+                        FontWeight.ExtraBold,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onTertiaryContainer
+                )
+                Text(
+                    "Use the normal guardian verification flow. Successful releases are test records only and do not count as production dismissal.",
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onTertiaryContainer
+                )
             }
         }
     }
