@@ -77,6 +77,7 @@ public class ReportingController {
         body.put("uniqueStudentsReleased", report.uniqueStudentIds.size());
         body.put("qrReleases", report.qrReleases);
         body.put("manualOverrides", report.manualOverrides);
+        body.put("prelaunchTestReleasesExcluded", report.prelaunchTestReleases);
         body.put("dailyCounts", report.dailyCounts);
         body.put("gradeSectionCounts", report.gradeSectionCounts);
         return ResponseEntity.ok(body);
@@ -167,6 +168,11 @@ public class ReportingController {
 
         ReportData result = new ReportData();
         for (QueryDocumentSnapshot log : logs) {
+            if (Boolean.TRUE.equals(log.getBoolean("testMode"))) {
+                result.prelaunchTestReleases++;
+                continue;
+            }
+
             String studentId = log.getString("studentId");
             StudentInfo student = studentId == null ? null : students.get(studentId);
             String rowGrade = value(log.getString("gradeSnapshot"), student == null ? value(log.getString("grade"), "") : student.grade);
@@ -253,6 +259,7 @@ public class ReportingController {
         private final Set<String> uniqueStudentIds = new HashSet<>();
         private int qrReleases = 0;
         private int manualOverrides = 0;
+        private int prelaunchTestReleases = 0;
         private final Map<String, Integer> dailyCounts = new TreeMap<>();
         private final Map<String, Integer> gradeSectionCounts = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     }
