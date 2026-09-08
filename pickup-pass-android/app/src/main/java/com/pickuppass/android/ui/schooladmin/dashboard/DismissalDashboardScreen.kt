@@ -254,6 +254,22 @@ fun DismissalDashboardScreen(
                         )
                     }
 
+                    if (dashboard.prelaunchTestReleaseCount > 0) {
+                        item(key = "prelaunch_test_excluded") {
+                            SupportingNotice(
+                                dashboard.prelaunchTestReleaseCount.toString() +
+                                    " pre-launch test " +
+                                    if (dashboard.prelaunchTestReleaseCount == 1) {
+                                        "release was"
+                                    } else {
+                                        "releases were"
+                                    } +
+                                    " excluded from today's production totals. " +
+                                    "Open Dismissal History to review TEST records."
+                            )
+                        }
+                    }
+
                     if (dashboard.manualOverrideCount > 0) {
                         item(key = "manual_attention") {
                             ManualOverrideNotice(dashboard.manualOverrideCount)
