@@ -1,6 +1,9 @@
 package com.pickuppass.android.ui.schooladmin.guardianverification
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,20 +19,25 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.GuardianVerificationItem
-import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.FeedbackCard
+import com.pickuppass.android.ui.common.FeedbackTone
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.PickupPassPullToRefresh
-import com.pickuppass.android.ui.common.SuccessBanner
+import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.theme.Green500
 import com.pickuppass.android.ui.theme.Green600
 import com.pickuppass.android.ui.theme.Spacing
@@ -71,6 +79,7 @@ fun GuardianVerificationScreen(
     var statusFilter by rememberSaveable { mutableStateOf(GuardianStatusFilter.ALL) }
     var pendingAction by remember { mutableStateOf<GuardianAction?>(null) }
     var pendingPolicyChange by remember { mutableStateOf<Boolean?>(null) }
+    var photoGuardian by remember { mutableStateOf<GuardianVerificationItem?>(null) }
 
     val guardians = state.guardians
     val pendingCount = remember(guardians) {
@@ -143,7 +152,7 @@ fun GuardianVerificationScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            BoxWithConstraints(
+            Box(
                 modifier = Modifier.fillMaxSize()
             ) {
                 LazyColumn(
@@ -235,6 +244,11 @@ fun GuardianVerificationScreen(
                             guardian = guardian,
                             enabled = !state.policyBusy && state.busyUid == null,
                             busy = state.busyUid == guardian.uid,
+                            onPhotoClick = {
+                                if (!guardian.photoUrl.isNullOrBlank()) {
+                                    photoGuardian = guardian
+                                }
+                            },
                             onVerify = {
                                 pendingAction = GuardianAction(
                                     guardian = guardian,
@@ -256,18 +270,6 @@ fun GuardianVerificationScreen(
                 }
                 }
             }
-        }
-    }
-
-    // Terminal action feedback intentionally lives outside LazyColumn.
-    // Dialog feedback must be composed independently of scroll position.
-    when {
-        !state.error.isNullOrBlank() -> {
-            ErrorBanner(state.error.orEmpty())
-        }
-
-        !state.message.isNullOrBlank() -> {
-            SuccessBanner(state.message.orEmpty())
         }
     }
 
@@ -303,6 +305,32 @@ fun GuardianVerificationScreen(
                 viewModel.setPolicy(required)
                 pendingPolicyChange = null
             }
+        )
+    }
+
+    photoGuardian?.let { guardian ->
+        GuardianVerificationPhotoDialog(
+            guardian = guardian,
+            onDismiss = { photoGuardian = null }
+        )
+    }
+
+    // Keep terminal action feedback last so it remains the topmost modal.
+    state.error?.let { message ->
+        FeedbackCard(
+            message = message,
+            tone = FeedbackTone.Error,
+            title = "Verification action not completed",
+            onDismiss = viewModel::clearFeedback
+        )
+    }
+
+    state.message?.let { message ->
+        FeedbackCard(
+            message = message,
+            tone = FeedbackTone.Success,
+            title = state.messageTitle ?: "Action completed",
+            onDismiss = viewModel::clearFeedback
         )
     }
 }
@@ -726,6 +754,7 @@ private fun GuardianReviewCard(
     guardian: GuardianVerificationItem,
     enabled: Boolean,
     busy: Boolean,
+    onPhotoClick: () -> Unit,
     onVerify: () -> Unit,
     onSuspend: () -> Unit
 ) {
@@ -763,9 +792,10 @@ private fun GuardianReviewCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                GuardianInitialsAvatar(
-                    name = guardian.displayName,
-                    status = status
+                GuardianIdentityAvatar(
+                    guardian = guardian,
+                    status = status,
+                    onPhotoClick = onPhotoClick
                 )
 
                 Spacer(Modifier.width(Spacing.md))
@@ -961,6 +991,204 @@ private fun GuardianCardActions(
                         "Verify & restore",
                         fontWeight = FontWeight.Bold
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuardianIdentityAvatar(
+    guardian: GuardianVerificationItem,
+    status: String,
+    onPhotoClick: () -> Unit
+) {
+    val photoUrl = guardian.photoUrl
+    if (photoUrl.isNullOrBlank()) {
+        GuardianInitialsAvatar(
+            name = guardian.displayName,
+            status = status
+        )
+        return
+    }
+
+    val scheme = MaterialTheme.colorScheme
+    val accent = when (status) {
+        "verified" -> successAccent()
+        "suspended" -> scheme.error
+        "pending" -> scheme.tertiary
+        else -> scheme.primary
+    }
+
+    Box(
+        modifier = Modifier.clickable(onClick = onPhotoClick),
+        contentAlignment = Alignment.BottomEnd
+    ) {
+        Surface(
+            modifier = Modifier.size(58.dp),
+            shape = MaterialTheme.shapes.large,
+            border = BorderStroke(2.dp, accent.copy(alpha = 0.34f)),
+            color = scheme.surfaceVariant
+        ) {
+            SmartImage(
+                model = photoUrl,
+                contentDescription = "Guardian photo for " + guardian.displayName,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        Surface(
+            modifier = Modifier.size(22.dp),
+            shape = CircleShape,
+            color = scheme.primary,
+            contentColor = scheme.onPrimary,
+            shadowElevation = 2.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Filled.ZoomIn,
+                    contentDescription = "View guardian photo",
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuardianVerificationPhotoDialog(
+    guardian: GuardianVerificationItem,
+    onDismiss: () -> Unit
+) {
+    val photoUrl = guardian.photoUrl ?: return
+    var scale by remember(photoUrl) { mutableFloatStateOf(1f) }
+    var offsetX by remember(photoUrl) { mutableFloatStateOf(0f) }
+    var offsetY by remember(photoUrl) { mutableFloatStateOf(0f) }
+
+    val transformState = rememberTransformableState { zoomChange, panChange, _ ->
+        val nextScale = (scale * zoomChange).coerceIn(1f, 4f)
+        scale = nextScale
+
+        if (nextScale <= 1.01f) {
+            offsetX = 0f
+            offsetY = 0f
+        } else {
+            offsetX += panChange.x
+            offsetY += panChange.y
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        val scheme = MaterialTheme.colorScheme
+
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(Spacing.sm)
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = scheme.surface,
+            shadowElevation = 24.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(Spacing.md)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "GUARDIAN IDENTITY PHOTO",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = scheme.primary
+                        )
+                        Text(
+                            text = guardian.displayName.ifBlank { "Guardian" },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "Inspect the stored profile image before changing pickup authorization.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = scheme.onSurfaceVariant
+                        )
+                    }
+
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = "Close guardian photo"
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(Spacing.sm))
+
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = scheme.surfaceVariant
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .transformable(transformState),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        SmartImage(
+                            model = photoUrl,
+                            contentDescription = "Enlarged guardian photo for " + guardian.displayName,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    scaleX = scale
+                                    scaleY = scale
+                                    translationX = offsetX
+                                    translationY = offsetY
+                                }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(Spacing.xs))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Pinch to zoom · drag while zoomed",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    if (scale > 1.01f) {
+                        TextButton(
+                            onClick = {
+                                scale = 1f
+                                offsetX = 0f
+                                offsetY = 0f
+                            }
+                        ) {
+                            Text("Reset")
+                        }
+                    }
                 }
             }
         }
