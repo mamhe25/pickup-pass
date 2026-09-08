@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pickuppass.android.data.repository.ApiResult
+import com.pickuppass.android.data.repository.AuthRepository
 import com.pickuppass.android.data.repository.PickupRepository
 import com.pickuppass.android.data.repository.StudentRepository
 import com.pickuppass.android.util.QrCodeGenerator
@@ -35,6 +36,8 @@ data class PickupPassUiState(
     val secondsRemaining: Long = 0,
     val validityWindowSeconds: Long = 0,
     val pickupPolicyText: String = "Any currently valid QR can be presented for pickup.",
+    val guardianPhotoChecked: Boolean = false,
+    val guardianPhotoReady: Boolean = false,
     val testMode: Boolean = false,
     val operationalMode: String = "production",
     val error: String? = null
@@ -43,7 +46,8 @@ data class PickupPassUiState(
 @HiltViewModel
 class PickupPassViewModel @Inject constructor(
     private val pickupRepository: PickupRepository,
-    private val studentRepository: StudentRepository
+    private val studentRepository: StudentRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PickupPassUiState())
@@ -79,10 +83,75 @@ class PickupPassViewModel @Inject constructor(
 
         loadedStudentId = studentId
         viewModelScope.launch {
-            val identity = async { loadStudentIdentity(studentId) }
-            generatePass(studentId)
+            val identity =
+                async {
+                    loadStudentIdentity(studentId)
+                }
+
+            val photoReady =
+                loadGuardianPhotoEligibility()
+
+            if (photoReady) {
+                generatePass(studentId)
+            } else if (_uiState.value.error == null) {
+                _uiState.value =
+                    _uiState.value.copy(
+                        isLoading = false,
+                        qrBitmap = null,
+                        expiresAt = null,
+                        secondsRemaining = 0,
+                        validityWindowSeconds = 0
+                    )
+            }
+
             identity.await()
         }
+    }
+
+    private suspend fun loadGuardianPhotoEligibility(): Boolean {
+        val uid = authRepository.currentUid()
+        if (uid.isNullOrBlank()) {
+            _uiState.value =
+                _uiState.value.copy(
+                    isLoading = false,
+                    guardianPhotoChecked = true,
+                    guardianPhotoReady = false,
+                    error = "Your session could not be verified. Sign in again before generating a pickup pass."
+                )
+            return false
+        }
+
+        return studentRepository
+            .getUserProfile(uid)
+            .fold(
+                onSuccess = { profile ->
+                    val ready =
+                        profile != null &&
+                            !profile.photoUrl.isNullOrBlank() &&
+                            profile.photoValidationStatus.equals(
+                                "verified",
+                                ignoreCase = true
+                            )
+
+                    _uiState.value =
+                        _uiState.value.copy(
+                            guardianPhotoChecked = true,
+                            guardianPhotoReady = ready,
+                            error = null
+                        )
+                    ready
+                },
+                onFailure = {
+                    _uiState.value =
+                        _uiState.value.copy(
+                            isLoading = false,
+                            guardianPhotoChecked = true,
+                            guardianPhotoReady = false,
+                            error = "PickupPass couldn't verify your photo eligibility. Check your connection and try again."
+                        )
+                    false
+                }
+            )
     }
 
     private suspend fun loadStudentIdentity(studentId: String) {
@@ -127,6 +196,20 @@ class PickupPassViewModel @Inject constructor(
 
     fun generatePass(studentId: String) {
         if (studentId.isBlank() || generationInProgress) return
+        if (
+            _uiState.value.guardianPhotoChecked &&
+            !_uiState.value.guardianPhotoReady
+        ) {
+            _uiState.value =
+                _uiState.value.copy(
+                    isLoading = false,
+                    qrBitmap = null,
+                    expiresAt = null,
+                    secondsRemaining = 0,
+                    validityWindowSeconds = 0
+                )
+            return
+        }
 
         // Synchronous guard prevents rapid taps from issuing multiple tokens.
         generationInProgress = true
@@ -199,6 +282,13 @@ class PickupPassViewModel @Inject constructor(
                 generationInProgress = false
             }
         }
+    }
+
+    fun clearError() {
+        _uiState.value =
+            _uiState.value.copy(
+                error = null
+            )
     }
 
     private fun startCountdown(expiresAt: Date) {
