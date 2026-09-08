@@ -65,13 +65,32 @@ public class GuardianProvisioningService {
         UserRecord existing = tryGetUserByEmail(email);
 
         if (existing != null) {
-            // Guard against cross-tenant linking: an existing account must
-            // already belong to this same school.
+            // Existing identities can only be reused when they are already a
+            // parent/guardian in the same tenant. Never silently repurpose a
+            // teacher/admin account as a guardian account.
             DocumentSnapshot existingProfile = firestore.collection("users")
                     .document(existing.getUid()).get().get();
-            if (existingProfile.exists() && !schoolId.equals(existingProfile.getString("schoolId"))) {
-                throw new ForbiddenException("This email is already registered at a different school");
+
+            if (!existingProfile.exists()) {
+                throw new ForbiddenException(
+                        "This email already has an account but its PickupPass profile is unavailable");
             }
+            if (!schoolId.equals(existingProfile.getString("schoolId"))) {
+                throw new ForbiddenException(
+                        "This email is already registered at a different school");
+            }
+
+            String existingRole = existingProfile.getString("role");
+            if (!"parent".equalsIgnoreCase(
+                    existingRole == null ? "" : existingRole)) {
+                throw new ForbiddenException(
+                        "This email belongs to a school staff account and cannot be linked as a guardian");
+            }
+            if (Boolean.FALSE.equals(existingProfile.getBoolean("isActive"))) {
+                throw new ForbiddenException(
+                        "This guardian account is inactive. Contact the school office before linking it.");
+            }
+
             return new ProvisionResult(existing.getUid(), false, true);
         }
 
