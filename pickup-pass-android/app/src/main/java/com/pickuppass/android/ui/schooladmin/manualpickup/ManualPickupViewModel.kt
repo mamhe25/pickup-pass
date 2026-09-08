@@ -27,6 +27,8 @@ data class ManualPickupUiState(
     val selectedPickupGate: PickupGateItem? = null,
     val pickupGatesLoaded: Boolean = false,
     val pickupGateError: String? = null,
+    val testMode: Boolean = false,
+    val operationalMode: String = "production",
     val reason: String = "",
     val isSubmitting: Boolean = false,
     val success: String? = null,
@@ -74,6 +76,15 @@ class ManualPickupViewModel @Inject constructor(
         }
 
         val students = studentsResult.getOrNull().orEmpty()
+        val school =
+            studentRepository.getSchool(schoolId)
+                .getOrNull()
+        val testMode =
+            !school?.launchStatus.equals(
+                "approved",
+                ignoreCase = true
+            )
+
         when (val gatesResult = pickupRepository.getActivePickupGates()) {
             is ApiResult.Success -> {
                 val gates = gatesResult.data
@@ -83,6 +94,13 @@ class ManualPickupViewModel @Inject constructor(
                     pickupGates = gates,
                     pickupGatesLoaded = true,
                     pickupGateError = null,
+                    testMode = testMode,
+                    operationalMode =
+                        if (testMode) {
+                            "prelaunch_test"
+                        } else {
+                            "production"
+                        },
                     selectedPickupGate = when {
                         gates.size == 1 -> gates.first()
                         else -> current.selectedPickupGate?.takeIf { selected ->
@@ -99,7 +117,14 @@ class ManualPickupViewModel @Inject constructor(
                     pickupGates = emptyList(),
                     selectedPickupGate = null,
                     pickupGatesLoaded = false,
-                    pickupGateError = gatesResult.message
+                    pickupGateError = gatesResult.message,
+                    testMode = testMode,
+                    operationalMode =
+                        if (testMode) {
+                            "prelaunch_test"
+                        } else {
+                            "production"
+                        }
                 )
             }
         }
@@ -210,7 +235,14 @@ class ManualPickupViewModel @Inject constructor(
                 is ApiResult.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isSubmitting = false,
-                        success = "Release approved and recorded",
+                        testMode = result.data.testMode,
+                        operationalMode = result.data.operationalMode,
+                        success =
+                            if (result.data.testMode) {
+                                "Pre-launch test release recorded. It is excluded from production dismissal totals."
+                            } else {
+                                "Release approved and recorded"
+                            },
                         reason = ""
                     )
                 }
