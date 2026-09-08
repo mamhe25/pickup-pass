@@ -19,9 +19,28 @@
 
     <properties>
         <java.version>17</java.version>
-        <firebase-admin.version>9.3.0</firebase-admin.version>
+        <firebase-admin.version>9.10.0</firebase-admin.version>
+        <google-cloud-libraries-bom.version>26.86.0</google-cloud-libraries-bom.version>
         <java-jwt.version>4.4.0</java-jwt.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!--
+              Keep Firebase Admin, Firestore, Vision, GAX and Google Auth on a
+              single Google-supported dependency graph. This prevents runtime
+              linkage failures when one Google client library is upgraded
+              independently of the others.
+            -->
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>libraries-bom</artifactId>
+                <version>${google-cloud-libraries-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -55,7 +74,6 @@
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-vision</artifactId>
-            <version>3.94.0</version>
         </dependency>
 
         <!-- Auth0 java-jwt: used to sign/verify the QR pickup tokens (HMAC256) -->
