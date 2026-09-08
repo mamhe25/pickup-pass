@@ -240,6 +240,10 @@ fun ManualPickupScreen(
                         return@Column
                     }
 
+                    if (state.testMode) {
+                        ManualPrelaunchTestNotice()
+                    }
+
                     OverrideNoticeCard()
 
                     WorkflowProgress(
@@ -570,6 +574,59 @@ fun ManualPickupScreen(
             },
             onConfirm = viewModel::submit
         )
+    }
+}
+
+@Composable
+private fun ManualPrelaunchTestNotice() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color =
+            MaterialTheme.colorScheme
+                .tertiaryContainer
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.md),
+            horizontalArrangement =
+                Arrangement.spacedBy(Spacing.sm),
+            verticalAlignment =
+                Alignment.Top
+        ) {
+            Icon(
+                Icons.Filled.Security,
+                contentDescription = null,
+                tint =
+                    MaterialTheme.colorScheme
+                        .onTertiaryContainer
+            )
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = "PRE-LAUNCH TEST MODE",
+                    style =
+                        MaterialTheme.typography
+                            .labelLarge,
+                    fontWeight =
+                        FontWeight.ExtraBold,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onTertiaryContainer
+                )
+                Text(
+                    text =
+                        "This manual release uses the real identity and audit workflow, but it will be stored as test activity. It will not count toward production dismissal totals or consume a one-time temporary guardian authorization.",
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onTertiaryContainer
+                )
+            }
+        }
     }
 }
 
