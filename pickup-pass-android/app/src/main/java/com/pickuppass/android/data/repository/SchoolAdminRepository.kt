@@ -478,6 +478,27 @@ class SchoolAdminRepository @Inject constructor(
         }
     }
 
+    suspend fun updateStudentPlacement(
+        studentId: String,
+        gradeSectionId: String
+    ): ApiResult<Unit> {
+        return try {
+            val response = api.updateStudentPlacement(
+                studentId,
+                StudentPlacementRequest(gradeSectionId)
+            )
+            if (response.isSuccessful) {
+                ApiResult.Success(Unit)
+            } else {
+                ApiResult.Failure(
+                    apiError(response, "Could not reassign student")
+                )
+            }
+        } catch (e: Exception) {
+            ApiResult.Failure(e.message ?: "Network error")
+        }
+    }
+
     suspend fun previewPromotion(targetAcademicYearId: String): ApiResult<PromotionResponse> {
         return promoteStudents(targetAcademicYearId, dryRun = true)
     }

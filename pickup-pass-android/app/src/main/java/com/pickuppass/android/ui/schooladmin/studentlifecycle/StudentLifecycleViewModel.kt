@@ -3,6 +3,7 @@ package com.pickuppass.android.ui.schooladmin.studentlifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pickuppass.android.data.model.AcademicYear
+import com.pickuppass.android.data.model.GradeSection
 import com.pickuppass.android.data.model.PromotionResponse
 import com.pickuppass.android.data.model.StudentLifecycleItem
 import com.pickuppass.android.data.repository.ApiResult
@@ -21,6 +22,7 @@ data class StudentLifecycleUiState(
     val filter: String = "all",
     val search: String = "",
     val academicYears: List<AcademicYear> = emptyList(),
+    val gradeSections: List<GradeSection> = emptyList(),
     val currentAcademicYearId: String = "",
     val targetAcademicYearId: String = "",
     val promotionPreview: PromotionResponse? = null,
@@ -69,6 +71,17 @@ class StudentLifecycleViewModel @Inject constructor(
                 students = lifeData.students,
                 counts = lifeData.counts,
                 academicYears = academic.academicYears,
+                gradeSections = academic.gradeSections
+                    .filter {
+                        it.active &&
+                            it.academicYearId == currentId
+                    }
+                    .sortedWith(
+                        compareBy<GradeSection>(
+                            { it.gradeLevel },
+                            { it.sectionName }
+                        )
+                    ),
                 currentAcademicYearId = currentId,
                 targetAcademicYearId = _uiState.value.targetAcademicYearId.ifBlank { candidateTarget }
             )
@@ -93,6 +106,50 @@ class StudentLifecycleViewModel @Inject constructor(
                 is ApiResult.Failure -> _uiState.value = _uiState.value.copy(isWorking = false, error = result.message)
             }
         }
+    }
+
+    fun reassignStudent(
+        studentId: String,
+        gradeSectionId: String
+    ) {
+        if (_uiState.value.isWorking || gradeSectionId.isBlank()) return
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isWorking = true,
+                error = null,
+                success = null
+            )
+            when (
+                val result =
+                    repository.updateStudentPlacement(
+                        studentId,
+                        gradeSectionId
+                    )
+            ) {
+                is ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isWorking = false,
+                        success = "Student grade and section updated."
+                    )
+                    load()
+                }
+
+                is ApiResult.Failure ->
+                    _uiState.value = _uiState.value.copy(
+                        isWorking = false,
+                        error = result.message
+                    )
+            }
+        }
+    }
+
+    fun archiveStudent(studentId: String) {
+        updateStatus(
+            studentId = studentId,
+            status = "archived",
+            reason = "Archived by school administrator"
+        )
     }
 
     fun previewPromotion() {

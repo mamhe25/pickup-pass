@@ -472,6 +472,10 @@ data class StudentStatusRequest(
     val reason: String = ""
 )
 
+data class StudentPlacementRequest(
+    val gradeSectionId: String
+)
+
 data class PromotionRequest(
     val targetAcademicYearId: String,
     val dryRun: Boolean = true,

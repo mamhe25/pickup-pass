@@ -143,6 +143,101 @@ public class StudentLifecycleController {
     }
 
     /**
+     * Moves an existing student into an active grade/section in the school's
+     * current academic year. This is the supported migration path for legacy
+     * student records created before structured gradeSectionId placement.
+     */
+    @PutMapping("/{studentId}/placement")
+    @PreAuthorize("hasRole('school_admin')")
+    public ResponseEntity<?> updatePlacement(
+            @PathVariable String studentId,
+            @RequestBody StudentPlacementRequest req,
+            @AuthenticationPrincipal FirebaseUserDetails admin) throws Exception {
+
+        String gradeSectionId = safe(req.getGradeSectionId());
+        if (gradeSectionId.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "gradeSectionId is required"));
+        }
+
+        DocumentReference studentRef =
+                firestore.collection("students").document(studentId);
+        DocumentSnapshot student = studentRef.get().get();
+        if (!student.exists()
+                || !admin.getSchoolId().equals(student.getString("schoolId"))) {
+            throw new NotFoundException("Student not found in your school");
+        }
+
+        String currentYearId = currentAcademicYearId(admin.getSchoolId());
+        if (currentYearId.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Set a current academic year before reassigning students"));
+        }
+
+        DocumentSnapshot section =
+                firestore.collection("gradeSections")
+                        .document(gradeSectionId)
+                        .get()
+                        .get();
+
+        if (!section.exists()
+                || !admin.getSchoolId().equals(section.getString("schoolId"))
+                || Boolean.FALSE.equals(section.getBoolean("active"))
+                || !currentYearId.equals(safe(section.getString("academicYearId")))) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Choose an active grade/section from the current academic year"));
+        }
+
+        DocumentSnapshot year =
+                firestore.collection("academicYears")
+                        .document(currentYearId)
+                        .get()
+                        .get();
+
+        String previousGrade = safe(student.getString("grade"));
+        String previousSection = safe(student.getString("section"));
+        String previousGradeSectionId = safe(student.getString("gradeSectionId"));
+        String nextGrade = safe(section.getString("gradeLevel"));
+        String nextSection = safe(section.getString("sectionName"));
+        String yearName = year.exists() ? safe(year.getString("name")) : "";
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("grade", nextGrade);
+        updates.put("section", nextSection);
+        updates.put("gradeSectionId", gradeSectionId);
+        updates.put("academicYearId", currentYearId);
+        updates.put("academicYearName", yearName);
+        updates.put("placementChangedAt", FieldValue.serverTimestamp());
+        updates.put("placementChangedBy", admin.getUid());
+        updates.put("updatedAt", FieldValue.serverTimestamp());
+        updates.put("updatedBy", admin.getUid());
+        studentRef.update(updates).get();
+
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("studentName", safe(student.getString("fullName")));
+        details.put("previousGrade", previousGrade);
+        details.put("previousSection", previousSection);
+        details.put("previousGradeSectionId", previousGradeSectionId);
+        details.put("grade", nextGrade);
+        details.put("section", nextSection);
+        details.put("gradeSectionId", gradeSectionId);
+        details.put("academicYearId", currentYearId);
+        auditService.record(
+                admin,
+                "student.placement_changed",
+                "student",
+                studentId,
+                details);
+
+        return ResponseEntity.ok(Map.of(
+                "studentId", studentId,
+                "grade", nextGrade,
+                "section", nextSection,
+                "gradeSectionId", gradeSectionId,
+                "academicYearId", currentYearId));
+    }
+
+    /**
      * Preview or execute an end-of-year promotion. Auto-mapping finds an active
      * target section whose grade is the next numeric grade and whose section
      * name matches the source section. Explicit source->target gradeSectionId
@@ -334,6 +429,18 @@ public class StudentLifecycleController {
         return m;
     }
 
+    private String currentAcademicYearId(String schoolId) throws Exception {
+        for (QueryDocumentSnapshot year : firestore.collection("academicYears")
+                .whereEqualTo("schoolId", schoolId)
+                .get().get().getDocuments()) {
+            if (Boolean.TRUE.equals(year.getBoolean("isCurrent"))
+                    && !"archived".equalsIgnoreCase(safe(year.getString("status")))) {
+                return year.getId();
+            }
+        }
+        return "";
+    }
+
     private static String normalizedStatus(DocumentSnapshot doc) {
         String status = safe(doc.getString("status")).toLowerCase(Locale.ROOT);
         return ALLOWED_STATUSES.contains(status) ? status : "active"; // legacy students remain active
@@ -358,6 +465,18 @@ public class StudentLifecycleController {
     }
 
     private static String safe(String value) { return value == null ? "" : value.trim(); }
+
+    public static class StudentPlacementRequest {
+        private String gradeSectionId;
+
+        public String getGradeSectionId() {
+            return gradeSectionId;
+        }
+
+        public void setGradeSectionId(String gradeSectionId) {
+            this.gradeSectionId = gradeSectionId;
+        }
+    }
 
     public static class StudentStatusRequest {
         private String status;

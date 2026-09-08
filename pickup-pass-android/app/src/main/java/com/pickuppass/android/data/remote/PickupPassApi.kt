@@ -178,6 +178,12 @@ interface PickupPassApi {
         @Body body: StudentStatusRequest
     ): Response<SimpleStatusResponse>
 
+    @PUT("school-admin/students/{studentId}/placement")
+    suspend fun updateStudentPlacement(
+        @Path("studentId") studentId: String,
+        @Body body: StudentPlacementRequest
+    ): Response<Map<String, Any?>>
+
     @POST("school-admin/students/promote")
     suspend fun promoteStudents(@Body body: PromotionRequest): Response<PromotionResponse>
 
