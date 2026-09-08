@@ -33,6 +33,7 @@ import com.pickuppass.android.data.model.MasterRecoveryJobItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.NotificationActionButton
 import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.theme.Spacing
@@ -42,6 +43,7 @@ import com.pickuppass.android.ui.theme.Spacing
 fun MasterAdminAdvancedConsole(
     viewModel: MasterAdminViewModel = hiltViewModel(),
     onOpenProfile: () -> Unit,
+    onOpenNotifications: () -> Unit,
     onSignedOut: () -> Unit,
     onBackToOverview: () -> Unit = {}
 ) {
@@ -84,6 +86,10 @@ fun MasterAdminAdvancedConsole(
                 subtitle = "Tenant administration & recovery",
                 onBack = onBackToOverview,
                 actions = {
+                    NotificationActionButton(
+                        unreadCount = state.unreadNotifications,
+                        onClick = onOpenNotifications,
+                    )
                     IconButton(onClick = onOpenProfile) {
                         Icon(Icons.Filled.AccountCircle, contentDescription = "My profile")
                     }
