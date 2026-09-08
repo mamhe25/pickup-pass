@@ -44,6 +44,15 @@ class RegisterParentViewModel @Inject constructor(
         }
     }
 
+    fun clearFeedback() {
+        _uiState.value =
+            _uiState.value.copy(
+                error = null,
+                successMessage = null,
+                successIsWarning = false
+            )
+    }
+
     fun register(
         studentId: String,
         lastName: String,
