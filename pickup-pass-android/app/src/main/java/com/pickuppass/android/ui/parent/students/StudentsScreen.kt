@@ -34,7 +34,6 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.pickuppass.android.data.model.Student
-import com.pickuppass.android.ui.common.BrandedTitle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.NotificationActionButton
