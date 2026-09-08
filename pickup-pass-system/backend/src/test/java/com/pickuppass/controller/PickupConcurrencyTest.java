@@ -5,6 +5,7 @@ import com.pickuppass.exception.ConflictException;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.IdempotencyService;
+import com.pickuppass.service.LaunchModeService;
 import com.pickuppass.service.PickupMetricsService;
 import com.pickuppass.service.PushNotificationService;
 import com.pickuppass.service.QrVerificationService;
@@ -42,11 +43,14 @@ class PickupConcurrencyTest {
         IdempotencyService idempotency = mock(IdempotencyService.class);
         SubscriptionFeatureService features = mock(SubscriptionFeatureService.class);
         TenantUsageService usage = mock(TenantUsageService.class);
-        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features, usage);
+        LaunchModeService launchMode = mock(LaunchModeService.class);
+        when(launchMode.resolve("school1")).thenReturn(
+                new LaunchModeService.LaunchMode(false, LaunchModeService.PRODUCTION, "approved"));
+        PickupController controller = new PickupController(qr, push, audit, metrics, idempotency, features, usage, launchMode);
         FirebaseUserDetails staff = new FirebaseUserDetails("staff1", "staff@test.com", "school1", "teacher");
         PickupController.VerifyRequest request = new PickupController.VerifyRequest();
         request.setQrToken("same-live-token");
-        QrVerificationResult verified = QrVerificationResult.success("student1", "guardian1", null);
+        QrVerificationResult verified = QrVerificationResult.success("student1", "guardian1", null, false, LaunchModeService.PRODUCTION);
 
         when(idempotency.fingerprint("same-live-token\n")).thenReturn("fp-concurrent");
         when(idempotency.findExisting(eq("school1"), eq("staff1"), eq("pickup.approve"),
@@ -82,7 +86,7 @@ class PickupConcurrencyTest {
 
             assertEquals(1, successes);
             assertEquals(1, conflicts);
-            verify(push, times(1)).notifyGuardiansOfPickup("student1", "guardian1");
+            verify(push, times(1)).notifyGuardiansOfPickup("student1", "guardian1", false);
             verify(audit, times(1)).record(
                     eq(staff), eq("pickup.approved"), eq("exitLog"), eq("winning-log"), anyMap());
             verify(idempotency, times(1)).storeResult(
