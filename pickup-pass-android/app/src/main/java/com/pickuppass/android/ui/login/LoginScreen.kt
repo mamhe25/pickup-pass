@@ -140,7 +140,7 @@ fun LoginScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(Modifier.height(Spacing.xl))
+            Spacer(Modifier.height(Spacing.lg))
 
             ElevatedCard(
                 modifier = Modifier
@@ -296,20 +296,24 @@ fun LoginScreen(
                         Spacer(Modifier.height(Spacing.sm))
                     }
 
-                    PrimaryButton(
-                        text = "Sign in securely",
-                        onClick = viewModel::signIn,
-                        loading = uiState.isLoading
-                    )
-
-                    TextButton(
-                        onClick = viewModel::sendPasswordReset,
-                        enabled = !uiState.isLoading,
-                        modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .heightIn(min = 44.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Forgot password?")
+                        TextButton(
+                            onClick = viewModel::sendPasswordReset,
+                            enabled = !uiState.isLoading,
+                            modifier = Modifier.heightIn(min = 44.dp)
+                        ) {
+                            Text("Forgot password?")
+                        }
+
+                        PrimaryButton(
+                            text = "Sign in securely",
+                            onClick = viewModel::signIn,
+                            loading = uiState.isLoading
+                        )
                     }
                 }
             }
