@@ -1,8 +1,12 @@
 package com.pickuppass.android.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -65,6 +69,43 @@ fun PickupPassNavHost(
 
     val context =
         LocalContext.current
+
+    val lifecycleOwner =
+        LocalLifecycleOwner.current
+
+    DisposableEffect(
+        lifecycleOwner,
+        sessionGuard
+    ) {
+        val observer =
+            LifecycleEventObserver {
+                    _,
+                    event ->
+                when (event) {
+                    Lifecycle.Event.ON_START ->
+                        sessionGuard.onAppForegrounded()
+
+                    Lifecycle.Event.ON_STOP ->
+                        sessionGuard.onAppBackgrounded()
+
+                    else -> Unit
+                }
+            }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        if (
+            lifecycleOwner.lifecycle.currentState
+                .isAtLeast(Lifecycle.State.STARTED)
+        ) {
+            sessionGuard.onAppForegrounded()
+        }
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            sessionGuard.onAppBackgrounded()
+        }
+    }
 
     LaunchedEffect(
         sessionGuard,

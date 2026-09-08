@@ -141,6 +141,88 @@ public class PushNotificationService {
         }
     }
 
+    /**
+     * Best-effort high-priority data push used only for device-session
+     * revocation. No inbox notification is written and no user-visible system
+     * notification is shown. Backend session validation remains authoritative.
+     *
+     * targetDeviceId: revoke only one session.
+     * excludedDeviceId: revoke every session except the caller.
+     * both null: revoke every active app session for the user.
+     */
+    @SuppressWarnings("unchecked")
+    public void sendSessionRevocation(
+            String uid,
+            String targetDeviceId,
+            String excludedDeviceId) {
+
+        try {
+            DocumentSnapshot userSnap =
+                    firestore.collection("users")
+                            .document(uid)
+                            .get()
+                            .get();
+
+            if (!userSnap.exists()) return;
+
+            List<String> tokens =
+                    (List<String>) userSnap.get("fcmTokens");
+
+            if (tokens == null || tokens.isEmpty()) return;
+
+            MulticastMessage.Builder builder =
+                    MulticastMessage.builder()
+                            .addAllTokens(tokens)
+                            .putData(
+                                    "type",
+                                    "device_session_revoked")
+                            .setAndroidConfig(
+                                    AndroidConfig.builder()
+                                            .setPriority(
+                                                AndroidConfig.Priority.HIGH)
+                                            .build());
+
+            if (
+                    targetDeviceId != null &&
+                    !targetDeviceId.isBlank()) {
+                builder.putData(
+                        "targetDeviceId",
+                        targetDeviceId);
+            }
+
+            if (
+                    excludedDeviceId != null &&
+                    !excludedDeviceId.isBlank()) {
+                builder.putData(
+                        "excludedDeviceId",
+                        excludedDeviceId);
+            }
+
+            BatchResponse response =
+                    messaging.sendEachForMulticast(
+                            builder.build());
+
+            pruneInvalidTokens(
+                    uid,
+                    tokens,
+                    response);
+
+        } catch (
+                ExecutionException |
+                InterruptedException e) {
+            log.warn(
+                    "Could not load device tokens for session revocation for user {}: {}",
+                    uid,
+                    e.getMessage());
+            Thread.currentThread().interrupt();
+        } catch (FirebaseMessagingException e) {
+            log.warn(
+                    "FCM session revocation push failed for user {}: {}",
+                    uid,
+                    e.getMessage());
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private void sendPush(String uid, String title, String body, String type, String studentId) {
         try {

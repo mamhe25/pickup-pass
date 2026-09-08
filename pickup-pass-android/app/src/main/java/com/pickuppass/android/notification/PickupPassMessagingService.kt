@@ -8,17 +8,22 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.pickuppass.android.MainActivity
 import com.pickuppass.android.R
 import com.pickuppass.android.data.repository.NotificationRepository
+import com.pickuppass.android.session.DeviceIdentity
+import com.pickuppass.android.session.SessionEndReason
+import com.pickuppass.android.session.SessionExpiryManager
+import com.pickuppass.android.telemetry.AppTelemetry
 import dagger.hilt.android.AndroidEntryPoint
+import java.util.concurrent.atomic.AtomicInteger
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.util.concurrent.atomic.AtomicInteger
-import javax.inject.Inject
 
 const val PICKUP_NOTIFICATION_CHANNEL_ID = "pickup_notifications"
 
@@ -26,18 +31,14 @@ const val PICKUP_NOTIFICATION_CHANNEL_ID = "pickup_notifications"
 class PickupPassMessagingService : FirebaseMessagingService() {
 
     @Inject lateinit var notificationRepository: NotificationRepository
+    @Inject lateinit var firebaseAuth: FirebaseAuth
+    @Inject lateinit var deviceIdentity: DeviceIdentity
+    @Inject lateinit var sessionExpiryManager: SessionExpiryManager
+    @Inject lateinit var telemetry: AppTelemetry
 
     private val serviceScope = CoroutineScope(Dispatchers.IO)
     private val notificationIdCounter = AtomicInteger(1000)
 
-    /**
-     * Fires whenever FCM issues a new/refreshed token for this device
-     * (fresh install, app data cleared, token rotation, etc). We don't use
-     * the token argument directly — registerCurrentDeviceToken() re-fetches
-     * the current token itself, which keeps the "what token do we have"
-     * logic in one place (NotificationRepository) rather than split across
-     * the login flow and this callback.
-     */
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         serviceScope.launch {
@@ -48,41 +49,98 @@ class PickupPassMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
 
+        if (message.data["type"] == SESSION_REVOKED_PUSH_TYPE) {
+            handleSessionRevocation(message.data)
+            return
+        }
+
         val title = message.notification?.title ?: "Pickup Pass"
         val body = message.notification?.body ?: "Your child was just picked up."
-
         showNotification(title, body)
     }
 
-    private fun showNotification(title: String, body: String) {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+    private fun handleSessionRevocation(
+        data: Map<String, String>
+    ) {
+        if (firebaseAuth.currentUser == null) return
 
-        val notification = NotificationCompat.Builder(this, PICKUP_NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title)
-            .setContentText(body)
-            .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .build()
+        val currentDeviceId = deviceIdentity.deviceId
+        val targetDeviceId = data["targetDeviceId"].orEmpty()
+        val excludedDeviceId = data["excludedDeviceId"].orEmpty()
 
-        // On API 33+, POSTING without the runtime permission throws
-        // SecurityException rather than silently no-op-ing — check first.
-        // The permission itself is requested from StudentsScreen; if the
-        // user declined it, we simply skip showing the system notification.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-            != PackageManager.PERMISSION_GRANTED
+        if (
+            targetDeviceId.isNotBlank() &&
+            targetDeviceId != currentDeviceId
         ) {
             return
         }
 
-        NotificationManagerCompat.from(this).notify(notificationIdCounter.incrementAndGet(), notification)
+        if (
+            excludedDeviceId.isNotBlank() &&
+            excludedDeviceId == currentDeviceId
+        ) {
+            return
+        }
+
+        telemetry.clearSignedInUser()
+        firebaseAuth.signOut()
+
+        runCatching {
+            deviceIdentity.rotateDeviceId()
+        }
+
+        sessionExpiryManager.notifySessionEnded(
+            SessionEndReason.EXPIRED_OR_REVOKED
+        )
+    }
+
+    private fun showNotification(title: String, body: String) {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags =
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or
+                PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification =
+            NotificationCompat.Builder(
+                this,
+                PICKUP_NOTIFICATION_CHANNEL_ID
+            )
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .build()
+
+        if (
+            Build.VERSION.SDK_INT >=
+                Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        NotificationManagerCompat.from(this)
+            .notify(
+                notificationIdCounter.incrementAndGet(),
+                notification
+            )
+    }
+
+    private companion object {
+        const val SESSION_REVOKED_PUSH_TYPE =
+            "device_session_revoked"
     }
 }
