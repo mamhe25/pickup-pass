@@ -101,8 +101,7 @@ fun ManageGuardiansScreen(
         floatingActionButton = {
             if (
                 hasPrimaryGuardian &&
-                !uiState.isLoading &&
-                uiState.listError == null
+                !uiState.isLoading
             ) {
                 CollectionAddFab(
                     onClick = {
@@ -156,7 +155,10 @@ fun ManageGuardiansScreen(
                     }
                 }
 
-                if (uiState.formError != null || uiState.formSuccess != null) {
+                if (
+                    !showAddSheet &&
+                    (uiState.formError != null || uiState.formSuccess != null)
+                ) {
                     item(key = "feedback") {
                         FormFeedback(
                             formError = uiState.formError,
