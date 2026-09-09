@@ -1110,6 +1110,7 @@ fun MasterAdminAdvancedConsole(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SubscriptionDialog(
     school: MasterSchoolItem,
@@ -2472,6 +2473,7 @@ private fun healthLabel(value: String): String = when (value) {
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BillingDialog(
     school: MasterSchoolItem,
