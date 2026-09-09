@@ -1989,71 +1989,456 @@ private fun BillingDialog(
     var voidInvoice by remember(school.schoolId) { mutableStateOf<MasterInvoiceItem?>(null) }
     var reviewGcashNotice by remember(school.schoolId) { mutableStateOf<GcashPaymentNoticeItem?>(null) }
 
-    AlertDialog(
+    val billingSheetState =
+        rememberModalBottomSheetState(
+            skipPartiallyExpanded = true
+        )
+
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text("Billing records") },
-        text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                item { Text(school.schoolName, fontWeight = FontWeight.SemiBold) }
+        sheetState = billingSheetState,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 760.dp)
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(
+                    start = Spacing.lg,
+                    top = Spacing.xs,
+                    end = Spacing.lg,
+                    bottom = 104.dp
+                ),
+                verticalArrangement =
+                    Arrangement.spacedBy(Spacing.md)
+            ) {
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                            Button(onClick = { showCreate = true }, enabled = !saving) { Text("New invoice") }
-                            FilledTonalButton(onClick = { showProfile = true }, enabled = !saving) { Text("Billing profile") }
-                        }
-                        TextButton(onClick = onReconcile, enabled = !saving) { Text("Check overdue invoices") }
+                    Column(
+                        verticalArrangement =
+                            Arrangement.spacedBy(Spacing.xs)
+                    ) {
+                        Text(
+                            "TENANT BILLING",
+                            style =
+                                MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            "Billing records",
+                            style =
+                                MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            school.schoolName,
+                            style =
+                                MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Invoices, payment verification and billing identity for this tenant.",
+                            style =
+                                MaterialTheme.typography.bodySmall,
+                            color =
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
-                if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                val pendingGcash = paymentNotices.filter { it.status == "pending_review" }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        FilledTonalButton(
+                            onClick = { showProfile = true },
+                            enabled = !saving,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Billing profile")
+                        }
+                        OutlinedButton(
+                            onClick = onReconcile,
+                            enabled = !saving,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Check overdue")
+                        }
+                    }
+                }
+
+                if (loading) {
+                    item {
+                        LinearProgressIndicator(
+                            Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                val pendingGcash =
+                    paymentNotices.filter {
+                        it.status == "pending_review"
+                    }
+
                 if (pendingGcash.isNotEmpty()) {
-                    item { Text("GCash payments awaiting verification", fontWeight = FontWeight.SemiBold) }
-                    items(pendingGcash, key = { "gcash-" + it.noticeId }) { notice ->
-                        OutlinedCard(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                                Text("${notice.invoiceNumber} · ${notice.currency} ${moneyLabel(notice.amountMinor)}", fontWeight = FontWeight.SemiBold)
-                                Text("Payer: ${notice.payerName}", style = MaterialTheme.typography.bodySmall)
-                                Text("Reference: ${notice.referenceNumber}", style = MaterialTheme.typography.bodySmall)
-                                Text("Claimed paid: ${notice.paidAtClaimed?.replace('T',' ')?.take(16) ?: "â€”"}", style = MaterialTheme.typography.bodySmall)
-                                Button(onClick = { reviewGcashNotice = notice }, enabled = !saving) { Text("Verify payment") }
+                    item {
+                        PremiumSectionHeader(
+                            title = "Payments awaiting review",
+                            subtitle =
+                                "Verify the actual receiving transaction before confirming."
+                        )
+                    }
+
+                    items(
+                        pendingGcash,
+                        key = {
+                            "gcash-" + it.noticeId
+                        }
+                    ) { notice ->
+                        OutlinedCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            border = BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.tertiary
+                                    .copy(alpha = .32f)
+                            )
+                        ) {
+                            Column(
+                                modifier =
+                                    Modifier.padding(Spacing.md),
+                                verticalArrangement =
+                                    Arrangement.spacedBy(Spacing.xs)
+                            ) {
+                                Row(
+                                    modifier =
+                                        Modifier.fillMaxWidth(),
+                                    verticalAlignment =
+                                        Alignment.CenterVertically
+                                ) {
+                                    Column(
+                                        Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            notice.invoiceNumber,
+                                            fontWeight =
+                                                FontWeight.ExtraBold
+                                        )
+                                        Text(
+                                            "${notice.currency} ${moneyLabel(notice.amountMinor)}",
+                                            style =
+                                                MaterialTheme.typography
+                                                    .titleMedium,
+                                            fontWeight =
+                                                FontWeight.Bold
+                                        )
+                                    }
+                                    AssistChip(
+                                        onClick = {
+                                            reviewGcashNotice =
+                                                notice
+                                        },
+                                        enabled = !saving,
+                                        label = {
+                                            Text("Review")
+                                        }
+                                    )
+                                }
+                                Text(
+                                    "Payer: ${notice.payerName}",
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall
+                                )
+                                Text(
+                                    "Reference: ${notice.referenceNumber}",
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme.colorScheme
+                                            .onSurfaceVariant
+                                )
+                                Text(
+                                    "Claimed paid: " +
+                                        (notice.paidAtClaimed
+                                            ?.replace('T', ' ')
+                                            ?.take(16)
+                                            ?: "—"),
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme.colorScheme
+                                            .onSurfaceVariant
+                                )
                             }
                         }
                     }
                 }
-                if (!loading && invoices.isEmpty()) item { Text("No billing records yet.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                items(invoices, key = { it.invoiceId }) { invoice ->
-                    OutlinedCard(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(Spacing.sm), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(invoice.invoiceNumber, fontWeight = FontWeight.SemiBold)
-                                Text(invoice.status.replace('_',' ').replaceFirstChar { it.uppercase() })
+
+                item {
+                    PremiumSectionHeader(
+                        title = "Invoices",
+                        subtitle =
+                            if (invoices.isEmpty()) {
+                                "No billing records yet."
+                            } else {
+                                "${invoices.size} billing record(s)"
                             }
-                            Text("${invoice.currency} ${moneyLabel(invoice.amountMinor)} · due ${invoice.dueAt?.take(10) ?: "â€”"}", style = MaterialTheme.typography.bodySmall)
-                            if (invoice.note.isNotBlank()) Text(invoice.note, style = MaterialTheme.typography.bodySmall)
-                            if (invoice.lastEmailedAt != null) {
-                                Text("Last emailed ${invoice.lastEmailedAt.take(10)} to ${invoice.lastEmailedTo}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                                TextButton(onClick = { onDownloadPdf(invoice) }, enabled = !saving) { Text("PDF") }
-                                if (invoice.status != "void") {
-                                    TextButton(onClick = { emailInvoice = invoice }, enabled = !saving) { Text("Email") }
-                                }
-                            }
-                            if (invoice.status == "paid") {
-                                Text("Paid ${invoice.paidAt?.take(10) ?: ""} ${invoice.paymentReference}".trim(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                            } else if (invoice.status != "void") {
-                                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                                    TextButton(onClick = { payInvoice = invoice }, enabled = !saving) { Text("Mark paid") }
-                                    TextButton(onClick = { voidInvoice = invoice }, enabled = !saving) { Text("Void") }
-                                }
+                    )
+                }
+
+                if (!loading && invoices.isEmpty()) {
+                    item {
+                        OutlinedCard(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier =
+                                    Modifier.padding(Spacing.lg),
+                                verticalArrangement =
+                                    Arrangement.spacedBy(Spacing.xs)
+                            ) {
+                                Text(
+                                    "No invoices yet",
+                                    fontWeight =
+                                        FontWeight.ExtraBold
+                                )
+                                Text(
+                                    "Tap + to create the first invoice for this tenant.",
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme.colorScheme
+                                            .onSurfaceVariant
+                                )
                             }
                         }
+                    }
+                }
+
+                items(
+                    invoices,
+                    key = { it.invoiceId }
+                ) { invoice ->
+                    OutlinedCard(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier =
+                                Modifier.padding(Spacing.md),
+                            verticalArrangement =
+                                Arrangement.spacedBy(Spacing.sm)
+                        ) {
+                            Row(
+                                modifier =
+                                    Modifier.fillMaxWidth(),
+                                verticalAlignment =
+                                    Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        invoice.invoiceNumber,
+                                        style =
+                                            MaterialTheme.typography
+                                                .titleMedium,
+                                        fontWeight =
+                                            FontWeight.ExtraBold
+                                    )
+                                    Text(
+                                        "${invoice.currency} ${moneyLabel(invoice.amountMinor)}",
+                                        style =
+                                            MaterialTheme.typography
+                                                .bodyMedium,
+                                        fontWeight =
+                                            FontWeight.Bold
+                                    )
+                                }
+                                Surface(
+                                    shape =
+                                        MaterialTheme.shapes.small,
+                                    color =
+                                        if (
+                                            invoice.status == "paid"
+                                        ) {
+                                            MaterialTheme.colorScheme
+                                                .primaryContainer
+                                        } else if (
+                                            invoice.status == "void"
+                                        ) {
+                                            MaterialTheme.colorScheme
+                                                .surfaceVariant
+                                        } else {
+                                            MaterialTheme.colorScheme
+                                                .tertiaryContainer
+                                        }
+                                ) {
+                                    Text(
+                                        invoice.status
+                                            .replace('_', ' ')
+                                            .replaceFirstChar {
+                                                it.uppercase()
+                                            },
+                                        modifier =
+                                            Modifier.padding(
+                                                horizontal =
+                                                    Spacing.sm,
+                                                vertical =
+                                                    Spacing.xs
+                                            ),
+                                        style =
+                                            MaterialTheme.typography
+                                                .labelSmall,
+                                        fontWeight =
+                                            FontWeight.ExtraBold
+                                    )
+                                }
+                            }
+
+                            Text(
+                                "Due " +
+                                    (invoice.dueAt
+                                        ?.take(10)
+                                        ?: "Not set"),
+                                style =
+                                    MaterialTheme.typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme.colorScheme
+                                        .onSurfaceVariant
+                            )
+
+                            if (invoice.note.isNotBlank()) {
+                                Text(
+                                    invoice.note,
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall
+                                )
+                            }
+
+                            if (
+                                invoice.lastEmailedAt != null
+                            ) {
+                                Text(
+                                    "Last emailed " +
+                                        invoice.lastEmailedAt
+                                            .take(10) +
+                                        " to " +
+                                        invoice.lastEmailedTo,
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme.colorScheme
+                                            .onSurfaceVariant
+                                )
+                            }
+
+                            Row(
+                                modifier =
+                                    Modifier.fillMaxWidth(),
+                                horizontalArrangement =
+                                    Arrangement.End
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        onDownloadPdf(invoice)
+                                    },
+                                    enabled = !saving
+                                ) {
+                                    Text("PDF")
+                                }
+
+                                if (
+                                    invoice.status != "void"
+                                ) {
+                                    TextButton(
+                                        onClick = {
+                                            emailInvoice =
+                                                invoice
+                                        },
+                                        enabled = !saving
+                                    ) {
+                                        Text("Email")
+                                    }
+                                }
+
+                                if (
+                                    invoice.status != "paid" &&
+                                    invoice.status != "void"
+                                ) {
+                                    TextButton(
+                                        onClick = {
+                                            payInvoice =
+                                                invoice
+                                        },
+                                        enabled = !saving
+                                    ) {
+                                        Text("Mark paid")
+                                    }
+                                    TextButton(
+                                        onClick = {
+                                            voidInvoice =
+                                                invoice
+                                        },
+                                        enabled = !saving
+                                    ) {
+                                        Text("Void")
+                                    }
+                                }
+                            }
+
+                            if (invoice.status == "paid") {
+                                Text(
+                                    (
+                                        "Paid " +
+                                            (invoice.paidAt
+                                                ?.take(10)
+                                                ?: "") +
+                                            " " +
+                                            invoice.paymentReference
+                                        ).trim(),
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme.colorScheme
+                                            .primary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier =
+                            Modifier.fillMaxWidth()
+                    ) {
+                        Text("Close billing records")
                     }
                 }
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
-    )
+
+            CollectionAddFab(
+                onClick = { showCreate = true },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(Spacing.lg),
+                contentDescription = "Create invoice"
+            )
+        }
+    }
 
     if (showProfile) {
         var billingName by remember(billingProfile?.schoolId, billingProfile?.billingName) { mutableStateOf(billingProfile?.billingName ?: school.schoolName) }
