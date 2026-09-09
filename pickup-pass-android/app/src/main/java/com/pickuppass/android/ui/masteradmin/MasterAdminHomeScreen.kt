@@ -492,35 +492,82 @@ private fun MasterSchools(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(Spacing.md),
+        contentPadding = PaddingValues(
+            start = Spacing.md,
+            top = Spacing.md,
+            end = Spacing.md,
+            bottom = Spacing.xl
+        ),
         verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                MasterMetric("Schools", total.toString(), Modifier.weight(1f))
-                MasterMetric("Active", active.toString(), Modifier.weight(1f))
-                MasterMetric("Suspended", suspended.toString(), Modifier.weight(1f))
-            }
+            PremiumHeroCard(
+                eyebrow = "Tenant portfolio",
+                title = "$active active schools",
+                message =
+                    "$total total tenants · $suspended suspended. " +
+                        "Review portfolio health here, then open privileged controls only when action is required.",
+                icon = Icons.Filled.Business
+            )
         }
+
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("School tenants", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Quick health view. Use Advanced for management actions.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                FilledTonalButton(onClick = onManage) { Text("Manage") }
-            }
+            PremiumSectionHeader(
+                title = "Tenant health",
+                subtitle = "Status and launch posture without destructive controls."
+            )
         }
+
+        item {
+            MasterMetricPair(
+                firstLabel = "Active",
+                firstValue = active.toString(),
+                firstIcon = Icons.Filled.CheckCircle,
+                secondLabel = "Suspended",
+                secondValue = suspended.toString(),
+                secondIcon = Icons.Filled.WarningAmber
+            )
+        }
+
+        item {
+            PremiumSectionHeader(
+                title = "School tenants",
+                subtitle = "Subscription, launch and account status at a glance.",
+                trailing = {
+                    FilledTonalButton(onClick = onManage) {
+                        Icon(
+                            Icons.Filled.AdminPanelSettings,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(Spacing.xs))
+                        Text("Manage")
+                    }
+                }
+            )
+        }
+
         if (schools.isEmpty()) {
             item {
-                OutlinedCard(Modifier.fillMaxWidth()) {
-                    Text("No school tenants yet.", Modifier.padding(Spacing.lg))
-                }
+                MasterEmptyState(
+                    icon = Icons.Filled.Business,
+                    title = "No schools yet",
+                    message = "Create the first school from Advanced platform tools."
+                )
             }
         } else {
             items(schools, key = { it.schoolId }) { school ->
                 MasterSchoolSummary(school)
             }
+        }
+
+        item {
+            MasterInfoCard(
+                icon = Icons.Filled.Settings,
+                title = "Privileged tenant actions stay separate",
+                message =
+                    "Creating schools, changing plans, billing, exports and launch controls remain in Advanced so portfolio review stays low-risk."
+            )
         }
     }
 }
@@ -531,65 +578,131 @@ private fun MasterOperations(
     onAdvanced: () -> Unit
 ) {
     val operations = state.operations
+    val observability = state.observability
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(Spacing.md),
+        contentPadding = PaddingValues(
+            start = Spacing.md,
+            top = Spacing.md,
+            end = Spacing.md,
+            bottom = Spacing.xl
+        ),
         verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Operations health", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Billing, quota and delivery risk across tenants.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
+            PremiumHeroCard(
+                eyebrow = "Operations",
+                title =
+                    if (operations != null && operations.alerts.isEmpty()) {
+                        "No active operational alerts"
+                    } else {
+                        "${operations?.alerts?.size ?: 0} operational alert(s)"
+                    },
+                message =
+                    "Track billing, quota and runtime signals before opening tenant-level remediation tools.",
+                icon = Icons.Filled.Speed
+            )
         }
 
         if (operations == null) {
             item {
-                OutlinedCard(Modifier.fillMaxWidth()) {
-                    Text("Operations data unavailable.", Modifier.padding(Spacing.lg))
-                }
+                MasterEmptyState(
+                    icon = Icons.Filled.Speed,
+                    title = "Operations data unavailable",
+                    message = "Pull to refresh. Privileged actions remain available from Advanced."
+                )
             }
         } else {
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    MasterMetric("Healthy", operations.metrics.healthySchools.toString(), Modifier.weight(1f))
-                    MasterMetric("Attention", operations.metrics.attentionNeededSchools.toString(), Modifier.weight(1f))
-                }
+                PremiumSectionHeader(
+                    title = "Tenant operations",
+                    subtitle = "High-signal portfolio health across billing and usage."
+                )
             }
+
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    MasterMetric("Billing risk", operations.metrics.billingRiskSchools.toString(), Modifier.weight(1f))
-                    MasterMetric("Over quota", operations.metrics.overQuotaSchools.toString(), Modifier.weight(1f))
-                }
+                MasterMetricPair(
+                    firstLabel = "Healthy",
+                    firstValue = operations.metrics.healthySchools.toString(),
+                    firstIcon = Icons.Filled.CheckCircle,
+                    secondLabel = "Need attention",
+                    secondValue = operations.metrics.attentionNeededSchools.toString(),
+                    secondIcon = Icons.Filled.WarningAmber
+                )
             }
+
             item {
-                OutlinedCard(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(Spacing.md)) {
-                        Text(
-                            "${operations.alerts.size} active operational alert(s)",
-                            fontWeight = FontWeight.Bold,
-                            color = if (operations.alerts.isEmpty())
-                                MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.error
-                        )
-                        Text(
-                            "Pending GCash ${operations.metrics.pendingGcashReviews} · " +
-                                "Overdue invoices ${operations.metrics.overdueInvoices} · " +
-                                "Quota warnings ${operations.metrics.quotaWarnings}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                MasterMetricPair(
+                    firstLabel = "Billing risk",
+                    firstValue = operations.metrics.billingRiskSchools.toString(),
+                    firstIcon = Icons.Filled.ReceiptLong,
+                    secondLabel = "Over quota",
+                    secondValue = operations.metrics.overQuotaSchools.toString(),
+                    secondIcon = Icons.Filled.Storage
+                )
+            }
+
+            item {
+                MasterSnapshotCard(
+                    icon = Icons.Filled.ReceiptLong,
+                    eyebrow = "OPERATIONS SNAPSHOT",
+                    title =
+                        if (operations.alerts.isEmpty()) {
+                            "No operational alerts"
+                        } else {
+                            "${operations.alerts.size} alert(s) need review"
+                        },
+                    rows = listOf(
+                        "Pending GCash reviews" to operations.metrics.pendingGcashReviews.toString(),
+                        "Overdue invoices" to operations.metrics.overdueInvoices.toString(),
+                        "Quota warnings" to operations.metrics.quotaWarnings.toString()
+                    ),
+                    warning = operations.alerts.isNotEmpty()
+                )
+            }
+        }
+
+        observability?.let { health ->
+            item {
+                PremiumSectionHeader(
+                    title = "Runtime health",
+                    subtitle = "Lightweight backend telemetry for the current service instance."
+                )
+            }
+
+            item {
+                MasterMetricPair(
+                    firstLabel = "Uptime",
+                    firstValue = compactMasterUptime(health.runtime.uptimeSeconds),
+                    firstIcon = Icons.Filled.Speed,
+                    secondLabel = "5xx errors",
+                    secondValue = health.http.errors5xx.toString(),
+                    secondIcon = Icons.Filled.ErrorOutline
+                )
+            }
+
+            item {
+                MasterMetricPair(
+                    firstLabel = "Memory used",
+                    firstValue = "${health.memory.usedPercent}%",
+                    firstIcon = Icons.Filled.Storage,
+                    secondLabel = "Requests",
+                    secondValue = health.http.requests.toString(),
+                    secondIcon = Icons.Filled.Dashboard
+                )
             }
         }
 
         item {
-            Button(onClick = onAdvanced, modifier = Modifier.fillMaxWidth()) {
-                Text("Open operational actions")
-            }
+            MasterAdvancedActionCard(
+                icon = Icons.Filled.Settings,
+                title = "Operational actions",
+                message =
+                    "Review payments, subscriptions, tenant limits and incident actions from the privileged console.",
+                actionLabel = "Open Advanced",
+                onClick = onAdvanced
+            )
         }
     }
 }
@@ -600,74 +713,178 @@ private fun MasterSecurity(
     onAdvanced: () -> Unit
 ) {
     val security = state.security
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(Spacing.md),
+        contentPadding = PaddingValues(
+            start = Spacing.md,
+            top = Spacing.md,
+            end = Spacing.md,
+            bottom = Spacing.xl
+        ),
         verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Security center", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Authentication, session and privileged-action monitoring.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
+            PremiumHeroCard(
+                eyebrow = "Security",
+                title =
+                    if (security != null && security.alerts.isEmpty()) {
+                        "No active security alerts"
+                    } else {
+                        "${security?.metrics?.activeAlerts ?: 0} active alert(s)"
+                    },
+                message =
+                    "Monitor authentication, session and privileged-action signals without mixing them into routine tenant administration.",
+                icon = Icons.Filled.Security
+            )
         }
 
         if (security == null) {
             item {
-                OutlinedCard(Modifier.fillMaxWidth()) {
-                    Text("Security data unavailable.", Modifier.padding(Spacing.lg))
-                }
+                MasterEmptyState(
+                    icon = Icons.Filled.Security,
+                    title = "Security data unavailable",
+                    message = "Pull to refresh or open Advanced for privileged controls."
+                )
             }
         } else {
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    MasterMetric("Active", security.metrics.activeAlerts.toString(), Modifier.weight(1f))
-                    MasterMetric("High", security.metrics.high.toString(), Modifier.weight(1f))
-                    MasterMetric("Medium", security.metrics.medium.toString(), Modifier.weight(1f))
-                }
+                PremiumSectionHeader(
+                    title = "Alert posture",
+                    subtitle = "Current unresolved authentication and session risk."
+                )
             }
+
             item {
-                OutlinedCard(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(Spacing.md)) {
-                        Text(
-                            if (security.alerts.isEmpty())
-                                "No active security alerts"
-                            else
-                                "${security.alerts.size} security alert(s) need review",
-                            fontWeight = FontWeight.Bold,
-                            color = if (security.alerts.isEmpty())
-                                MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.error
-                        )
-                        Text(
-                            "Open ${security.metrics.openAlerts} · Acknowledged ${security.metrics.acknowledged}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                MasterMetricPair(
+                    firstLabel = "Active alerts",
+                    firstValue = security.metrics.activeAlerts.toString(),
+                    firstIcon = Icons.Filled.Security,
+                    secondLabel = "High severity",
+                    secondValue = security.metrics.high.toString(),
+                    secondIcon = Icons.Filled.ErrorOutline
+                )
+            }
+
+            item {
+                MasterMetricPair(
+                    firstLabel = "Medium",
+                    firstValue = security.metrics.medium.toString(),
+                    firstIcon = Icons.Filled.WarningAmber,
+                    secondLabel = "Acknowledged",
+                    secondValue = security.metrics.acknowledged.toString(),
+                    secondIcon = Icons.Filled.CheckCircle
+                )
+            }
+
+            item {
+                MasterSnapshotCard(
+                    icon = Icons.Filled.Security,
+                    eyebrow = "SECURITY SNAPSHOT",
+                    title =
+                        if (security.metrics.openAlerts == 0) {
+                            "No open alerts"
+                        } else {
+                            "${security.metrics.openAlerts} open alert(s)"
+                        },
+                    rows = listOf(
+                        "Open" to security.metrics.openAlerts.toString(),
+                        "Acknowledged" to security.metrics.acknowledged.toString(),
+                        "Recent privileged actions" to security.recentPrivilegedActions.size.toString()
+                    ),
+                    warning = security.metrics.openAlerts > 0
+                )
             }
         }
 
         item {
-            Button(onClick = onAdvanced, modifier = Modifier.fillMaxWidth()) {
-                Text("Open security actions")
-            }
+            MasterAdvancedActionCard(
+                icon = Icons.Filled.Security,
+                title = "Security actions",
+                message =
+                    "Acknowledge alerts, revoke sessions and inspect privileged audit activity from Advanced.",
+                actionLabel = "Open Advanced",
+                onClick = onAdvanced
+            )
         }
     }
 }
 
 @Composable
-private fun MasterMetric(label: String, value: String, modifier: Modifier = Modifier) {
-    OutlinedCard(modifier) {
+private fun MasterMetricPair(
+    firstLabel: String,
+    firstValue: String,
+    firstIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    secondLabel: String,
+    secondValue: String,
+    secondIcon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+    ) {
+        MasterMetric(
+            label = firstLabel,
+            value = firstValue,
+            icon = firstIcon,
+            modifier = Modifier.weight(1f)
+        )
+        MasterMetric(
+            label = secondLabel,
+            value = secondValue,
+            icon = secondIcon,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun MasterMetric(
+    label: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier
+) {
+    OutlinedCard(
+        modifier = modifier,
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(Spacing.md),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Surface(
+                modifier = Modifier.size(36.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .62f),
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+            }
+            Text(
+                value,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -677,6 +894,7 @@ private fun MasterAreaCard(
     title: String,
     subtitle: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    badge: String,
     onClick: () -> Unit
 ) {
     OutlinedCard(
@@ -686,8 +904,8 @@ private fun MasterAreaCard(
             containerColor = MaterialTheme.colorScheme.surface
         ),
         border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant
         )
     ) {
         Row(
@@ -698,16 +916,16 @@ private fun MasterAreaCard(
             horizontalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             Surface(
-                modifier = Modifier.size(46.dp),
+                modifier = Modifier.size(48.dp),
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = icon,
+                        icon,
                         contentDescription = null,
-                        modifier = Modifier.size(23.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
@@ -717,23 +935,31 @@ private fun MasterAreaCard(
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    text = title,
+                    title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold
                 )
                 Text(
-                    text = subtitle,
+                    subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Text(
-                text = "Open",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .72f)
+            ) {
+                Text(
+                    badge,
+                    modifier = Modifier.padding(
+                        horizontal = Spacing.sm,
+                        vertical = Spacing.xs
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
@@ -741,36 +967,382 @@ private fun MasterAreaCard(
 @Composable
 private fun MasterSchoolSummary(school: MasterSchoolItem) {
     val active = school.status == "active"
-    OutlinedCard(Modifier.fillMaxWidth()) {
+    val launchApproved = school.launchStatus == "approved"
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (active) {
+                MaterialTheme.colorScheme.outlineVariant
+            } else {
+                MaterialTheme.colorScheme.error.copy(alpha = .28f)
+            }
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    modifier = Modifier.size(44.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color =
+                        if (active) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.errorContainer
+                        }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Filled.Business,
+                            contentDescription = null,
+                            tint =
+                                if (active) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onErrorContainer
+                                }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(Spacing.md))
+
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        school.schoolName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 2
+                    )
+                    Text(
+                        school.plan.replaceFirstChar { it.uppercase() } + " plan",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color =
+                        if (active) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.errorContainer
+                        }
+                ) {
+                    Text(
+                        if (active) "Active" else "Suspended",
+                        modifier = Modifier.padding(
+                            horizontal = Spacing.sm,
+                            vertical = Spacing.xs
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color =
+                            if (active) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onErrorContainer
+                            }
+                    )
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "SUBSCRIPTION",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        school.subscriptionStatus
+                            .replace('_', ' ')
+                            .replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "LAUNCH",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        if (launchApproved) {
+                            "Approved"
+                        } else {
+                            school.launchStatus
+                                .replace('_', ' ')
+                                .replaceFirstChar { it.uppercase() }
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color =
+                            if (launchApproved) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+                    )
+                }
+            }
+
+            if (!school.subscriptionAccessActive) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = .62f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(Spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.WarningAmber,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(Spacing.xs))
+                        Text(
+                            "Subscription access is restricted",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MasterSnapshotCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    eyebrow: String,
+    title: String,
+    rows: List<Pair<String, String>>,
+    warning: Boolean
+) {
+    val accent =
+        if (warning) {
+            MaterialTheme.colorScheme.tertiary
+        } else {
+            MaterialTheme.colorScheme.primary
+        }
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        border = BorderStroke(1.dp, accent.copy(alpha = .24f))
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    modifier = Modifier.size(38.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color = accent.copy(alpha = .1f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            icon,
+                            contentDescription = null,
+                            tint = accent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(Spacing.sm))
+                Column {
+                    Text(
+                        eyebrow,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = accent
+                    )
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            rows.forEach { (label, value) ->
+                Row(Modifier.fillMaxWidth()) {
+                    Text(
+                        label,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        value,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MasterAdvancedActionCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    message: String,
+    actionLabel: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .38f)
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            FilledTonalButton(
+                onClick = onClick,
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text(actionLabel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MasterInfoCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    message: String
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .6f)
+    ) {
         Row(
             modifier = Modifier.padding(Spacing.md),
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            verticalAlignment = Alignment.Top
         ) {
             Icon(
-                Icons.Filled.Business,
+                icon,
                 contentDescription = null,
-                tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
             )
-            Spacer(Modifier.width(Spacing.md))
-            Column(Modifier.weight(1f)) {
-                Text(school.schoolName, fontWeight = FontWeight.Bold)
+            Column {
+                Text(title, fontWeight = FontWeight.Bold)
                 Text(
-                    "${school.plan.replaceFirstChar { it.uppercase() }} · " +
-                        school.subscriptionStatus.replace('_', ' '),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "Launch: ${school.launchStatus.replace('_', ' ')}",
+                    message,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun MasterEmptyState(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    message: String
+) {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.xl),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
+            Surface(
+                modifier = Modifier.size(52.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             Text(
-                if (active) "Active" else "Suspended",
-                style = MaterialTheme.typography.labelMedium,
-                color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
+}
+
+private fun compactMasterUptime(seconds: Long): String {
+    val days = seconds / 86_400
+    if (days > 0) return "${days}d"
+    val hours = seconds / 3_600
+    if (hours > 0) return "${hours}h"
+    val minutes = seconds / 60
+    return "${minutes}m"
 }
