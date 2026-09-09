@@ -333,7 +333,7 @@ private fun MasterOverview(
 ) {
     val attention = state.operations?.metrics?.attentionNeededSchools ?: 0
     val alerts = state.security?.metrics?.activeAlerts ?: 0
-    val httpErrors = state.observability?.http?.errors5xx ?: 0
+    val httpErrors = state.observability?.http?.errors5xx ?: 0L
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -349,7 +349,7 @@ private fun MasterOverview(
             PremiumHeroCard(
                 eyebrow = "Platform overview",
                 title =
-                    if (attention == 0 && alerts == 0 && httpErrors == 0) {
+                    if (attention == 0 && alerts == 0 && httpErrors == 0L) {
                         "Platform is operating normally"
                     } else {
                         "${attention + alerts + httpErrors} signal(s) need review"
