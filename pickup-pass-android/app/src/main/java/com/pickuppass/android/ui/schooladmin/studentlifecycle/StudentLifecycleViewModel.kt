@@ -103,6 +103,62 @@ class StudentLifecycleViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(targetAcademicYearId = id, promotionPreview = null, error = null, success = null, successTitle = null)
     }
 
+    fun updateStudentDetails(
+        studentId: String,
+        lastName: String,
+        firstName: String,
+        middleInitial: String,
+        suffix: String,
+        studentNumber: String
+    ) {
+        if (_uiState.value.isWorking) return
+
+        val cleanLast = lastName.trim()
+        val cleanFirst = firstName.trim()
+        if (cleanLast.isBlank() || cleanFirst.isBlank()) {
+            _uiState.value = _uiState.value.copy(
+                error = "Last name and first name are required"
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isWorking = true,
+                error = null,
+                success = null,
+                successTitle = null
+            )
+
+            when (
+                val result =
+                    repository.updateStudentDetails(
+                        studentId = studentId,
+                        lastName = cleanLast,
+                        firstName = cleanFirst,
+                        middleInitial = middleInitial.trim(),
+                        suffix = suffix.trim(),
+                        studentNumber = studentNumber.trim()
+                    )
+            ) {
+                is ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isWorking = false,
+                        successTitle = "Student details updated",
+                        success = "The student's identity record was updated without changing lifecycle status or pickup history."
+                    )
+                    load()
+                }
+
+                is ApiResult.Failure ->
+                    _uiState.value = _uiState.value.copy(
+                        isWorking = false,
+                        error = result.message
+                    )
+            }
+        }
+    }
+
     fun updateStatus(studentId: String, status: String, reason: String) {
         if (_uiState.value.isWorking) return
         viewModelScope.launch {
@@ -167,6 +223,14 @@ class StudentLifecycleViewModel @Inject constructor(
                     )
             }
         }
+    }
+
+    fun restoreStudent(studentId: String) {
+        updateStatus(
+            studentId = studentId,
+            status = "active",
+            reason = "Restored by school administrator"
+        )
     }
 
     fun archiveStudent(studentId: String) {
