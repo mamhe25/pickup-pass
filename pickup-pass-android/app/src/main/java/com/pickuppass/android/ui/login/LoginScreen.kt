@@ -409,10 +409,10 @@ private fun MfaChallengeDialog(
                     onComplete = onVerify,
                     enabled = !state.mfaBusy,
                     isError = state.mfaError != null,
-                    autoFocus = true
+                    autoFocus = false
                 )
                 Text(
-                    "Enter or paste all 6 digits. Verification starts automatically when the code is complete.",
+                    "Paste or enter the 6-digit code. Verification starts automatically.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -588,7 +588,7 @@ private fun RequiredMfaEnrollmentDialog(
                         autoFocus = false
                     )
                     Text(
-                        "Paste or type the 6-digit code. PickupPass will enable 2FA automatically when all digits are entered.",
+                        "Paste or enter the 6-digit code. Setup completes automatically.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
