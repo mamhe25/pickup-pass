@@ -8,7 +8,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ManageAccounts
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -39,8 +41,10 @@ fun StudentLifecycleScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var actionStudent by remember { mutableStateOf<StudentLifecycleItem?>(null) }
     var statusStudent by remember { mutableStateOf<StudentLifecycleItem?>(null) }
+    var editStudent by remember { mutableStateOf<StudentLifecycleItem?>(null) }
     var placementStudent by remember { mutableStateOf<StudentLifecycleItem?>(null) }
     var archiveStudent by remember { mutableStateOf<StudentLifecycleItem?>(null) }
+    var restoreStudent by remember { mutableStateOf<StudentLifecycleItem?>(null) }
     var showPromotion by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -170,6 +174,10 @@ fun StudentLifecycleScreen(
         StudentActionsSheet(
             student = student,
             onDismiss = { actionStudent = null },
+            onEditDetails = {
+                actionStudent = null
+                editStudent = student
+            },
             onReassign = {
                 actionStudent = null
                 placementStudent = student
@@ -178,9 +186,37 @@ fun StudentLifecycleScreen(
                 actionStudent = null
                 statusStudent = student
             },
+            onRestore = {
+                actionStudent = null
+                restoreStudent = student
+            },
             onArchive = {
                 actionStudent = null
                 archiveStudent = student
+            }
+        )
+    }
+
+    editStudent?.let { student ->
+        EditStudentDetailsDialog(
+            student = student,
+            busy = state.isWorking,
+            onDismiss = { editStudent = null },
+            onSave = {
+                    lastName,
+                    firstName,
+                    middleInitial,
+                    suffix,
+                    studentNumber ->
+                viewModel.updateStudentDetails(
+                    studentId = student.studentId,
+                    lastName = lastName,
+                    firstName = firstName,
+                    middleInitial = middleInitial,
+                    suffix = suffix,
+                    studentNumber = studentNumber
+                )
+                editStudent = null
             }
         )
     }
@@ -197,6 +233,22 @@ fun StudentLifecycleScreen(
                     gradeSectionId
                 )
                 placementStudent = null
+            }
+        )
+    }
+
+    restoreStudent?.let { student ->
+        PremiumConfirmDialog(
+            title = "Restore student?",
+            message =
+                student.fullName +
+                    " will return to active school and pickup rosters. " +
+                    "Confirm the student's current grade and section after restoring.",
+            confirmLabel = "Restore active",
+            onDismiss = { restoreStudent = null },
+            onConfirm = {
+                restoreStudent = null
+                viewModel.restoreStudent(student.studentId)
             }
         )
     }
@@ -328,8 +380,10 @@ private fun StudentLifecycleCard(
 private fun StudentActionsSheet(
     student: StudentLifecycleItem,
     onDismiss: () -> Unit,
+    onEditDetails: () -> Unit,
     onReassign: () -> Unit,
     onChangeStatus: () -> Unit,
+    onRestore: () -> Unit,
     onArchive: () -> Unit
 ) {
     ModalBottomSheet(
@@ -368,6 +422,34 @@ private fun StudentActionsSheet(
             HorizontalDivider()
 
             OutlinedCard(
+                onClick = onEditDetails,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(Spacing.md),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Filled.Edit,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.width(Spacing.sm))
+                    Column {
+                        Text(
+                            "Edit student details",
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Update name and student number. This is available even for archived records.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            OutlinedCard(
                 onClick = onReassign,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -401,7 +483,23 @@ private fun StudentActionsSheet(
                 }
             }
 
-            if (!student.status.equals("archived", ignoreCase = true)) {
+            if (student.status.equals("archived", ignoreCase = true)) {
+                FilledTonalButton(
+                    onClick = onRestore,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Icon(
+                        Icons.Filled.Restore,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(Spacing.xs))
+                    Text(
+                        "Restore to active",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            } else {
                 TextButton(
                     onClick = onArchive,
                     modifier = Modifier.align(Alignment.End)
@@ -415,6 +513,191 @@ private fun StudentActionsSheet(
             }
         }
     }
+}
+
+@Composable
+private fun EditStudentDetailsDialog(
+    student: StudentLifecycleItem,
+    busy: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (
+        lastName: String,
+        firstName: String,
+        middleInitial: String,
+        suffix: String,
+        studentNumber: String
+    ) -> Unit
+) {
+    var lastName by remember(student.studentId) {
+        mutableStateOf(student.lastName)
+    }
+    var firstName by remember(student.studentId) {
+        mutableStateOf(student.firstName)
+    }
+    var middleInitial by remember(student.studentId) {
+        mutableStateOf(student.middleInitial)
+    }
+    var suffix by remember(student.studentId) {
+        mutableStateOf(student.suffix)
+    }
+    var studentNumber by remember(student.studentId) {
+        mutableStateOf(student.studentNumber)
+    }
+
+    val legacyName =
+        student.lastName.isBlank() ||
+            student.firstName.isBlank()
+
+    AlertDialog(
+        onDismissRequest = {
+            if (!busy) onDismiss()
+        },
+        icon = {
+            Icon(
+                Icons.Filled.Edit,
+                contentDescription = null
+            )
+        },
+        title = {
+            Text("Edit student details")
+        },
+        text = {
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(Spacing.sm)
+            ) {
+                Text(
+                    student.fullName,
+                    fontWeight = FontWeight.Bold
+                )
+
+                if (
+                    student.status.equals(
+                        "archived",
+                        ignoreCase = true
+                    )
+                ) {
+                    Surface(
+                        shape = MaterialTheme.shapes.medium,
+                        color =
+                            MaterialTheme.colorScheme
+                                .tertiaryContainer
+                    ) {
+                        Text(
+                            "Archived record: these edits update identity information only. The student stays archived until you explicitly restore the record.",
+                            modifier =
+                                Modifier.padding(Spacing.sm),
+                            style =
+                                MaterialTheme.typography.bodySmall,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onTertiaryContainer
+                        )
+                    }
+                }
+
+                if (legacyName) {
+                    Text(
+                        "This older record does not have structured first/last-name fields yet. Enter them once to modernize the record.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                OutlinedTextField(
+                    value = lastName,
+                    onValueChange = {
+                        lastName = it.take(100)
+                    },
+                    label = { Text("Last name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = firstName,
+                    onValueChange = {
+                        firstName = it.take(100)
+                    },
+                    label = { Text("First name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(
+                    horizontalArrangement =
+                        Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    OutlinedTextField(
+                        value = middleInitial,
+                        onValueChange = {
+                            middleInitial = it.take(10)
+                        },
+                        label = { Text("Middle") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = suffix,
+                        onValueChange = {
+                            suffix = it.take(30)
+                        },
+                        label = { Text("Suffix") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                OutlinedTextField(
+                    value = studentNumber,
+                    onValueChange = {
+                        studentNumber = it.take(80)
+                    },
+                    label = {
+                        Text("Student number")
+                    },
+                    supportingText = {
+                        Text(
+                            "Optional, but must be unique within the school when provided."
+                        )
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(
+                        lastName,
+                        firstName,
+                        middleInitial,
+                        suffix,
+                        studentNumber
+                    )
+                },
+                enabled =
+                    !busy &&
+                        lastName.isNotBlank() &&
+                        firstName.isNotBlank()
+            ) {
+                if (busy) {
+                    CircularProgressIndicator(
+                        Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Save details")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !busy
+            ) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
