@@ -1,6 +1,8 @@
 package com.pickuppass.android.ui.teacher.students
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -8,6 +10,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.ManageAccounts
@@ -664,11 +668,6 @@ private fun RosterGroupHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-
-        HorizontalDivider(
-            modifier = Modifier.width(40.dp),
-            color = MaterialTheme.colorScheme.outlineVariant
-        )
     }
 }
 
@@ -679,6 +678,7 @@ private fun StudentRosterCard(
     onManageGuardians: () -> Unit
 ) {
     val hasPrimary = hasPrimaryGuardian(student)
+    var expanded by remember(student.id) { mutableStateOf(false) }
 
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -695,8 +695,12 @@ private fun StudentRosterCard(
             }
         )
     ) {
-        Column(Modifier.padding(Spacing.md)) {
+        Column {
             Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(Spacing.md),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 StudentAvatar(student)
@@ -720,48 +724,90 @@ private fun StudentRosterCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+
+                    if (!hasPrimary && !expanded) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Guardian required",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
+
+                Icon(
+                    imageVector =
+                        if (expanded) {
+                            Icons.Filled.ExpandLess
+                        } else {
+                            Icons.Filled.ExpandMore
+                        },
+                    contentDescription =
+                        if (expanded) {
+                            "Collapse student details"
+                        } else {
+                            "Expand student details"
+                        },
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
-            Spacer(Modifier.height(Spacing.sm))
+            AnimatedVisibility(visible = expanded) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = Spacing.md,
+                            end = Spacing.md,
+                            bottom = Spacing.md
+                        )
+                ) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                GuardianReadinessBadge(hasPrimary = hasPrimary)
+                    Spacer(Modifier.height(Spacing.sm))
 
-                Spacer(Modifier.weight(1f))
-
-                if (hasPrimary) {
-                    TextButton(
-                        onClick = onManageGuardians,
-                        modifier = Modifier.heightIn(min = 40.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            Icons.Filled.Group,
-                            contentDescription = null,
-                            modifier = Modifier.size(17.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text("Guardians")
-                    }
-                } else {
-                    FilledTonalButton(
-                        onClick = onRegisterParent,
-                        modifier = Modifier.heightIn(min = 40.dp),
-                        contentPadding = PaddingValues(
-                            horizontal = Spacing.sm,
-                            vertical = Spacing.xs
-                        )
-                    ) {
-                        Icon(
-                            Icons.Filled.PersonAdd,
-                            contentDescription = null,
-                            modifier = Modifier.size(17.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text("Add primary")
+                        GuardianReadinessBadge(hasPrimary = hasPrimary)
+
+                        Spacer(Modifier.weight(1f))
+
+                        if (hasPrimary) {
+                            TextButton(
+                                onClick = onManageGuardians,
+                                modifier = Modifier.heightIn(min = 40.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.Group,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text("Guardians")
+                            }
+                        } else {
+                            FilledTonalButton(
+                                onClick = onRegisterParent,
+                                modifier = Modifier.heightIn(min = 40.dp),
+                                contentPadding = PaddingValues(
+                                    horizontal = Spacing.sm,
+                                    vertical = Spacing.xs
+                                )
+                            ) {
+                                Icon(
+                                    Icons.Filled.PersonAdd,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text("Add primary")
+                            }
+                        }
                     }
                 }
             }
