@@ -2,6 +2,7 @@ package com.pickuppass.android.ui.masteradmin
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -1321,33 +1322,65 @@ private fun SubscriptionDialog(
             }
 
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement =
+                Column(
+                    verticalArrangement =
                         Arrangement.spacedBy(Spacing.xs)
                 ) {
-                    listOf(
-                        "trialing",
-                        "active",
-                        "past_due",
-                        "cancelled"
-                    ).forEach { status ->
-                        FilterChip(
-                            selected =
-                                selectedStatus == status,
-                            onClick = {
-                                selectedStatus = status
-                            },
-                            label = {
-                                Text(
-                                    status
-                                        .replace('_', ' ')
-                                        .replaceFirstChar {
-                                            it.uppercase()
-                                        }
-                                )
-                            }
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(Spacing.xs)
+                    ) {
+                        listOf(
+                            "trialing",
+                            "active"
+                        ).forEach { status ->
+                            FilterChip(
+                                selected =
+                                    selectedStatus == status,
+                                onClick = {
+                                    selectedStatus = status
+                                },
+                                label = {
+                                    Text(
+                                        status
+                                            .replace('_', ' ')
+                                            .replaceFirstChar {
+                                                it.uppercase()
+                                            }
+                                    )
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(Spacing.xs)
+                    ) {
+                        listOf(
+                            "past_due",
+                            "cancelled"
+                        ).forEach { status ->
+                            FilterChip(
+                                selected =
+                                    selectedStatus == status,
+                                onClick = {
+                                    selectedStatus = status
+                                },
+                                label = {
+                                    Text(
+                                        status
+                                            .replace('_', ' ')
+                                            .replaceFirstChar {
+                                                it.uppercase()
+                                            }
+                                    )
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             }
