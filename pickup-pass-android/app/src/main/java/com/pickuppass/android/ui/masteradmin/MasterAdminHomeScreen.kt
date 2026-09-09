@@ -45,10 +45,17 @@ fun MasterAdminScreen(
     viewModel: MasterAdminViewModel = hiltViewModel(),
     onOpenProfile: () -> Unit,
     onOpenNotifications: () -> Unit,
-    onSignedOut: () -> Unit
+    onSignedOut: () -> Unit,
+    initialLaunchReadinessSchoolId: String? = null
 ) {
     var section by remember { mutableStateOf(MasterAdminSection.OVERVIEW) }
     var showPlatformTools by remember { mutableStateOf(false) }
+
+    LaunchedEffect(initialLaunchReadinessSchoolId) {
+        if (!initialLaunchReadinessSchoolId.isNullOrBlank()) {
+            section = MasterAdminSection.ADVANCED
+        }
+    }
 
     if (section == MasterAdminSection.ADVANCED) {
         MasterAdminAdvancedConsole(
@@ -56,6 +63,7 @@ fun MasterAdminScreen(
             onOpenProfile = onOpenProfile,
             onOpenNotifications = onOpenNotifications,
             onSignedOut = onSignedOut,
+            initialLaunchReadinessSchoolId = initialLaunchReadinessSchoolId,
             onBackToOverview = { section = MasterAdminSection.OVERVIEW }
         )
         return
