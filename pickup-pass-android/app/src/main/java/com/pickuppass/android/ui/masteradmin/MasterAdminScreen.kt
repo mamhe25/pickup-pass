@@ -1187,11 +1187,38 @@ private fun RecoveryJobCard(job: MasterRecoveryJobItem, saving: Boolean, onRefre
 }
 
 @Composable
-private fun MetricCard(label: String, value: String, modifier: Modifier = Modifier) {
-    OutlinedCard(modifier) {
-        Column(Modifier.padding(Spacing.md), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun MetricCard(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    OutlinedCard(
+        modifier = modifier,
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                value,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -1211,90 +1238,384 @@ private fun SchoolCard(
     onLaunchReadiness: () -> Unit
 ) {
     val active = school.status == "active"
-    OutlinedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.AdminPanelSettings, contentDescription = null)
-                Spacer(Modifier.width(Spacing.sm))
+    val u = school.usage
+    val usageAtRisk =
+        u.studentsOverLimit ||
+            u.staffOverLimit ||
+            u.campusesOverLimit
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (active) {
+                MaterialTheme.colorScheme.outlineVariant
+            } else {
+                MaterialTheme.colorScheme.error.copy(alpha = .3f)
+            }
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(46.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color =
+                        if (active) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.errorContainer
+                        }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Filled.Business,
+                            contentDescription = null,
+                            tint =
+                                if (active) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onErrorContainer
+                                }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(Spacing.md))
+
                 Column(Modifier.weight(1f)) {
-                    Text(school.schoolName, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        school.schoolName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold
+                    )
                     health?.let {
                         Text(
-                            healthLabel(it.healthState) + if (it.activeAlertCount > 0) " · ${it.activeAlertCount} alert(s)" else "",
+                            healthLabel(it.healthState) +
+                                if (it.activeAlertCount > 0) {
+                                    " · ${it.activeAlertCount} alert(s)"
+                                } else {
+                                    ""
+                                },
                             style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
                             color = healthColor(it.healthState)
                         )
                     }
                     Text(
-                        "${school.plan.replaceFirstChar { it.uppercase() }} · ${school.subscriptionStatus.replace('_', ' ')}",
+                        "${school.plan.replaceFirstChar { it.uppercase() }} · " +
+                            school.subscriptionStatus
+                                .replace('_', ' ')
+                                .replaceFirstChar { it.uppercase() },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
-                        "Launch: ${launchStatusLabel(school.launchStatus)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (school.launchStatus == "approved") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        if (active) "Active tenant" else "Suspended tenant",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                    )
-                    if (!school.subscriptionAccessActive) {
+                }
+
+                Switch(
+                    checked = active,
+                    enabled = !saving,
+                    onCheckedChange = { onToggle() }
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                TenantStatusCell(
+                    label = "Launch",
+                    value = launchStatusLabel(school.launchStatus),
+                    emphasized = school.launchStatus == "approved",
+                    modifier = Modifier.weight(1f)
+                )
+                TenantStatusCell(
+                    label = "Access",
+                    value =
+                        if (school.subscriptionAccessActive) {
+                            "Available"
+                        } else {
+                            "Restricted"
+                        },
+                    emphasized = school.subscriptionAccessActive,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            school.currentPeriodEnd?.let {
+                Text(
+                    "Current period ends ${dateLabel(it)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+
+            Text(
+                "Usage",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                UsageCell(
+                    "Students",
+                    usageLabel(u.activeStudents, u.studentLimit),
+                    u.studentsOverLimit,
+                    Modifier.weight(1f)
+                )
+                UsageCell(
+                    "Staff",
+                    usageLabel(u.activeStaff, u.staffLimit),
+                    u.staffOverLimit,
+                    Modifier.weight(1f)
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                UsageCell(
+                    "Campuses",
+                    usageLabel(u.activeCampuses, u.campusLimit),
+                    u.campusesOverLimit,
+                    Modifier.weight(1f)
+                )
+                UsageCell(
+                    "Pickups",
+                    (u.totalQrPickups + u.totalManualPickups).toString(),
+                    false,
+                    Modifier.weight(1f)
+                )
+            }
+
+            if (usageAtRisk || !school.subscriptionAccessActive) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = .55f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(Spacing.sm),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.WarningAmber,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        )
                         Text(
-                            "Optional features blocked by subscription state",
+                            if (usageAtRisk) {
+                                "Usage exceeds at least one configured tenant limit."
+                            } else {
+                                "Optional features are restricted by subscription state."
+                            },
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
+                            color = MaterialTheme.colorScheme.onErrorContainer
                         )
                     }
-                    school.currentPeriodEnd?.let {
-                        Text("Period ends ${dateLabel(it)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
                 }
-                Switch(checked = active, enabled = !saving, onCheckedChange = { onToggle() })
             }
-            val u = school.usage
-            Text(
-                "Students ${usageLabel(u.activeStudents, u.studentLimit)} · Staff ${usageLabel(u.activeStaff, u.staffLimit)} · Campuses ${usageLabel(u.activeCampuses, u.campusLimit)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (u.studentsOverLimit || u.staffOverLimit || u.campusesOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant
             )
+
             Text(
-                "Lifetime pickups: QR ${u.totalQrPickups} · Manual ${u.totalManualPickups}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                FilledTonalButton(onClick = onManageSubscription, enabled = !saving) { Text("Plan") }
-                FilledTonalButton(onClick = onBilling, enabled = !saving) { Text("Billing records") }
-                FilledTonalButton(onClick = onAddAdmin, enabled = active && !saving) { Text("Add admin") }
-            }
-            FilledTonalButton(onClick = onLaunchReadiness, enabled = !saving, modifier = Modifier.fillMaxWidth()) {
-                Text("Launch readiness")
-            }
-            TextButton(onClick = onReconcileSubscription, enabled = !saving) {
-                Text("Check subscription lifecycle now")
-            }
-            HorizontalDivider()
-            Text(
-                "Tenant data export",
+                "Tenant actions",
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.ExtraBold
             )
-            Text(
-                if (school.selfServiceDataExportEnabled)
-                    "School admin self-service export is enabled. Exports are direct downloads and are not stored in PickupPass cloud storage."
-                else
-                    "School admin self-service export is disabled. The platform owner can still export this tenant when support or recovery requires it.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                OutlinedButton(onClick = onExportData, enabled = !saving) { Text("Owner export") }
-                TextButton(onClick = onToggleExportAccess, enabled = !saving) {
-                    Text(if (school.selfServiceDataExportEnabled) "Disable school export" else "Enable school export")
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                FilledTonalButton(
+                    onClick = onManageSubscription,
+                    enabled = !saving,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Plan")
+                }
+                FilledTonalButton(
+                    onClick = onBilling,
+                    enabled = !saving,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Billing")
                 }
             }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
+                OutlinedButton(
+                    onClick = onAddAdmin,
+                    enabled = active && !saving,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Add admin")
+                }
+                OutlinedButton(
+                    onClick = onLaunchReadiness,
+                    enabled = !saving,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Launch")
+                }
+            }
+
+            TextButton(
+                onClick = onReconcileSubscription,
+                enabled = !saving,
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text("Check subscription lifecycle")
+            }
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Tenant data export",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        if (school.selfServiceDataExportEnabled) {
+                            "School-admin self-service export is enabled."
+                        } else {
+                            "Only the platform owner can export this tenant."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                AssistChip(
+                    onClick = onToggleExportAccess,
+                    enabled = !saving,
+                    label = {
+                        Text(
+                            if (school.selfServiceDataExportEnabled) {
+                                "Enabled"
+                            } else {
+                                "Owner only"
+                            }
+                        )
+                    }
+                )
+            }
+
+            OutlinedButton(
+                onClick = onExportData,
+                enabled = !saving,
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text("Export tenant data")
+            }
+        }
+    }
+}
+
+@Composable
+private fun TenantStatusCell(
+    label: String,
+    value: String,
+    emphasized: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        color =
+            if (emphasized) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = .48f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .58f)
+            }
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.sm)
+        ) {
+            Text(
+                label.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color =
+                    if (emphasized) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
+            )
+        }
+    }
+}
+
+@Composable
+private fun UsageCell(
+    label: String,
+    value: String,
+    warning: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        color =
+            if (warning) {
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = .45f)
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .45f)
+            }
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.sm)
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color =
+                    if (warning) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
+            )
         }
     }
 }
