@@ -55,8 +55,12 @@ class PickupPassMessagingService : FirebaseMessagingService() {
         }
 
         val title = message.notification?.title ?: "Pickup Pass"
-        val body = message.notification?.body ?: "Your child was just picked up."
-        showNotification(title, body)
+        val body = message.notification?.body ?: "You have a new PickupPass update."
+        showNotification(
+            title = title,
+            body = body,
+            data = message.data
+        )
     }
 
     private fun handleSessionRevocation(
@@ -94,15 +98,37 @@ class PickupPassMessagingService : FirebaseMessagingService() {
         )
     }
 
-    private fun showNotification(title: String, body: String) {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags =
-                Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
+    private fun showNotification(
+        title: String,
+        body: String,
+        data: Map<String, String>
+    ) {
+        val notificationId =
+            notificationIdCounter.incrementAndGet()
+
+        val intent =
+            Intent(this, MainActivity::class.java).apply {
+                flags =
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+
+                data["type"]?.let {
+                    putExtra(EXTRA_NOTIFICATION_TYPE, it)
+                }
+                data["recipientRole"]?.let {
+                    putExtra(EXTRA_RECIPIENT_ROLE, it)
+                }
+                data["schoolId"]?.let {
+                    putExtra(EXTRA_SCHOOL_ID, it)
+                }
+                data["studentId"]?.let {
+                    putExtra(EXTRA_STUDENT_ID, it)
+                }
+            }
+
         val pendingIntent = PendingIntent.getActivity(
             this,
-            0,
+            notificationId,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or
                 PendingIntent.FLAG_IMMUTABLE
@@ -134,13 +160,22 @@ class PickupPassMessagingService : FirebaseMessagingService() {
 
         NotificationManagerCompat.from(this)
             .notify(
-                notificationIdCounter.incrementAndGet(),
+                notificationId,
                 notification
             )
     }
 
-    private companion object {
-        const val SESSION_REVOKED_PUSH_TYPE =
+    companion object {
+        const val EXTRA_NOTIFICATION_TYPE =
+            "type"
+        const val EXTRA_RECIPIENT_ROLE =
+            "recipientRole"
+        const val EXTRA_SCHOOL_ID =
+            "schoolId"
+        const val EXTRA_STUDENT_ID =
+            "studentId"
+
+        private const val SESSION_REVOKED_PUSH_TYPE =
             "device_session_revoked"
     }
 }
