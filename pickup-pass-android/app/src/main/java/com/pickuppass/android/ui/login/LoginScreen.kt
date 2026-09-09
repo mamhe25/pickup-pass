@@ -44,6 +44,7 @@ import com.pickuppass.android.ui.common.PickupPassBrandMark
 import com.pickuppass.android.ui.common.PickupPassWordmark
 import com.pickuppass.android.ui.common.PrimaryButton
 import com.pickuppass.android.ui.common.SuccessBanner
+import com.pickuppass.android.ui.common.TotpCodeField
 import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -402,17 +403,18 @@ private fun MfaChallengeDialog(
                     "Open your authenticator app and enter the current 6-digit PickupPass code.",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                OutlinedTextField(
+                TotpCodeField(
                     value = state.mfaCode,
                     onValueChange = onCodeChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Authenticator code") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.NumberPassword,
-                        imeAction = ImeAction.Done
-                    ),
-                    enabled = !state.mfaBusy
+                    onComplete = onVerify,
+                    enabled = !state.mfaBusy,
+                    isError = state.mfaError != null,
+                    autoFocus = true
+                )
+                Text(
+                    "Enter or paste all 6 digits. Verification starts automatically when the code is complete.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 state.mfaError?.let { ErrorBanner(it) }
             }
@@ -577,17 +579,18 @@ private fun RequiredMfaEnrollmentDialog(
                         description = "Enter the current 6-digit code shown for PickupPass."
                     )
 
-                    OutlinedTextField(
+                    TotpCodeField(
                         value = state.mfaCode,
                         onValueChange = onCodeChange,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Authenticator code") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.NumberPassword,
-                            imeAction = ImeAction.Done
-                        ),
-                        enabled = !state.mfaBusy
+                        onComplete = onFinishSetup,
+                        enabled = !state.mfaBusy,
+                        isError = state.mfaError != null,
+                        autoFocus = false
+                    )
+                    Text(
+                        "Paste or type the 6-digit code. PickupPass will enable 2FA automatically when all digits are entered.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
