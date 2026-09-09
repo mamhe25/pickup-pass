@@ -6,8 +6,11 @@ import com.pickuppass.android.data.model.NotificationItem
 import com.pickuppass.android.data.repository.AuthRepository
 import com.pickuppass.android.data.repository.NotificationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -30,50 +33,47 @@ class NotificationsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(NotificationsUiState())
     val uiState: StateFlow<NotificationsUiState> = _uiState
 
-    private var loadInProgress = false
+    private var notificationObserverJob: Job? = null
 
     init {
         load()
     }
 
     fun load() {
-        if (loadInProgress) return
-        loadInProgress = true
+        notificationObserverJob?.cancel()
 
-        viewModelScope.launch {
-            try {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = _uiState.value.notifications.isEmpty(),
-                    error = null
-                )
+        val uid = authRepository.currentUid()
+        if (uid == null) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "Session expired — please sign in again"
+            )
+            return
+        }
 
-                val uid = authRepository.currentUid()
-                if (uid == null) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = "Session expired — please sign in again"
-                    )
-                    return@launch
-                }
+        _uiState.value = _uiState.value.copy(
+            isLoading = _uiState.value.notifications.isEmpty(),
+            error = null
+        )
 
-                notificationRepository.getMyNotifications(uid)
-                    .onSuccess { notifications ->
+        notificationObserverJob =
+            viewModelScope.launch {
+                notificationRepository
+                    .observeMyNotifications(uid)
+                    .catch {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = "Couldn't keep notifications up to date"
+                        )
+                    }
+                    .collect { notifications ->
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             notifications = notifications,
                             error = null
                         )
                     }
-                    .onFailure {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            error = "Couldn't load notifications"
-                        )
-                    }
-            } finally {
-                loadInProgress = false
             }
-        }
     }
 
     fun markAsRead(notification: NotificationItem) {
