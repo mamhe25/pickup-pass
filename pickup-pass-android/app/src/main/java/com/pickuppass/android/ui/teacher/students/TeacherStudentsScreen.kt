@@ -35,6 +35,7 @@ import com.pickuppass.android.data.model.Student
 import com.pickuppass.android.data.model.AcademicPlacementOption
 import com.pickuppass.android.data.model.primaryGuardianUidCompat
 import com.pickuppass.android.data.repository.UserRole
+import com.pickuppass.android.ui.common.CollectionAddFab
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.PickupPassPullToRefresh
@@ -99,17 +100,13 @@ fun TeacherStudentsScreen(
                 !uiState.hasNoAssignedSections &&
                 uiState.availablePlacements.isNotEmpty()
             ) {
-                FloatingActionButton(
+                CollectionAddFab(
                     onClick = {
                         viewModel.clearFormFeedback()
                         showAddSheet = true
-                    }
-                ) {
-                    Icon(
-                        Icons.Filled.Add,
-                        contentDescription = "Add student"
-                    )
-                }
+                    },
+                    contentDescription = "Add student"
+                )
             }
         }
     ) { padding ->
