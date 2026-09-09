@@ -11,8 +11,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -61,40 +64,240 @@ public class PushNotificationService {
             String pickedUpByUid,
             boolean testMode) {
         try {
-            DocumentSnapshot studentSnap = firestore.collection("students").document(studentId).get().get();
+            DocumentSnapshot studentSnap =
+                    firestore.collection("students")
+                            .document(studentId)
+                            .get()
+                            .get();
             if (!studentSnap.exists()) return;
 
-            String studentName = studentSnap.getString("fullName");
             String schoolId = studentSnap.getString("schoolId");
+            String studentFirstName =
+                    firstNameForNotification(
+                            studentSnap.getString("firstName"),
+                            studentSnap.getString("fullName"),
+                            "Student");
+
             @SuppressWarnings("unchecked")
-            List<String> guardianUids = (List<String>) studentSnap.get("guardianUids");
-            if (guardianUids == null || guardianUids.isEmpty()) return;
+            List<String> storedGuardianUids =
+                    (List<String>) studentSnap.get("guardianUids");
 
-            String pickerName = resolveDisplayName(pickedUpByUid);
+            Set<String> recipientSet = new LinkedHashSet<>();
+            if (storedGuardianUids != null) {
+                storedGuardianUids.stream()
+                        .filter(uid -> uid != null && !uid.isBlank())
+                        .forEach(recipientSet::add);
+            }
 
-            String title =
+            // A one-day guardian may be removed from the student's active
+            // guardian list as part of the same successful release. Keep the
+            // picker in the fan-out so they still receive their own
+            // confirmation ("You picked up ...").
+            if (pickedUpByUid != null && !pickedUpByUid.isBlank()) {
+                recipientSet.add(pickedUpByUid);
+            }
+
+            if (recipientSet.isEmpty()) return;
+
+            String pickerFirstName = resolveFirstName(pickedUpByUid);
+            String type =
                     testMode
-                            ? "TEST · " + studentName + " release completed"
-                            : studentName + " has been picked up";
-            String body =
-                    testMode
-                            ? "Pre-launch test only. " + pickerName + " completed a simulated release for "
-                                    + studentName + ". This is not a production dismissal."
-                            : pickerName + " just picked up " + studentName + " from school.";
+                            ? "prelaunch_test_release"
+                            : "pickup_confirmation";
 
-            notifyUsers(
-                    guardianUids,
+            Map<String, NotificationCopy> personalized = new LinkedHashMap<>();
+            for (String recipientUid : recipientSet) {
+                boolean self = recipientUid.equals(pickedUpByUid);
+                personalized.put(
+                        recipientUid,
+                        new NotificationCopy(
+                                pickupTitle(studentFirstName, testMode),
+                                pickupBody(
+                                        studentFirstName,
+                                        pickerFirstName,
+                                        self,
+                                        testMode)));
+            }
+
+            notifyPersonalizedUsers(
+                    personalized,
                     schoolId,
-                    title,
-                    body,
-                    testMode ? "prelaunch_test_release" : "pickup_confirmation",
-                    studentId,
-                    null
-            );
+                    type,
+                    studentId);
         } catch (Exception e) {
-            log.warn("Pickup notification failed for student {}: {}", studentId, e.getMessage());
+            log.warn(
+                    "Pickup notification failed for student {}: {}",
+                    studentId,
+                    e.getMessage());
         }
     }
+
+    private void notifyPersonalizedUsers(
+            Map<String, NotificationCopy> notificationsByUid,
+            String schoolId,
+            String type,
+            String studentId) {
+
+        recordPersonalizedNotifications(
+                notificationsByUid,
+                schoolId,
+                type,
+                studentId);
+
+        for (Map.Entry<String, NotificationCopy> entry :
+                notificationsByUid.entrySet()) {
+            NotificationCopy copy = entry.getValue();
+            sendPush(
+                    entry.getKey(),
+                    schoolId,
+                    copy.title(),
+                    copy.body(),
+                    type,
+                    studentId);
+        }
+    }
+
+    private void recordPersonalizedNotifications(
+            Map<String, NotificationCopy> notificationsByUid,
+            String schoolId,
+            String type,
+            String studentId) {
+        try {
+            List<Map.Entry<String, NotificationCopy>> entries =
+                    new ArrayList<>(notificationsByUid.entrySet());
+
+            for (int start = 0;
+                    start < entries.size();
+                    start += BATCH_CHUNK_SIZE) {
+                int end =
+                        Math.min(
+                                start + BATCH_CHUNK_SIZE,
+                                entries.size());
+                WriteBatch batch = firestore.batch();
+
+                for (Map.Entry<String, NotificationCopy> entry :
+                        entries.subList(start, end)) {
+                    Map<String, Object> notification = new HashMap<>();
+                    notification.put("recipientUid", entry.getKey());
+                    notification.put("schoolId", schoolId);
+                    notification.put("title", entry.getValue().title());
+                    notification.put("body", entry.getValue().body());
+                    notification.put("type", type);
+                    if (studentId != null) {
+                        notification.put("studentId", studentId);
+                    }
+                    notification.put("read", false);
+                    notification.put(
+                            "createdAt",
+                            FieldValue.serverTimestamp());
+
+                    batch.set(
+                            firestore.collection("notifications").document(),
+                            notification);
+                }
+
+                batch.commit().get();
+            }
+        } catch (Exception e) {
+            log.warn(
+                    "Could not record personalized in-app notifications (type={}): {}",
+                    type,
+                    e.getMessage());
+        }
+    }
+
+    private String resolveFirstName(String uid) {
+        if (uid == null || uid.isBlank()) {
+            return "An authorized guardian";
+        }
+
+        try {
+            DocumentSnapshot snap =
+                    firestore.collection("users")
+                            .document(uid)
+                            .get()
+                            .get();
+
+            if (!snap.exists()) {
+                return "An authorized guardian";
+            }
+
+            return firstNameForNotification(
+                    snap.getString("firstName"),
+                    snap.getString("displayName"),
+                    "An authorized guardian");
+        } catch (Exception e) {
+            return "An authorized guardian";
+        }
+    }
+
+    static String firstNameForNotification(
+            String structuredFirstName,
+            String formattedName,
+            String fallback) {
+        if (structuredFirstName != null &&
+                !structuredFirstName.isBlank()) {
+            return structuredFirstName.trim();
+        }
+
+        if (formattedName == null || formattedName.isBlank()) {
+            return fallback;
+        }
+
+        String candidate = formattedName.trim();
+        int comma = candidate.indexOf(',');
+        if (comma >= 0 && comma + 1 < candidate.length()) {
+            candidate = candidate.substring(comma + 1).trim();
+        }
+
+        if (candidate.isBlank()) {
+            return fallback;
+        }
+
+        int firstSpace = candidate.indexOf(' ');
+        return firstSpace > 0
+                ? candidate.substring(0, firstSpace)
+                : candidate;
+    }
+
+    static String pickupTitle(
+            String studentFirstName,
+            boolean testMode) {
+        return testMode
+                ? "TEST · " + studentFirstName + " release completed"
+                : studentFirstName + " has been picked up";
+    }
+
+    static String pickupBody(
+            String studentFirstName,
+            String pickerFirstName,
+            boolean self,
+            boolean testMode) {
+        if (testMode) {
+            return self
+                    ? "Pre-launch test only. You completed a simulated release for "
+                            + studentFirstName
+                            + ". This is not a production dismissal."
+                    : "Pre-launch test only. "
+                            + pickerFirstName
+                            + " completed a simulated release for "
+                            + studentFirstName
+                            + ". This is not a production dismissal.";
+        }
+
+        return self
+                ? "You picked up "
+                        + studentFirstName
+                        + " from school."
+                : pickerFirstName
+                        + " picked up "
+                        + studentFirstName
+                        + " from school.";
+    }
+
+    private record NotificationCopy(
+            String title,
+            String body) { }
 
     /**
      * Generic fan-out: persists a notifications doc for every recipient
@@ -150,16 +353,6 @@ public class PushNotificationService {
             }
         } catch (Exception e) {
             log.warn("Could not record in-app notifications (type={}): {}", type, e.getMessage());
-        }
-    }
-
-    private String resolveDisplayName(String uid) {
-        try {
-            DocumentSnapshot snap = firestore.collection("users").document(uid).get().get();
-            String name = snap.exists() ? snap.getString("displayName") : null;
-            return (name != null && !name.isBlank()) ? name : "An authorized guardian";
-        } catch (Exception e) {
-            return "An authorized guardian";
         }
     }
 
