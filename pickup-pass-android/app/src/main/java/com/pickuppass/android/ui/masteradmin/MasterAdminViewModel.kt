@@ -190,6 +190,10 @@ class MasterAdminViewModel @Inject constructor(
     }
 
 
+    fun clearMessage() {
+        _uiState.value = _uiState.value.copy(message = null)
+    }
+
     fun loadObservability(quiet: Boolean = false) = viewModelScope.launch {
         if (!quiet) _uiState.value = _uiState.value.copy(observabilityLoading = true, error = null)
         when (val r = repository.getObservabilityOverview()) {
