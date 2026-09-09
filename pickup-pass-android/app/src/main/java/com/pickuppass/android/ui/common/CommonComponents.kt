@@ -974,12 +974,14 @@ fun WarningBanner(
 @Composable
 fun SuccessBanner(
     message: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onDismiss: (() -> Unit)? = null
 ) {
     FeedbackCard(
         message = message,
         tone = FeedbackTone.Success,
-        modifier = modifier
+        modifier = modifier,
+        onDismiss = onDismiss
     )
 }
 
