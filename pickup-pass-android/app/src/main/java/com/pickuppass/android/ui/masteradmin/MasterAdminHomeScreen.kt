@@ -9,7 +9,13 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
@@ -325,102 +331,151 @@ private fun MasterOverview(
     onSecurity: () -> Unit,
     onAdvanced: () -> Unit
 ) {
+    val attention = state.operations?.metrics?.attentionNeededSchools ?: 0
+    val alerts = state.security?.metrics?.activeAlerts ?: 0
+    val httpErrors = state.observability?.http?.errors5xx ?: 0
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(Spacing.md),
+        contentPadding = PaddingValues(
+            start = Spacing.md,
+            top = Spacing.md,
+            end = Spacing.md,
+            bottom = Spacing.xl
+        ),
         verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
             PremiumHeroCard(
                 eyebrow = "Platform overview",
-                title = "${state.activeSchools} active schools",
+                title =
+                    if (attention == 0 && alerts == 0 && httpErrors == 0) {
+                        "Platform is operating normally"
+                    } else {
+                        "${attention + alerts + httpErrors} signal(s) need review"
+                    },
                 message =
-                    "${state.totalSchools} total tenants · " +
-                        "${state.suspendedSchools} suspended. " +
-                        "Review operational and security signals before opening privileged tools.",
+                    "${state.activeSchools} active of ${state.totalSchools} schools. " +
+                        "Start with high-signal health, then open a focused workspace for deeper actions.",
                 icon = Icons.Filled.Dashboard
             )
         }
 
         item {
             PremiumSectionHeader(
-                title = "Platform health",
-                subtitle = "High-signal metrics for the current operating state."
+                title = "Platform pulse",
+                subtitle = "A concise view of tenant, operational and security health."
             )
         }
 
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
-            ) {
-                MasterMetric(
-                    "Total schools",
-                    state.totalSchools.toString(),
-                    Modifier.weight(1f)
-                )
-                MasterMetric(
-                    "Need attention",
-                    state.operations?.metrics?.attentionNeededSchools?.toString() ?: "—",
-                    Modifier.weight(1f)
-                )
-            }
+            MasterMetricPair(
+                firstLabel = "Active schools",
+                firstValue = state.activeSchools.toString(),
+                firstIcon = Icons.Filled.Business,
+                secondLabel = "Need attention",
+                secondValue = state.operations?.metrics?.attentionNeededSchools?.toString() ?: "—",
+                secondIcon = Icons.Filled.WarningAmber
+            )
         }
 
         item {
-            Row(
+            MasterMetricPair(
+                firstLabel = "Security alerts",
+                firstValue = state.security?.metrics?.activeAlerts?.toString() ?: "—",
+                firstIcon = Icons.Filled.Security,
+                secondLabel = "HTTP 5xx",
+                secondValue = state.observability?.http?.errors5xx?.toString() ?: "—",
+                secondIcon = Icons.Filled.ErrorOutline
+            )
+        }
+
+        item {
+            val healthy = attention == 0 && alerts == 0 && state.suspendedSchools == 0
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                shape = MaterialTheme.shapes.extraLarge,
+                color =
+                    if (healthy) {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = .42f)
+                    } else {
+                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = .52f)
+                    }
             ) {
-                MasterMetric(
-                    "Security alerts",
-                    state.security?.metrics?.activeAlerts?.toString() ?: "—",
-                    Modifier.weight(1f)
-                )
-                MasterMetric(
-                    "HTTP 5xx",
-                    state.observability?.http?.errors5xx?.toString() ?: "—",
-                    Modifier.weight(1f)
-                )
+                Row(
+                    modifier = Modifier.padding(Spacing.md),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        if (healthy) Icons.Filled.CheckCircle else Icons.Filled.WarningAmber,
+                        contentDescription = null,
+                        tint =
+                            if (healthy) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onTertiaryContainer
+                            }
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            if (healthy) "No priority issues detected" else "Review priority signals",
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            if (healthy) {
+                                "${state.activeSchools} active schools are clear of monitored priority conditions."
+                            } else {
+                                "${state.suspendedSchools} suspended · $attention operational · $alerts security"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
 
         item {
             PremiumSectionHeader(
-                title = "Platform areas",
-                subtitle = "Open a focused workspace instead of scanning one long admin page."
+                title = "Workspaces",
+                subtitle = "Routine monitoring stays separate from privileged administration."
             )
         }
 
         item {
             MasterAreaCard(
                 title = "Schools",
-                subtitle = "Tenant status, plans and launch state",
+                subtitle = "Tenant status, subscription state and launch readiness.",
                 icon = Icons.Filled.Business,
+                badge = "${state.activeSchools}/${state.totalSchools} active",
                 onClick = onSchools
             )
         }
         item {
             MasterAreaCard(
                 title = "Operations",
-                subtitle = "Billing, quota, delivery and runtime health",
+                subtitle = "Billing risk, quotas, delivery and backend health.",
                 icon = Icons.Filled.Speed,
+                badge = if (attention > 0) "$attention need review" else "Healthy",
                 onClick = onOperations
             )
         }
         item {
             MasterAreaCard(
                 title = "Security",
-                subtitle = "Authentication, sessions and privileged actions",
+                subtitle = "Authentication alerts and privileged activity.",
                 icon = Icons.Filled.Security,
+                badge = if (alerts > 0) "$alerts active" else "No active alerts",
                 onClick = onSecurity
             )
         }
         item {
             MasterAreaCard(
                 title = "Advanced platform tools",
-                subtitle = "Recovery, exports and tenant administration",
+                subtitle = "Tenant administration, billing, exports and recovery.",
                 icon = Icons.Filled.Settings,
+                badge = "Privileged",
                 onClick = onAdvanced
             )
         }
