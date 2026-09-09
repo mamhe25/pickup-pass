@@ -20,6 +20,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.CampusItem
 import com.pickuppass.android.data.model.PickupGateItem
+import com.pickuppass.android.ui.common.CollectionAddFab
 import com.pickuppass.android.ui.common.FeedbackCard
 import com.pickuppass.android.ui.common.FeedbackTone
 import com.pickuppass.android.ui.common.FullScreenLoading
@@ -39,6 +40,7 @@ fun CampusGateScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val interactionEnabled = !state.saving && !state.refreshing
 
+    var showAddChooser by remember { mutableStateOf(false) }
     var addCampus by remember { mutableStateOf(false) }
     var addGate by remember { mutableStateOf(false) }
     var campusToggle by remember {
@@ -56,6 +58,14 @@ fun CampusGateScreen(
                 subtitle = "Physical dismissal locations",
                 onBack = onBack,
             )
+        },
+        floatingActionButton = {
+            if (!state.loading) {
+                CollectionAddFab(
+                    onClick = { showAddChooser = true },
+                    contentDescription = "Add campus or pickup gate"
+                )
+            }
         }
     ) { padding ->
         if (state.loading) {
@@ -89,7 +99,7 @@ fun CampusGateScreen(
                         start = Spacing.md,
                         top = Spacing.md,
                         end = Spacing.md,
-                        bottom = Spacing.xl
+                        bottom = 96.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(Spacing.md)
                 ) {
@@ -149,12 +159,7 @@ fun CampusGateScreen(
                     item(key = "campus-header") {
                         LocationSectionHeader(
                             title = "Campuses",
-                            subtitle = "School sites that contain pickup locations.",
-                            action = "Add campus",
-                            enabled = interactionEnabled &&
-                                (state.multiCampusEnabled ||
-                                    state.campuses.none { it.active }),
-                            onClick = { addCampus = true }
+                            subtitle = "School sites that contain pickup locations."
                         )
                     }
 
@@ -190,10 +195,7 @@ fun CampusGateScreen(
                     item(key = "gate-header") {
                         LocationSectionHeader(
                             title = "Pickup gates",
-                            subtitle = "Release points available to dismissal staff.",
-                            action = "Add gate",
-                            enabled = interactionEnabled,
-                            onClick = { addGate = true }
+                            subtitle = "Release points available to dismissal staff."
                         )
                     }
 
@@ -249,6 +251,119 @@ fun CampusGateScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddChooser) {
+        ModalBottomSheet(
+            onDismissRequest = { showAddChooser = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = Spacing.lg,
+                        end = Spacing.lg,
+                        bottom = Spacing.xl
+                    ),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+            ) {
+                Text(
+                    "Add release location",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    "Choose what you want to add. Existing campuses and gates stay visible behind this create flow.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedCard(
+                    onClick = {
+                        if (
+                            interactionEnabled &&
+                            (state.multiCampusEnabled ||
+                                state.campuses.none { it.active })
+                        ) {
+                            showAddChooser = false
+                            addCampus = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = interactionEnabled &&
+                        (state.multiCampusEnabled ||
+                            state.campuses.none { it.active })
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Spacing.md),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.Place,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.width(Spacing.md))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Campus",
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                if (
+                                    state.multiCampusEnabled ||
+                                    state.campuses.none { it.active }
+                                ) {
+                                    "Create a school site that can contain pickup gates."
+                                } else {
+                                    "Your current plan allows one active campus."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                OutlinedCard(
+                    onClick = {
+                        if (interactionEnabled) {
+                            showAddChooser = false
+                            addGate = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = interactionEnabled
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Spacing.md),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.LocationOn,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.width(Spacing.md))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Pickup gate",
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                "Create a release point used by scanner and manual dismissal workflows.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
@@ -592,38 +707,12 @@ private fun StatusLabel(active: Boolean) {
 @Composable
 private fun LocationSectionHeader(
     title: String,
-    subtitle: String,
-    action: String,
-    enabled: Boolean,
-    onClick: () -> Unit
+    subtitle: String
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
-    ) {
-        PremiumSectionHeader(
-            title = title,
-            subtitle = subtitle
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            FilledTonalButton(
-                onClick = onClick,
-                enabled = enabled
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(Spacing.xs))
-                Text(action)
-            }
-        }
-    }
+    PremiumSectionHeader(
+        title = title,
+        subtitle = subtitle
+    )
 }
 
 @Composable
