@@ -24,6 +24,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -61,9 +64,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -71,12 +79,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -172,6 +183,179 @@ fun PrimaryButton(
  * Lists stay focused on existing records. New-record fields belong in a
  * modal sheet or dedicated create surface opened from this bottom-right FAB.
  */
+/**
+ * Six-digit authenticator input that keeps one real text field underneath
+ * six visual cells. This preserves Android clipboard paste / OTP suggestions
+ * while presenting the familiar production OTP layout.
+ */
+@Composable
+fun TotpCodeField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onComplete: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    isError: Boolean = false,
+    autoFocus: Boolean = true,
+    digits: Int = 6,
+) {
+    val focusRequester = remember { FocusRequester() }
+    var focused by remember { mutableStateOf(false) }
+    var lastCompletedCode by remember { mutableStateOf<String?>(null) }
+
+    val normalized = value.filter(Char::isDigit).take(digits)
+
+    LaunchedEffect(autoFocus, enabled) {
+        if (autoFocus && enabled) {
+            focusRequester.requestFocus()
+        }
+    }
+
+    LaunchedEffect(normalized, enabled) {
+        if (normalized.length < digits) {
+            lastCompletedCode = null
+        } else if (
+            enabled &&
+            normalized.length == digits &&
+            normalized != lastCompletedCode
+        ) {
+            lastCompletedCode = normalized
+            onComplete()
+        }
+    }
+
+    BasicTextField(
+        value = normalized,
+        onValueChange = { incoming ->
+            onValueChange(
+                incoming
+                    .filter(Char::isDigit)
+                    .take(digits)
+            )
+        },
+        enabled = enabled,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.NumberPassword,
+            imeAction = ImeAction.Done,
+        ),
+        keyboardActions = KeyboardActions(
+            onDone = {
+                if (
+                    enabled &&
+                    normalized.length == digits
+                ) {
+                    onComplete()
+                }
+            }
+        ),
+        textStyle = MaterialTheme.typography.bodyLarge.copy(
+            color = Color.Transparent,
+        ),
+        cursorBrush = SolidColor(Color.Transparent),
+        modifier = modifier
+            .fillMaxWidth()
+            .focusRequester(focusRequester)
+            .onFocusChanged { focused = it.isFocused }
+            .semantics {
+                contentDescription = "$digits-digit authenticator code"
+            },
+        decorationBox = { innerTextField ->
+            Box(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    repeat(digits) { index ->
+                        val digit =
+                            normalized
+                                .getOrNull(index)
+                                ?.toString()
+                                .orEmpty()
+                        val active =
+                            focused &&
+                            (
+                                index == normalized.length ||
+                                    (
+                                        normalized.length == digits &&
+                                            index == digits - 1
+                                    )
+                                )
+
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(54.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            color =
+                                if (active) {
+                                    MaterialTheme.colorScheme
+                                        .primaryContainer
+                                        .copy(alpha = 0.32f)
+                                } else {
+                                    MaterialTheme.colorScheme.surface
+                                },
+                            border = BorderStroke(
+                                width =
+                                    if (active) {
+                                        2.dp
+                                    } else {
+                                        1.dp
+                                    },
+                                color =
+                                    when {
+                                        isError ->
+                                            MaterialTheme.colorScheme.error
+
+                                        active ->
+                                            MaterialTheme.colorScheme.primary
+
+                                        else ->
+                                            MaterialTheme.colorScheme
+                                                .outlineVariant
+                                    }
+                            )
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = digit,
+                                    style =
+                                        MaterialTheme.typography
+                                            .titleLarge,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    textAlign = TextAlign.Center,
+                                    color =
+                                        if (isError) {
+                                            MaterialTheme.colorScheme.error
+                                        } else {
+                                            MaterialTheme.colorScheme
+                                                .onSurface
+                                        },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Keep the actual editor present for selection, clipboard
+                // paste and keyboard OTP suggestions, while the cells above
+                // provide the visible representation.
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .alpha(0.01f)
+                ) {
+                    innerTextField()
+                }
+            }
+        }
+    )
+}
+
 @Composable
 fun CollectionAddFab(
     onClick: () -> Unit,
