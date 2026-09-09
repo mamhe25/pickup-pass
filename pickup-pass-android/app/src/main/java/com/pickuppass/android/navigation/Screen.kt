@@ -103,6 +103,9 @@ sealed class Screen(
     data object SchoolAdminBranding :
         Screen("school-admin/branding")
 
+    data object SchoolAdminNotifications :
+        Screen("school-admin/notifications")
+
     data object SchoolAdminInviteTeacher :
         Screen(
             "school-admin/invite-teacher"
