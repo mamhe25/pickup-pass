@@ -484,6 +484,10 @@ data class BulkStudentImportResponse(
 data class StudentLifecycleItem(
     val studentId: String = "",
     val fullName: String = "",
+    val lastName: String = "",
+    val firstName: String = "",
+    val middleInitial: String = "",
+    val suffix: String = "",
     val grade: String = "",
     val section: String = "",
     val status: String = "active",
@@ -496,6 +500,14 @@ data class StudentLifecycleItem(
 data class StudentLifecycleResponse(
     val students: List<StudentLifecycleItem> = emptyList(),
     val counts: Map<String, Int> = emptyMap()
+)
+
+data class StudentDetailsRequest(
+    val lastName: String,
+    val firstName: String,
+    val middleInitial: String = "",
+    val suffix: String = "",
+    val studentNumber: String = ""
 )
 
 data class StudentStatusRequest(
