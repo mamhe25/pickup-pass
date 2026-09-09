@@ -33,10 +33,10 @@ class PickupPassApp : Application() {
 
         val channel = NotificationChannel(
             PICKUP_NOTIFICATION_CHANNEL_ID,
-            "Pickup Confirmations",
+            "PickupPass notifications",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Notifies you when your child is picked up from school"
+            description = "Pickup, school, launch, safety, and account updates from PickupPass"
         }
 
         getSystemService<NotificationManager>()?.createNotificationChannel(channel)
