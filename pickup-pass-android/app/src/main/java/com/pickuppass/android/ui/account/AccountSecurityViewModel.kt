@@ -21,7 +21,7 @@ data class AccountSecurityUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val currentEmail: String = "",
-    val emailVerified: Boolean = false,
+    val emailVerified: Boolean? = null,
 
     val emailBusy: Boolean = false,
     val emailError: String? = null,
@@ -240,7 +240,7 @@ class AccountSecurityViewModel @Inject constructor(
         val state = _uiState.value
         if (state.mfaBusy || state.mfaEnabled) return
 
-        if (!state.emailVerified) {
+        if (state.emailVerified != true) {
             _uiState.value = state.copy(
                 mfaError =
                     "Verify your sign-in email before enabling two-factor authentication.",
