@@ -26,6 +26,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.AcademicYear
 import com.pickuppass.android.data.model.GradeSection
+import com.pickuppass.android.ui.common.CollectionAddFab
 import com.pickuppass.android.ui.common.FeedbackCard
 import com.pickuppass.android.ui.common.FeedbackTone
 import com.pickuppass.android.ui.common.FullScreenLoading
@@ -42,6 +43,7 @@ fun AcademicStructureScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
+    var showAddChooser by remember { mutableStateOf(false) }
     var showCreateYear by remember { mutableStateOf(false) }
     var editingYear by remember { mutableStateOf<AcademicYear?>(null) }
     var currentYearAction by remember { mutableStateOf<AcademicYear?>(null) }
@@ -77,6 +79,14 @@ fun AcademicStructureScreen(
                 subtitle = "Academic structure",
                 onBack = onBack,
             )
+        },
+        floatingActionButton = {
+            if (!state.isLoading && !state.isSaving && !state.isRefreshing) {
+                CollectionAddFab(
+                    onClick = { showAddChooser = true },
+                    contentDescription = "Add academic record"
+                )
+            }
         }
     ) { padding ->
         if (state.isLoading) {
@@ -106,7 +116,12 @@ fun AcademicStructureScreen(
                     .fillMaxHeight()
                     .widthIn(max = 820.dp)
                     .align(Alignment.TopCenter),
-                contentPadding = PaddingValues(Spacing.md),
+                contentPadding = PaddingValues(
+                    start = Spacing.md,
+                    top = Spacing.md,
+                    end = Spacing.md,
+                    bottom = 96.dp
+                ),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
                 item(key = "intro") {
@@ -178,13 +193,7 @@ fun AcademicStructureScreen(
                 item(key = "years_header") {
                     SectionHeader(
                         title = "Academic years",
-                        subtitle = "Edit dates, switch the current year, archive history, or remove unused setup records.",
-                        actionLabel = "Add year",
-                        enabled = !state.isSaving && !state.isRefreshing,
-                        onAction = {
-                            viewModel.clearFeedback()
-                            showCreateYear = true
-                        }
+                        subtitle = "Edit dates, switch the current year, archive history, or remove unused setup records."
                     )
                 }
 
@@ -223,15 +232,7 @@ fun AcademicStructureScreen(
                 item(key = "sections_header") {
                     SectionHeader(
                         title = "Grade & sections",
-                        subtitle = "Rename sections safely, archive retired sections, or remove configuration that has never been used.",
-                        actionLabel = "Add section",
-                        enabled = state.years.any { it.status.lowercase() != "archived" } &&
-                            !state.isSaving &&
-                            !state.isRefreshing,
-                        onAction = {
-                            viewModel.clearFeedback()
-                            showCreateSection = true
-                        }
+                        subtitle = "Rename sections safely, archive retired sections, or remove configuration that has never been used."
                     )
                 }
 
@@ -292,6 +293,119 @@ fun AcademicStructureScreen(
                     }
                 }
             }
+            }
+        }
+    }
+
+    if (showAddChooser) {
+        val canAddSection =
+            state.years.any {
+                it.status.lowercase() != "archived"
+            }
+
+        ModalBottomSheet(
+            onDismissRequest = { showAddChooser = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = Spacing.lg,
+                        end = Spacing.lg,
+                        bottom = Spacing.xl
+                    ),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+            ) {
+                Text(
+                    "Add academic record",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    "Choose the record type to create. Existing years and sections remain focused on review and management.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedCard(
+                    onClick = {
+                        viewModel.clearFeedback()
+                        showAddChooser = false
+                        showCreateYear = true
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Spacing.md),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.Schedule,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.width(Spacing.md))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Academic year",
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                "Create a new school year and optionally make it current.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                OutlinedCard(
+                    onClick = {
+                        if (canAddSection) {
+                            viewModel.clearFeedback()
+                            showAddChooser = false
+                            showCreateSection = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = canAddSection
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Spacing.md),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.School,
+                            contentDescription = null,
+                            tint =
+                                if (canAddSection) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                        )
+                        Spacer(Modifier.width(Spacing.md))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Grade section",
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                if (canAddSection) {
+                                    "Add a grade and section under an active academic year."
+                                } else {
+                                    "Create an active academic year first."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -1116,32 +1230,19 @@ private fun ConfirmationDialog(
 @Composable
 private fun SectionHeader(
     title: String,
-    subtitle: String,
-    actionLabel: String,
-    enabled: Boolean,
-    onAction: () -> Unit
+    subtitle: String
 ) {
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        FilledTonalButton(onClick = onAction, enabled = enabled) {
-            Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(Spacing.xs))
-            Text(actionLabel)
-        }
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
