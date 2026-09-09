@@ -14,6 +14,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.pickuppass.android.data.model.NotificationItem
 import com.pickuppass.android.session.SessionGuardViewModel
 import com.pickuppass.android.ui.account.AccountProfileScreen
 import com.pickuppass.android.ui.account.AccountSecurityScreen
@@ -56,12 +57,17 @@ import com.pickuppass.android.ui.teacher.registerparent.RegisterParentScreen
 import com.pickuppass.android.ui.teacher.scanner.ScannerScreen
 import com.pickuppass.android.ui.teacher.students.TeacherStudentsScreen
 import com.pickuppass.android.ui.welcome.WelcomeScreen
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun PickupPassNavHost(
     navController:
         NavHostController =
-        rememberNavController()
+        rememberNavController(),
+    pendingNotificationNavigation:
+        NotificationNavigationRequest? = null,
+    onNotificationNavigationConsumed:
+        () -> Unit = {}
 ) {
     val sessionGuard:
         SessionGuardViewModel =
@@ -118,6 +124,36 @@ fun PickupPassNavHost(
                 navController
                     .navigateToLoginClearingBackStack()
             }
+    }
+
+    LaunchedEffect(
+        pendingNotificationNavigation,
+        navController
+    ) {
+        val request =
+            pendingNotificationNavigation
+                ?: return@LaunchedEffect
+
+        navController
+            .currentBackStackEntryFlow
+            .first { entry ->
+                isAuthenticatedRoute(
+                    entry.destination.route
+                )
+            }
+
+        notificationRouteFor(
+            role = request.recipientRole,
+            type = request.type,
+            schoolId = request.schoolId,
+            studentId = request.studentId
+        )?.let { route ->
+            navController.navigate(route) {
+                launchSingleTop = true
+            }
+        }
+
+        onNotificationNavigationConsumed()
     }
 
     NavHost(
@@ -329,8 +365,48 @@ fun PickupPassNavHost(
             NotificationsScreen(
                 audience =
                     com.pickuppass.android.ui.parent.notifications.NotificationAudience.PLATFORM,
+                onOpenNotification = { notification ->
+                    navController.openNotification(
+                        role = NotificationRoles.MASTER_ADMIN,
+                        notification = notification
+                    )
+                },
                 onBack = {
                     navController.popBackStack()
+                }
+            )
+        }
+
+        composable(
+            route =
+                Screen.MasterAdminLaunchReadiness.route,
+            arguments =
+                listOf(
+                    navArgument("schoolId") {
+                        type = NavType.StringType
+                    }
+                )
+        ) { backStackEntry ->
+            val schoolId =
+                backStackEntry.arguments
+                    ?.getString("schoolId")
+                    .orEmpty()
+
+            MasterAdminScreen(
+                initialLaunchReadinessSchoolId = schoolId,
+                onOpenProfile = {
+                    navController.navigate(
+                        Screen.AccountProfile.route
+                    )
+                },
+                onOpenNotifications = {
+                    navController.navigate(
+                        Screen.MasterAdminNotifications.route
+                    )
+                },
+                onSignedOut = {
+                    navController
+                        .navigateToLoginClearingBackStack()
                 }
             )
         }
@@ -403,6 +479,12 @@ fun PickupPassNavHost(
             NotificationsScreen(
                 audience =
                     com.pickuppass.android.ui.parent.notifications.NotificationAudience.FAMILY,
+                onOpenNotification = { notification ->
+                    navController.openNotification(
+                        role = NotificationRoles.PARENT,
+                        notification = notification
+                    )
+                },
                 onBack = {
                     navController
                         .popBackStack()
@@ -662,6 +744,12 @@ fun PickupPassNavHost(
             NotificationsScreen(
                 audience =
                     com.pickuppass.android.ui.parent.notifications.NotificationAudience.STAFF,
+                onOpenNotification = { notification ->
+                    navController.openNotification(
+                        role = NotificationRoles.TEACHER,
+                        notification = notification
+                    )
+                },
                 onBack = {
                     navController
                         .popBackStack()
@@ -825,6 +913,12 @@ fun PickupPassNavHost(
             NotificationsScreen(
                 audience =
                     com.pickuppass.android.ui.parent.notifications.NotificationAudience.SCHOOL_ADMIN,
+                onOpenNotification = { notification ->
+                    navController.openNotification(
+                        role = NotificationRoles.SCHOOL_ADMIN,
+                        notification = notification
+                    )
+                },
                 onBack = {
                     navController
                         .popBackStack()
@@ -1074,6 +1168,34 @@ fun PickupPassNavHost(
                         .popBackStack()
                 }
             )
+        }
+    }
+}
+
+private fun isAuthenticatedRoute(
+    route: String?
+): Boolean {
+    val value = route.orEmpty()
+
+    return value.startsWith("parent/") ||
+        value.startsWith("teacher/") ||
+        value.startsWith("school-admin/") ||
+        value.startsWith("master-admin/") ||
+        value.startsWith("account/")
+}
+
+private fun NavHostController.openNotification(
+    role: String,
+    notification: NotificationItem
+) {
+    notificationRouteFor(
+        role = role,
+        type = notification.type,
+        schoolId = notification.schoolId,
+        studentId = notification.studentId
+    )?.let { route ->
+        navigate(route) {
+            launchSingleTop = true
         }
     }
 }
