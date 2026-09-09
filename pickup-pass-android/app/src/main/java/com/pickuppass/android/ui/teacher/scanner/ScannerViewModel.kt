@@ -16,6 +16,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 sealed class ScannerUiState {
@@ -67,13 +69,28 @@ class ScannerViewModel @Inject constructor(
     private var isProcessing = false
 
     init {
-        viewModelScope.launch {
-            val session = authRepository.currentSession()
-            session?.schoolId?.let { schoolId ->
-                studentRepository.getSchool(schoolId).onSuccess { _school.value = it }
-            }
-        }
+        observeSchoolLaunchMode()
         loadPickupGates()
+    }
+
+    private fun observeSchoolLaunchMode() {
+        viewModelScope.launch {
+            val schoolId =
+                authRepository.currentSession()
+                    ?.schoolId
+                    ?.takeIf { it.isNotBlank() }
+                    ?: return@launch
+
+            studentRepository
+                .observeSchool(schoolId)
+                .catch {
+                    // Keep the last known school state. Verification/approval
+                    // responses remain backend-authoritative for release mode.
+                }
+                .collect { school ->
+                    _school.value = school
+                }
+        }
     }
 
     fun loadPickupGates() {
