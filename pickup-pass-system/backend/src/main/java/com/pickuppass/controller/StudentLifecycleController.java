@@ -10,6 +10,7 @@ import com.pickuppass.exception.NotFoundException;
 import com.pickuppass.security.FirebaseUserDetails;
 import com.pickuppass.service.AuditService;
 import com.pickuppass.service.TenantUsageService;
+import com.pickuppass.util.NameFormatter;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -74,6 +75,93 @@ public class StudentLifecycleController {
         }
 
         return ResponseEntity.ok(Map.of("students", students, "counts", counts));
+    }
+
+    @PutMapping("/{studentId}")
+    @PreAuthorize("hasRole('school_admin')")
+    public ResponseEntity<?> updateStudentDetails(
+            @PathVariable String studentId,
+            @RequestBody StudentDetailsRequest req,
+            @AuthenticationPrincipal FirebaseUserDetails admin) throws Exception {
+
+        String lastName = safe(req.getLastName());
+        String firstName = safe(req.getFirstName());
+        String middleInitial = safe(req.getMiddleInitial());
+        String suffix = safe(req.getSuffix());
+        String studentNumber = safe(req.getStudentNumber());
+
+        if (lastName.isBlank() || firstName.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Last name and first name are required"));
+        }
+        if (lastName.length() > 100 || firstName.length() > 100
+                || middleInitial.length() > 10 || suffix.length() > 30
+                || studentNumber.length() > 80) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "One or more student fields are too long"));
+        }
+
+        DocumentReference ref =
+                firestore.collection("students").document(studentId);
+        DocumentSnapshot student = ref.get().get();
+        if (!student.exists()
+                || !admin.getSchoolId().equals(student.getString("schoolId"))) {
+            throw new NotFoundException("Student not found in your school");
+        }
+
+        if (!studentNumber.isBlank()) {
+            for (QueryDocumentSnapshot candidate :
+                    firestore.collection("students")
+                            .whereEqualTo("schoolId", admin.getSchoolId())
+                            .whereEqualTo("studentNumber", studentNumber)
+                            .get()
+                            .get()
+                            .getDocuments()) {
+                if (!candidate.getId().equals(studentId)) {
+                    return ResponseEntity.status(409).body(Map.of(
+                            "error", "Student number is already used by another student"));
+                }
+            }
+        }
+
+        String previousFullName = safe(student.getString("fullName"));
+        String previousStudentNumber = safe(student.getString("studentNumber"));
+        String fullName =
+                NameFormatter.format(
+                        lastName,
+                        firstName,
+                        middleInitial,
+                        suffix);
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("lastName", lastName);
+        updates.put("firstName", firstName);
+        updates.put("middleInitial", middleInitial);
+        updates.put("suffix", suffix);
+        updates.put("fullName", fullName);
+        updates.put("studentNumber", studentNumber);
+        updates.put("updatedAt", FieldValue.serverTimestamp());
+        updates.put("updatedBy", admin.getUid());
+        ref.update(updates).get();
+
+        Map<String, Object> auditDetails = new LinkedHashMap<>();
+        auditDetails.put("previousFullName", previousFullName);
+        auditDetails.put("fullName", fullName);
+        auditDetails.put("previousStudentNumber", previousStudentNumber);
+        auditDetails.put("studentNumber", studentNumber);
+        auditDetails.put("status", normalizedStatus(student));
+        auditService.record(
+                admin,
+                "student.details_updated",
+                "student",
+                studentId,
+                auditDetails);
+
+        return ResponseEntity.ok(Map.of(
+                "studentId", studentId,
+                "fullName", fullName,
+                "studentNumber", studentNumber,
+                "status", normalizedStatus(student)));
     }
 
     @PutMapping("/{studentId}/status")
@@ -417,6 +505,10 @@ public class StudentLifecycleController {
         m.put("academicYearName", safe(doc.getString("academicYearName")));
         m.put("gradeSectionId", safe(doc.getString("gradeSectionId")));
         m.put("studentNumber", safe(doc.getString("studentNumber")));
+        m.put("lastName", safe(doc.getString("lastName")));
+        m.put("firstName", safe(doc.getString("firstName")));
+        m.put("middleInitial", safe(doc.getString("middleInitial")));
+        m.put("suffix", safe(doc.getString("suffix")));
         return m;
     }
 
@@ -465,6 +557,25 @@ public class StudentLifecycleController {
     }
 
     private static String safe(String value) { return value == null ? "" : value.trim(); }
+
+    public static class StudentDetailsRequest {
+        private String lastName;
+        private String firstName;
+        private String middleInitial;
+        private String suffix;
+        private String studentNumber;
+
+        public String getLastName() { return lastName; }
+        public void setLastName(String value) { lastName = value; }
+        public String getFirstName() { return firstName; }
+        public void setFirstName(String value) { firstName = value; }
+        public String getMiddleInitial() { return middleInitial; }
+        public void setMiddleInitial(String value) { middleInitial = value; }
+        public String getSuffix() { return suffix; }
+        public void setSuffix(String value) { suffix = value; }
+        public String getStudentNumber() { return studentNumber; }
+        public void setStudentNumber(String value) { studentNumber = value; }
+    }
 
     public static class StudentPlacementRequest {
         private String gradeSectionId;
