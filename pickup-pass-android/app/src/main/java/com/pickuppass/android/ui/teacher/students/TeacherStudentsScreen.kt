@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.School
@@ -43,6 +44,7 @@ fun TeacherStudentsScreen(
     viewModel: TeacherStudentsViewModel = hiltViewModel(),
     onBack: () -> Unit,
     onGoToExitLogs: () -> Unit,
+    onOpenStudentLifecycle: () -> Unit = {},
     onRegisterParent: (studentId: String) -> Unit,
     onManageGuardians: (studentId: String) -> Unit
 ) {
@@ -66,9 +68,32 @@ fun TeacherStudentsScreen(
         topBar = {
             PremiumTopAppBar(
                 title = "Students",
-                subtitle = uiState.school?.schoolName?.takeIf { it.isNotBlank() } ?: "Assigned roster",
+                subtitle =
+                    uiState.school
+                        ?.schoolName
+                        ?.takeIf { it.isNotBlank() }
+                        ?: if (uiState.role == UserRole.Teacher) {
+                            "Assigned roster"
+                        } else {
+                            "School-wide roster"
+                        },
                 onBack = onBack,
                 actions = {
+                    if (
+                        uiState.role ==
+                            UserRole.SchoolAdmin
+                    ) {
+                        IconButton(
+                            onClick =
+                                onOpenStudentLifecycle
+                        ) {
+                            Icon(
+                                Icons.Filled.ManageAccounts,
+                                contentDescription =
+                                    "Manage student records"
+                            )
+                        }
+                    }
                     IconButton(onClick = onGoToExitLogs) {
                         Icon(
                             Icons.Filled.History,
@@ -126,6 +151,8 @@ fun TeacherStudentsScreen(
                 else ->
                     TeacherRosterContent(
                         uiState = uiState,
+                        isTeacherAccount =
+                            uiState.role == UserRole.Teacher,
                         onSearchChange = viewModel::onSearchChange,
                         onPlacementFilterChange = viewModel::onPlacementFilterChange,
                         onRegisterParent = onRegisterParent,
@@ -170,6 +197,7 @@ fun TeacherStudentsScreen(
 @Composable
 private fun TeacherRosterContent(
     uiState: TeacherStudentsUiState,
+    isTeacherAccount: Boolean,
     onSearchChange: (String) -> Unit,
     onPlacementFilterChange: (AcademicPlacementOption?) -> Unit,
     onRegisterParent: (String) -> Unit,
@@ -198,7 +226,8 @@ private fun TeacherRosterContent(
                 RosterHero(
                     totalStudents = totalStudents,
                     sectionCount = uiState.availablePlacements.size,
-                    needsPrimaryGuardian = needsPrimary
+                    needsPrimaryGuardian = needsPrimary,
+                    isTeacherAccount = isTeacherAccount
                 )
             }
 
@@ -247,6 +276,12 @@ private fun TeacherRosterContent(
                     SectionFilter(
                         sections = uiState.availablePlacements,
                         selected = uiState.selectedPlacementFilter,
+                        allSectionsLabel =
+                            if (isTeacherAccount) {
+                                "All assigned sections"
+                            } else {
+                                "All school sections"
+                            },
                         onSelect = onPlacementFilterChange
                     )
                 }
@@ -339,7 +374,8 @@ private fun TeacherRosterContent(
 private fun RosterHero(
     totalStudents: Int,
     sectionCount: Int,
-    needsPrimaryGuardian: Int
+    needsPrimaryGuardian: Int,
+    isTeacherAccount: Boolean
 ) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -369,7 +405,11 @@ private fun RosterHero(
             Spacer(Modifier.height(Spacing.xs))
 
             Text(
-                "Student records stay scoped to your assigned sections. Guardian readiness is visible before dismissal starts.",
+                if (isTeacherAccount) {
+                    "Student records stay scoped to your assigned sections. Guardian readiness is visible before dismissal starts."
+                } else {
+                    "This school-wide active roster covers every current section. Archived and historical records are managed separately in Student Lifecycle."
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
             )
@@ -458,6 +498,7 @@ private fun SearchCard(
 private fun SectionFilter(
     sections: List<AcademicPlacementOption>,
     selected: AcademicPlacementOption?,
+    allSectionsLabel: String,
     onSelect: (AcademicPlacementOption?) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -467,7 +508,9 @@ private fun SectionFilter(
         onExpandedChange = { expanded = it }
     ) {
         OutlinedTextField(
-            value = selected?.displayLabel() ?: "All assigned sections",
+            value =
+                selected?.displayLabel()
+                    ?: allSectionsLabel,
             onValueChange = {},
             readOnly = true,
             label = { Text("Section filter") },
@@ -484,7 +527,7 @@ private fun SectionFilter(
             onDismissRequest = { expanded = false }
         ) {
             DropdownMenuItem(
-                text = { Text("All assigned sections") },
+                text = { Text(allSectionsLabel) },
                 onClick = {
                     onSelect(null)
                     expanded = false
