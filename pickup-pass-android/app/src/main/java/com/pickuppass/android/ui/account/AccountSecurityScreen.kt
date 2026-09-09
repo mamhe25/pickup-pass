@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -33,6 +34,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
+import com.pickuppass.android.ui.common.PickupPassPullToRefresh
+import com.pickuppass.android.ui.common.PremiumHeroCard
+import com.pickuppass.android.ui.common.PremiumSectionHeader
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.common.TotpCodeField
@@ -47,28 +51,58 @@ fun AccountSecurityScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var newEmail by remember { mutableStateOf("") }
-    var emailPassword by remember { mutableStateOf("") }
+    var showEmailSheet by remember {
+        mutableStateOf(false)
+    }
+    var showPasswordSheet by remember {
+        mutableStateOf(false)
+    }
 
-    var currentPassword by remember { mutableStateOf("") }
-    var newPassword by remember { mutableStateOf("") }
-    var confirmation by remember { mutableStateOf("") }
+    var newEmail by remember {
+        mutableStateOf("")
+    }
+    var emailPassword by remember {
+        mutableStateOf("")
+    }
 
-    var mfaPassword by remember { mutableStateOf("") }
-    var mfaCode by remember { mutableStateOf("") }
+    var currentPassword by remember {
+        mutableStateOf("")
+    }
+    var newPassword by remember {
+        mutableStateOf("")
+    }
+    var confirmation by remember {
+        mutableStateOf("")
+    }
+
+    var mfaPassword by remember {
+        mutableStateOf("")
+    }
+    var mfaCode by remember {
+        mutableStateOf("")
+    }
 
     DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.refreshIdentity(showBusy = false)
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    viewModel.refreshIdentity(
+                        showBusy = false
+                    )
+                }
             }
-        }
+
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+
+        onDispose {
+            lifecycleOwner.lifecycle
+                .removeObserver(observer)
+        }
     }
 
     LaunchedEffect(uiState.emailSuccess) {
         if (uiState.emailSuccess != null) {
+            showEmailSheet = false
             newEmail = ""
             emailPassword = ""
         }
@@ -76,6 +110,7 @@ fun AccountSecurityScreen(
 
     LaunchedEffect(uiState.passwordSuccess) {
         if (uiState.passwordSuccess != null) {
+            showPasswordSheet = false
             currentPassword = ""
             newPassword = ""
             confirmation = ""
@@ -101,314 +136,829 @@ fun AccountSecurityScreen(
         topBar = {
             PremiumTopAppBar(
                 title = "Account security",
-                subtitle = "Sign-in & two-factor protection",
+                subtitle = "Identity & sign-in protection",
                 onBack = onBack,
             )
         }
     ) { padding ->
-        Box(
+        PickupPassPullToRefresh(
+            refreshing = uiState.isRefreshing,
+            onRefresh = {
+                viewModel.refreshIdentity()
+            },
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .widthIn(max = 680.dp)
-                    .align(Alignment.TopCenter)
-                    .verticalScroll(rememberScrollState())
-                    .imePadding()
-                    .padding(
-                        start = Spacing.md,
-                        top = Spacing.sm,
-                        end = Spacing.md,
-                        bottom = Spacing.xl
-                    ),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+            Box(
+                modifier = Modifier.fillMaxSize()
             ) {
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor =
-                            MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    elevation = CardDefaults.elevatedCardElevation(
-                        defaultElevation = 2.dp
-                    )
+                Column(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .widthIn(max = 680.dp)
+                        .align(Alignment.TopCenter)
+                        .verticalScroll(
+                            rememberScrollState()
+                        )
+                        .imePadding()
+                        .padding(
+                            start = Spacing.md,
+                            top = Spacing.sm,
+                            end = Spacing.md,
+                            bottom = Spacing.xl
+                        ),
+                    verticalArrangement =
+                        Arrangement.spacedBy(Spacing.md)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(Spacing.lg),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            modifier = Modifier.size(56.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary
-                        ) {
-                            Box(
-                                Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
+                    PremiumHeroCard(
+                        eyebrow = "Account protection",
+                        title = "Secure your PickupPass identity",
+                        message =
+                            "Review your sign-in identity and manage sensitive account changes from one protected place.",
+                        icon = Icons.Filled.Shield
+                    )
+
+                    IdentityCard(
+                        state = uiState
+                    )
+
+                    PremiumSectionHeader(
+                        title = "Security status",
+                        subtitle =
+                            "The protections currently applied to this account."
+                    )
+
+                    SecurityStatusCard(
+                        title = "Authenticator 2FA",
+                        value =
+                            if (uiState.mfaEnabled) {
+                                "Enabled"
+                            } else if (
+                                uiState.mfaRequired
                             ) {
-                                Icon(
-                                    Icons.Filled.Shield,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(28.dp)
+                                "Setup required"
+                            } else {
+                                "Optional"
+                            },
+                        message =
+                            if (uiState.mfaRequired) {
+                                "Required for this administrator role."
+                            } else {
+                                "Optional additional sign-in protection."
+                            },
+                        icon = Icons.Filled.VerifiedUser,
+                        positive = uiState.mfaEnabled
+                    )
+
+                    TwoFactorCard(
+                        state = uiState,
+                        password = mfaPassword,
+                        onPasswordChange = {
+                            mfaPassword = it
+                            viewModel.clearMfaFeedback()
+                        },
+                        code = mfaCode,
+                        onCodeChange = {
+                            mfaCode =
+                                it.filter(Char::isDigit)
+                                    .take(6)
+                            viewModel.clearMfaFeedback()
+                        },
+                        onSendVerification =
+                            viewModel::sendMfaVerificationEmail,
+                        onRefreshVerification = {
+                            viewModel.refreshIdentity()
+                        },
+                        onBegin = {
+                            viewModel.beginMfaEnrollment(
+                                mfaPassword
+                            )
+                        },
+                        onOpenAuthenticator =
+                            viewModel::openAuthenticatorApp,
+                        onFinish = {
+                            viewModel.finishMfaEnrollment(
+                                mfaCode
+                            )
+                        },
+                        onCancel = {
+                            mfaPassword = ""
+                            mfaCode = ""
+                            viewModel.cancelMfaEnrollment()
+                        },
+                        onDisable = {
+                            viewModel.disableMfa(
+                                mfaPassword
+                            )
+                        }
+                    )
+
+                    PremiumSectionHeader(
+                        title = "Sign-in credentials",
+                        subtitle =
+                            "Sensitive changes open in a focused verification flow."
+                    )
+
+                    SecurityActionCard(
+                        icon = Icons.Filled.Email,
+                        title = "Change sign-in email",
+                        message =
+                            "Verify a new email before it replaces your current address.",
+                        status =
+                            if (uiState.emailVerified) {
+                                "Current email verified"
+                            } else {
+                                "Verification required"
+                            },
+                        onClick = {
+                            viewModel.clearEmailFeedback()
+                            showEmailSheet = true
+                        }
+                    )
+
+                    SecurityActionCard(
+                        icon = Icons.Filled.Lock,
+                        title = "Change password",
+                        message =
+                            "Reauthenticate with your current password before setting a new one.",
+                        status = "Protected change",
+                        onClick = {
+                            viewModel.clearPasswordFeedback()
+                            showPasswordSheet = true
+                        }
+                    )
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        color =
+                            MaterialTheme.colorScheme
+                                .surfaceVariant
+                                .copy(alpha = .55f)
+                    ) {
+                        Row(
+                            modifier =
+                                Modifier.padding(Spacing.md),
+                            verticalAlignment =
+                                Alignment.Top
+                        ) {
+                            Icon(
+                                Icons.Filled.Security,
+                                contentDescription = null,
+                                tint =
+                                    MaterialTheme.colorScheme
+                                        .primary
+                            )
+                            Spacer(
+                                Modifier.width(Spacing.sm)
+                            )
+                            Column {
+                                Text(
+                                    "Administrator security policy",
+                                    style =
+                                        MaterialTheme.typography
+                                            .titleSmall,
+                                    fontWeight =
+                                        FontWeight.ExtraBold
+                                )
+                                Spacer(
+                                    Modifier.height(2.dp)
+                                )
+                                Text(
+                                    "Platform Owner and School Admin accounts require authenticator 2FA. Email changes keep the existing address active until Firebase verifies the new address.",
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme.colorScheme
+                                            .onSurfaceVariant
                                 )
                             }
                         }
-
-                        Spacer(Modifier.width(Spacing.md))
-
-                        Column {
-                            Text(
-                                "PROTECT YOUR ACCOUNT",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(Modifier.height(Spacing.xs))
-                            Text(
-                                "Security built for school data",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                            Text(
-                                "Use a unique password and an authenticator app for stronger account protection.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme
-                                    .onPrimaryContainer.copy(alpha = .78f)
-                            )
-                        }
-                    }
+                    )
                 }
+            }
+        }
+    }
 
-                IdentityCard(
-                    state = uiState,
-                    onRefresh = {
-                        viewModel.refreshIdentity()
-                    }
+    uiState.mfaSuccess?.let { message ->
+        SuccessBanner(
+            message = message,
+            onDismiss = viewModel::clearMfaFeedback
+        )
+    }
+    uiState.mfaError?.let {
+        ErrorBanner(it)
+    }
+
+    uiState.emailSuccess?.let { message ->
+        SuccessBanner(
+            message = message,
+            onDismiss = viewModel::clearEmailFeedback
+        )
+    }
+    uiState.emailError?.let {
+        ErrorBanner(it)
+    }
+
+    uiState.passwordSuccess?.let { message ->
+        SuccessBanner(
+            message = message,
+            onDismiss =
+                viewModel::clearPasswordFeedback
+        )
+    }
+    uiState.passwordError?.let {
+        ErrorBanner(it)
+    }
+
+    if (showEmailSheet) {
+        EmailChangeSheet(
+            state = uiState,
+            newEmail = newEmail,
+            currentPassword = emailPassword,
+            onEmailChange = {
+                newEmail = it
+                viewModel.clearEmailFeedback()
+            },
+            onPasswordChange = {
+                emailPassword = it
+                viewModel.clearEmailFeedback()
+            },
+            onDismiss = {
+                if (!uiState.emailBusy) {
+                    showEmailSheet = false
+                }
+            },
+            onSubmit = {
+                viewModel.requestEmailChange(
+                    currentPassword =
+                        emailPassword,
+                    newEmail = newEmail
                 )
+            }
+        )
+    }
 
-                TwoFactorCard(
-                    state = uiState,
-                    password = mfaPassword,
-                    onPasswordChange = {
-                        mfaPassword = it
-                        viewModel.clearMfaFeedback()
-                    },
-                    code = mfaCode,
-                    onCodeChange = {
-                        mfaCode = it.filter(Char::isDigit).take(6)
-                        viewModel.clearMfaFeedback()
-                    },
-                    onSendVerification = viewModel::sendMfaVerificationEmail,
-                    onRefreshVerification = {
-                        viewModel.refreshIdentity()
-                    },
-                    onBegin = {
-                        viewModel.beginMfaEnrollment(mfaPassword)
-                    },
-                    onOpenAuthenticator = viewModel::openAuthenticatorApp,
-                    onFinish = {
-                        viewModel.finishMfaEnrollment(mfaCode)
-                    },
-                    onCancel = {
-                        mfaPassword = ""
-                        mfaCode = ""
-                        viewModel.cancelMfaEnrollment()
-                    },
-                    onDisable = {
-                        viewModel.disableMfa(mfaPassword)
-                    }
+    if (showPasswordSheet) {
+        PasswordChangeSheet(
+            state = uiState,
+            currentPassword = currentPassword,
+            newPassword = newPassword,
+            confirmation = confirmation,
+            onCurrentPasswordChange = {
+                currentPassword = it
+                viewModel.clearPasswordFeedback()
+            },
+            onNewPasswordChange = {
+                newPassword = it
+                viewModel.clearPasswordFeedback()
+            },
+            onConfirmationChange = {
+                confirmation = it
+                viewModel.clearPasswordFeedback()
+            },
+            onDismiss = {
+                if (!uiState.passwordBusy) {
+                    showPasswordSheet = false
+                }
+            },
+            onSubmit = {
+                viewModel.changePassword(
+                    currentPassword =
+                        currentPassword,
+                    newPassword = newPassword,
+                    confirmation = confirmation
                 )
+            }
+        )
+    }
+}
 
-                uiState.mfaSuccess?.let { SuccessBanner(it) }
-                uiState.mfaError?.let { ErrorBanner(it) }
-
-                CredentialCard(
-                    title = "Change email",
-                    subtitle =
-                        "We'll send a verification link to the new address. Your current email remains active until the new one is verified."
-                ) {
-                    OutlinedTextField(
-                        value = newEmail,
-                        onValueChange = {
-                            newEmail = it
-                            viewModel.clearEmailFeedback()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !uiState.emailBusy,
-                        singleLine = true,
-                        label = { Text("New email") },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Filled.Email,
-                                contentDescription = null
-                            )
-                        },
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Next
-                        )
-                    )
-
-                    PasswordField(
-                        value = emailPassword,
-                        onValueChange = {
-                            emailPassword = it
-                            viewModel.clearEmailFeedback()
-                        },
-                        label = "Current password",
-                        enabled = !uiState.emailBusy
-                    )
-
-                    Text(
-                        "Your password is sent only to Firebase Authentication for reauthentication. PickupPass does not store it.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Button(
-                        onClick = {
-                            viewModel.requestEmailChange(
-                                currentPassword = emailPassword,
-                                newEmail = newEmail
-                            )
-                        },
-                        enabled =
-                            !uiState.emailBusy &&
-                                uiState.currentEmail.isNotBlank(),
-                        modifier = Modifier
-                            .align(Alignment.End)
-                            .heightIn(min = 46.dp)
-                    ) {
-                        if (uiState.emailBusy) {
-                            BusyIndicator()
-                            Spacer(Modifier.width(Spacing.sm))
-                            Text("Sending…")
-                        } else {
-                            Text("Send verification email")
-                        }
-                    }
-                }
-
-                uiState.emailSuccess?.let { SuccessBanner(it) }
-                uiState.emailError?.let { ErrorBanner(it) }
-
-                CredentialCard(
-                    title = "Change password",
-                    subtitle =
-                        "Create a password different from your current one. Your current password authorizes the change."
-                ) {
-                    PasswordField(
-                        value = currentPassword,
-                        onValueChange = {
-                            currentPassword = it
-                            viewModel.clearPasswordFeedback()
-                        },
-                        label = "Current password",
-                        enabled = !uiState.passwordBusy
-                    )
-
-                    PasswordField(
-                        value = newPassword,
-                        onValueChange = {
-                            newPassword = it
-                            viewModel.clearPasswordFeedback()
-                        },
-                        label = "New password",
-                        enabled = !uiState.passwordBusy
-                    )
-
-                    PasswordField(
-                        value = confirmation,
-                        onValueChange = {
-                            confirmation = it
-                            viewModel.clearPasswordFeedback()
-                        },
-                        label = "Confirm new password",
-                        enabled = !uiState.passwordBusy
-                    )
-
-                    PasswordRequirement(
-                        newPassword.length >= 8,
-                        "At least 8 characters"
-                    )
-                    PasswordRequirement(
-                        newPassword.isNotEmpty() &&
-                            newPassword != currentPassword,
-                        "Different from current password"
-                    )
-                    PasswordRequirement(
-                        newPassword.isNotEmpty() &&
-                            newPassword == confirmation,
-                        "Confirmation matches"
-                    )
-
-                    Button(
-                        onClick = {
-                            viewModel.changePassword(
-                                currentPassword = currentPassword,
-                                newPassword = newPassword,
-                                confirmation = confirmation
-                            )
-                        },
-                        enabled = !uiState.passwordBusy,
-                        modifier = Modifier
-                            .align(Alignment.End)
-                            .heightIn(min = 46.dp)
-                    ) {
-                        if (uiState.passwordBusy) {
-                            BusyIndicator()
-                            Spacer(Modifier.width(Spacing.sm))
-                            Text("Updating…")
-                        } else {
-                            Icon(
-                                Icons.Filled.Lock,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(Spacing.sm))
-                            Text("Change password")
-                        }
-                    }
-                }
-
-                uiState.passwordSuccess?.let { SuccessBanner(it) }
-                uiState.passwordError?.let { ErrorBanner(it) }
-
+@Composable
+private fun IdentityCard(
+    state: AccountSecurityUiState
+) {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.lg),
+            verticalArrangement =
+                Arrangement.spacedBy(Spacing.sm)
+        ) {
+            Row(
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme
-                        .surfaceVariant.copy(alpha = .55f)
+                    modifier = Modifier.size(44.dp),
+                    shape = CircleShape,
+                    color =
+                        MaterialTheme.colorScheme
+                            .secondaryContainer
                 ) {
-                    Row(
-                        modifier = Modifier.padding(Spacing.md),
-                        verticalAlignment = Alignment.Top
+                    Box(
+                        Modifier.fillMaxSize(),
+                        contentAlignment =
+                            Alignment.Center
                     ) {
                         Icon(
-                            Icons.Filled.Security,
+                            Icons.Filled.Email,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
+                            tint =
+                                MaterialTheme.colorScheme
+                                    .onSecondaryContainer
                         )
-                        Spacer(Modifier.width(Spacing.sm))
-                        Column {
-                            Text(
-                                "Security policy",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                "Two-factor authentication is mandatory for Platform Owner and School Admin accounts. Parent and Teacher accounts can opt in at any time.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme
+                    }
+                }
+
+                Spacer(Modifier.width(Spacing.md))
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        "SIGN-IN IDENTITY",
+                        style =
+                            MaterialTheme.typography
+                                .labelSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                    Text(
+                        when {
+                            state.isLoading ->
+                                "Loading…"
+                            state.currentEmail.isBlank() ->
+                                "Email unavailable"
+                            else ->
+                                state.currentEmail
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        style =
+                            MaterialTheme.typography
+                                .titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color =
+                    if (state.emailVerified) {
+                        MaterialTheme.colorScheme
+                            .primaryContainer
+                            .copy(alpha = .55f)
+                    } else {
+                        MaterialTheme.colorScheme
+                            .errorContainer
+                            .copy(alpha = .55f)
+                    }
+            ) {
+                Row(
+                    modifier = Modifier.padding(
+                        horizontal = Spacing.sm,
+                        vertical = Spacing.xs
+                    ),
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    Icon(
+                        if (state.emailVerified) {
+                            Icons.Filled.Check
+                        } else {
+                            Icons.Filled.Email
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint =
+                            if (state.emailVerified) {
+                                MaterialTheme.colorScheme
+                                    .primary
+                            } else {
+                                MaterialTheme.colorScheme
+                                    .error
+                            }
+                    )
+                    Spacer(Modifier.width(Spacing.xs))
+                    Text(
+                        if (state.emailVerified) {
+                            "Email verified"
+                        } else {
+                            "Email verification required"
+                        },
+                        style =
+                            MaterialTheme.typography
+                                .labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Text(
+                "Pull down to refresh after completing an email verification link.",
+                style =
+                    MaterialTheme.typography.labelSmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun SecurityStatusCard(
+    title: String,
+    value: String,
+    message: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    positive: Boolean
+) {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.md),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(42.dp),
+                shape = MaterialTheme.shapes.medium,
+                color =
+                    if (positive) {
+                        MaterialTheme.colorScheme
+                            .primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme
+                            .surfaceVariant
+                    }
+            ) {
+                Box(
+                    Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint =
+                            if (positive) {
+                                MaterialTheme.colorScheme
+                                    .primary
+                            } else {
+                                MaterialTheme.colorScheme
                                     .onSurfaceVariant
-                            )
-                        }
+                            }
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(Spacing.md))
+
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style =
+                        MaterialTheme.typography
+                            .titleSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    message,
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+            }
+
+            AssistChip(
+                onClick = {},
+                enabled = false,
+                label = {
+                    Text(value)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SecurityActionCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    message: String,
+    status: String,
+    onClick: () -> Unit
+) {
+    OutlinedCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.md),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(44.dp),
+                shape = MaterialTheme.shapes.medium,
+                color =
+                    MaterialTheme.colorScheme
+                        .primaryContainer
+                        .copy(alpha = .55f)
+            ) {
+                Box(
+                    Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint =
+                            MaterialTheme.colorScheme
+                                .primary
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(Spacing.md))
+
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style =
+                        MaterialTheme.typography
+                            .titleMedium,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    message,
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    status,
+                    style =
+                        MaterialTheme.typography
+                            .labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color =
+                        MaterialTheme.colorScheme
+                            .primary
+                )
+            }
+
+            Text(
+                "Open",
+                style =
+                    MaterialTheme.typography
+                        .labelLarge,
+                fontWeight = FontWeight.Bold,
+                color =
+                    MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EmailChangeSheet(
+    state: AccountSecurityUiState,
+    newEmail: String,
+    currentPassword: String,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onSubmit: () -> Unit
+) {
+    val sheetState =
+        rememberModalBottomSheetState(
+            skipPartiallyExpanded = true
+        )
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(
+                    rememberScrollState()
+                )
+                .imePadding()
+                .padding(
+                    start = Spacing.lg,
+                    end = Spacing.lg,
+                    bottom = Spacing.xl
+                ),
+            verticalArrangement =
+                Arrangement.spacedBy(Spacing.md)
+        ) {
+            Text(
+                "SECURE IDENTITY CHANGE",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                "Change sign-in email",
+                style =
+                    MaterialTheme.typography
+                        .headlineSmall,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                "Your current address stays active until Firebase verifies the new one.",
+                style =
+                    MaterialTheme.typography.bodyMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                color =
+                    MaterialTheme.colorScheme
+                        .surfaceVariant
+                        .copy(alpha = .55f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(Spacing.md),
+                    verticalArrangement =
+                        Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        "CURRENT EMAIL",
+                        style =
+                            MaterialTheme.typography
+                                .labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant
+                    )
+                    Text(
+                        state.currentEmail
+                            .ifBlank {
+                                "Unavailable"
+                            },
+                        modifier = Modifier.fillMaxWidth(),
+                        style =
+                            MaterialTheme.typography
+                                .bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            OutlinedTextField(
+                value = newEmail,
+                onValueChange = onEmailChange,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.emailBusy,
+                singleLine = true,
+                label = {
+                    Text("New email")
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Filled.Email,
+                        contentDescription = null
+                    )
+                },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType =
+                        KeyboardType.Email,
+                    imeAction = ImeAction.Next
+                )
+            )
+
+            PasswordField(
+                value = currentPassword,
+                onValueChange = onPasswordChange,
+                label = "Current password",
+                enabled = !state.emailBusy
+            )
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                color =
+                    MaterialTheme.colorScheme
+                        .primaryContainer
+                        .copy(alpha = .4f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(Spacing.md),
+                    verticalArrangement =
+                        Arrangement.spacedBy(Spacing.xs)
+                ) {
+                    Text(
+                        "What happens next",
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        "1. PickupPass reauthenticates this signed-in account with your current password.",
+                        style =
+                            MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "2. Firebase sends a verification link to the new email.",
+                        style =
+                            MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "3. Your existing email remains the sign-in address until the new one is verified.",
+                        style =
+                            MaterialTheme.typography.bodySmall
+                    )
+                    if (state.mfaRequired) {
+                        Text(
+                            "This administrator account also remains protected by required authenticator 2FA at sign-in.",
+                            style =
+                                MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .primary
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.End
+            ) {
+                TextButton(
+                    onClick = onDismiss,
+                    enabled = !state.emailBusy
+                ) {
+                    Text("Cancel")
+                }
+
+                Spacer(Modifier.width(Spacing.sm))
+
+                Button(
+                    onClick = onSubmit,
+                    enabled =
+                        !state.emailBusy &&
+                            newEmail.isNotBlank() &&
+                            currentPassword.isNotBlank()
+                ) {
+                    if (state.emailBusy) {
+                        BusyIndicator()
+                        Spacer(
+                            Modifier.width(Spacing.sm)
+                        )
+                        Text("Sending…")
+                    } else {
+                        Text("Send verification")
                     }
                 }
             }
@@ -416,71 +966,144 @@ fun AccountSecurityScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun IdentityCard(
+private fun PasswordChangeSheet(
     state: AccountSecurityUiState,
-    onRefresh: () -> Unit
+    currentPassword: String,
+    newPassword: String,
+    confirmation: String,
+    onCurrentPasswordChange: (String) -> Unit,
+    onNewPasswordChange: (String) -> Unit,
+    onConfirmationChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onSubmit: () -> Unit
 ) {
-    OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge
+    val sheetState =
+        rememberModalBottomSheetState(
+            skipPartiallyExpanded = true
+        )
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface
     ) {
-        Row(
-            modifier = Modifier.padding(Spacing.lg),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(
+                    rememberScrollState()
+                )
+                .imePadding()
+                .padding(
+                    start = Spacing.lg,
+                    end = Spacing.lg,
+                    bottom = Spacing.xl
+                ),
+            verticalArrangement =
+                Arrangement.spacedBy(Spacing.md)
         ) {
-            Surface(
-                modifier = Modifier.size(44.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.secondaryContainer
+            Text(
+                "SECURE CREDENTIAL CHANGE",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                "Change password",
+                style =
+                    MaterialTheme.typography
+                        .headlineSmall,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                "Confirm your current password, then choose a new password for future sign-ins.",
+                style =
+                    MaterialTheme.typography.bodyMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+
+            PasswordField(
+                value = currentPassword,
+                onValueChange =
+                    onCurrentPasswordChange,
+                label = "Current password",
+                enabled = !state.passwordBusy
+            )
+
+            PasswordField(
+                value = newPassword,
+                onValueChange =
+                    onNewPasswordChange,
+                label = "New password",
+                enabled = !state.passwordBusy
+            )
+
+            PasswordField(
+                value = confirmation,
+                onValueChange =
+                    onConfirmationChange,
+                label = "Confirm new password",
+                enabled = !state.passwordBusy
+            )
+
+            Column(
+                verticalArrangement =
+                    Arrangement.spacedBy(Spacing.xs)
             ) {
-                Box(
-                    Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                PasswordRequirement(
+                    newPassword.length >= 8,
+                    "At least 8 characters"
+                )
+                PasswordRequirement(
+                    newPassword.isNotEmpty() &&
+                        newPassword !=
+                            currentPassword,
+                    "Different from current password"
+                )
+                PasswordRequirement(
+                    newPassword.isNotEmpty() &&
+                        newPassword ==
+                            confirmation,
+                    "Confirmation matches"
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.End
+            ) {
+                TextButton(
+                    onClick = onDismiss,
+                    enabled = !state.passwordBusy
                 ) {
-                    Icon(
-                        Icons.Filled.Email,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
+                    Text("Cancel")
                 }
-            }
-            Spacer(Modifier.width(Spacing.md))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    "Current sign-in email",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    when {
-                        state.isLoading -> "Loading…"
-                        state.currentEmail.isBlank() -> "Not available"
-                        else -> state.currentEmail
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    if (state.emailVerified) {
-                        "Verified"
+
+                Spacer(Modifier.width(Spacing.sm))
+
+                Button(
+                    onClick = onSubmit,
+                    enabled =
+                        !state.passwordBusy &&
+                            currentPassword.isNotBlank() &&
+                            newPassword.length >= 8 &&
+                            newPassword == confirmation
+                ) {
+                    if (state.passwordBusy) {
+                        BusyIndicator()
+                        Spacer(
+                            Modifier.width(Spacing.sm)
+                        )
+                        Text("Updating…")
                     } else {
-                        "Verification required before enrolling an authenticator"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (state.emailVerified) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.error
+                        Text("Change password")
                     }
-                )
-            }
-            TextButton(
-                onClick = onRefresh,
-                enabled = !state.isLoading && !state.isRefreshing
-            ) {
-                Text(if (state.isRefreshing) "Refreshing…" else "Refresh")
+                }
             }
         }
     }
@@ -784,36 +1407,6 @@ private fun TwoFactorCard(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-    }
-}
-
-@Composable
-private fun CredentialCard(
-    title: String,
-    subtitle: String,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge
-    ) {
-        Column(
-            modifier = Modifier.padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
-        ) {
-            Text(
-                title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.ExtraBold
-            )
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            HorizontalDivider()
-            content()
         }
     }
 }
