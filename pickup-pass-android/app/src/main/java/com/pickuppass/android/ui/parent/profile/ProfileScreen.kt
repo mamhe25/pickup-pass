@@ -1,5 +1,9 @@
 package com.pickuppass.android.ui.parent.profile
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -15,10 +19,12 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +34,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.FeedbackCard
@@ -36,6 +44,7 @@ import com.pickuppass.android.ui.common.PremiumConfirmDialog
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SmartImage
 import com.pickuppass.android.ui.theme.Spacing
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,12 +61,75 @@ fun ProfileScreen(
 
     var showSignOutConfirmation by remember { mutableStateOf(false) }
     var showPhotoViewer by remember { mutableStateOf(false) }
+    var showPhotoSourcePicker by remember { mutableStateOf(false) }
+    var pendingCameraUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var cameraFeedbackMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
     val pickImage = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let {
             viewModel.onImagePicked(context, it)
+        }
+    }
+
+    val takePhoto = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { captured ->
+        val uri =
+            pendingCameraUri
+                ?.let(Uri::parse)
+
+        pendingCameraUri = null
+
+        if (captured && uri != null) {
+            viewModel.onImagePicked(context, uri)
+        }
+    }
+
+    val requestCameraPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            runCatching {
+                createGuardianCameraUri(context)
+            }.onSuccess { uri ->
+                pendingCameraUri = uri.toString()
+                takePhoto.launch(uri)
+            }.onFailure {
+                cameraFeedbackMessage =
+                    "PickupPass couldn't prepare the camera. Please try again or choose a photo from your gallery."
+            }
+        } else {
+            cameraFeedbackMessage =
+                "Allow camera access to take a verification photo. You can still choose an existing photo from your gallery."
+        }
+    }
+
+    fun launchCameraCapture() {
+        cameraFeedbackMessage = null
+        viewModel.clearFeedback()
+        showPhotoSourcePicker = false
+
+        if (
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            runCatching {
+                createGuardianCameraUri(context)
+            }.onSuccess { uri ->
+                pendingCameraUri = uri.toString()
+                takePhoto.launch(uri)
+            }.onFailure {
+                cameraFeedbackMessage =
+                    "PickupPass couldn't prepare the camera. Please try again or choose a photo from your gallery."
+            }
+        } else {
+            requestCameraPermission.launch(
+                Manifest.permission.CAMERA
+            )
         }
     }
 
@@ -115,7 +187,8 @@ fun ProfileScreen(
                     onChoosePhoto = {
                         if (!uiState.isUploading) {
                             viewModel.clearFeedback()
-                            pickImage.launch("image/*")
+                            cameraFeedbackMessage = null
+                            showPhotoSourcePicker = true
                         }
                     },
                     onViewPhoto = {
@@ -176,6 +249,21 @@ fun ProfileScreen(
         )
     }
 
+    if (showPhotoSourcePicker) {
+        PhotoSourcePickerSheet(
+            onDismiss = {
+                showPhotoSourcePicker = false
+            },
+            onTakePhoto = ::launchCameraCapture,
+            onChooseGallery = {
+                showPhotoSourcePicker = false
+                cameraFeedbackMessage = null
+                viewModel.clearFeedback()
+                pickImage.launch("image/*")
+            }
+        )
+    }
+
     uiState.uploadSuccessMessage?.let { message ->
         FeedbackCard(
             message = message,
@@ -192,6 +280,172 @@ fun ProfileScreen(
             tone = FeedbackTone.Error,
             onDismiss = viewModel::clearFeedback
         )
+    }
+
+    cameraFeedbackMessage?.let { message ->
+        FeedbackCard(
+            message = message,
+            title = "Camera access needed",
+            tone = FeedbackTone.Warning,
+            onDismiss = {
+                cameraFeedbackMessage = null
+            }
+        )
+    }
+}
+
+private fun createGuardianCameraUri(
+    context: Context
+): Uri {
+    val directory =
+        File(
+            context.cacheDir,
+            "guardian_verification_photos"
+        ).apply {
+            mkdirs()
+        }
+
+    val file =
+        File.createTempFile(
+            "guardian_",
+            ".jpg",
+            directory
+        )
+
+    return FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        file
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PhotoSourcePickerSheet(
+    onDismiss: () -> Unit,
+    onTakePhoto: () -> Unit,
+    onChooseGallery: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 660.dp)
+                .padding(
+                    start = Spacing.lg,
+                    end = Spacing.lg,
+                    bottom = Spacing.xl
+                ),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+            ) {
+                Text(
+                    "Add verification photo",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    "Use a fresh camera photo or choose an existing image. Either option goes through the same secure Google Vision quality check before PickupPass accepts it.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            PhotoSourceOption(
+                icon = Icons.Filled.CameraAlt,
+                title = "Take photo",
+                subtitle = "Recommended · Capture a clear, recent photo now.",
+                onClick = onTakePhoto
+            )
+
+            PhotoSourceOption(
+                icon = Icons.Filled.PhotoLibrary,
+                title = "Choose from gallery",
+                subtitle = "Select a clear existing photo from this device.",
+                onClick = onChooseGallery
+            )
+
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.primaryContainer.copy(
+                    alpha = 0.52f
+                )
+            ) {
+                Text(
+                    "For best results: face the camera, use even lighting, keep your full face visible, and make sure no one else is in the photo.",
+                    modifier = Modifier.padding(Spacing.md),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PhotoSourceOption(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(
+            alpha = 0.46f
+        ),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(48.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(23.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(Spacing.md))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 
