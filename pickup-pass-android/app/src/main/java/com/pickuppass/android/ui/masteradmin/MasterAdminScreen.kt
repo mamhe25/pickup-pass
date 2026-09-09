@@ -553,8 +553,14 @@ fun MasterAdminAdvancedConsole(
                 }
                 if (security.recentPrivilegedActions.isNotEmpty()) {
                     item { Text("Recent privileged actions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
-                    items(security.recentPrivilegedActions.take(8), key = { "audit-" + it.id }) { event ->
-                        PrivilegedActionCard(event)
+                    items(
+                        security.recentPrivilegedActions.take(8),
+                        key = { "audit-" + it.id }
+                    ) { event ->
+                        PrivilegedActionCard(
+                            event = event,
+                            schools = state.schools
+                        )
                     }
                 }
             }
@@ -1238,7 +1244,9 @@ private fun AdvancedWorkspaceSelector(
         )
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
             horizontalArrangement =
                 Arrangement.spacedBy(Spacing.sm)
         ) {
@@ -1261,7 +1269,9 @@ private fun AdvancedWorkspaceSelector(
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
             horizontalArrangement =
                 Arrangement.spacedBy(Spacing.sm)
         ) {
@@ -1299,7 +1309,7 @@ private fun AdvancedWorkspaceCard(
         onClick = {
             onSelect(section)
         },
-        modifier = modifier,
+        modifier = modifier.fillMaxHeight(),
         colors = CardDefaults.outlinedCardColors(
             containerColor =
                 if (isSelected) {
@@ -2066,14 +2076,208 @@ private fun SecurityAlertCard(
 }
 
 @Composable
-private fun PrivilegedActionCard(event: MasterPrivilegedAuditEvent) {
-    OutlinedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(Spacing.sm)) {
-            Text(event.action.replace('_', ' '), fontWeight = FontWeight.SemiBold)
-            Text("${event.resourceType} · ${event.resourceId}", style = MaterialTheme.typography.bodySmall)
-            Text("Actor ${event.actorRole} · ${event.actorUid.take(12)}" + (event.timestamp?.let { " · ${it.take(16).replace('T',' ')}" } ?: ""),
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun PrivilegedActionCard(
+    event: MasterPrivilegedAuditEvent,
+    schools: List<MasterSchoolItem>
+) {
+    val actionLabel =
+        privilegedActionLabel(event.action)
+    val resourceLabel =
+        privilegedResourceLabel(
+            event = event,
+            schools = schools
+        )
+    val actorLabel =
+        privilegedActorLabel(event.actorRole)
+    val timestampLabel =
+        event.timestamp
+            ?.take(16)
+            ?.replace('T', ' ')
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.outlinedCardColors(
+            containerColor =
+                MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement =
+                Arrangement.spacedBy(Spacing.xs)
+        ) {
+            Text(
+                actionLabel,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.ExtraBold
+            )
+
+            Text(
+                resourceLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    actorLabel,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                timestampLabel?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color =
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
+    }
+}
+
+private fun privilegedActionLabel(
+    action: String
+): String {
+    if (action.isBlank()) {
+        return "Administrative action"
+    }
+
+    return action
+        .replace('.', ' ')
+        .replace('_', ' ')
+        .trim()
+        .split(Regex("\\s+"))
+        .joinToString(" ") { word ->
+            word.replaceFirstChar {
+                if (it.isLowerCase()) {
+                    it.titlecase()
+                } else {
+                    it.toString()
+                }
+            }
+        }
+}
+
+private fun privilegedActorLabel(
+    role: String
+): String =
+    when (role.lowercase()) {
+        "master_admin",
+        "masteradmin",
+        "platform_owner" ->
+            "Platform owner"
+
+        "school_admin",
+        "schooladmin" ->
+            "School administrator"
+
+        "teacher" ->
+            "Teacher"
+
+        "parent",
+        "guardian" ->
+            "Parent / guardian"
+
+        "system" ->
+            "PickupPass system"
+
+        else ->
+            role
+                .replace('_', ' ')
+                .replaceFirstChar {
+                    if (it.isLowerCase()) {
+                        it.titlecase()
+                    } else {
+                        it.toString()
+                    }
+                }
+                .ifBlank {
+                    "Authorized administrator"
+                }
+    }
+
+private fun privilegedResourceLabel(
+    event: MasterPrivilegedAuditEvent,
+    schools: List<MasterSchoolItem>
+): String {
+    val school =
+        schools.firstOrNull {
+            it.schoolId == event.schoolId ||
+                it.schoolId == event.resourceId
+        }
+
+    if (school != null) {
+        return school.schoolName
+    }
+
+    return when (
+        event.resourceType
+            .lowercase()
+            .replace('-', '_')
+    ) {
+        "school",
+        "tenant" ->
+            "School tenant"
+
+        "invoice",
+        "billing_invoice" ->
+            "Billing invoice"
+
+        "subscription" ->
+            "School subscription"
+
+        "platformincident",
+        "platform_incident" ->
+            "Platform incident"
+
+        "securityalert",
+        "security_alert" ->
+            "Security alert"
+
+        "device_session" ->
+            "Device session"
+
+        "user",
+        "account" ->
+            "User account"
+
+        "backup",
+        "firestore_backup" ->
+            "Firestore backup"
+
+        "recovery",
+        "recovery_job" ->
+            "Recovery operation"
+
+        "platform" ->
+            "PickupPass platform"
+
+        else ->
+            event.resourceType
+                .replace('_', ' ')
+                .replace('-', ' ')
+                .replaceFirstChar {
+                    if (it.isLowerCase()) {
+                        it.titlecase()
+                    } else {
+                        it.toString()
+                    }
+                }
+                .ifBlank {
+                    "Platform resource"
+                }
     }
 }
 
