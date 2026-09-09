@@ -307,6 +307,11 @@ interface PickupPassApi {
         @Path("schoolId") schoolId: String
     ): Response<MasterSubscriptionResponse>
 
+    @PUT("master-admin/profile/name")
+    suspend fun updateMasterProfileName(
+        @Body body: UpdateAccountNameRequest
+    ): Response<UpdateAccountNameResponse>
+
     @GET("master-admin/operations/overview")
     suspend fun getMasterOperationsOverview(): Response<MasterOperationsOverviewResponse>
 
