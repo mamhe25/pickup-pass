@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
@@ -2176,6 +2178,9 @@ private fun SchoolCard(
     onLaunchReadiness: () -> Unit
 ) {
     val active = school.status == "active"
+    var expanded by remember(school.schoolId) {
+        mutableStateOf(false)
+    }
     val u = school.usage
     val usageAtRisk =
         u.studentsOverLimit ||
@@ -2258,11 +2263,38 @@ private fun SchoolCard(
                     )
                 }
 
-                Switch(
-                    checked = active,
-                    enabled = !saving,
-                    onCheckedChange = { onToggle() }
-                )
+                Column(
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Switch(
+                        checked = active,
+                        enabled = !saving,
+                        onCheckedChange = { onToggle() }
+                    )
+                    TextButton(
+                        onClick = {
+                            expanded = !expanded
+                        }
+                    ) {
+                        Icon(
+                            if (expanded) {
+                                Icons.Filled.ExpandLess
+                            } else {
+                                Icons.Filled.ExpandMore
+                            },
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            if (expanded) {
+                                "Close"
+                            } else {
+                                "Manage"
+                            }
+                        )
+                    }
+                }
             }
 
             Row(
@@ -2288,6 +2320,7 @@ private fun SchoolCard(
                 )
             }
 
+            if (expanded) {
             school.currentPeriodEnd?.let {
                 Text(
                     "Current period ends ${dateLabel(it)}",
@@ -2472,6 +2505,7 @@ private fun SchoolCard(
                 modifier = Modifier.align(Alignment.End)
             ) {
                 Text("Export tenant data")
+            }
             }
         }
     }
