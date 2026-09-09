@@ -266,10 +266,13 @@ fun AccountSecurityScreen(
                         message =
                             "Verify a new email before it replaces your current address.",
                         status =
-                            if (uiState.emailVerified) {
-                                "Current email verified"
-                            } else {
-                                "Verification required"
+                            when (uiState.emailVerified) {
+                                true ->
+                                    "Current email verified"
+                                false ->
+                                    "Verification required"
+                                null ->
+                                    "Checking verification…"
                             },
                         onClick = {
                             viewModel.clearEmailFeedback()
@@ -521,14 +524,19 @@ private fun IdentityCard(
             Surface(
                 shape = MaterialTheme.shapes.small,
                 color =
-                    if (state.emailVerified) {
-                        MaterialTheme.colorScheme
-                            .primaryContainer
-                            .copy(alpha = .55f)
-                    } else {
-                        MaterialTheme.colorScheme
-                            .errorContainer
-                            .copy(alpha = .55f)
+                    when (state.emailVerified) {
+                        true ->
+                            MaterialTheme.colorScheme
+                                .primaryContainer
+                                .copy(alpha = .55f)
+                        false ->
+                            MaterialTheme.colorScheme
+                                .errorContainer
+                                .copy(alpha = .55f)
+                        null ->
+                            MaterialTheme.colorScheme
+                                .surfaceVariant
+                                .copy(alpha = .7f)
                     }
             ) {
                 Row(
@@ -539,29 +547,36 @@ private fun IdentityCard(
                     verticalAlignment =
                         Alignment.CenterVertically
                 ) {
-                    Icon(
-                        if (state.emailVerified) {
-                            Icons.Filled.Check
-                        } else {
-                            Icons.Filled.Email
-                        },
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint =
-                            if (state.emailVerified) {
-                                MaterialTheme.colorScheme
-                                    .primary
+                    if (state.emailVerified == null) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            if (state.emailVerified == true) {
+                                Icons.Filled.Check
                             } else {
-                                MaterialTheme.colorScheme
-                                    .error
-                            }
-                    )
+                                Icons.Filled.Email
+                            },
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint =
+                                if (state.emailVerified == true) {
+                                    MaterialTheme.colorScheme
+                                        .primary
+                                } else {
+                                    MaterialTheme.colorScheme
+                                        .error
+                                }
+                        )
+                    }
                     Spacer(Modifier.width(Spacing.xs))
                     Text(
-                        if (state.emailVerified) {
-                            "Email verified"
-                        } else {
-                            "Email verification required"
+                        when (state.emailVerified) {
+                            true -> "Email verified"
+                            false -> "Email verification required"
+                            null -> "Checking verification…"
                         },
                         style =
                             MaterialTheme.typography
@@ -1258,7 +1273,25 @@ private fun TwoFactorCard(
                         Text("Disable 2FA")
                     }
                 }
-            } else if (!state.emailVerified) {
+            } else if (state.emailVerified == null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement =
+                        Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Text(
+                        "Checking email verification…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color =
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else if (state.emailVerified == false) {
                 Text(
                     "Verify your sign-in email before adding an authenticator app.",
                     style = MaterialTheme.typography.bodyMedium
