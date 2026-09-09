@@ -318,10 +318,24 @@ public class LaunchReadinessService {
         write.put("updatedAt", FieldValue.serverTimestamp());
         readinessRef(schoolId).set(write, SetOptions.merge()).get();
         updateSchoolSummary(schoolId, APPROVED);
+
+        String schoolName =
+                String.valueOf(
+                        assessment.getOrDefault(
+                                "schoolName",
+                                "Your school"));
+        notifySchoolAdminsOfLaunchDecision(
+                schoolId,
+                schoolName,
+                APPROVED,
+                note);
+
         return assess(schoolId);
     }
 
     public Map<String, Object> reopen(String schoolId, String actorUid, String reason) throws Exception {
+        Map<String, Object> assessment = assess(schoolId);
+
         Map<String, Object> write = new HashMap<>();
         write.put("reviewStatus", DRAFT);
         write.put("reopenedAt", FieldValue.serverTimestamp());
@@ -330,7 +344,103 @@ public class LaunchReadinessService {
         write.put("updatedAt", FieldValue.serverTimestamp());
         readinessRef(schoolId).set(write, SetOptions.merge()).get();
         updateSchoolSummary(schoolId, DRAFT);
+
+        String schoolName =
+                String.valueOf(
+                        assessment.getOrDefault(
+                                "schoolName",
+                                "Your school"));
+        notifySchoolAdminsOfLaunchDecision(
+                schoolId,
+                schoolName,
+                DRAFT,
+                reason);
+
         return assess(schoolId);
+    }
+
+    private void notifySchoolAdminsOfLaunchDecision(
+            String schoolId,
+            String schoolName,
+            String status,
+            String note) {
+        try {
+            List<QueryDocumentSnapshot> schoolUsers =
+                    firestore.collection("users")
+                            .whereEqualTo(
+                                    "schoolId",
+                                    schoolId)
+                            .get()
+                            .get()
+                            .getDocuments();
+
+            List<String> recipientUids =
+                    schoolUsers.stream()
+                            .filter(
+                                    user ->
+                                            "school_admin".equals(
+                                                    safe(
+                                                            user.getString(
+                                                                    "role"))))
+                            .filter(
+                                    user ->
+                                            !Boolean.FALSE.equals(
+                                                    user.getBoolean(
+                                                            "isActive")))
+                            .map(DocumentSnapshot::getId)
+                            .distinct()
+                            .toList();
+
+            if (recipientUids.isEmpty()) {
+                log.warn(
+                        "Launch status changed to {} for school {} but no active school_admin recipient exists",
+                        status,
+                        schoolId);
+                return;
+            }
+
+            String cleanNote = safe(note);
+            String title;
+            String body;
+            String type;
+
+            if (APPROVED.equals(status)) {
+                title = "PickupPass launch approved";
+                body =
+                        schoolName
+                                + " is approved for production launch."
+                                + (cleanNote.isBlank()
+                                        ? " Pre-launch test mode is now off and normal pickup operations are enabled."
+                                        : " Platform note: " + cleanNote);
+                type = "launch_approved";
+            } else {
+                title = "Launch approval reopened";
+                body =
+                        schoolName
+                                + " has been returned to pre-launch review."
+                                + (cleanNote.isBlank()
+                                        ? " Review Launch Readiness before requesting approval again."
+                                        : " Reason: " + cleanNote);
+                type = "launch_reopened";
+            }
+
+            pushNotificationService.notifyUsers(
+                    recipientUids,
+                    schoolId,
+                    title,
+                    body,
+                    type,
+                    null,
+                    "PickupPass Platform");
+        } catch (Exception e) {
+            // The launch transition is authoritative. Notification delivery is
+            // best effort and must never roll back an approved/reopened state.
+            log.warn(
+                    "Could not notify school admins about launch status {} for school {}: {}",
+                    status,
+                    schoolId,
+                    e.getMessage());
+        }
     }
 
     private void notifyPlatformOwnersOfReviewRequest(String schoolId, String schoolName) {
