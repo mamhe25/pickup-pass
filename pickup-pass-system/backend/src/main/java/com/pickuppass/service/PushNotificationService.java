@@ -114,7 +114,7 @@ public class PushNotificationService {
 
         recordNotifications(recipientUids, schoolId, title, body, type, studentId, senderName);
         for (String uid : recipientUids) {
-            sendPush(uid, title, body, type, studentId);
+            sendPush(uid, schoolId, title, body, type, studentId);
         }
     }
 
@@ -246,7 +246,13 @@ public class PushNotificationService {
     }
 
     @SuppressWarnings("unchecked")
-    private void sendPush(String uid, String title, String body, String type, String studentId) {
+    private void sendPush(
+            String uid,
+            String schoolId,
+            String title,
+            String body,
+            String type,
+            String studentId) {
         try {
             DocumentSnapshot userSnap = firestore.collection("users").document(uid).get().get();
             if (!userSnap.exists()) return;
@@ -258,7 +264,15 @@ public class PushNotificationService {
                     .addAllTokens(tokens)
                     .setNotification(Notification.builder().setTitle(title).setBody(body).build())
                     .putData("type", type);
-            if (studentId != null) {
+
+            String recipientRole = userSnap.getString("role");
+            if (recipientRole != null && !recipientRole.isBlank()) {
+                messageBuilder.putData("recipientRole", recipientRole);
+            }
+            if (schoolId != null && !schoolId.isBlank()) {
+                messageBuilder.putData("schoolId", schoolId);
+            }
+            if (studentId != null && !studentId.isBlank()) {
                 messageBuilder.putData("studentId", studentId);
             }
 
