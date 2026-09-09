@@ -51,6 +51,7 @@ private enum class NotificationFilter {
 fun NotificationsScreen(
     viewModel: NotificationsViewModel = hiltViewModel(),
     audience: NotificationAudience = NotificationAudience.FAMILY,
+    onOpenNotification: (NotificationItem) -> Unit = {},
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -146,6 +147,7 @@ fun NotificationsScreen(
                                     updating = uiState.isUpdating,
                                     onClick = {
                                         viewModel.markAsRead(notification)
+                                        onOpenNotification(notification)
                                     }
                                 )
                             }
@@ -338,7 +340,7 @@ private fun NotificationCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(
-                enabled = unread && !updating,
+                enabled = !updating,
                 onClick = onClick
             ),
         shape = MaterialTheme.shapes.extraLarge,
