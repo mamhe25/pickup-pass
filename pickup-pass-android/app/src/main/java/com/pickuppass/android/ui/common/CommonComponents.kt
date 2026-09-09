@@ -166,6 +166,12 @@ fun PrimaryButton(
     }
 }
 
+/**
+ * Standard create affordance for collection screens.
+ *
+ * Lists stay focused on existing records. New-record fields belong in a
+ * modal sheet or dedicated create surface opened from this bottom-right FAB.
+ */
 @Composable
 fun CollectionAddFab(
     onClick: () -> Unit,
@@ -184,13 +190,6 @@ fun CollectionAddFab(
         )
     }
 }
-
-/**
- * Standard create affordance for collection screens.
- *
- * Lists stay focused on existing records. New-record fields belong in a
- * modal sheet or dedicated create surface opened from this bottom-right FAB.
- */
 
 @Composable
 fun NotificationActionButton(
