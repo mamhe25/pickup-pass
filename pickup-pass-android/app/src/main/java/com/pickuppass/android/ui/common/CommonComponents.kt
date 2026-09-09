@@ -196,14 +196,19 @@ fun TotpCodeField(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     isError: Boolean = false,
-    autoFocus: Boolean = true,
+    autoFocus: Boolean = false,
     digits: Int = 6,
 ) {
     val focusRequester = remember { FocusRequester() }
     var focused by remember { mutableStateOf(false) }
-    var lastCompletedCode by remember { mutableStateOf<String?>(null) }
+    var lastCompletedCode by remember {
+        mutableStateOf<String?>(null)
+    }
 
-    val normalized = value.filter(Char::isDigit).take(digits)
+    val normalized =
+        value
+            .filter(Char::isDigit)
+            .take(digits)
 
     LaunchedEffect(autoFocus, enabled) {
         if (autoFocus && enabled) {
@@ -224,136 +229,164 @@ fun TotpCodeField(
         }
     }
 
-    BasicTextField(
-        value = normalized,
-        onValueChange = { incoming ->
-            onValueChange(
-                incoming
-                    .filter(Char::isDigit)
-                    .take(digits)
-            )
-        },
-        enabled = enabled,
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.NumberPassword,
-            imeAction = ImeAction.Done,
-        ),
-        keyboardActions = KeyboardActions(
-            onDone = {
-                if (
-                    enabled &&
-                    normalized.length == digits
-                ) {
-                    onComplete()
-                }
-            }
-        ),
-        textStyle = MaterialTheme.typography.bodyLarge.copy(
-            color = Color.Transparent,
-        ),
-        cursorBrush = SolidColor(Color.Transparent),
-        modifier = modifier
-            .fillMaxWidth()
-            .focusRequester(focusRequester)
-            .onFocusChanged { focused = it.isFocused }
-            .semantics {
-                contentDescription = "$digits-digit authenticator code"
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        BasicTextField(
+            value = normalized,
+            onValueChange = { incoming ->
+                onValueChange(
+                    incoming
+                        .filter(Char::isDigit)
+                        .take(digits)
+                )
             },
-        decorationBox = { innerTextField ->
-            Box(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    repeat(digits) { index ->
-                        val digit =
-                            normalized
-                                .getOrNull(index)
-                                ?.toString()
-                                .orEmpty()
-                        val active =
-                            focused &&
-                            (
-                                index == normalized.length ||
+            enabled = enabled,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.NumberPassword,
+                imeAction = ImeAction.Done,
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    if (
+                        enabled &&
+                        normalized.length == digits
+                    ) {
+                        onComplete()
+                    }
+                }
+            ),
+            textStyle =
+                MaterialTheme.typography.bodyLarge.copy(
+                    color = Color.Transparent,
+                ),
+            cursorBrush = SolidColor(Color.Transparent),
+            modifier = Modifier
+                .widthIn(max = 300.dp)
+                .focusRequester(focusRequester)
+                .onFocusChanged {
+                    focused = it.isFocused
+                }
+                .semantics {
+                    contentDescription =
+                        "$digits-digit authenticator code"
+                },
+            decorationBox = { innerTextField ->
+                Box {
+                    Row(
+                        horizontalArrangement =
+                            Arrangement.spacedBy(6.dp),
+                        verticalAlignment =
+                            Alignment.CenterVertically,
+                    ) {
+                        repeat(digits) { index ->
+                            val digit =
+                                normalized
+                                    .getOrNull(index)
+                                    ?.toString()
+                                    .orEmpty()
+
+                            val active =
+                                focused &&
                                     (
-                                        normalized.length == digits &&
-                                            index == digits - 1
-                                    )
-                                )
+                                        index ==
+                                            normalized.length ||
+                                            (
+                                                normalized.length ==
+                                                    digits &&
+                                                    index ==
+                                                        digits - 1
+                                                )
+                                        )
 
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(54.dp),
-                            shape = MaterialTheme.shapes.medium,
-                            color =
-                                if (active) {
-                                    MaterialTheme.colorScheme
-                                        .primaryContainer
-                                        .copy(alpha = 0.32f)
-                                } else {
-                                    MaterialTheme.colorScheme.surface
-                                },
-                            border = BorderStroke(
-                                width =
-                                    if (active) {
-                                        2.dp
-                                    } else {
-                                        1.dp
-                                    },
+                            Surface(
+                                modifier = Modifier
+                                    .width(42.dp)
+                                    .height(50.dp),
+                                shape =
+                                    MaterialTheme.shapes.medium,
                                 color =
-                                    when {
-                                        isError ->
-                                            MaterialTheme.colorScheme.error
-
-                                        active ->
-                                            MaterialTheme.colorScheme.primary
-
-                                        else ->
-                                            MaterialTheme.colorScheme
-                                                .outlineVariant
-                                    }
-                            )
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = digit,
-                                    style =
-                                        MaterialTheme.typography
-                                            .titleLarge,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    textAlign = TextAlign.Center,
-                                    color =
-                                        if (isError) {
-                                            MaterialTheme.colorScheme.error
+                                    if (active) {
+                                        MaterialTheme.colorScheme
+                                            .primaryContainer
+                                            .copy(alpha = 0.26f)
+                                    } else {
+                                        MaterialTheme.colorScheme
+                                            .surface
+                                    },
+                                border = BorderStroke(
+                                    width =
+                                        if (active) {
+                                            2.dp
                                         } else {
-                                            MaterialTheme.colorScheme
-                                                .onSurface
+                                            1.dp
                                         },
+                                    color =
+                                        when {
+                                            isError ->
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .error
+
+                                            active ->
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .primary
+
+                                            else ->
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .outlineVariant
+                                        }
                                 )
+                            ) {
+                                Box(
+                                    contentAlignment =
+                                        Alignment.Center
+                                ) {
+                                    Text(
+                                        text = digit,
+                                        style =
+                                            MaterialTheme
+                                                .typography
+                                                .titleMedium,
+                                        fontWeight =
+                                            FontWeight.ExtraBold,
+                                        textAlign =
+                                            TextAlign.Center,
+                                        color =
+                                            if (isError) {
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .error
+                                            } else {
+                                                MaterialTheme
+                                                    .colorScheme
+                                                    .onSurface
+                                            },
+                                    )
+                                }
                             }
                         }
                     }
-                }
 
-                // Keep the actual editor present for selection, clipboard
-                // paste and keyboard OTP suggestions, while the cells above
-                // provide the visible representation.
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .alpha(0.01f)
-                ) {
-                    innerTextField()
+                    // One real editor remains over the compact visual cells.
+                    // This preserves normal Android selection, clipboard paste
+                    // and keyboard OTP suggestions without six independent
+                    // text fields fighting focus.
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .alpha(0.01f)
+                    ) {
+                        innerTextField()
+                    }
                 }
             }
-        }
-    )
+        )
+    }
 }
 
 @Composable
