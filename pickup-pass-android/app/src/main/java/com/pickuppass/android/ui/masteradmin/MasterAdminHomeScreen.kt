@@ -179,8 +179,13 @@ private fun PlatformToolsSheet(
     onDismiss: () -> Unit,
     onSelect: (MasterAdminSection) -> Unit
 ) {
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
         Column(
