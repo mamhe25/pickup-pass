@@ -750,7 +750,7 @@ private fun TwoFactorCard(
                     autoFocus = false
                 )
                 Text(
-                    "Type or paste the 6-digit code. Setup completes automatically after the final digit.",
+                    "Paste or enter the 6-digit code. Setup completes automatically.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
