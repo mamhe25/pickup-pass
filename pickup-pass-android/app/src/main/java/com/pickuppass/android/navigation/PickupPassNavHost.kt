@@ -637,6 +637,11 @@ fun PickupPassNavHost(
                         Screen.TeacherExitLogs.route
                     )
                 },
+                onOpenStudentLifecycle = {
+                    navController.navigate(
+                        Screen.SchoolAdminStudentLifecycle.route
+                    )
+                },
                 onRegisterParent = {
                         studentId ->
                     navController.navigate(
