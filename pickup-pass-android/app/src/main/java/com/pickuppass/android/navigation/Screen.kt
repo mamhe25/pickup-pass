@@ -100,6 +100,16 @@ sealed class Screen(
     data object MasterAdminNotifications :
         Screen("master-admin/notifications")
 
+    data object MasterAdminLaunchReadiness :
+        Screen(
+            "master-admin/launch-readiness/{schoolId}"
+        ) {
+        fun createRoute(
+            schoolId: String
+        ) =
+            "master-admin/launch-readiness/$schoolId"
+    }
+
     data object SchoolAdminBranding :
         Screen("school-admin/branding")
 
