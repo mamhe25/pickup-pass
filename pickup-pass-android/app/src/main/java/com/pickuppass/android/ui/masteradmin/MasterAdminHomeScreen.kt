@@ -25,6 +25,8 @@ import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.NotificationActionButton
 import com.pickuppass.android.ui.common.PickupPassPullToRefresh
+import com.pickuppass.android.ui.common.PremiumHeroCard
+import com.pickuppass.android.ui.common.PremiumSectionHeader
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.theme.Spacing
 
@@ -324,57 +326,99 @@ private fun MasterOverview(
         verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
-            Surface(
+            PremiumHeroCard(
+                eyebrow = "Platform overview",
+                title = "${state.activeSchools} active schools",
+                message =
+                    "${state.totalSchools} total tenants · " +
+                        "${state.suspendedSchools} suspended. " +
+                        "Review operational and security signals before opening privileged tools.",
+                icon = Icons.Filled.Dashboard
+            )
+        }
+
+        item {
+            PremiumSectionHeader(
+                title = "Platform health",
+                subtitle = "High-signal metrics for the current operating state."
+            )
+        }
+
+        item {
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shadowElevation = 7.dp
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
-                Column(Modifier.padding(Spacing.lg)) {
-                    Text(
-                        "PLATFORM OVERVIEW",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .72f)
-                    )
-                    Text(
-                        "${state.activeSchools} active schools",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        "${state.totalSchools} total · ${state.suspendedSchools} suspended",
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .76f)
-                    )
-                }
+                MasterMetric(
+                    "Total schools",
+                    state.totalSchools.toString(),
+                    Modifier.weight(1f)
+                )
+                MasterMetric(
+                    "Need attention",
+                    state.operations?.metrics?.attentionNeededSchools?.toString() ?: "—",
+                    Modifier.weight(1f)
+                )
             }
         }
 
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+            ) {
                 MasterMetric(
-                    "Attention",
-                    state.operations?.metrics?.attentionNeededSchools?.toString() ?: "—",
-                    Modifier.weight(1f)
-                )
-                MasterMetric(
-                    "Security",
+                    "Security alerts",
                     state.security?.metrics?.activeAlerts?.toString() ?: "—",
                     Modifier.weight(1f)
                 )
                 MasterMetric(
-                    "5xx",
+                    "HTTP 5xx",
                     state.observability?.http?.errors5xx?.toString() ?: "—",
                     Modifier.weight(1f)
                 )
             }
         }
 
-        item { MasterAreaCard("Schools", "Tenant status, plans and launch state", onSchools) }
-        item { MasterAreaCard("Operations", "Billing, quota, delivery and runtime health", onOperations) }
-        item { MasterAreaCard("Security", "Authentication, sessions and privileged actions", onSecurity) }
-        item { MasterAreaCard("Advanced platform tools", "Billing actions, recovery, exports and tenant administration", onAdvanced) }
+        item {
+            PremiumSectionHeader(
+                title = "Platform areas",
+                subtitle = "Open a focused workspace instead of scanning one long admin page."
+            )
+        }
+
+        item {
+            MasterAreaCard(
+                title = "Schools",
+                subtitle = "Tenant status, plans and launch state",
+                icon = Icons.Filled.Business,
+                onClick = onSchools
+            )
+        }
+        item {
+            MasterAreaCard(
+                title = "Operations",
+                subtitle = "Billing, quota, delivery and runtime health",
+                icon = Icons.Filled.Speed,
+                onClick = onOperations
+            )
+        }
+        item {
+            MasterAreaCard(
+                title = "Security",
+                subtitle = "Authentication, sessions and privileged actions",
+                icon = Icons.Filled.Security,
+                onClick = onSecurity
+            )
+        }
+        item {
+            MasterAreaCard(
+                title = "Advanced platform tools",
+                subtitle = "Recovery, exports and tenant administration",
+                icon = Icons.Filled.Settings,
+                onClick = onAdvanced
+            )
+        }
     }
 }
 
@@ -569,11 +613,67 @@ private fun MasterMetric(label: String, value: String, modifier: Modifier = Modi
 }
 
 @Composable
-private fun MasterAreaCard(title: String, subtitle: String, onClick: () -> Unit) {
-    OutlinedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(Spacing.md)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun MasterAreaCard(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    OutlinedCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
+            Surface(
+                modifier = Modifier.size(46.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(23.dp)
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = "Open",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
