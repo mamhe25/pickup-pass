@@ -494,8 +494,10 @@ class SchoolAdminRepository @Inject constructor(
                 ApiResult.Success(Unit)
             } else {
                 ApiResult.Failure(
-                    response.body()?.error
-                        ?: "Could not update student details"
+                    apiError(
+                        response,
+                        "Could not update student details"
+                    )
                 )
             }
         } catch (e: Exception) {
