@@ -66,6 +66,10 @@ fun ManageGuardiansScreen(
     var showAddSheet by remember { mutableStateOf(false) }
     var addMode by remember { mutableStateOf(GuardianAddMode.PERMANENT) }
 
+    val addSheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
     val primaryGuardian = uiState.guardians.firstOrNull {
         it.entry.isPrimary == true
     }
@@ -268,7 +272,8 @@ fun ManageGuardiansScreen(
                     showAddSheet = false
                     viewModel.clearFeedback()
                 }
-            }
+            },
+            sheetState = addSheetState
         ) {
             Column(
                 modifier = Modifier
