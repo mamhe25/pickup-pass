@@ -531,10 +531,45 @@ fun MasterAdminAdvancedConsole(
                     }
                 } else {
                     item {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                            MetricCard("PITR", if (recovery.pitrEnabled) "On" else "Off", Modifier.weight(1f))
-                            MetricCard("Delete protect", if (recovery.deleteProtectionEnabled) "On" else "Off", Modifier.weight(1f))
-                            MetricCard("Ready backups", recovery.backups.count { it.state == "READY" }.toString(), Modifier.weight(1f))
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.spacedBy(Spacing.sm)
+                        ) {
+                            MetricCard(
+                                "PITR",
+                                if (recovery.pitrEnabled) "On" else "Off",
+                                Modifier.weight(1f)
+                            )
+                            MetricCard(
+                                "Delete protection",
+                                if (recovery.deleteProtectionEnabled) "On" else "Off",
+                                Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    item {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement =
+                                Arrangement.spacedBy(Spacing.sm)
+                        ) {
+                            MetricCard(
+                                "Ready backups",
+                                recovery.backups
+                                    .count { it.state == "READY" }
+                                    .toString(),
+                                Modifier.weight(1f)
+                            )
+                            MetricCard(
+                                "Protection",
+                                if (recovery.protectionHealthy) {
+                                    "Healthy"
+                                } else {
+                                    "Review"
+                                },
+                                Modifier.weight(1f)
+                            )
                         }
                     }
                     item {
@@ -1081,146 +1116,587 @@ private fun SubscriptionDialog(
     featureKeys: List<String>,
     saving: Boolean,
     onDismiss: () -> Unit,
-    onSave: (String, String, Map<String, Boolean>, Boolean, Boolean, Boolean, Int) -> Unit
+    onSave: (
+        String,
+        String,
+        Map<String, Boolean>,
+        Boolean,
+        Boolean,
+        Boolean,
+        Int
+    ) -> Unit
 ) {
-    var selectedPlan by remember(school.schoolId) { mutableStateOf(school.plan) }
-    var selectedStatus by remember(school.schoolId) { mutableStateOf(school.subscriptionStatus) }
-    var customize by remember(school.schoolId) { mutableStateOf(school.featureOverrides.isNotEmpty()) }
-    var featureValues by remember(school.schoolId) { mutableStateOf(school.features) }
-    var autoRenew by remember(school.schoolId) { mutableStateOf(school.autoRenew) }
-    var cancelAtPeriodEnd by remember(school.schoolId) { mutableStateOf(school.cancelAtPeriodEnd) }
-    var startNewPeriod by remember(school.schoolId) { mutableStateOf(false) }
-    var extendTrial30 by remember(school.schoolId) { mutableStateOf(false) }
+    var selectedPlan by remember(school.schoolId) {
+        mutableStateOf(school.plan)
+    }
+    var selectedStatus by remember(school.schoolId) {
+        mutableStateOf(school.subscriptionStatus)
+    }
+    var customize by remember(school.schoolId) {
+        mutableStateOf(school.featureOverrides.isNotEmpty())
+    }
+    var featureValues by remember(school.schoolId) {
+        mutableStateOf(school.features)
+    }
+    var autoRenew by remember(school.schoolId) {
+        mutableStateOf(school.autoRenew)
+    }
+    var cancelAtPeriodEnd by remember(school.schoolId) {
+        mutableStateOf(school.cancelAtPeriodEnd)
+    }
+    var startNewPeriod by remember(school.schoolId) {
+        mutableStateOf(false)
+    }
+    var extendTrial30 by remember(school.schoolId) {
+        mutableStateOf(false)
+    }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Plan & features") },
-        text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                item { Text(school.schoolName, fontWeight = FontWeight.SemiBold) }
-                item { Text("Plan", fontWeight = FontWeight.SemiBold) }
-                items(listOf("trial", "starter", "school", "enterprise")) { key ->
-                    val definition = plans[key]
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+    val sheetState =
+        rememberModalBottomSheetState(
+            skipPartiallyExpanded = true
+        )
+
+    ModalBottomSheet(
+        onDismissRequest = {
+            if (!saving) {
+                onDismiss()
+            }
+        },
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 760.dp),
+            contentPadding = PaddingValues(
+                start = Spacing.lg,
+                top = Spacing.xs,
+                end = Spacing.lg,
+                bottom = Spacing.xl
+            ),
+            verticalArrangement =
+                Arrangement.spacedBy(Spacing.md)
+        ) {
+            item {
+                Column(
+                    verticalArrangement =
+                        Arrangement.spacedBy(Spacing.xs)
+                ) {
+                    Text(
+                        "SUBSCRIPTION CONTROL",
+                        style =
+                            MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "Plan & features",
+                        style =
+                            MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        school.schoolName,
+                        style =
+                            MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Change commercial access separately from core dismissal safety. Review the lifecycle summary before saving.",
+                        style =
+                            MaterialTheme.typography.bodySmall,
+                        color =
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            item {
+                PremiumSectionHeader(
+                    title = "Plan",
+                    subtitle =
+                        "Choose the tenant limit and default feature bundle."
+                )
+            }
+
+            items(
+                listOf(
+                    "trial",
+                    "starter",
+                    "school",
+                    "enterprise"
+                )
+            ) { key ->
+                val definition = plans[key]
+                val selected = selectedPlan == key
+
+                OutlinedCard(
+                    onClick = {
+                        selectedPlan = key
+                        if (!customize) {
+                            featureValues =
+                                definition?.features
+                                    ?: emptyMap()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors =
+                        CardDefaults.outlinedCardColors(
+                            containerColor =
+                                if (selected) {
+                                    MaterialTheme.colorScheme
+                                        .primaryContainer
+                                        .copy(alpha = .42f)
+                                } else {
+                                    MaterialTheme.colorScheme
+                                        .surface
+                                }
+                        ),
+                    border = BorderStroke(
+                        1.dp,
+                        if (selected) {
+                            MaterialTheme.colorScheme.primary
+                                .copy(alpha = .42f)
+                        } else {
+                            MaterialTheme.colorScheme
+                                .outlineVariant
+                        }
+                    )
+                ) {
+                    Row(
+                        modifier =
+                            Modifier.padding(Spacing.md),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
                         RadioButton(
-                            selected = selectedPlan == key,
-                            onClick = {
-                                selectedPlan = key
-                                if (!customize) featureValues = definition?.features ?: emptyMap()
-                            }
+                            selected = selected,
+                            onClick = null
                         )
-                        Column {
-                            Text(definition?.displayName ?: key.replaceFirstChar { it.uppercase() })
+                        Spacer(Modifier.width(Spacing.sm))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                definition?.displayName
+                                    ?: key.replaceFirstChar {
+                                        it.uppercase()
+                                    },
+                                style =
+                                    MaterialTheme.typography
+                                        .titleSmall,
+                                fontWeight =
+                                    FontWeight.ExtraBold
+                            )
                             definition?.let {
                                 Text(
-                                    "Students ${limitLabel(it.maxStudents)} · Staff ${limitLabel(it.maxStaff)} · Campuses ${limitLabel(it.maxCampuses)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    "Students ${limitLabel(it.maxStudents)} · " +
+                                        "Staff ${limitLabel(it.maxStaff)} · " +
+                                        "Campuses ${limitLabel(it.maxCampuses)}",
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme.colorScheme
+                                            .onSurfaceVariant
                                 )
                             }
                         }
-                    }
-                }
-                item { Text("Subscription status", fontWeight = FontWeight.SemiBold) }
-                items(listOf("trialing", "active", "past_due", "cancelled")) { status ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = selectedStatus == status, onClick = { selectedStatus = status })
-                        Text(status.replace('_', ' ').replaceFirstChar { it.uppercase() })
-                    }
-                }
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                        Text("Billing lifecycle", fontWeight = FontWeight.SemiBold)
-                        school.trialEndsAt?.let { Text("Trial ends: ${dateLabel(it)}", style = MaterialTheme.typography.bodySmall) }
-                        school.currentPeriodEnd?.let { Text("Current period ends: ${dateLabel(it)}", style = MaterialTheme.typography.bodySmall) }
-                        school.graceEndsAt?.let { Text("Grace ends: ${dateLabel(it)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-                        Text(
-                            if (school.subscriptionAccessActive) "Optional SaaS features available" else "Optional SaaS features blocked; core QR pickup remains available",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (school.subscriptionAccessActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-                item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = autoRenew, onCheckedChange = { autoRenew = it })
-                        Spacer(Modifier.width(Spacing.sm))
-                        Column {
-                            Text("Auto-renew billing period", fontWeight = FontWeight.SemiBold)
-                            Text("Extends the 30-day service period automatically", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-                item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = cancelAtPeriodEnd, onCheckedChange = { cancelAtPeriodEnd = it })
-                        Spacer(Modifier.width(Spacing.sm))
-                        Column {
-                            Text("Cancel at period end", fontWeight = FontWeight.SemiBold)
-                            Text("Current access stays until the period ends", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-                if (selectedStatus == "active") {
-                    item {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = startNewPeriod, onCheckedChange = { startNewPeriod = it })
-                            Text("Start a new 30-day billing period now")
-                        }
-                    }
-                }
-                if (selectedPlan == "trial") {
-                    item {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = extendTrial30, onCheckedChange = { extendTrial30 = it })
-                            Text("Extend trial by 30 days")
-                        }
-                    }
-                }
-                item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(
-                            checked = customize,
-                            onCheckedChange = {
-                                customize = it
-                                if (it) featureValues = plans[selectedPlan]?.features ?: school.features
-                            }
-                        )
-                        Spacer(Modifier.width(Spacing.sm))
-                        Column {
-                            Text("Customize feature access", fontWeight = FontWeight.SemiBold)
-                            Text("Off = inherit the selected plan defaults", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-                if (customize) {
-                    items(featureKeys.sorted()) { feature ->
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(featureLabel(feature), Modifier.weight(1f))
-                            Switch(
-                                checked = featureValues[feature] == true,
-                                onCheckedChange = { enabled -> featureValues = featureValues + (feature to enabled) }
+                        if (selected) {
+                            AssistChip(
+                                onClick = {},
+                                enabled = false,
+                                label = { Text("Selected") }
                             )
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(enabled = !saving && plans.containsKey(selectedPlan), onClick = {
-                onSave(
-                    selectedPlan,
-                    selectedStatus,
-                    if (customize) featureValues else emptyMap(),
-                    autoRenew,
-                    cancelAtPeriodEnd,
-                    startNewPeriod,
-                    if (extendTrial30) 30 else 0
+
+            item {
+                PremiumSectionHeader(
+                    title = "Subscription status",
+                    subtitle =
+                        "Control lifecycle state independently of the selected plan."
                 )
-            }) { Text("Save") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(Spacing.xs)
+                ) {
+                    listOf(
+                        "trialing",
+                        "active",
+                        "past_due",
+                        "cancelled"
+                    ).forEach { status ->
+                        FilterChip(
+                            selected =
+                                selectedStatus == status,
+                            onClick = {
+                                selectedStatus = status
+                            },
+                            label = {
+                                Text(
+                                    status
+                                        .replace('_', ' ')
+                                        .replaceFirstChar {
+                                            it.uppercase()
+                                        }
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
+            item {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    color =
+                        MaterialTheme.colorScheme
+                            .surfaceVariant
+                            .copy(alpha = .55f)
+                ) {
+                    Column(
+                        modifier =
+                            Modifier.padding(Spacing.md),
+                        verticalArrangement =
+                            Arrangement.spacedBy(Spacing.xs)
+                    ) {
+                        Text(
+                            "Billing lifecycle",
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        school.trialEndsAt?.let {
+                            Text(
+                                "Trial ends · ${dateLabel(it)}",
+                                style =
+                                    MaterialTheme.typography
+                                        .bodySmall
+                            )
+                        }
+                        school.currentPeriodEnd?.let {
+                            Text(
+                                "Current period ends · ${dateLabel(it)}",
+                                style =
+                                    MaterialTheme.typography
+                                        .bodySmall
+                            )
+                        }
+                        school.graceEndsAt?.let {
+                            Text(
+                                "Grace ends · ${dateLabel(it)}",
+                                style =
+                                    MaterialTheme.typography
+                                        .bodySmall,
+                                color =
+                                    MaterialTheme.colorScheme
+                                        .error
+                            )
+                        }
+                        Text(
+                            if (
+                                school.subscriptionAccessActive
+                            ) {
+                                "Optional SaaS features are available."
+                            } else {
+                                "Optional SaaS features are blocked; core QR pickup remains available."
+                            },
+                            style =
+                                MaterialTheme.typography
+                                    .bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color =
+                                if (
+                                    school.subscriptionAccessActive
+                                ) {
+                                    MaterialTheme.colorScheme
+                                        .primary
+                                } else {
+                                    MaterialTheme.colorScheme
+                                        .error
+                                }
+                        )
+                    }
+                }
+            }
+
+            item {
+                SubscriptionToggleCard(
+                    title = "Auto-renew billing period",
+                    message =
+                        "Extend the 30-day service period automatically.",
+                    checked = autoRenew,
+                    enabled = !saving,
+                    onCheckedChange = {
+                        autoRenew = it
+                    }
+                )
+            }
+
+            item {
+                SubscriptionToggleCard(
+                    title = "Cancel at period end",
+                    message =
+                        "Keep current access until the current period ends.",
+                    checked = cancelAtPeriodEnd,
+                    enabled = !saving,
+                    onCheckedChange = {
+                        cancelAtPeriodEnd = it
+                    }
+                )
+            }
+
+            if (selectedStatus == "active") {
+                item {
+                    OutlinedCard(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier =
+                                Modifier.padding(Spacing.md),
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = startNewPeriod,
+                                onCheckedChange = {
+                                    startNewPeriod = it
+                                },
+                                enabled = !saving
+                            )
+                            Spacer(Modifier.width(Spacing.sm))
+                            Column {
+                                Text(
+                                    "Start a new 30-day period",
+                                    fontWeight =
+                                        FontWeight.Bold
+                                )
+                                Text(
+                                    "Apply a fresh billing period as part of this save.",
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme.colorScheme
+                                            .onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (selectedPlan == "trial") {
+                item {
+                    OutlinedCard(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier =
+                                Modifier.padding(Spacing.md),
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = extendTrial30,
+                                onCheckedChange = {
+                                    extendTrial30 = it
+                                },
+                                enabled = !saving
+                            )
+                            Spacer(Modifier.width(Spacing.sm))
+                            Column {
+                                Text(
+                                    "Extend trial by 30 days",
+                                    fontWeight =
+                                        FontWeight.Bold
+                                )
+                                Text(
+                                    "Adds another 30 days to the trial lifecycle.",
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme.colorScheme
+                                            .onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                SubscriptionToggleCard(
+                    title = "Customize feature access",
+                    message =
+                        if (customize) {
+                            "Feature overrides are active for this tenant."
+                        } else {
+                            "Off means inherit the selected plan defaults."
+                        },
+                    checked = customize,
+                    enabled = !saving,
+                    onCheckedChange = {
+                        customize = it
+                        if (it) {
+                            featureValues =
+                                plans[selectedPlan]
+                                    ?.features
+                                    ?: school.features
+                        }
+                    }
+                )
+            }
+
+            if (customize) {
+                item {
+                    PremiumSectionHeader(
+                        title = "Feature overrides",
+                        subtitle =
+                            "Explicit tenant exceptions override plan defaults."
+                    )
+                }
+
+                items(featureKeys.sorted()) { feature ->
+                    OutlinedCard(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier =
+                                Modifier.padding(
+                                    horizontal = Spacing.md,
+                                    vertical = Spacing.sm
+                                ),
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Text(
+                                featureLabel(feature),
+                                modifier =
+                                    Modifier.weight(1f),
+                                style =
+                                    MaterialTheme.typography
+                                        .bodyMedium,
+                                fontWeight =
+                                    FontWeight.SemiBold
+                            )
+                            Switch(
+                                checked =
+                                    featureValues[feature] ==
+                                        true,
+                                enabled = !saving,
+                                onCheckedChange = { enabled ->
+                                    featureValues =
+                                        featureValues +
+                                            (
+                                                feature to
+                                                    enabled
+                                                )
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                HorizontalDivider(
+                    color =
+                        MaterialTheme.colorScheme
+                            .outlineVariant
+                )
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        enabled = !saving
+                    ) {
+                        Text("Cancel")
+                    }
+                    Spacer(Modifier.width(Spacing.sm))
+                    Button(
+                        enabled =
+                            !saving &&
+                                plans.containsKey(
+                                    selectedPlan
+                                ),
+                        onClick = {
+                            onSave(
+                                selectedPlan,
+                                selectedStatus,
+                                if (customize) {
+                                    featureValues
+                                } else {
+                                    emptyMap()
+                                },
+                                autoRenew,
+                                cancelAtPeriodEnd,
+                                startNewPeriod,
+                                if (extendTrial30) 30 else 0
+                            )
+                        }
+                    ) {
+                        Text(
+                            if (saving) {
+                                "Saving…"
+                            } else {
+                                "Save subscription"
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubscriptionToggleCard(
+    title: String,
+    message: String,
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(Spacing.sm))
+            Switch(
+                checked = checked,
+                enabled = enabled,
+                onCheckedChange = onCheckedChange
+            )
+        }
+    }
 }
 
 private fun limitLabel(value: Int): String = if (value < 0) "Unlimited" else value.toString()
