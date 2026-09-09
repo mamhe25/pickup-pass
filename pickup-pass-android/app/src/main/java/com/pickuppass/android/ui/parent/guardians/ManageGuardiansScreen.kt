@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pickuppass.android.ui.common.CollectionAddFab
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.GuardianAvatar
 import com.pickuppass.android.ui.common.PremiumTopAppBar
@@ -62,6 +63,7 @@ fun ManageGuardiansScreen(
     var confirmRemoveRow by remember { mutableStateOf<GuardianRow?>(null) }
     var scheduleRow by remember { mutableStateOf<GuardianRow?>(null) }
     var photoRow by remember { mutableStateOf<GuardianRow?>(null) }
+    var showAddSheet by remember { mutableStateOf(false) }
     var addMode by remember { mutableStateOf(GuardianAddMode.PERMANENT) }
 
     val primaryGuardian = uiState.guardians.firstOrNull {
@@ -82,6 +84,8 @@ fun ManageGuardiansScreen(
         when (uiState.completedAction) {
             "schedule-updated" -> scheduleRow = null
             "guardian-removed" -> confirmRemoveRow = null
+            "guardian-added",
+            "temporary-added" -> showAddSheet = false
         }
     }
 
@@ -93,6 +97,22 @@ fun ManageGuardiansScreen(
                 subtitle = uiState.studentName.takeIf { it.isNotBlank() } ?: "Student pickup access",
                 onBack = onBack,
             )
+        },
+        floatingActionButton = {
+            if (
+                hasPrimaryGuardian &&
+                !uiState.isLoading &&
+                uiState.listError == null
+            ) {
+                CollectionAddFab(
+                    onClick = {
+                        viewModel.clearFeedback()
+                        addMode = GuardianAddMode.PERMANENT
+                        showAddSheet = true
+                    },
+                    contentDescription = "Add guardian access"
+                )
+            }
         }
     ) { padding ->
         Box(
@@ -109,7 +129,7 @@ fun ManageGuardiansScreen(
                     start = Spacing.md,
                     top = Spacing.sm,
                     end = Spacing.md,
-                    bottom = Spacing.xl
+                    bottom = 96.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
@@ -223,52 +243,7 @@ fun ManageGuardiansScreen(
                     }
                 }
 
-                item(key = "add_heading") {
-                    SectionHeading(
-                        title = "Add pickup access",
-                        detail = if (hasPrimaryGuardian) {
-                            "Add a permanent backup guardian or a one-day pickup authorization."
-                        } else {
-                            "Register the primary guardian first. Additional pickup access stays locked until that role exists."
-                        }
-                    )
-                }
-
-                if (hasPrimaryGuardian) {
-                    item(key = "mode_picker") {
-                        AddModePicker(
-                            mode = addMode,
-                            oneDayEnabled =
-                                uiState.temporaryGuardiansEnabled,
-                            onModeChange = {
-                                viewModel.clearFeedback()
-                                addMode = it
-                            }
-                        )
-                    }
-
-                    item(key = "add_form-${addMode.name}") {
-                        when (addMode) {
-                            GuardianAddMode.PERMANENT -> {
-                                AddGuardianForm(
-                                    isSubmitting = actionsBusy,
-                                    onSubmit = viewModel::addGuardian
-                                )
-                            }
-
-                            GuardianAddMode.ONE_DAY -> {
-                                if (uiState.temporaryGuardiansEnabled) {
-                                    TemporaryGuardianForm(
-                                        isSubmitting = actionsBusy,
-                                        onSubmit = viewModel::addTemporaryGuardian
-                                    )
-                                } else {
-                                    FeatureUnavailableCard()
-                                }
-                            }
-                        }
-                    }
-                } else {
+                if (!hasPrimaryGuardian && !uiState.isLoading) {
                     item(key = "primary_required") {
                         PrimaryRequiredCard(
                             canRegisterPrimary = canRegisterPrimary,
@@ -279,6 +254,100 @@ fun ManageGuardiansScreen(
 
                 item(key = "safety") {
                     SafetyNote()
+                }
+            }
+        }
+    }
+
+    if (showAddSheet && hasPrimaryGuardian) {
+        ModalBottomSheet(
+            onDismissRequest = {
+                if (!actionsBusy) {
+                    showAddSheet = false
+                    viewModel.clearFeedback()
+                }
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(
+                        start = Spacing.lg,
+                        end = Spacing.lg,
+                        bottom = Spacing.xl
+                    ),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Filled.PersonAddAlt1,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.width(Spacing.md))
+
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Add pickup access",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            "Choose the type of authorization, then enter the trusted person's details.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                AddModePicker(
+                    mode = addMode,
+                    oneDayEnabled = uiState.temporaryGuardiansEnabled,
+                    onModeChange = {
+                        viewModel.clearFeedback()
+                        addMode = it
+                    }
+                )
+
+                if (uiState.formError != null || uiState.formSuccess != null) {
+                    FormFeedback(
+                        formError = uiState.formError,
+                        formSuccess = uiState.formSuccess,
+                        formIsWarning = uiState.formIsWarning
+                    )
+                }
+
+                when (addMode) {
+                    GuardianAddMode.PERMANENT -> {
+                        AddGuardianForm(
+                            isSubmitting = actionsBusy,
+                            onSubmit = viewModel::addGuardian
+                        )
+                    }
+
+                    GuardianAddMode.ONE_DAY -> {
+                        if (uiState.temporaryGuardiansEnabled) {
+                            TemporaryGuardianForm(
+                                isSubmitting = actionsBusy,
+                                onSubmit = viewModel::addTemporaryGuardian
+                            )
+                        } else {
+                            FeatureUnavailableCard()
+                        }
+                    }
                 }
             }
         }
