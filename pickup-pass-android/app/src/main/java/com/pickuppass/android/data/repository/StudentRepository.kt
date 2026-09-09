@@ -1,10 +1,14 @@
 package com.pickuppass.android.data.repository
 
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.pickuppass.android.data.model.PickupPolicyInfo
 import com.pickuppass.android.data.model.SchoolInfo
 import com.pickuppass.android.data.model.Student
 import com.pickuppass.android.data.model.UserProfile
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import javax.inject.Inject
@@ -54,24 +58,60 @@ class StudentRepository @Inject constructor(
      */
     suspend fun getSchool(schoolId: String): Result<SchoolInfo?> = runCatching {
         val doc = firestore.collection("schools").document(schoolId).get().await()
-        if (!doc.exists()) {
-            return@runCatching null
+        doc.toSchoolInfo()
+    }
+
+    /**
+     * Live school metadata for operational screens whose behavior changes
+     * immediately when the platform updates the tenant (for example launch
+     * approval switching dismissal from pre-launch test to production).
+     */
+    fun observeSchool(schoolId: String): Flow<SchoolInfo?> =
+        callbackFlow {
+            val registration =
+                firestore.collection("schools")
+                    .document(schoolId)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            close(error)
+                            return@addSnapshotListener
+                        }
+
+                        trySend(snapshot?.toSchoolInfo())
+                    }
+
+            awaitClose {
+                registration.remove()
+            }
         }
 
-        val pickupPolicy = (doc.get("pickupPolicy") as? Map<*, *>)?.let { policy ->
-            PickupPolicyInfo(
-                mode = policy["mode"] as? String ?: "unrestricted",
-                earliestPickupTime = policy["earliestPickupTime"] as? String ?: "",
-                latestPickupTime = policy["latestPickupTime"] as? String ?: "",
-                allowManualOverride = policy["allowManualOverride"] as? Boolean ?: true
-            )
-        }
+    private fun DocumentSnapshot.toSchoolInfo(): SchoolInfo? {
+        if (!exists()) return null
 
-        SchoolInfo(
-            id = doc.id,
-            schoolName = doc.getString("schoolName").orEmpty(),
-            status = doc.getString("status").orEmpty(),
-            logoUrl = doc.getString("logoUrl"),
+        val pickupPolicy =
+            (get("pickupPolicy") as? Map<*, *>)?.let { policy ->
+                PickupPolicyInfo(
+                    mode = policy["mode"] as? String ?: "unrestricted",
+                    earliestPickupTime =
+                        policy["earliestPickupTime"] as? String ?: "",
+                    latestPickupTime =
+                        policy["latestPickupTime"] as? String ?: "",
+                    allowManualOverride =
+                        policy["allowManualOverride"] as? Boolean ?: true
+                )
+            }
+
+        return SchoolInfo(
+            id = id,
+            schoolName = getString("schoolName").orEmpty(),
+            status = getString("status").orEmpty(),
+            launchStatus =
+                getString("launchStatus")
+                    ?.trim()
+                    ?.lowercase()
+                    ?.takeIf { it.isNotBlank() }
+                    ?: "draft",
+            logoUrl = getString("logoUrl"),
             pickupPolicy = pickupPolicy
         )
     }
