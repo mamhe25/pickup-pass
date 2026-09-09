@@ -114,14 +114,10 @@ class TeacherHomeViewModel @Inject constructor(
                 val sectionsDeferred = async {
                     teacherRepository.getMyAssignedSections(session.uid)
                 }
-                val unreadDeferred = async {
-                    notificationRepository.getUnreadCount(session.uid)
-                }
 
                 val profileResult = profileDeferred.await()
                 val schoolResult = schoolDeferred.await()
                 val sectionsResult = sectionsDeferred.await()
-                val unreadResult = unreadDeferred.await()
 
                 val sections = sectionsResult
                     .getOrElse { emptyList() }
@@ -152,7 +148,6 @@ class TeacherHomeViewModel @Inject constructor(
                     profileResult.isFailure ||
                         schoolResult.isFailure ||
                         sectionsResult.isFailure ||
-                        unreadResult.isFailure ||
                         studentsResult.isFailure
 
                 _uiState.value = TeacherHomeUiState(
@@ -162,7 +157,6 @@ class TeacherHomeViewModel @Inject constructor(
                     school = schoolResult.getOrNull(),
                     studentCount = students.size,
                     sectionSummaries = summaries,
-                    unreadNotifications = unreadResult.getOrDefault(0),
                     hasNoAssignedSections = sectionsResult.isSuccess && sections.isEmpty(),
                     error = if (partialFailure) {
                         "Some dashboard information could not be refreshed. Your teacher tools are still available."
