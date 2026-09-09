@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pickuppass.android.data.model.DismissalDashboardResponse
 import com.pickuppass.android.data.repository.ApiResult
+import com.pickuppass.android.data.repository.AuthRepository
+import com.pickuppass.android.data.repository.NotificationRepository
 import com.pickuppass.android.data.repository.SchoolAdminRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,12 +21,15 @@ data class DismissalDashboardUiState(
     val isRefreshing: Boolean = false,
     val error: String? = null,
     val dashboard: DismissalDashboardResponse? = null,
+    val unreadNotifications: Int = 0,
     val showRemaining: Boolean = false
 )
 
 @HiltViewModel
 class DismissalDashboardViewModel @Inject constructor(
-    private val repository: SchoolAdminRepository
+    private val repository: SchoolAdminRepository,
+    private val authRepository: AuthRepository,
+    private val notificationRepository: NotificationRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DismissalDashboardUiState())
@@ -57,20 +63,32 @@ class DismissalDashboardViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(isRefreshing = true, error = null)
             }
 
+            val unreadDeferred = async {
+                authRepository.currentUid()
+                    ?.let { uid ->
+                        notificationRepository
+                            .getUnreadCount(uid)
+                            .getOrDefault(0)
+                    }
+                    ?: 0
+            }
+
             when (val result = repository.getDismissalDashboard()) {
                 is ApiResult.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isRefreshing = false,
                         error = null,
-                        dashboard = result.data
+                        dashboard = result.data,
+                        unreadNotifications = unreadDeferred.await()
                     )
                 }
                 is ApiResult.Failure -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isRefreshing = false,
-                        error = result.message
+                        error = result.message,
+                        unreadNotifications = unreadDeferred.await()
                     )
                 }
             }
