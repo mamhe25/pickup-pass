@@ -157,11 +157,9 @@ fun ScannerScreen(
                         gateLoading = gateLoading,
                         gateError = gateError,
                         prelaunchTestMode =
-                            !school?.launchStatus
-                                .equals(
-                                    "approved",
-                                    ignoreCase = true
-                                )
+                            shouldShowPrelaunchScannerNotice(
+                                school?.launchStatus
+                            )
                     )
                 }
             }
@@ -1576,3 +1574,18 @@ private fun CameraPermissionRequest(
         )
     }
 }
+
+
+internal fun shouldShowPrelaunchScannerNotice(
+    launchStatus: String?
+): Boolean =
+    launchStatus
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?.let {
+            !it.equals(
+                "approved",
+                ignoreCase = true
+            )
+        }
+        ?: false
