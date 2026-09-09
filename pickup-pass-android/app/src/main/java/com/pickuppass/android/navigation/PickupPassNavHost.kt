@@ -327,6 +327,8 @@ fun PickupPassNavHost(
             Screen.MasterAdminNotifications.route
         ) {
             NotificationsScreen(
+                audience =
+                    com.pickuppass.android.ui.parent.notifications.NotificationAudience.PLATFORM,
                 onBack = {
                     navController.popBackStack()
                 }
@@ -399,6 +401,8 @@ fun PickupPassNavHost(
             Screen.ParentNotifications.route
         ) {
             NotificationsScreen(
+                audience =
+                    com.pickuppass.android.ui.parent.notifications.NotificationAudience.FAMILY,
                 onBack = {
                     navController
                         .popBackStack()
@@ -656,6 +660,8 @@ fun PickupPassNavHost(
             Screen.TeacherNotifications.route
         ) {
             NotificationsScreen(
+                audience =
+                    com.pickuppass.android.ui.parent.notifications.NotificationAudience.STAFF,
                 onBack = {
                     navController
                         .popBackStack()
@@ -809,6 +815,19 @@ fun PickupPassNavHost(
                 onSignedOut = {
                     navController
                         .navigateToLoginClearingBackStack()
+                }
+            )
+        }
+
+        composable(
+            Screen.SchoolAdminNotifications.route
+        ) {
+            NotificationsScreen(
+                audience =
+                    com.pickuppass.android.ui.parent.notifications.NotificationAudience.SCHOOL_ADMIN,
+                onBack = {
+                    navController
+                        .popBackStack()
                 }
             )
         }
