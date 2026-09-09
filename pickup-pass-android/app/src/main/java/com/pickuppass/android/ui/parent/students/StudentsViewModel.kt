@@ -92,9 +92,6 @@ class StudentsViewModel @Inject constructor(
                 val schoolDeferred = async {
                     studentRepository.getSchool(session.schoolId)
                 }
-                val unreadDeferred = async {
-                    notificationRepository.getUnreadCount(session.uid)
-                }
                 val profileDeferred = async {
                     studentRepository.getUserProfile(session.uid)
                 }
@@ -104,7 +101,6 @@ class StudentsViewModel @Inject constructor(
 
                 val studentsResult = studentsDeferred.await()
                 val school = schoolDeferred.await().getOrNull()
-                val unread = unreadDeferred.await().getOrNull() ?: 0
                 val profile = profileDeferred.await().getOrNull()
                 val greetingName = profile?.displayName.orEmpty().toGreetingName()
 
@@ -115,7 +111,6 @@ class StudentsViewModel @Inject constructor(
                             isRefreshing = false,
                             students = students.sortedBy { it.fullName.lowercase() },
                             school = school,
-                            unreadNotificationCount = unread,
                             parentDisplayName = greetingName,
                             error = null
                         )
@@ -125,7 +120,6 @@ class StudentsViewModel @Inject constructor(
                             isLoading = false,
                             isRefreshing = false,
                             school = school,
-                            unreadNotificationCount = unread,
                             parentDisplayName = greetingName,
                             error = "Couldn't load your students"
                         )
