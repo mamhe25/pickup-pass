@@ -471,6 +471,40 @@ class SchoolAdminRepository @Inject constructor(
         }
     }
 
+    suspend fun updateStudentDetails(
+        studentId: String,
+        lastName: String,
+        firstName: String,
+        middleInitial: String,
+        suffix: String,
+        studentNumber: String
+    ): ApiResult<Unit> {
+        return try {
+            val response = api.updateStudentDetails(
+                studentId,
+                StudentDetailsRequest(
+                    lastName = lastName,
+                    firstName = firstName,
+                    middleInitial = middleInitial,
+                    suffix = suffix,
+                    studentNumber = studentNumber
+                )
+            )
+            if (response.isSuccessful) {
+                ApiResult.Success(Unit)
+            } else {
+                ApiResult.Failure(
+                    response.body()?.error
+                        ?: "Could not update student details"
+                )
+            }
+        } catch (e: Exception) {
+            ApiResult.Failure(
+                e.message ?: "Network error"
+            )
+        }
+    }
+
     suspend fun updateStudentStatus(
         studentId: String,
         status: String,
