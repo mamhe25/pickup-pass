@@ -777,54 +777,237 @@ fun MasterAdminAdvancedConsole(
 
     if (createSchool) {
         var name by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { createSchool = false },
-            title = { Text("Create school") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    OutlinedTextField(name, { name = it }, label = { Text("School name") }, singleLine = true)
-                    Text("New tenants start on a 30-day Trial plan.", style = MaterialTheme.typography.bodySmall)
+
+        ModalBottomSheet(
+            onDismissRequest = {
+                if (!state.saving) {
+                    createSchool = false
                 }
             },
-            confirmButton = {
-                Button(enabled = name.isNotBlank() && !state.saving, onClick = {
-                    viewModel.createSchool(name); createSchool = false
-                }) { Text("Create") }
-            },
-            dismissButton = { TextButton(onClick = { createSchool = false }) { Text("Cancel") } }
-        )
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding()
+                    .padding(
+                        start = Spacing.lg,
+                        end = Spacing.lg,
+                        bottom = Spacing.xl
+                    ),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md)
+            ) {
+                Text(
+                    "CREATE TENANT",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "Create school",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    "Create the school record first. New tenants start on the 30-day Trial plan and can be configured after creation.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("School name") },
+                    singleLine = true,
+                    enabled = !state.saving
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = { createSchool = false },
+                        enabled = !state.saving
+                    ) {
+                        Text("Cancel")
+                    }
+                    Spacer(Modifier.width(Spacing.sm))
+                    Button(
+                        enabled =
+                            name.isNotBlank() &&
+                                !state.saving,
+                        onClick = {
+                            viewModel.createSchool(name.trim())
+                            createSchool = false
+                        }
+                    ) {
+                        Text(
+                            if (state.saving) {
+                                "Creating…"
+                            } else {
+                                "Create school"
+                            }
+                        )
+                    }
+                }
+            }
+        }
     }
 
     adminForSchool?.let { school ->
-        var email by remember(school.schoolId) { mutableStateOf("") }
-        var first by remember(school.schoolId) { mutableStateOf("") }
-        var last by remember(school.schoolId) { mutableStateOf("") }
-        var middle by remember(school.schoolId) { mutableStateOf("") }
-        var suffix by remember(school.schoolId) { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { adminForSchool = null },
-            title = { Text("Add administrator") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Text(school.schoolName, fontWeight = FontWeight.SemiBold)
-                    OutlinedTextField(email, { email = it }, label = { Text("Email") }, singleLine = true)
-                    OutlinedTextField(first, { first = it }, label = { Text("First name") }, singleLine = true)
-                    OutlinedTextField(last, { last = it }, label = { Text("Last name") }, singleLine = true)
-                    OutlinedTextField(middle, { middle = it }, label = { Text("Middle initial (optional)") }, singleLine = true)
-                    OutlinedTextField(suffix, { suffix = it }, label = { Text("Suffix (optional)") }, singleLine = true)
+        var email by remember(school.schoolId) {
+            mutableStateOf("")
+        }
+        var first by remember(school.schoolId) {
+            mutableStateOf("")
+        }
+        var last by remember(school.schoolId) {
+            mutableStateOf("")
+        }
+        var middle by remember(school.schoolId) {
+            mutableStateOf("")
+        }
+        var suffix by remember(school.schoolId) {
+            mutableStateOf("")
+        }
+        val adminSheetState =
+            rememberModalBottomSheetState(
+                skipPartiallyExpanded = true
+            )
+
+        ModalBottomSheet(
+            onDismissRequest = {
+                if (!state.saving) {
+                    adminForSchool = null
                 }
             },
-            confirmButton = {
-                Button(
-                    enabled = email.isNotBlank() && first.isNotBlank() && last.isNotBlank() && !state.saving,
-                    onClick = {
-                        viewModel.createSchoolAdmin(school.schoolId, email, last, first, middle, suffix)
-                        adminForSchool = null
+            sheetState = adminSheetState,
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding()
+                    .padding(
+                        start = Spacing.lg,
+                        end = Spacing.lg,
+                        bottom = Spacing.xl
+                    ),
+                verticalArrangement =
+                    Arrangement.spacedBy(Spacing.md)
+            ) {
+                Text(
+                    "SCHOOL ADMINISTRATOR",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "Add administrator",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    school.schoolName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Create the initial or additional administrator identity for this tenant.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedTextField(
+                    email,
+                    { email = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Email") },
+                    singleLine = true,
+                    enabled = !state.saving
+                )
+                OutlinedTextField(
+                    first,
+                    { first = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("First name") },
+                    singleLine = true,
+                    enabled = !state.saving
+                )
+                OutlinedTextField(
+                    last,
+                    { last = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Last name") },
+                    singleLine = true,
+                    enabled = !state.saving
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    OutlinedTextField(
+                        middle,
+                        { middle = it },
+                        modifier = Modifier.weight(1f),
+                        label = { Text("M.I.") },
+                        singleLine = true,
+                        enabled = !state.saving
+                    )
+                    OutlinedTextField(
+                        suffix,
+                        { suffix = it },
+                        modifier = Modifier.weight(1f),
+                        label = { Text("Suffix") },
+                        singleLine = true,
+                        enabled = !state.saving
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = { adminForSchool = null },
+                        enabled = !state.saving
+                    ) {
+                        Text("Cancel")
                     }
-                ) { Text("Create admin") }
-            },
-            dismissButton = { TextButton(onClick = { adminForSchool = null }) { Text("Cancel") } }
-        )
+                    Spacer(Modifier.width(Spacing.sm))
+                    Button(
+                        enabled =
+                            email.isNotBlank() &&
+                                first.isNotBlank() &&
+                                last.isNotBlank() &&
+                                !state.saving,
+                        onClick = {
+                            viewModel.createSchoolAdmin(
+                                school.schoolId,
+                                email.trim(),
+                                last.trim(),
+                                first.trim(),
+                                middle.trim(),
+                                suffix.trim()
+                            )
+                            adminForSchool = null
+                        }
+                    ) {
+                        Text(
+                            if (state.saving) {
+                                "Creating…"
+                            } else {
+                                "Create admin"
+                            }
+                        )
+                    }
+                }
+            }
+        }
     }
 
     billingForSchool?.let { school ->
