@@ -19,9 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.data.model.MasterSchoolItem
 import com.pickuppass.android.ui.common.ErrorBanner
@@ -70,27 +67,6 @@ fun MasterAdminScreen(
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    DisposableEffect(
-        lifecycleOwner,
-        viewModel
-    ) {
-        val observer =
-            LifecycleEventObserver {
-                    _,
-                    event ->
-                if (event == Lifecycle.Event.ON_RESUME) {
-                    viewModel.refreshNotificationCount()
-                }
-            }
-
-        lifecycleOwner.lifecycle.addObserver(observer)
-
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
