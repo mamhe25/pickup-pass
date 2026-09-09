@@ -80,6 +80,7 @@ import com.pickuppass.android.data.model.DashboardStudent
 import com.pickuppass.android.data.model.GateActivityItem
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
+import com.pickuppass.android.ui.common.NotificationActionButton
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.PickupPassPullToRefresh
 import com.pickuppass.android.ui.theme.Amber100
@@ -100,6 +101,7 @@ fun DismissalDashboardScreen(
     onBack: (() -> Unit)? = null,
     schoolName: String? = null,
     onOpenProfile: (() -> Unit)? = null,
+    onOpenNotifications: (() -> Unit)? = null,
     onOpenBranding: (() -> Unit)? = null,
     onGoToScanner: (() -> Unit)? = null,
     onGoToStudents: (() -> Unit)? = null,
@@ -148,6 +150,12 @@ fun DismissalDashboardScreen(
                 subtitle = if (isAdminHome) "Live dismissal · Admin console" else "Live dismissal dashboard",
                 onBack = onBack,
                 actions = {
+                    if (onOpenNotifications != null) {
+                        NotificationActionButton(
+                            unreadCount = state.unreadNotifications,
+                            onClick = onOpenNotifications,
+                        )
+                    }
                     if (hasAdminTools) {
                         IconButton(onClick = { showAdminTools = true }) {
                             Icon(
