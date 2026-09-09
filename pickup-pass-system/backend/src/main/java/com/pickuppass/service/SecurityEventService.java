@@ -18,6 +18,8 @@ import java.util.*;
 @Service
 public class SecurityEventService {
     private static final int AUTH_FAILURE_ALERT_THRESHOLD = 5;
+    private static final int REVOKED_DEVICE_ALERT_THRESHOLD = 3;
+    private static final long SECURITY_WINDOW_SECONDS = 900L;
     private final Firestore firestore;
     private final byte[] fingerprintSecret;
 
@@ -73,14 +75,94 @@ public class SecurityEventService {
         } catch (Exception ignored) { }
     }
 
-    public void recordRevokedDeviceAttempt(FirebaseUserDetails user, HttpServletRequest request, String deviceId) {
+    public void recordRevokedDeviceAttempt(
+            FirebaseUserDetails user,
+            HttpServletRequest request,
+            String deviceId) {
+
         if (user == null) return;
+
         try {
-            upsertAlert("revoked_device_attempt", "high", user.getSchoolId(), user.getUid(), user.getRole(),
-                    "Revoked device attempted to reconnect",
-                    "A device session that had already been revoked attempted to use an authenticated PickupPass API.",
-                    "revoke_sessions", sha256(user.getUid()+":"+safe(deviceId,128)),
-                    Map.of("path", safePath(request), "deviceFingerprint", sha256(safe(deviceId,128))));
+            String normalizedDeviceId = safe(deviceId, 128);
+            String deviceFingerprint = sha256(normalizedDeviceId);
+            long bucketStart =
+                    Instant.now().getEpochSecond()
+                            / SECURITY_WINDOW_SECONDS
+                            * SECURITY_WINDOW_SECONDS;
+
+            String bucketId =
+                    sha256(
+                            "revoked_device:"
+                                    + user.getUid()
+                                    + ":"
+                                    + deviceFingerprint
+                                    + ":"
+                                    + bucketStart);
+
+            DocumentReference ref =
+                    firestore.collection("securityRevokedDeviceWindows")
+                            .document(bucketId);
+
+            final long[] count = {0};
+
+            firestore.runTransaction(tx -> {
+                DocumentSnapshot d = tx.get(ref).get();
+                long next =
+                        d.exists() && d.getLong("count") != null
+                                ? d.getLong("count") + 1
+                                : 1;
+
+                count[0] = next;
+
+                Map<String, Object> data = new HashMap<>();
+                data.put("uid", user.getUid());
+                data.put("schoolId", user.getSchoolId());
+                data.put("role", user.getRole());
+                data.put("deviceFingerprint", deviceFingerprint);
+                data.put("count", next);
+                data.put(
+                        "windowStart",
+                        new Date(bucketStart * 1000));
+                data.put(
+                        "expiresAt",
+                        Date.from(
+                                Instant.ofEpochSecond(bucketStart)
+                                        .plus(7, ChronoUnit.DAYS)));
+                data.put("lastSeenAt", FieldValue.serverTimestamp());
+                data.put("path", safePath(request));
+
+                if (!d.exists()) {
+                    data.put(
+                            "firstSeenAt",
+                            FieldValue.serverTimestamp());
+                }
+
+                tx.set(ref, data, SetOptions.merge());
+                return null;
+            }).get();
+
+            if (shouldSurfaceRevokedDeviceAlert(count[0])) {
+                upsertAlert(
+                        "revoked_device_attempt",
+                        "high",
+                        user.getSchoolId(),
+                        user.getUid(),
+                        user.getRole(),
+                        "Revoked device repeatedly attempted access",
+                        "A revoked device identity continued to call authenticated PickupPass APIs after revocation was enforced. A single post-revocation request is expected and is not surfaced as an alert.",
+                        "revoke_sessions",
+                        sha256(
+                                user.getUid()
+                                        + ":"
+                                        + deviceFingerprint),
+                        Map.of(
+                                "path",
+                                safePath(request),
+                                "deviceFingerprint",
+                                deviceFingerprint,
+                                "occurrencesInWindow",
+                                count[0]));
+            }
         } catch (Exception ignored) { }
     }
 
@@ -99,24 +181,78 @@ public class SecurityEventService {
         List<Map<String,Object>> alerts = new ArrayList<>();
         QuerySnapshot open = firestore.collection("securityAlerts").whereEqualTo("status", "open").get().get();
         QuerySnapshot acknowledged = firestore.collection("securityAlerts").whereEqualTo("status", "acknowledged").get().get();
-        int critical=0, high=0, medium=0;
-        for (DocumentSnapshot d : concat(open.getDocuments(), acknowledged.getDocuments())) {
-            Map<String,Object> item = normalize(d);
-            String sev = Objects.toString(item.get("severity"), "medium");
-            if ("critical".equals(sev)) critical++; else if ("high".equals(sev)) high++; else medium++;
+        int critical = 0;
+        int high = 0;
+        int medium = 0;
+        int openAlerts = 0;
+        int acknowledgedAlerts = 0;
+
+        for (DocumentSnapshot d :
+                concat(
+                        open.getDocuments(),
+                        acknowledged.getDocuments())) {
+
+            Map<String, Object> item = normalize(d);
+
+            if (shouldSuppressLegacyRevokedDeviceAlert(item)) {
+                continue;
+            }
+
+            String status =
+                    Objects.toString(
+                            item.get("status"),
+                            "open");
+
+            if ("acknowledged".equals(status)) {
+                acknowledgedAlerts++;
+            } else {
+                openAlerts++;
+            }
+
+            String sev =
+                    Objects.toString(
+                            item.get("severity"),
+                            "medium");
+
+            if ("critical".equals(sev)) {
+                critical++;
+            } else if ("high".equals(sev)) {
+                high++;
+            } else {
+                medium++;
+            }
+
             alerts.add(item);
         }
-        alerts.sort((x,y) -> Objects.toString(y.get("lastSeenAt"), "").compareTo(Objects.toString(x.get("lastSeenAt"), "")));
-        if (alerts.size() > safeLimit) alerts = new ArrayList<>(alerts.subList(0, safeLimit));
+
+        alerts.sort(
+                (x, y) ->
+                        Objects.toString(
+                                        y.get("lastSeenAt"),
+                                        "")
+                                .compareTo(
+                                        Objects.toString(
+                                                x.get("lastSeenAt"),
+                                                "")));
+
+        int activeAlerts = alerts.size();
+
+        if (alerts.size() > safeLimit) {
+            alerts =
+                    new ArrayList<>(
+                            alerts.subList(
+                                    0,
+                                    safeLimit));
+        }
 
         List<Map<String,Object>> actions = new ArrayList<>();
         QuerySnapshot s = firestore.collection("systemAuditEvents").orderBy("timestamp", Query.Direction.DESCENDING).limit(safeLimit).get().get();
         for (DocumentSnapshot d : s.getDocuments()) actions.add(normalize(d));
-        int activeAlerts = open.size() + acknowledged.size();
+
         Map<String,Object> metrics = new LinkedHashMap<>();
         metrics.put("activeAlerts", activeAlerts);
-        metrics.put("openAlerts", open.size());
-        metrics.put("acknowledged", acknowledged.size());
+        metrics.put("openAlerts", openAlerts);
+        metrics.put("acknowledged", acknowledgedAlerts);
         metrics.put("critical", critical);
         metrics.put("high", high);
         metrics.put("medium", medium);
@@ -155,6 +291,46 @@ public class SecurityEventService {
             tx.set(ref, data, SetOptions.merge());
             return null;
         }).get();
+    }
+
+
+    static boolean shouldSurfaceRevokedDeviceAlert(
+            long occurrencesInWindow) {
+        return occurrencesInWindow
+                >= REVOKED_DEVICE_ALERT_THRESHOLD;
+    }
+
+    static boolean shouldSuppressLegacyRevokedDeviceAlert(
+            Map<String, Object> item) {
+
+        if (!"revoked_device_attempt".equals(
+                Objects.toString(
+                        item.get("type"),
+                        ""))) {
+            return false;
+        }
+
+        Object detailsValue = item.get("details");
+        if (detailsValue instanceof Map<?, ?> details) {
+            Object countValue =
+                    details.get("occurrencesInWindow");
+
+            if (countValue instanceof Number count) {
+                return !shouldSurfaceRevokedDeviceAlert(
+                        count.longValue());
+            }
+        }
+
+        Object occurrencesValue =
+                item.get("occurrences");
+
+        long occurrences =
+                occurrencesValue instanceof Number count
+                        ? count.longValue()
+                        : 1L;
+
+        return !shouldSurfaceRevokedDeviceAlert(
+                occurrences);
     }
 
 
