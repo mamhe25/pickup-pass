@@ -30,6 +30,7 @@ import com.pickuppass.android.data.model.MasterSecurityAlert
 import com.pickuppass.android.data.model.MasterPrivilegedAuditEvent
 import com.pickuppass.android.data.model.MasterBackupItem
 import com.pickuppass.android.data.model.MasterRecoveryJobItem
+import com.pickuppass.android.ui.common.CollectionAddFab
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
@@ -121,9 +122,10 @@ fun MasterAdminAdvancedConsole(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { createSchool = true }) {
-                Icon(Icons.Filled.Add, contentDescription = "Create school")
-            }
+            CollectionAddFab(
+                onClick = { createSchool = true },
+                contentDescription = "Create school"
+            )
         }
     ) { padding ->
         if (state.loading && state.schools.isEmpty()) {
