@@ -525,8 +525,13 @@ private fun AdminToolsSheet(
     onDataExport: (() -> Unit)?,
     onLaunchReadiness: (() -> Unit)?,
 ) {
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
         LazyColumn(
