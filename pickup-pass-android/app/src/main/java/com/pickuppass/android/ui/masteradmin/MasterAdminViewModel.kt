@@ -153,23 +153,6 @@ class MasterAdminViewModel @Inject constructor(
         }
     }
 
-    fun refreshNotificationCount() {
-        viewModelScope.launch {
-            val uid =
-                authRepository.currentUid()
-                    ?: return@launch
-
-            notificationRepository
-                .getUnreadCount(uid)
-                .onSuccess { count ->
-                    _uiState.value =
-                        _uiState.value.copy(
-                            unreadNotifications = count
-                        )
-                }
-        }
-    }
-
     fun loadOperations(quiet: Boolean = false) = viewModelScope.launch {
         if (!quiet) _uiState.value = _uiState.value.copy(operationsLoading = true, error = null)
         when (val r = repository.getOperationsOverview()) {
