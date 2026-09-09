@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SuccessBanner
+import com.pickuppass.android.ui.common.TotpCodeField
 import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -740,17 +741,18 @@ private fun TwoFactorCard(
                     Text("Open authenticator app")
                 }
 
-                OutlinedTextField(
+                TotpCodeField(
                     value = code,
                     onValueChange = onCodeChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("6-digit authenticator code") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.NumberPassword,
-                        imeAction = ImeAction.Done
-                    ),
-                    enabled = !state.mfaBusy
+                    onComplete = onFinish,
+                    enabled = !state.mfaBusy,
+                    isError = state.mfaError != null,
+                    autoFocus = false
+                )
+                Text(
+                    "Type or paste the 6-digit code. Setup completes automatically after the final digit.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Row(
