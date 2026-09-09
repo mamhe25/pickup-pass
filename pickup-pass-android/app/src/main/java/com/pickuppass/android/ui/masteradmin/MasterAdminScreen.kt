@@ -50,6 +50,28 @@ import com.pickuppass.android.ui.common.PremiumSectionHeader
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.theme.Spacing
 
+private enum class AdvancedConsoleSection(
+    val label: String,
+    val description: String
+) {
+    TENANTS(
+        "Tenant admin",
+        "Schools, plans, billing and launch"
+    ),
+    OPERATIONS(
+        "Operations",
+        "Runtime, billing risk and incidents"
+    ),
+    SECURITY(
+        "Security",
+        "Alerts, sessions and audit activity"
+    ),
+    RECOVERY(
+        "Recovery",
+        "Backups and disaster-recovery controls"
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MasterAdminAdvancedConsole(
@@ -90,7 +112,17 @@ fun MasterAdminAdvancedConsole(
     var recoveryProtectionChoice by remember { mutableStateOf<String?>(null) }
     var recoveryBackup by remember { mutableStateOf<MasterBackupItem?>(null) }
     var launchReadinessForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
-    val healthBySchool = state.operations?.tenants?.associateBy { it.schoolId }.orEmpty()
+    val healthBySchool =
+        state.operations
+            ?.tenants
+            ?.associateBy { it.schoolId }
+            .orEmpty()
+
+    var advancedSection by remember {
+        mutableStateOf(
+            AdvancedConsoleSection.TENANTS
+        )
+    }
 
     LaunchedEffect(
         initialLaunchReadinessSchoolId,
@@ -199,7 +231,8 @@ fun MasterAdminAdvancedConsole(
             item {
                 Row(
                     Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    horizontalArrangement =
+                        Arrangement.spacedBy(Spacing.sm)
                 ) {
                     MetricCard(
                         "Suspended",
@@ -208,11 +241,29 @@ fun MasterAdminAdvancedConsole(
                     )
                     MetricCard(
                         "Security alerts",
-                        state.security?.metrics?.activeAlerts?.toString() ?: "—",
+                        state.security
+                            ?.metrics
+                            ?.activeAlerts
+                            ?.toString()
+                            ?: "—",
                         Modifier.weight(1f)
                     )
                 }
             }
+
+            item {
+                AdvancedWorkspaceSelector(
+                    selected = advancedSection,
+                    onSelect = {
+                        advancedSection = it
+                    }
+                )
+            }
+
+            if (
+                advancedSection ==
+                    AdvancedConsoleSection.OPERATIONS
+            ) {
             state.operations?.let { operations ->
                 item {
                     Column(
@@ -424,7 +475,12 @@ fun MasterAdminAdvancedConsole(
                     )
                 }
             }
+            }
 
+            if (
+                advancedSection ==
+                    AdvancedConsoleSection.SECURITY
+            ) {
             state.security?.let { security ->
                 item {
                     PremiumSectionHeader(
@@ -500,7 +556,12 @@ fun MasterAdminAdvancedConsole(
                     }
                 }
             }
+            }
 
+            if (
+                advancedSection ==
+                    AdvancedConsoleSection.RECOVERY
+            ) {
             state.disasterRecovery?.let { recovery ->
                 item {
                     PremiumSectionHeader(
@@ -683,9 +744,16 @@ fun MasterAdminAdvancedConsole(
                     }
                 }
             }
+            }
 
-            state.error?.let { item { ErrorBanner(it) } }
-            state.message?.let { item { SuccessBanner(it) } }
+            state.error?.let {
+                item { ErrorBanner(it) }
+            }
+
+            if (
+                advancedSection ==
+                    AdvancedConsoleSection.TENANTS
+            ) {
             item {
                 PremiumSectionHeader(
                     title = "Tenant management",
@@ -703,26 +771,68 @@ fun MasterAdminAdvancedConsole(
                     }
                 }
             }
-            items(state.schools, key = { it.schoolId }) { school ->
+            items(
+                state.schools,
+                key = { it.schoolId }
+            ) { school ->
                 SchoolCard(
                     school = school,
-                    health = healthBySchool[school.schoolId],
+                    health =
+                        healthBySchool[school.schoolId],
                     saving = state.saving,
-                    onToggle = { viewModel.setSchoolActive(school.schoolId, school.status != "active") },
-                    onAddAdmin = { adminForSchool = school },
-                    onManageSubscription = { subscriptionForSchool = school },
-                    onBilling = { billingForSchool = school; viewModel.loadInvoices(school.schoolId) },
-                    onReconcileSubscription = { viewModel.reconcileSubscription(school.schoolId) },
-                    onToggleExportAccess = { viewModel.setSchoolDataExportAccess(school.schoolId, !school.selfServiceDataExportEnabled) },
-                    onExportData = { viewModel.downloadSchoolDataExport(school) },
+                    onToggle = {
+                        viewModel.setSchoolActive(
+                            school.schoolId,
+                            school.status != "active"
+                        )
+                    },
+                    onAddAdmin = {
+                        adminForSchool = school
+                    },
+                    onManageSubscription = {
+                        subscriptionForSchool = school
+                    },
+                    onBilling = {
+                        billingForSchool = school
+                        viewModel.loadInvoices(
+                            school.schoolId
+                        )
+                    },
+                    onReconcileSubscription = {
+                        viewModel.reconcileSubscription(
+                            school.schoolId
+                        )
+                    },
+                    onToggleExportAccess = {
+                        viewModel.setSchoolDataExportAccess(
+                            school.schoolId,
+                            !school
+                                .selfServiceDataExportEnabled
+                        )
+                    },
+                    onExportData = {
+                        viewModel.downloadSchoolDataExport(
+                            school
+                        )
+                    },
                     onLaunchReadiness = {
                         launchReadinessForSchool = school
-                        viewModel.loadSchoolLaunchReadiness(school.schoolId)
+                        viewModel.loadSchoolLaunchReadiness(
+                            school.schoolId
+                        )
                     }
                 )
             }
             }
+            }
         }
+    }
+
+    state.message?.let { message ->
+        SuccessBanner(
+            message = message,
+            onDismiss = viewModel::clearMessage
+        )
     }
 
     launchReadinessForSchool?.let { school ->
@@ -1109,6 +1219,141 @@ fun MasterAdminAdvancedConsole(
         )
     }
 }
+
+@Composable
+private fun AdvancedWorkspaceSelector(
+    selected: AdvancedConsoleSection,
+    onSelect: (AdvancedConsoleSection) -> Unit
+) {
+    Column(
+        verticalArrangement =
+            Arrangement.spacedBy(Spacing.sm)
+    ) {
+        PremiumSectionHeader(
+            title = "Advanced workspace",
+            subtitle =
+                "Open one focused area at a time."
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement =
+                Arrangement.spacedBy(Spacing.sm)
+        ) {
+            AdvancedWorkspaceCard(
+                section =
+                    AdvancedConsoleSection.TENANTS,
+                icon = Icons.Filled.Business,
+                selected = selected,
+                onSelect = onSelect,
+                modifier = Modifier.weight(1f)
+            )
+            AdvancedWorkspaceCard(
+                section =
+                    AdvancedConsoleSection.OPERATIONS,
+                icon = Icons.Filled.Speed,
+                selected = selected,
+                onSelect = onSelect,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement =
+                Arrangement.spacedBy(Spacing.sm)
+        ) {
+            AdvancedWorkspaceCard(
+                section =
+                    AdvancedConsoleSection.SECURITY,
+                icon = Icons.Filled.Security,
+                selected = selected,
+                onSelect = onSelect,
+                modifier = Modifier.weight(1f)
+            )
+            AdvancedWorkspaceCard(
+                section =
+                    AdvancedConsoleSection.RECOVERY,
+                icon = Icons.Filled.CloudDone,
+                selected = selected,
+                onSelect = onSelect,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun AdvancedWorkspaceCard(
+    section: AdvancedConsoleSection,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: AdvancedConsoleSection,
+    onSelect: (AdvancedConsoleSection) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isSelected = section == selected
+
+    OutlinedCard(
+        onClick = {
+            onSelect(section)
+        },
+        modifier = modifier,
+        colors = CardDefaults.outlinedCardColors(
+            containerColor =
+                if (isSelected) {
+                    MaterialTheme.colorScheme
+                        .primaryContainer
+                        .copy(alpha = .48f)
+                } else {
+                    MaterialTheme.colorScheme.surface
+                }
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (isSelected) {
+                MaterialTheme.colorScheme.primary
+                    .copy(alpha = .42f)
+            } else {
+                MaterialTheme.colorScheme
+                    .outlineVariant
+            }
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement =
+                Arrangement.spacedBy(Spacing.xs)
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint =
+                    if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                    },
+                modifier = Modifier.size(22.dp)
+            )
+            Text(
+                section.label,
+                style =
+                    MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                section.description,
+                style =
+                    MaterialTheme.typography.bodySmall,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+        }
+    }
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
