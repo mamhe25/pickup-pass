@@ -180,6 +180,12 @@ interface PickupPassApi {
         @Query("status") status: String? = null
     ): Response<StudentLifecycleResponse>
 
+    @PUT("school-admin/students/{studentId}")
+    suspend fun updateStudentDetails(
+        @Path("studentId") studentId: String,
+        @Body body: StudentDetailsRequest
+    ): Response<SimpleStatusResponse>
+
     @PUT("school-admin/students/{studentId}/status")
     suspend fun updateStudentStatus(
         @Path("studentId") studentId: String,
