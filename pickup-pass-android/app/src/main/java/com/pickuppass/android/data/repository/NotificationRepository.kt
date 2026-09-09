@@ -10,6 +10,10 @@ import com.pickuppass.android.data.remote.PickupPassApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
@@ -79,20 +83,39 @@ class NotificationRepository @Inject constructor(
             .get()
             .await()
 
-        snapshot.documents.map { doc ->
-            NotificationItem(
-                id = doc.id,
-                title = doc.getString("title") ?: "Notification",
-                body = doc.getString("body") ?: "",
-                type = doc.getString("type") ?: "",
-                schoolId = doc.getString("schoolId"),
-                studentId = doc.getString("studentId"),
-                senderName = doc.getString("senderName"),
-                read = doc.getBoolean("read") ?: false,
-                createdAtMillis = doc.getTimestamp("createdAt")?.toDate()?.time,
-            )
-        }
+        snapshot.documents.map(::toNotificationItem)
     }
+
+    /**
+     * Real-time inbox stream backed by the persisted Firestore notification
+     * records. This keeps an open inbox current even when an FCM push is
+     * delayed, suppressed by the OS, or delivered while the app is active.
+     */
+    fun observeMyNotifications(uid: String): Flow<List<NotificationItem>> =
+        callbackFlow {
+            val registration =
+                firestore.collection("notifications")
+                    .whereEqualTo("recipientUid", uid)
+                    .orderBy("createdAt", Query.Direction.DESCENDING)
+                    .limit(100)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            close(error)
+                            return@addSnapshotListener
+                        }
+
+                        trySend(
+                            snapshot
+                                ?.documents
+                                ?.map(::toNotificationItem)
+                                .orEmpty()
+                        )
+                    }
+
+            awaitClose {
+                registration.remove()
+            }
+        }.distinctUntilChanged()
 
     suspend fun markAsRead(notificationId: String): Result<Unit> = runCatching {
         firestore.collection("notifications").document(notificationId)
@@ -127,4 +150,44 @@ class NotificationRepository @Inject constructor(
 
         snapshot.count.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }
+
+    /**
+     * Live unread badge source. Firestore is authoritative rather than the
+     * transient push channel, so the badge updates immediately when a
+     * persisted notification is created or marked read.
+     */
+    fun observeUnreadCount(uid: String): Flow<Int> =
+        callbackFlow {
+            val registration =
+                firestore.collection("notifications")
+                    .whereEqualTo("recipientUid", uid)
+                    .whereEqualTo("read", false)
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            close(error)
+                            return@addSnapshotListener
+                        }
+
+                        trySend(snapshot?.size() ?: 0)
+                    }
+
+            awaitClose {
+                registration.remove()
+            }
+        }.distinctUntilChanged()
+
+    private fun toNotificationItem(
+        doc: com.google.firebase.firestore.DocumentSnapshot
+    ): NotificationItem =
+        NotificationItem(
+            id = doc.id,
+            title = doc.getString("title") ?: "Notification",
+            body = doc.getString("body") ?: "",
+            type = doc.getString("type") ?: "",
+            schoolId = doc.getString("schoolId"),
+            studentId = doc.getString("studentId"),
+            senderName = doc.getString("senderName"),
+            read = doc.getBoolean("read") ?: false,
+            createdAtMillis = doc.getTimestamp("createdAt")?.toDate()?.time,
+        )
 }
