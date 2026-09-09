@@ -45,6 +45,7 @@ fun MasterAdminAdvancedConsole(
     onOpenProfile: () -> Unit,
     onOpenNotifications: () -> Unit,
     onSignedOut: () -> Unit,
+    initialLaunchReadinessSchoolId: String? = null,
     onBackToOverview: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -78,6 +79,29 @@ fun MasterAdminAdvancedConsole(
     var recoveryBackup by remember { mutableStateOf<MasterBackupItem?>(null) }
     var launchReadinessForSchool by remember { mutableStateOf<MasterSchoolItem?>(null) }
     val healthBySchool = state.operations?.tenants?.associateBy { it.schoolId }.orEmpty()
+
+    LaunchedEffect(
+        initialLaunchReadinessSchoolId,
+        state.schools
+    ) {
+        val schoolId =
+            initialLaunchReadinessSchoolId
+                ?.takeIf { it.isNotBlank() }
+                ?: return@LaunchedEffect
+
+        val school =
+            state.schools.firstOrNull {
+                it.schoolId == schoolId
+            } ?: return@LaunchedEffect
+
+        if (
+            launchReadinessForSchool
+                ?.schoolId != schoolId
+        ) {
+            launchReadinessForSchool = school
+            viewModel.loadSchoolLaunchReadiness(schoolId)
+        }
+    }
 
     Scaffold(
         topBar = {
