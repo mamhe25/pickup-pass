@@ -102,12 +102,6 @@ class MasterAdminViewModel @Inject constructor(
         val observabilityResult = repository.getObservabilityOverview()
         val securityResult = repository.getSecurityOverview()
         val disasterRecoveryResult = repository.getDisasterRecoveryOverview()
-        val unreadResult =
-            authRepository.currentUid()
-                ?.let {
-                    notificationRepository.getUnreadCount(it)
-                }
-                ?: Result.success(0)
         when (schoolsResult) {
             is ApiResult.Success -> {
                 val planData = when (plansResult) {
@@ -138,10 +132,6 @@ class MasterAdminViewModel @Inject constructor(
                     },
                     plans = planData?.plans ?: emptyMap(),
                     featureKeys = planData?.featureKeys ?: emptyList(),
-                    unreadNotifications =
-                        unreadResult.getOrDefault(
-                            _uiState.value.unreadNotifications
-                        ),
                     error = when {
                         plansResult is ApiResult.Failure -> plansResult.message
                         operationsResult is ApiResult.Failure -> operationsResult.message
@@ -158,10 +148,6 @@ class MasterAdminViewModel @Inject constructor(
                     is ApiResult.Success -> observabilityResult.data
                     is ApiResult.Failure -> _uiState.value.observability
                 },
-                unreadNotifications =
-                    unreadResult.getOrDefault(
-                        _uiState.value.unreadNotifications
-                    ),
                 error = schoolsResult.message
             )
         }
