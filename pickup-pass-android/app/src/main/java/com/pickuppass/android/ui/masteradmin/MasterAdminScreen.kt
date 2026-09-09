@@ -9,6 +9,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,6 +44,8 @@ import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.common.FullScreenLoading
 import com.pickuppass.android.ui.common.NotificationActionButton
 import com.pickuppass.android.ui.common.PickupPassPullToRefresh
+import com.pickuppass.android.ui.common.PremiumHeroCard
+import com.pickuppass.android.ui.common.PremiumSectionHeader
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.theme.Spacing
 
@@ -153,29 +163,68 @@ fun MasterAdminAdvancedConsole(
                 verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    MetricCard("Schools", state.totalSchools.toString(), Modifier.weight(1f))
-                    MetricCard("Active", state.activeSchools.toString(), Modifier.weight(1f))
-                    MetricCard("Suspended", state.suspendedSchools.toString(), Modifier.weight(1f))
+                PremiumHeroCard(
+                    eyebrow = "Privileged platform console",
+                    title = "Platform administration",
+                    message =
+                        "Tenant controls, incident response, security, billing and recovery live here. " +
+                            "Use this workspace only when action is required.",
+                    icon = Icons.Filled.Settings
+                )
+            }
+            item {
+                PremiumSectionHeader(
+                    title = "Platform scorecard",
+                    subtitle = "High-signal state before entering privileged workflows."
+                )
+            }
+            item {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    MetricCard(
+                        "Schools",
+                        state.totalSchools.toString(),
+                        Modifier.weight(1f)
+                    )
+                    MetricCard(
+                        "Active",
+                        state.activeSchools.toString(),
+                        Modifier.weight(1f)
+                    )
+                }
+            }
+            item {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    MetricCard(
+                        "Suspended",
+                        state.suspendedSchools.toString(),
+                        Modifier.weight(1f)
+                    )
+                    MetricCard(
+                        "Security alerts",
+                        state.security?.metrics?.activeAlerts?.toString() ?: "—",
+                        Modifier.weight(1f)
+                    )
                 }
             }
             state.operations?.let { operations ->
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text("Operations health", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                                Text(
-                                    "Actionable subscription, billing, quota, and delivery risks across all tenants.",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        PremiumSectionHeader(
+                            title = "Operations health",
+                            subtitle =
+                                "Subscription, billing, quota and delivery risks across all tenants."
+                        )
+                        if (state.operationsLoading) {
+                            LinearProgressIndicator(Modifier.fillMaxWidth())
                         }
-                        if (state.operationsLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
                     }
                 }
                 item {
@@ -234,32 +283,90 @@ fun MasterAdminAdvancedConsole(
             }
             state.observability?.let { observability ->
                 item {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Platform Health & Incidents", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text(
-                                "Low-cost runtime monitoring. Request metrics stay in memory; Firestore writes occur only when an incident changes state.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    PremiumSectionHeader(
+                        title = "Platform health & incidents",
+                        subtitle =
+                            "Runtime telemetry and durable incident state without paid APM.",
+                        trailing = {
+                            FilledTonalButton(
+                                onClick = {
+                                    viewModel.evaluateObservability()
+                                },
+                                enabled =
+                                    !state.saving &&
+                                        !state.observabilityLoading
+                            ) {
+                                Text(
+                                    if (state.observabilityLoading) {
+                                        "Checking…"
+                                    } else {
+                                        "Check now"
+                                    }
+                                )
+                            }
                         }
-                        FilledTonalButton(
-                            onClick = { viewModel.evaluateObservability() },
-                            enabled = !state.saving && !state.observabilityLoading
-                        ) { Text(if (state.observabilityLoading) "Checkingâ€¦" else "Check now") }
+                    )
+                }
+                item {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        MetricCard(
+                            "Uptime",
+                            formatUptime(
+                                observability.runtime.uptimeSeconds
+                            ),
+                            Modifier.weight(1f)
+                        )
+                        MetricCard(
+                            "${observability.http.windowMinutes}m requests",
+                            observability.http.requests.toString(),
+                            Modifier.weight(1f)
+                        )
                     }
                 }
                 item {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        MetricCard("Uptime", formatUptime(observability.runtime.uptimeSeconds), Modifier.weight(1f))
-                        MetricCard("${observability.http.windowMinutes}m requests", observability.http.requests.toString(), Modifier.weight(1f))
-                        MetricCard("5xx", observability.http.errors5xx.toString(), Modifier.weight(1f))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        MetricCard(
+                            "5xx",
+                            observability.http.errors5xx.toString(),
+                            Modifier.weight(1f)
+                        )
+                        MetricCard(
+                            "Firestore",
+                            if (!observability.firestore.checked) {
+                                "Unchecked"
+                            } else if (observability.firestore.reachable) {
+                                "Online"
+                            } else {
+                                "Issue"
+                            },
+                            Modifier.weight(1f)
+                        )
                     }
                 }
                 item {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        MetricCard("Firestore", if (!observability.firestore.checked) "Unchecked" else if (observability.firestore.reachable) "Online" else "Issue", Modifier.weight(1f))
-                        MetricCard("Memory", "${observability.memory.usedPercent}%", Modifier.weight(1f))
-                        MetricCard("Slow", "${observability.http.slowRequestRatePercent}%", Modifier.weight(1f))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        MetricCard(
+                            "Memory",
+                            "${observability.memory.usedPercent}%",
+                            Modifier.weight(1f)
+                        )
+                        MetricCard(
+                            "Slow requests",
+                            "${observability.http.slowRequestRatePercent}%",
+                            Modifier.weight(1f)
+                        )
                     }
                 }
                 item {
@@ -319,18 +426,46 @@ fun MasterAdminAdvancedConsole(
 
             state.security?.let { security ->
                 item {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Security Center", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text("Privacy-preserving authentication, session, and privileged-action monitoring.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                    PremiumSectionHeader(
+                        title = "Security center",
+                        subtitle =
+                            "Authentication, session and privileged-action monitoring."
+                    )
+                }
+                item {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        MetricCard(
+                            "Active alerts",
+                            security.metrics.activeAlerts.toString(),
+                            Modifier.weight(1f)
+                        )
+                        MetricCard(
+                            "High severity",
+                            security.metrics.high.toString(),
+                            Modifier.weight(1f)
+                        )
                     }
                 }
                 item {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        MetricCard("Active alerts", security.metrics.activeAlerts.toString(), Modifier.weight(1f))
-                        MetricCard("High", security.metrics.high.toString(), Modifier.weight(1f))
-                        MetricCard("Medium", security.metrics.medium.toString(), Modifier.weight(1f))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement =
+                            Arrangement.spacedBy(Spacing.sm)
+                    ) {
+                        MetricCard(
+                            "Medium",
+                            security.metrics.medium.toString(),
+                            Modifier.weight(1f)
+                        )
+                        MetricCard(
+                            "Open",
+                            security.metrics.openAlerts.toString(),
+                            Modifier.weight(1f)
+                        )
                     }
                 }
                 item {
@@ -367,15 +502,11 @@ fun MasterAdminAdvancedConsole(
 
             state.disasterRecovery?.let { recovery ->
                 item {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Backup & Disaster Recovery", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text(
-                                "Native Firestore protection, retention guardrails, and isolated recovery drills.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    PremiumSectionHeader(
+                        title = "Backup & disaster recovery",
+                        subtitle =
+                            "Native Firestore protection, retention guardrails and isolated recovery drills."
+                    )
                 }
                 if (!recovery.enabled) {
                     item {
@@ -520,10 +651,10 @@ fun MasterAdminAdvancedConsole(
             state.error?.let { item { ErrorBanner(it) } }
             state.message?.let { item { SuccessBanner(it) } }
             item {
-                Text("Tenant management", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(
-                    "Manage school access, subscription plans, feature flags, and initial administrators.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                PremiumSectionHeader(
+                    title = "Tenant management",
+                    subtitle =
+                        "School access, subscription plans, billing, exports and administrators."
                 )
             }
             if (state.schools.isEmpty()) {
