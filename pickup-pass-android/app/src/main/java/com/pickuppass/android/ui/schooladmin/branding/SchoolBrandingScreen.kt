@@ -91,6 +91,7 @@ fun SchoolBrandingScreen(
     onGoToBilling: () -> Unit,
     onGoToDataExport: () -> Unit,
     onGoToLaunchReadiness: () -> Unit,
+    onOpenNotifications: () -> Unit,
     onOpenProfile: () -> Unit,
     onSignedOut: () -> Unit,
 ) {
@@ -105,6 +106,7 @@ fun SchoolBrandingScreen(
         DismissalDashboardScreen(
             schoolName = uiState.schoolName,
             onOpenProfile = onOpenProfile,
+            onOpenNotifications = onOpenNotifications,
             onOpenBranding = { showBrandingSettings = true },
             onGoToScanner = onGoToScanner,
             onGoToStudents = onGoToStudents,
