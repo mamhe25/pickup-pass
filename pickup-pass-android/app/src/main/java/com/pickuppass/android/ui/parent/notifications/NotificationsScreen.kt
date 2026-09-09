@@ -34,6 +34,13 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+enum class NotificationAudience {
+    FAMILY,
+    STAFF,
+    PLATFORM,
+    SCHOOL_ADMIN
+}
+
 private enum class NotificationFilter {
     ALL,
     UNREAD
@@ -43,6 +50,7 @@ private enum class NotificationFilter {
 @Composable
 fun NotificationsScreen(
     viewModel: NotificationsViewModel = hiltViewModel(),
+    audience: NotificationAudience = NotificationAudience.FAMILY,
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -97,6 +105,7 @@ fun NotificationsScreen(
                     ) {
                         item(key = "hero") {
                             NotificationsHero(
+                                audience = audience,
                                 unreadCount = unreadCount,
                                 totalCount = uiState.notifications.size,
                                 hasUnread = uiState.hasUnread,
@@ -164,12 +173,37 @@ fun NotificationsScreen(
 
 @Composable
 private fun NotificationsHero(
+    audience: NotificationAudience,
     unreadCount: Int,
     totalCount: Int,
     hasUnread: Boolean,
     isUpdating: Boolean,
     onMarkAllRead: () -> Unit
 ) {
+    val eyebrow =
+        when (audience) {
+            NotificationAudience.FAMILY ->
+                "FAMILY UPDATES"
+            NotificationAudience.STAFF ->
+                "STAFF UPDATES"
+            NotificationAudience.PLATFORM ->
+                "PLATFORM UPDATES"
+            NotificationAudience.SCHOOL_ADMIN ->
+                "SCHOOL OPERATIONS"
+        }
+
+    val description =
+        when (audience) {
+            NotificationAudience.FAMILY ->
+                "Pickup confirmations, school announcements, and safety-related messages stay together in one place."
+            NotificationAudience.STAFF ->
+                "Pickup operations, school announcements, and safety-related messages stay together in one place."
+            NotificationAudience.PLATFORM ->
+                "Tenant requests, platform operations, and important review updates stay together in one place."
+            NotificationAudience.SCHOOL_ADMIN ->
+                "Launch decisions, platform notices, school operations, and important safety updates stay together in one place."
+        }
+
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
@@ -180,7 +214,7 @@ private fun NotificationsHero(
     ) {
         Column(Modifier.padding(Spacing.lg)) {
             Text(
-                "FAMILY UPDATES",
+                eyebrow,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.primary
@@ -207,7 +241,7 @@ private fun NotificationsHero(
             Spacer(Modifier.height(Spacing.xs))
 
             Text(
-                "Pickup confirmations, school announcements, and safety-related messages stay together in one place.",
+                description,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
             )
@@ -459,6 +493,18 @@ private fun notificationPresentation(type: String): NotificationPresentation {
             NotificationPresentation(
                 "Pickup update",
                 Icons.Filled.CheckCircle
+            )
+
+        normalized == "launch_approved" ->
+            NotificationPresentation(
+                "Launch approved",
+                Icons.Filled.CheckCircle
+            )
+
+        normalized == "launch_reopened" ->
+            NotificationPresentation(
+                "Launch action required",
+                Icons.Filled.VerifiedUser
             )
 
         "launch_review" in normalized ||
