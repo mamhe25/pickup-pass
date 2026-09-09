@@ -79,21 +79,6 @@ fun TeacherStudentsScreen(
                         },
                 onBack = onBack,
                 actions = {
-                    if (
-                        uiState.role ==
-                            UserRole.SchoolAdmin
-                    ) {
-                        IconButton(
-                            onClick =
-                                onOpenStudentLifecycle
-                        ) {
-                            Icon(
-                                Icons.Filled.ManageAccounts,
-                                contentDescription =
-                                    "Manage student records"
-                            )
-                        }
-                    }
                     IconButton(onClick = onGoToExitLogs) {
                         Icon(
                             Icons.Filled.History,
@@ -157,6 +142,7 @@ fun TeacherStudentsScreen(
                         onPlacementFilterChange = viewModel::onPlacementFilterChange,
                         onRegisterParent = onRegisterParent,
                         onManageGuardians = onManageGuardians,
+                        onOpenStudentLifecycle = onOpenStudentLifecycle,
                         onAddStudent = {
                             viewModel.clearFormFeedback()
                             showAddSheet = true
@@ -202,6 +188,7 @@ private fun TeacherRosterContent(
     onPlacementFilterChange: (AcademicPlacementOption?) -> Unit,
     onRegisterParent: (String) -> Unit,
     onManageGuardians: (String) -> Unit,
+    onOpenStudentLifecycle: () -> Unit,
     onAddStudent: () -> Unit
 ) {
     val totalStudents = uiState.allStudents.size
@@ -212,22 +199,26 @@ private fun TeacherRosterContent(
         LazyColumn(
             modifier = Modifier
                 .fillMaxHeight()
-                .widthIn(max = 860.dp)
+                .widthIn(max = 820.dp)
                 .align(Alignment.TopCenter),
             contentPadding = PaddingValues(
                 start = Spacing.md,
-                top = Spacing.sm,
+                top = Spacing.md,
                 end = Spacing.md,
                 bottom = 96.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
-            item(key = "hero") {
+            item(key = "summary") {
                 RosterHero(
                     totalStudents = totalStudents,
                     sectionCount = uiState.availablePlacements.size,
+                    guardianReady = guardianReady,
                     needsPrimaryGuardian = needsPrimary,
-                    isTeacherAccount = isTeacherAccount
+                    isTeacherAccount = isTeacherAccount,
+                    onManageRecords =
+                        if (isTeacherAccount) null
+                        else onOpenStudentLifecycle
                 )
             }
 
@@ -236,7 +227,7 @@ private fun TeacherRosterContent(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.large,
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
                     ) {
                         Row(
                             modifier = Modifier.padding(Spacing.md),
@@ -245,14 +236,17 @@ private fun TeacherRosterContent(
                             Icon(
                                 Icons.Filled.WarningAmber,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
                             )
                             Spacer(Modifier.width(Spacing.sm))
                             Column(Modifier.weight(1f)) {
                                 Text(
                                     "Section setup needs attention",
-                                    fontWeight = FontWeight.Bold
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.ExtraBold
                                 )
+                                Spacer(Modifier.height(2.dp))
                                 Text(
                                     message,
                                     style = MaterialTheme.typography.bodySmall,
@@ -264,48 +258,28 @@ private fun TeacherRosterContent(
                 }
             }
 
-            item(key = "search") {
-                SearchCard(
+            item(key = "roster_tools") {
+                RosterControls(
                     searchTerm = uiState.searchTerm,
-                    onSearchChange = onSearchChange
+                    onSearchChange = onSearchChange,
+                    sections = uiState.availablePlacements,
+                    selected = uiState.selectedPlacementFilter,
+                    allSectionsLabel =
+                        if (isTeacherAccount) {
+                            "All assigned sections"
+                        } else {
+                            "All school sections"
+                        },
+                    onPlacementFilterChange = onPlacementFilterChange
                 )
             }
 
-            if (uiState.availablePlacements.size > 1) {
-                item(key = "section_filter") {
-                    SectionFilter(
-                        sections = uiState.availablePlacements,
-                        selected = uiState.selectedPlacementFilter,
-                        allSectionsLabel =
-                            if (isTeacherAccount) {
-                                "All assigned sections"
-                            } else {
-                                "All school sections"
-                            },
-                        onSelect = onPlacementFilterChange
-                    )
-                }
-            }
-
             item(key = "roster_heading") {
-                SectionHeading(
-                    title = "Roster",
-                    detail = when {
-                        uiState.searchTerm.isNotBlank() ->
-                            "${uiState.filteredStudents.size} matching student${
-                                if (uiState.filteredStudents.size == 1) "" else "s"
-                            }"
-
-                        uiState.selectedPlacementFilter != null ->
-                            "${uiState.filteredStudents.size} student${
-                                if (uiState.filteredStudents.size == 1) "" else "s"
-                            } in ${uiState.selectedPlacementFilter.displayLabel()}"
-
-                        else ->
-                            "$totalStudents active student${
-                                if (totalStudents == 1) "" else "s"
-                            }"
-                    }
+                RosterHeading(
+                    resultCount = uiState.filteredStudents.size,
+                    totalCount = totalStudents,
+                    searchTerm = uiState.searchTerm,
+                    selectedPlacement = uiState.selectedPlacementFilter
                 )
             }
 
@@ -374,66 +348,84 @@ private fun TeacherRosterContent(
 private fun RosterHero(
     totalStudents: Int,
     sectionCount: Int,
+    guardianReady: Int,
     needsPrimaryGuardian: Int,
-    isTeacherAccount: Boolean
+    isTeacherAccount: Boolean,
+    onManageRecords: (() -> Unit)?
 ) {
-    ElevatedCard(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.50f)
     ) {
-        Column(Modifier.padding(Spacing.lg)) {
-            Text(
-                "DISMISSAL ROSTER",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary
+        Column(
+            modifier = Modifier.padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md)
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (isTeacherAccount) "ASSIGNED ROSTER" else "SCHOOL ROSTER",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "$totalStudents active student${if (totalStudents == 1) "" else "s"}",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        "$sectionCount section${if (sectionCount == 1) "" else "s"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f)
+                    )
+                }
+
+                if (onManageRecords != null) {
+                    FilledTonalButton(
+                        onClick = onManageRecords,
+                        contentPadding = PaddingValues(
+                            horizontal = Spacing.sm,
+                            vertical = Spacing.xs
+                        )
+                    ) {
+                        Icon(
+                            Icons.Filled.ManageAccounts,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Manage records")
+                    }
+                }
+            }
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.10f)
             )
-
-            Spacer(Modifier.height(Spacing.xs))
-
-            Text(
-                "Know who is ready for pickup.",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-
-            Spacer(Modifier.height(Spacing.xs))
-
-            Text(
-                if (isTeacherAccount) {
-                    "Student records stay scoped to your assigned sections. Guardian readiness is visible before dismissal starts."
-                } else {
-                    "This school-wide active roster covers every current section. Archived and historical records are managed separately in Student Lifecycle."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
-            )
-
-            Spacer(Modifier.height(Spacing.lg))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
-                HeroMetric(
-                    value = totalStudents.toString(),
-                    label = "Students",
-                    modifier = Modifier.weight(1f)
+                RosterStatusStat(
+                    value = guardianReady,
+                    label = "Guardian ready",
+                    modifier = Modifier.weight(1f),
+                    warning = false
                 )
-                HeroMetric(
-                    value = sectionCount.toString(),
-                    label = "Sections",
-                    modifier = Modifier.weight(1f)
-                )
-                HeroMetric(
-                    value = needsPrimaryGuardian.toString(),
+                RosterStatusStat(
+                    value = needsPrimaryGuardian,
                     label = "Need guardian",
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    warning = needsPrimaryGuardian > 0
                 )
             }
         }
@@ -441,56 +433,100 @@ private fun RosterHero(
 }
 
 @Composable
-private fun HeroMetric(
-    value: String,
+private fun RosterStatusStat(
+    value: Int,
     label: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    warning: Boolean
 ) {
-    Surface(
+    Row(
         modifier = modifier,
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
-        )
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
-        Column(Modifier.padding(Spacing.sm)) {
-            Text(
-                value,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
+        Surface(
+            modifier = Modifier.size(36.dp),
+            shape = CircleShape,
+            color =
+                if (warning) {
+                    MaterialTheme.colorScheme.errorContainer
+                } else {
+                    MaterialTheme.colorScheme.surface
+                }
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    value.toString(),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color =
+                        if (warning) {
+                            MaterialTheme.colorScheme.onErrorContainer
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        }
+                )
+            }
         }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
     }
 }
 
 @Composable
-private fun SearchCard(
+private fun RosterControls(
     searchTerm: String,
-    onSearchChange: (String) -> Unit
+    onSearchChange: (String) -> Unit,
+    sections: List<AcademicPlacementOption>,
+    selected: AcademicPlacementOption?,
+    allSectionsLabel: String,
+    onPlacementFilterChange: (AcademicPlacementOption?) -> Unit
 ) {
-    OutlinedTextField(
-        value = searchTerm,
-        onValueChange = onSearchChange,
-        placeholder = { Text("Search by student name") },
-        leadingIcon = {
-            Icon(
-                Icons.Filled.Search,
-                contentDescription = null
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+        ) {
+            Text(
+                "Find a student",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold
             )
-        },
-        singleLine = true,
-        shape = CircleShape,
-        modifier = Modifier.fillMaxWidth()
-    )
+
+            OutlinedTextField(
+                value = searchTerm,
+                onValueChange = onSearchChange,
+                placeholder = { Text("Search student name") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Filled.Search,
+                        contentDescription = null
+                    )
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.large,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            if (sections.size > 1) {
+                SectionFilter(
+                    sections = sections,
+                    selected = selected,
+                    allSectionsLabel = allSectionsLabel,
+                    onSelect = onPlacementFilterChange
+                )
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -508,15 +544,14 @@ private fun SectionFilter(
         onExpandedChange = { expanded = it }
     ) {
         OutlinedTextField(
-            value =
-                selected?.displayLabel()
-                    ?: allSectionsLabel,
+            value = selected?.displayLabel() ?: allSectionsLabel,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Section filter") },
+            label = { Text("Section") },
             trailingIcon = {
                 ExposedDropdownMenuDefaults.TrailingIcon(expanded)
             },
+            shape = MaterialTheme.shapes.large,
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor()
@@ -548,22 +583,43 @@ private fun SectionFilter(
 }
 
 @Composable
-private fun SectionHeading(
-    title: String,
-    detail: String
+private fun RosterHeading(
+    resultCount: Int,
+    totalCount: Int,
+    searchTerm: String,
+    selectedPlacement: AcademicPlacementOption?
 ) {
-    Column {
-        Text(
-            title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.ExtraBold
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            detail,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "Students",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                when {
+                    searchTerm.isNotBlank() || selectedPlacement != null ->
+                        "$resultCount of $totalCount shown"
+                    else ->
+                        "$totalCount active"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        if (selectedPlacement != null) {
+            Text(
+                selectedPlacement.displayLabel(),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -573,47 +629,46 @@ private fun RosterGroupHeader(
     section: String,
     studentCount: Int
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(
-                horizontal = Spacing.md,
-                vertical = Spacing.sm
-            ),
-            verticalAlignment = Alignment.CenterVertically
+        Surface(
+            modifier = Modifier.size(34.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer
         ) {
-            Surface(
-                modifier = Modifier.size(34.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        gradeBadge(grade),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-
-            Spacer(Modifier.width(Spacing.sm))
-
-            Column(Modifier.weight(1f)) {
+            Box(contentAlignment = Alignment.Center) {
                 Text(
-                    "Grade ${grade.ifBlank { "—" }} · ${section.ifBlank { "Unassigned section" }}",
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "$studentCount student${if (studentCount == 1) "" else "s"}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    gradeBadge(grade),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
         }
+
+        Spacer(Modifier.width(Spacing.sm))
+
+        Column(Modifier.weight(1f)) {
+            Text(
+                "Grade ${grade.ifBlank { "—" }} · ${section.ifBlank { "Unassigned section" }}",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                "$studentCount student${if (studentCount == 1) "" else "s"}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        HorizontalDivider(
+            modifier = Modifier.width(40.dp),
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
     }
 }
 
@@ -625,16 +680,25 @@ private fun StudentRosterCard(
 ) {
     val hasPrimary = hasPrimaryGuardian(student)
 
-    ElevatedCard(
+    OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.elevatedCardColors(
+        colors = CardDefaults.outlinedCardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
+        border = BorderStroke(
+            1.dp,
+            if (hasPrimary) {
+                MaterialTheme.colorScheme.outlineVariant
+            } else {
+                MaterialTheme.colorScheme.error.copy(alpha = 0.28f)
+            }
+        )
     ) {
         Column(Modifier.padding(Spacing.md)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 StudentAvatar(student)
 
                 Spacer(Modifier.width(Spacing.md))
@@ -648,78 +712,12 @@ private fun StudentRosterCard(
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    Spacer(Modifier.height(2.dp))
-
-                    Text(
-                        "Grade ${student.grade.ifBlank { "—" }} · ${
-                            student.section.ifBlank { "Section —" }
-                        }",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
                     if (student.studentNumber.isNotBlank()) {
                         Spacer(Modifier.height(2.dp))
                         Text(
                             "Student no. ${student.studentNumber}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                GuardianReadinessBadge(hasPrimary = hasPrimary)
-            }
-
-            Spacer(Modifier.height(Spacing.md))
-
-            if (hasPrimary) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(Spacing.sm),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Filled.Security,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(Spacing.xs))
-                        Text(
-                            "Primary guardian registered. Review backup or temporary pickup access when needed.",
-                            modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            } else {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.58f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(Spacing.sm),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Filled.WarningAmber,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(Spacing.xs))
-                        Text(
-                            "Primary guardian required before backup or one-day pickup access can be added.",
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer
                         )
                     }
                 }
@@ -729,33 +727,41 @@ private fun StudentRosterCard(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (!hasPrimary) {
-                    FilledTonalButton(
-                        onClick = onRegisterParent,
-                        modifier = Modifier.heightIn(min = 44.dp)
-                    ) {
-                        Icon(
-                            Icons.Filled.PersonAdd,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text("Register primary")
-                    }
-                } else {
-                    OutlinedButton(
+                GuardianReadinessBadge(hasPrimary = hasPrimary)
+
+                Spacer(Modifier.weight(1f))
+
+                if (hasPrimary) {
+                    TextButton(
                         onClick = onManageGuardians,
-                        modifier = Modifier.heightIn(min = 44.dp)
+                        modifier = Modifier.heightIn(min = 40.dp)
                     ) {
                         Icon(
                             Icons.Filled.Group,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(17.dp)
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text("Manage guardians")
+                        Text("Guardians")
+                    }
+                } else {
+                    FilledTonalButton(
+                        onClick = onRegisterParent,
+                        modifier = Modifier.heightIn(min = 40.dp),
+                        contentPadding = PaddingValues(
+                            horizontal = Spacing.sm,
+                            vertical = Spacing.xs
+                        )
+                    ) {
+                        Icon(
+                            Icons.Filled.PersonAdd,
+                            contentDescription = null,
+                            modifier = Modifier.size(17.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Add primary")
                     }
                 }
             }
@@ -768,7 +774,7 @@ private fun StudentAvatar(student: Student) {
     val initials = studentInitials(student.fullName)
 
     Box(
-        modifier = Modifier.size(58.dp),
+        modifier = Modifier.size(52.dp),
         contentAlignment = Alignment.Center
     ) {
         Surface(
@@ -804,28 +810,60 @@ private fun StudentAvatar(student: Student) {
 
 @Composable
 private fun GuardianReadinessBadge(hasPrimary: Boolean) {
-    Surface(
-        shape = CircleShape,
-        color = if (hasPrimary) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.errorContainer
-        }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text(
-            if (hasPrimary) "Guardian ready" else "Needs guardian",
-            modifier = Modifier.padding(
-                horizontal = 9.dp,
-                vertical = 5.dp
-            ),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = if (hasPrimary) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onErrorContainer
+        Surface(
+            modifier = Modifier.size(28.dp),
+            shape = CircleShape,
+            color =
+                if (hasPrimary) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.errorContainer
+                }
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector =
+                        if (hasPrimary) {
+                            Icons.Filled.Security
+                        } else {
+                            Icons.Filled.WarningAmber
+                        },
+                    contentDescription = null,
+                    modifier = Modifier.size(15.dp),
+                    tint =
+                        if (hasPrimary) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        }
+                )
             }
-        )
+        }
+
+        Column {
+            Text(
+                if (hasPrimary) "Guardian ready" else "Guardian required",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color =
+                    if (hasPrimary) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    }
+            )
+            if (!hasPrimary) {
+                Text(
+                    "Required before dismissal setup",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 
