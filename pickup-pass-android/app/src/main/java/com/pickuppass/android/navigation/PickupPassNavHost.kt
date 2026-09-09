@@ -796,6 +796,11 @@ fun PickupPassNavHost(
                         Screen.SchoolAdminLaunchReadiness.route
                     )
                 },
+                onOpenNotifications = {
+                    navController.navigate(
+                        Screen.SchoolAdminNotifications.route
+                    )
+                },
                 onOpenProfile = {
                     navController.navigate(
                         Screen.AccountProfile.route
@@ -955,6 +960,11 @@ fun PickupPassNavHost(
                 onBack = {
                     navController
                         .popBackStack()
+                },
+                onOpenNotifications = {
+                    navController.navigate(
+                        Screen.SchoolAdminNotifications.route
+                    )
                 }
             )
         }
