@@ -11,6 +11,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -38,7 +40,29 @@ class StudentsViewModel @Inject constructor(
     private var hasLoaded = false
 
     init {
+        observeUnreadNotifications()
         load()
+    }
+
+    private fun observeUnreadNotifications() {
+        viewModelScope.launch {
+            val uid =
+                authRepository.currentUid()
+                    ?: return@launch
+
+            notificationRepository
+                .observeUnreadCount(uid)
+                .catch {
+                    // Keep the last known count; regular screen refresh remains
+                    // a fallback if the live listener is temporarily unavailable.
+                }
+                .collect { count ->
+                    _uiState.value =
+                        _uiState.value.copy(
+                            unreadNotificationCount = count
+                        )
+                }
+        }
     }
 
     fun load() {
