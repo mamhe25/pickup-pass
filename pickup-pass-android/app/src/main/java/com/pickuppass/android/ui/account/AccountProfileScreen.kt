@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.School
@@ -28,6 +29,7 @@ import com.pickuppass.android.ui.common.ErrorBanner
 import com.pickuppass.android.ui.common.PremiumConfirmDialog
 import com.pickuppass.android.ui.common.PremiumTopAppBar
 import com.pickuppass.android.ui.common.SmartImage
+import com.pickuppass.android.ui.common.SuccessBanner
 import com.pickuppass.android.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,6 +43,8 @@ fun AccountProfileScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val signedOut by viewModel.signedOut.collectAsStateWithLifecycle()
     var confirmSignOut by remember { mutableStateOf(false) }
+    var showNameEditor by remember { mutableStateOf(false) }
+    var editedName by remember { mutableStateOf("") }
 
     LaunchedEffect(signedOut) {
         if (signedOut) onSignedOut()
@@ -224,7 +228,39 @@ fun AccountProfileScreen(
                                 Text("Loading account details…")
                             }
                         } else {
-                            DetailRow(Icons.Filled.Badge, "Name", uiState.displayName.ifBlank { "Not provided" })
+                            DetailRow(
+                                icon = Icons.Filled.Badge,
+                                label = "Name",
+                                value = uiState.displayName.ifBlank {
+                                    "Not provided"
+                                },
+                                trailing =
+                                    if (uiState.canEditName) {
+                                        {
+                                            TextButton(
+                                                onClick = {
+                                                    editedName =
+                                                        uiState.displayName
+                                                    viewModel.clearNameFeedback()
+                                                    showNameEditor = true
+                                                },
+                                                enabled = !uiState.nameBusy
+                                            ) {
+                                                Icon(
+                                                    Icons.Filled.Edit,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(17.dp)
+                                                )
+                                                Spacer(
+                                                    Modifier.width(4.dp)
+                                                )
+                                                Text("Edit")
+                                            }
+                                        }
+                                    } else {
+                                        null
+                                    }
+                            )
                             HorizontalDivider(Modifier.padding(vertical = Spacing.md))
                             DetailRow(Icons.Filled.Security, "Role", uiState.roleLabel.ifBlank { "PickupPass user" })
                             HorizontalDivider(Modifier.padding(vertical = Spacing.md))
@@ -322,7 +358,11 @@ fun AccountProfileScreen(
                 }
 
                 Text(
-                    "Profile identity details are managed by your PickupPass administrator. Sign-in credentials can be changed securely from Account security.",
+                    if (uiState.canEditName) {
+                        "Your Platform Owner display name can be updated here. Sign-in email, password, and 2FA are managed securely from Account security."
+                    } else {
+                        "Profile identity details are managed by your PickupPass administrator. Sign-in credentials can be changed securely from Account security."
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -330,6 +370,39 @@ fun AccountProfileScreen(
                 )
             }
         }
+    }
+
+    uiState.nameSuccess?.let { message ->
+        SuccessBanner(
+            message = message,
+            onDismiss = viewModel::clearNameFeedback
+        )
+    }
+
+    uiState.nameError?.let { message ->
+        ErrorBanner(message)
+    }
+
+    if (showNameEditor) {
+        EditOwnerNameSheet(
+            currentName = uiState.displayName,
+            value = editedName,
+            busy = uiState.nameBusy,
+            onValueChange = {
+                editedName = it
+                viewModel.clearNameFeedback()
+            },
+            onDismiss = {
+                if (!uiState.nameBusy) {
+                    showNameEditor = false
+                }
+            },
+            onSave = {
+                viewModel.updateDisplayName(
+                    editedName
+                )
+            }
+        )
     }
 
     if (confirmSignOut) {
@@ -348,13 +421,123 @@ fun AccountProfileScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditOwnerNameSheet(
+    currentName: String,
+    value: String,
+    busy: Boolean,
+    onValueChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onSave: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .padding(
+                    start = Spacing.lg,
+                    end = Spacing.lg,
+                    bottom = Spacing.xl
+                ),
+            verticalArrangement =
+                Arrangement.spacedBy(Spacing.md)
+        ) {
+            Text(
+                "PROFILE IDENTITY",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                "Edit name",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                "This is the name shown across PickupPass for the Platform Owner account. It does not change your sign-in email.",
+                style = MaterialTheme.typography.bodyMedium,
+                color =
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (currentName.isNotBlank()) {
+                Text(
+                    "Current: $currentName",
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !busy,
+                singleLine = true,
+                label = { Text("Name") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Filled.Badge,
+                        contentDescription = null
+                    )
+                }
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement =
+                    Arrangement.End
+            ) {
+                TextButton(
+                    onClick = onDismiss,
+                    enabled = !busy
+                ) {
+                    Text("Cancel")
+                }
+                Spacer(Modifier.width(Spacing.sm))
+                Button(
+                    onClick = onSave,
+                    enabled =
+                        !busy &&
+                            value.trim().length >= 2 &&
+                            value.trim() != currentName.trim()
+                ) {
+                    if (busy) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color =
+                                MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(
+                            Modifier.width(Spacing.sm)
+                        )
+                        Text("Saving…")
+                    } else {
+                        Text("Save name")
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun DetailRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
-    value: String
+    value: String,
+    trailing: (@Composable () -> Unit)? = null
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Icon(
             icon,
             contentDescription = null,
@@ -362,7 +545,9 @@ private fun DetailRow(
             modifier = Modifier.size(22.dp)
         )
         Spacer(Modifier.width(Spacing.md))
-        Column {
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
             Text(
                 label.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
@@ -375,5 +560,6 @@ private fun DetailRow(
                 fontWeight = FontWeight.SemiBold
             )
         }
+        trailing?.invoke()
     }
 }
