@@ -325,6 +325,14 @@ data class SessionStatusResponse(
     val status: String = ""
 )
 
+data class UpdateAccountNameRequest(
+    val displayName: String
+)
+
+data class UpdateAccountNameResponse(
+    val displayName: String = ""
+)
+
 // ---- Phase 2: school pickup policy + live dismissal dashboard ----
 
 data class PickupPolicyResponse(
