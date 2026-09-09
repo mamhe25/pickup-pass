@@ -73,6 +73,69 @@ public class MasterAdminController {
     }
 
 
+    @PutMapping("/profile/name")
+    @PreAuthorize("hasRole('master_admin')")
+    public ResponseEntity<?> updateOwnDisplayName(
+            @RequestBody UpdateOwnNameRequest req,
+            @AuthenticationPrincipal FirebaseUserDetails masterAdmin)
+            throws Exception {
+
+        String normalized =
+                req.getDisplayName() == null
+                        ? ""
+                        : req.getDisplayName()
+                                .trim()
+                                .replaceAll("\\s+", " ");
+
+        if (normalized.length() < 2 || normalized.length() > 80) {
+            return ResponseEntity.badRequest().body(
+                    Map.of(
+                            "error",
+                            "displayName must be between 2 and 80 characters"));
+        }
+
+        if (normalized.chars().anyMatch(Character::isISOControl)) {
+            return ResponseEntity.badRequest().body(
+                    Map.of(
+                            "error",
+                            "displayName contains unsupported characters"));
+        }
+
+        String uid = masterAdmin.getUid();
+        DocumentReference userRef =
+                firestore.collection("users").document(uid);
+
+        if (!userRef.get().get().exists()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "User profile not found"));
+        }
+
+        userRef.update(
+                "displayName", normalized,
+                "profileUpdatedAt", FieldValue.serverTimestamp()
+        ).get();
+
+        // Firebase Auth displayName is convenience metadata only. Firestore is
+        // the authoritative PickupPass profile; don't turn a successful profile
+        // edit into a misleading retry if Auth metadata sync is temporarily down.
+        try {
+            firebaseAuth.updateUser(
+                    new UserRecord.UpdateRequest(uid)
+                            .setDisplayName(normalized));
+        } catch (Exception ignored) { }
+
+        auditService.record(
+                masterAdmin,
+                "account.name_changed",
+                "user_account",
+                uid,
+                Map.of());
+
+        return ResponseEntity.ok(
+                Map.of("displayName", normalized));
+    }
+
+
     /**
      * Lists SaaS tenants for the master-admin console. This intentionally
      * returns tenant metadata only; operational student/pickup analytics stay
@@ -459,6 +522,18 @@ public class MasterAdminController {
         auditService.record(masterAdmin, "tenant.usage_reconciled", "school", schoolId, Map.of());
         operationsHealthService.refreshSchool(schoolId);
         return ResponseEntity.ok(tenantUsageService.snapshot(schoolId));
+    }
+
+    public static class UpdateOwnNameRequest {
+        private String displayName;
+
+        public String getDisplayName() {
+            return displayName;
+        }
+
+        public void setDisplayName(String displayName) {
+            this.displayName = displayName;
+        }
     }
 
     public static class CreateSchoolRequest {
