@@ -12,6 +12,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -36,12 +38,34 @@ class DismissalDashboardViewModel @Inject constructor(
     val uiState: StateFlow<DismissalDashboardUiState> = _uiState
 
     init {
+        observeUnreadNotifications()
         load(initial = true)
         viewModelScope.launch {
             while (isActive) {
                 delay(30_000)
                 load(initial = false, quiet = true)
             }
+        }
+    }
+
+    private fun observeUnreadNotifications() {
+        viewModelScope.launch {
+            val uid =
+                authRepository.currentUid()
+                    ?: return@launch
+
+            notificationRepository
+                .observeUnreadCount(uid)
+                .catch {
+                    // Keep the last known count. Normal dashboard refreshes
+                    // still provide a fallback aggregate read.
+                }
+                .collect { count ->
+                    _uiState.value =
+                        _uiState.value.copy(
+                            unreadNotifications = count
+                        )
+                }
         }
     }
 
