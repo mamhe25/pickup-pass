@@ -1,10 +1,330 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Subscription & Billing — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head><body class="min-h-screen pp-portal-body">
-<div id="adminNav" data-active="billing"></div><script type="module" src="../shared/school-admin-nav.js"></script><main class="pp-page"><div class="pp-page-head"><div><h1>Subscription & Billing</h1><p>View invoices, download official PDFs and receipts, and submit a GCash payment reference for manual verification.</p></div><button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh</button></div>
-<section class="pp-section mt-0"><div class="pp-section__head"><h2>GCash payment instructions</h2><span id="gcashStatus"></span></div><div class="pp-section__body"><div class="pp-grid"><div class="pp-kpi"><div class="pp-kpi__label">Account name</div><div id="gcashName" class="font-bold">—</div></div><div class="pp-kpi"><div class="pp-kpi__label">Mobile</div><div id="gcashMobile" class="font-bold">—</div></div><div class="pp-kpi"><div class="pp-kpi__label">Verification</div><div class="font-bold">Manual review</div></div></div><p id="gcashNote" class="pp-mini mt-3"></p></div></section>
-<section class="pp-section"><div class="pp-section__head"><h2>Invoices</h2></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Invoice</th><th>Amount</th><th>Due</th><th>Status</th><th>Documents</th></tr></thead><tbody id="invoiceRows"><tr><td colspan="5" class="pp-empty">Loading…</td></tr></tbody></table></div></section>
-<section class="pp-section"><div class="pp-section__head"><h2>Submit GCash payment for review</h2></div><div class="pp-section__body"><form id="paymentForm" class="pp-form-grid"><label>Invoice<select id="paymentInvoice" class="pp-field" required></select></label><label>Payer/account name<input id="payerName" class="pp-field" required></label><label>GCash reference<input id="referenceNumber" class="pp-field" required></label><label>Payment date/time<input id="paidAt" type="datetime-local" class="pp-field"></label><label>Note<input id="paymentNote" class="pp-field" placeholder="Optional"></label><div class="flex items-end"><button class="pp-btn pp-btn--primary w-full">Submit for review</button></div></form><p class="pp-mini mt-2">Submitting a reference does not mark the invoice paid. The platform owner must confirm it against the actual GCash history.</p></div></section>
-<section class="pp-section"><div class="pp-section__head"><h2>Payment review history</h2></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Invoice</th><th>Payer</th><th>Reference</th><th>Amount</th><th>Status</th></tr></thead><tbody id="noticeRows"><tr><td colspan="5" class="pp-empty">Loading…</td></tr></tbody></table></div></section></main>
-<script type="module">import {showToast} from '../shared/firebase-init.js';import {apiJson,requireRole,bindRefresh,escapeHtml,statusPill,fmtMoney,fmtDate,downloadAuthed} from '../shared/portal.js';let billing={};
-async function load(){billing=await apiJson('/school-admin/billing');const i=billing.paymentInstructions||{};gcashStatus.innerHTML=statusPill(i.enabled?'enabled':'not configured');gcashName.textContent=i.accountName||'—';gcashMobile.textContent=i.mobile||'—';gcashNote.textContent=i.note||'';const inv=billing.invoices||[];invoiceRows.innerHTML=inv.length?inv.map(x=>`<tr><td><strong>${escapeHtml(x.invoiceNumber||x.invoiceId)}</strong><div class="pp-mini">${escapeHtml(x.planSnapshot||'')}</div></td><td>${escapeHtml(fmtMoney(x.amountMinor,x.currency))}</td><td>${escapeHtml(fmtDate(x.dueAt))}</td><td>${statusPill(x.status)}</td><td><div class="pp-actions"><button class="pp-btn pp-btn--ghost invoicePdf" data-id="${escapeHtml(x.invoiceId)}">Invoice PDF</button>${x.receiptAvailable?`<button class="pp-btn pp-btn--ghost receiptPdf" data-id="${escapeHtml(x.invoiceId)}">Receipt</button>`:''}</div></td></tr>`).join(''):'<tr><td colspan="5" class="pp-empty">No invoices.</td></tr>';paymentInvoice.innerHTML='<option value="">Select invoice…</option>'+inv.filter(x=>!['paid','void'].includes(String(x.status).toLowerCase())).map(x=>`<option value="${escapeHtml(x.invoiceId)}">${escapeHtml(x.invoiceNumber||x.invoiceId)} — ${escapeHtml(fmtMoney(x.amountMinor,x.currency))}</option>`).join('');const notices=billing.paymentNotices||[];noticeRows.innerHTML=notices.length?notices.map(n=>`<tr><td>${escapeHtml(n.invoiceNumber||n.invoiceId)}</td><td>${escapeHtml(n.payerName||'')}</td><td><span class="pp-code">${escapeHtml(n.referenceNumber||'')}</span></td><td>${escapeHtml(fmtMoney(n.amountMinor,n.currency))}</td><td>${statusPill(n.status)}</td></tr>`).join(''):'<tr><td colspan="5" class="pp-empty">No payment notices.</td></tr>';document.querySelectorAll('.invoicePdf').forEach(b=>b.onclick=()=>downloadAuthed(`/school-admin/billing/invoices/${encodeURIComponent(b.dataset.id)}/pdf`,'invoice.pdf').catch(e=>showToast(e.message,'error')));document.querySelectorAll('.receiptPdf').forEach(b=>b.onclick=()=>downloadAuthed(`/school-admin/billing/invoices/${encodeURIComponent(b.dataset.id)}/receipt`,'receipt.pdf').catch(e=>showToast(e.message,'error')));}
-paymentForm.onsubmit=async e=>{e.preventDefault();const inv=(billing.invoices||[]).find(x=>x.invoiceId===paymentInvoice.value);if(!inv)return;let paidAtIso='';if(paidAt.value){paidAtIso=new Date(paidAt.value).toISOString();}try{await apiJson(`/school-admin/billing/invoices/${encodeURIComponent(inv.invoiceId)}/gcash-payment-notice`,{method:'POST',body:JSON.stringify({payerName:payerName.value.trim(),referenceNumber:referenceNumber.value.trim(),amountMinor:inv.amountMinor,paidAt:paidAtIso,note:paymentNote.value.trim()})});showToast('Payment reference submitted for review.');paymentForm.reset();await load();}catch(err){showToast(err.message,'error');}};
-bindRefresh('refreshBtn',load);requireRole('school_admin',load);</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Subscription & Billing — PickupPass</title>
+<meta name="theme-color" content="#4652C7">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<link rel="stylesheet" href="./school-admin-parity.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="adminNav" data-active="billing"></div>
+<script type="module" src="../shared/school-admin-nav.js"></script>
+
+<main class="pp-page pp-school-work-page">
+  <section class="pp-school-work-hero">
+    <div>
+      <p class="pp-school-work-hero__eyebrow">School subscription · billing</p>
+      <h1 id="billingHeroTitle">Subscription & billing</h1>
+      <p id="billingHeroCopy">
+        Review plan access, invoices and payment verification. A submitted GCash reference never marks an invoice paid until the Platform Owner verifies it.
+      </p>
+      <div class="pp-school-work-hero__actions">
+        <button id="refreshBtn" class="pp-btn pp-btn--primary" type="button">Refresh billing</button>
+      </div>
+    </div>
+    <div class="pp-school-work-hero__summary">
+      <span>Plan</span>
+      <strong id="planName">Loading…</strong>
+    </div>
+  </section>
+
+  <section class="pp-school-metrics" aria-label="Billing summary">
+    <article class="pp-school-metric"><span>Open invoices</span><strong id="openCount">—</strong><small>Awaiting settlement</small></article>
+    <article class="pp-school-metric"><span>Pending review</span><strong id="pendingCount">—</strong><small>GCash claims</small></article>
+    <article class="pp-school-metric"><span>Overdue</span><strong id="overdueCount">—</strong><small>Past due invoices</small></article>
+    <article class="pp-school-metric"><span>Paid</span><strong id="paidCount">—</strong><small>Verified payments</small></article>
+  </section>
+
+  <section id="subscriptionNotice" class="pp-owner-priority pp-owner-priority--attention hidden"></section>
+
+  <div class="pp-school-split mt-4">
+    <section class="pp-section mt-0">
+      <div class="pp-section__head">
+        <div><h2>Subscription</h2><p class="pp-mini">Current tenant access and billing lifecycle.</p></div>
+        <span id="subscriptionStatus"></span>
+      </div>
+      <div class="pp-section__body">
+        <div id="subscriptionSummary" class="pp-summary-list"><div class="pp-empty">Loading subscription…</div></div>
+      </div>
+    </section>
+
+    <section class="pp-section mt-0">
+      <div class="pp-section__head">
+        <div><h2>GCash payment instructions</h2><p class="pp-mini">Manual Platform Owner verification.</p></div>
+        <span id="gcashStatus"></span>
+      </div>
+      <div class="pp-section__body">
+        <div class="pp-billing-instructions">
+          <div class="pp-billing-instruction"><span>Account name</span><strong id="gcashName">—</strong></div>
+          <div class="pp-billing-instruction"><span>Mobile</span><strong id="gcashMobile">—</strong></div>
+          <div class="pp-billing-instruction"><span>Verification</span><strong>Manual review</strong></div>
+        </div>
+        <p id="gcashNote" class="pp-mini mt-3"></p>
+      </div>
+    </section>
+  </div>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Invoices</h2>
+        <p class="pp-mini">Download billing documents or submit a payment claim from the invoice that was actually paid.</p>
+      </div>
+    </div>
+    <div class="pp-section__body">
+      <div id="invoiceList" class="pp-history-list"><div class="pp-empty">Loading invoices…</div></div>
+    </div>
+  </section>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div><h2>Payment review history</h2><p class="pp-mini">Submitted references and their Platform Owner review outcome.</p></div>
+    </div>
+    <div class="pp-section__body">
+      <div id="noticeList" class="pp-history-list"><div class="pp-empty">Loading payment review history…</div></div>
+    </div>
+  </section>
+</main>
+
+<dialog id="paymentDialog" class="pp-parity-dialog pp-parity-dialog--compact">
+  <form id="paymentForm">
+    <div class="pp-parity-dialog__head">
+      <p class="pp-parity-dialog__eyebrow">Manual GCash review</p>
+      <h2>Submit payment reference</h2>
+      <p id="paymentInvoiceSummary">Submit the reference from the invoice you paid.</p>
+    </div>
+    <div class="pp-parity-dialog__body">
+      <div class="pp-risk-card mb-4">
+        Submitting this form does <strong>not</strong> mark the invoice paid. The Platform Owner must match the reference against the actual GCash transaction history first.
+      </div>
+      <div class="pp-dialog-form-grid">
+        <label class="pp-span-full">Payer / account name<input id="payerName" class="pp-field" maxlength="120" required></label>
+        <label class="pp-span-full">GCash reference<input id="referenceNumber" class="pp-field" maxlength="100" required autocomplete="off"></label>
+        <label class="pp-span-full">Payment date & time<input id="paidAt" type="datetime-local" class="pp-field"></label>
+        <label class="pp-span-full">Note<textarea id="paymentNote" class="pp-field" rows="3" maxlength="500" placeholder="Optional context for the reviewer"></textarea></label>
+      </div>
+    </div>
+    <div class="pp-parity-dialog__footer">
+      <button id="cancelPayment" class="pp-btn pp-btn--secondary" type="button">Cancel</button>
+      <button id="submitPayment" class="pp-btn pp-btn--primary" type="submit">Submit for review</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module">
+import { showToast, setSubmitButtonBusy } from '../shared/firebase-init.js';
+import { apiJson, requireRole, bindRefresh, escapeHtml, statusPill, fmtMoney, fmtDate, downloadAuthed, titleCase } from '../shared/portal.js';
+import { confirmDialog } from '../shared/dialogs.js';
+
+let billing = {};
+let entitlements = null;
+let payingInvoice = null;
+const paymentDialog = document.getElementById('paymentDialog');
+
+function invoiceOverdue(invoice) {
+  if (String(invoice.status || '').toLowerCase() === 'overdue') return true;
+  if (['paid', 'void'].includes(String(invoice.status || '').toLowerCase())) return false;
+  const due = invoice.dueAt ? new Date(invoice.dueAt).getTime() : NaN;
+  return Number.isFinite(due) && due < Date.now();
+}
+
+function reviewForInvoice(invoiceId, status) {
+  return (billing.paymentNotices || []).find(item =>
+    item.invoiceId === invoiceId && String(item.status || '').toLowerCase() === status
+  );
+}
+
+async function load() {
+  const [billingResult, entitlementsResult] = await Promise.allSettled([
+    apiJson('/school-admin/billing'),
+    apiJson('/tenant/entitlements')
+  ]);
+
+  if (billingResult.status !== 'fulfilled') throw billingResult.reason;
+  billing = billingResult.value;
+  entitlements = entitlementsResult.status === 'fulfilled' ? entitlementsResult.value : null;
+  render();
+}
+
+function render() {
+  const invoices = billing.invoices || [];
+  const notices = billing.paymentNotices || [];
+  const instructions = billing.paymentInstructions || {};
+  const open = invoices.filter(item => !['paid', 'void'].includes(String(item.status || '').toLowerCase())).length;
+  const pending = notices.filter(item => String(item.status || '').toLowerCase() === 'pending_review').length;
+  const overdue = invoices.filter(invoiceOverdue).length;
+  const paid = invoices.filter(item => String(item.status || '').toLowerCase() === 'paid').length;
+
+  document.getElementById('openCount').textContent = open;
+  document.getElementById('pendingCount').textContent = pending;
+  document.getElementById('overdueCount').textContent = overdue;
+  document.getElementById('paidCount').textContent = paid;
+
+  const plan = entitlements?.plan || billing.plan || '—';
+  const sub = entitlements?.subscriptionStatus || billing.subscriptionStatus || 'unknown';
+  document.getElementById('planName').textContent = titleCase(plan);
+  document.getElementById('subscriptionStatus').innerHTML = statusPill(sub);
+  document.getElementById('billingHeroTitle').textContent = sub === 'past_due'
+    ? 'Billing action required'
+    : `${titleCase(plan)} plan`;
+  document.getElementById('billingHeroCopy').textContent = sub === 'past_due'
+    ? 'The subscription is past due. Review open invoices and any pending GCash verification before access reaches the end of its grace period.'
+    : 'Review plan access, invoices and payment verification. A submitted GCash reference never marks an invoice paid until the Platform Owner verifies it.';
+
+  const notice = document.getElementById('subscriptionNotice');
+  const attention = sub === 'past_due' || sub === 'cancelled' || overdue > 0;
+  notice.classList.toggle('hidden', !attention);
+  if (attention) {
+    notice.innerHTML = `<div class="pp-owner-priority__icon" aria-hidden="true">!</div><div><strong>Billing needs attention</strong><p>${escapeHtml(overdue ? `${overdue} invoice${overdue === 1 ? '' : 's'} ${overdue === 1 ? 'is' : 'are'} overdue.` : `Subscription status is ${titleCase(sub)}.`)} Pending payment claims remain unverified until Platform Owner review.</p></div>`;
+  }
+
+  const summaryRows = [
+    ['Plan', titleCase(plan)],
+    ['Subscription', titleCase(sub)],
+    ['Feature access', entitlements?.featureAccessAvailable === false ? 'Restricted' : 'Available'],
+    ['Current period ends', fmtDate(entitlements?.currentPeriodEnd || billing.currentPeriodEnd) || '—'],
+    ['Grace period ends', fmtDate(entitlements?.graceEnd || billing.graceEnd) || '—']
+  ];
+  document.getElementById('subscriptionSummary').innerHTML = summaryRows
+    .map(([label, value]) => `<div class="pp-summary-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`)
+    .join('');
+
+  document.getElementById('gcashStatus').innerHTML = statusPill(instructions.enabled ? 'enabled' : 'not configured');
+  document.getElementById('gcashName').textContent = instructions.accountName || '—';
+  document.getElementById('gcashMobile').textContent = instructions.mobile || '—';
+  document.getElementById('gcashNote').textContent = instructions.note || '';
+
+  renderInvoices(invoices, instructions.enabled !== false);
+  renderNotices(notices);
+}
+
+function renderInvoices(invoices, paymentsEnabled) {
+  document.getElementById('invoiceList').innerHTML = invoices.length
+    ? invoices.map(invoice => {
+        const status = String(invoice.status || '').toLowerCase();
+        const pending = reviewForInvoice(invoice.invoiceId, 'pending_review');
+        const rejected = reviewForInvoice(invoice.invoiceId, 'rejected');
+        const canSubmit = !['paid', 'void'].includes(status) && paymentsEnabled && !pending;
+        return `
+          <article class="pp-history-card">
+            <div>
+              <h3>${escapeHtml(invoice.invoiceNumber || 'Invoice')} · ${escapeHtml(fmtMoney(invoice.amountMinor, invoice.currency))}</h3>
+              <p>${escapeHtml(invoice.planSnapshot || '')}${invoice.note ? `\n${escapeHtml(invoice.note)}` : ''}</p>
+              <div class="pp-history-card__meta">
+                ${statusPill(invoice.status || 'unknown')}
+                <span class="pp-status">Due ${escapeHtml(fmtDate(invoice.dueAt) || '—')}</span>
+                ${invoice.paidAt ? `<span class="pp-status">Paid ${escapeHtml(fmtDate(invoice.paidAt))}</span>` : ''}
+              </div>
+              ${pending ? '<div class="pp-callout mt-3">Payment reference submitted and waiting for Platform Owner verification.</div>' : ''}
+              ${rejected ? `<div class="pp-risk-card mt-3"><strong>Previous payment claim rejected.</strong>${rejected.reviewNote ? ` ${escapeHtml(rejected.reviewNote)}` : ''} You can submit a corrected reference if the invoice is still open.</div>` : ''}
+            </div>
+            <div class="pp-history-card__actions">
+              <button class="pp-btn pp-btn--secondary invoicePdf" type="button" data-id="${escapeHtml(invoice.invoiceId)}">Invoice PDF</button>
+              ${invoice.receiptAvailable || status === 'paid' ? `<button class="pp-btn pp-btn--secondary receiptPdf" type="button" data-id="${escapeHtml(invoice.invoiceId)}">Receipt</button>` : ''}
+              ${canSubmit ? `<button class="pp-btn pp-btn--primary submitClaim" type="button" data-id="${escapeHtml(invoice.invoiceId)}">Submit GCash payment</button>` : ''}
+            </div>
+          </article>
+        `;
+      }).join('')
+    : '<div class="pp-empty">No invoices are available for this school.</div>';
+
+  document.querySelectorAll('.invoicePdf').forEach(button => {
+    button.onclick = () => downloadAuthed(`/school-admin/billing/invoices/${encodeURIComponent(button.dataset.id)}/pdf`, 'invoice.pdf')
+      .catch(error => showToast(error.message, 'error'));
+  });
+  document.querySelectorAll('.receiptPdf').forEach(button => {
+    button.onclick = () => downloadAuthed(`/school-admin/billing/invoices/${encodeURIComponent(button.dataset.id)}/receipt`, 'receipt.pdf')
+      .catch(error => showToast(error.message, 'error'));
+  });
+  document.querySelectorAll('.submitClaim').forEach(button => {
+    button.onclick = () => openPaymentDialog(button.dataset.id);
+  });
+}
+
+function renderNotices(notices) {
+  document.getElementById('noticeList').innerHTML = notices.length
+    ? [...notices].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).map(item => `
+        <article class="pp-history-card">
+          <div>
+            <h3>${escapeHtml(item.invoiceNumber || 'Invoice payment')} · ${escapeHtml(fmtMoney(item.amountMinor, item.currency))}</h3>
+            <p>${escapeHtml(item.payerName || 'Payer unavailable')} · GCash reference ${escapeHtml(item.referenceNumber || '—')}</p>
+            <div class="pp-history-card__meta">
+              ${statusPill(item.status || 'unknown')}
+              <span class="pp-status">Submitted ${escapeHtml(fmtDate(item.createdAt) || '—')}</span>
+              ${item.paidAt ? `<span class="pp-status">Reported payment ${escapeHtml(fmtDate(item.paidAt))}</span>` : ''}
+            </div>
+            ${item.reviewNote ? `<div class="pp-human-detail"><div class="pp-human-detail__row"><span>Review note</span><strong>${escapeHtml(item.reviewNote)}</strong></div></div>` : ''}
+          </div>
+        </article>
+      `).join('')
+    : '<div class="pp-empty">No payment references have been submitted.</div>';
+}
+
+function openPaymentDialog(invoiceId) {
+  const invoice = (billing.invoices || []).find(item => item.invoiceId === invoiceId);
+  if (!invoice) return;
+  payingInvoice = invoice;
+  document.getElementById('paymentForm').reset();
+  document.getElementById('paymentInvoiceSummary').textContent = `${invoice.invoiceNumber || 'Invoice'} · ${fmtMoney(invoice.amountMinor, invoice.currency)} · due ${fmtDate(invoice.dueAt) || '—'}`;
+  paymentDialog.showModal();
+  requestAnimationFrame(() => document.getElementById('payerName').focus());
+}
+
+document.getElementById('cancelPayment').onclick = () => paymentDialog.close();
+paymentDialog.addEventListener('close', () => { payingInvoice = null; });
+paymentDialog.addEventListener('click', event => {
+  if (event.target !== paymentDialog) return;
+  const rect = paymentDialog.getBoundingClientRect();
+  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) paymentDialog.close();
+});
+
+document.getElementById('paymentForm').onsubmit = async event => {
+  event.preventDefault();
+  if (!payingInvoice) return;
+
+  const reference = document.getElementById('referenceNumber').value.trim();
+  const payer = document.getElementById('payerName').value.trim();
+  const ok = await confirmDialog(
+    `Submit GCash reference ${reference} for ${payingInvoice.invoiceNumber || 'this invoice'}? This creates a review request only and does not mark the invoice paid.`,
+    { title: 'Submit payment for verification', confirmLabel: 'Submit for review' }
+  );
+  if (!ok) return;
+
+  let paidAtIso = '';
+  const paidAt = document.getElementById('paidAt').value;
+  if (paidAt) paidAtIso = new Date(paidAt).toISOString();
+
+  const button = document.getElementById('submitPayment');
+  setSubmitButtonBusy(button, true, 'Submitting…');
+  try {
+    await apiJson(`/school-admin/billing/invoices/${encodeURIComponent(payingInvoice.invoiceId)}/gcash-payment-notice`, {
+      method: 'POST',
+      body: JSON.stringify({
+        payerName: payer,
+        referenceNumber: reference,
+        amountMinor: payingInvoice.amountMinor,
+        paidAt: paidAtIso,
+        note: document.getElementById('paymentNote').value.trim()
+      })
+    });
+    paymentDialog.close();
+    showToast('Payment reference submitted for Platform Owner review.');
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    setSubmitButtonBusy(button, false);
+  }
+};
+
+bindRefresh('refreshBtn', load);
+requireRole('school_admin', load);
+</script>
+</body>
+</html>
