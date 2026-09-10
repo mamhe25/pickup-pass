@@ -23,16 +23,23 @@
   <section class="pp-parent-hero">
     <div>
       <p class="pp-parent-hero__eyebrow">Family pickup</p>
-      <h1>Everything you need for a safe handoff.</h1>
+      <h1 id="parentHeroTitle">Safe pickup starts here.</h1>
       <p>
-        Generate a secure pickup pass for the child being collected, or review
-        who is authorized to pick them up.
+        Generate a secure pass for the right student and keep authorized pickup
+        contacts up to date.
       </p>
     </div>
 
-    <div class="pp-parent-hero__count" aria-label="Linked student count">
-      <strong id="studentCount">—</strong>
-      <span id="studentCountLabel">students</span>
+    <div class="pp-parent-hero__metrics" aria-label="Student summary">
+      <div class="pp-parent-hero__metric">
+        <strong id="studentCount">—</strong>
+        <span id="studentCountLabel">Linked students</span>
+      </div>
+
+      <div class="pp-parent-hero__metric">
+        <strong id="activeStudentCount">—</strong>
+        <span>Pass eligible</span>
+      </div>
     </div>
   </section>
 
@@ -40,8 +47,8 @@
     <div>
       <h2>Linked students</h2>
       <p>
-        Pickup passes are issued per student and still require staff verification
-        before dismissal.
+        Choose the student being collected. Pickup passes are generated individually
+        and still require school verification.
       </p>
     </div>
   </section>
@@ -91,26 +98,32 @@
 
   <div id="emptyState" class="pp-empty hidden">
     <strong>No linked students yet</strong>
-    <div class="mt-2">
+    <div class="mt-2" id="emptyDetail">
       Contact your school office to be added as an authorized pickup contact for
       a student.
+    </div>
+    <div class="mt-3 text-xs text-ink-muted">
+      For security, parents cannot link themselves to a student from the app.
     </div>
   </div>
 
   <aside id="trustNote" class="pp-parent-trust-note hidden">
-    PickupPass never releases a student from this page. A pass must still be
-    verified by authorized school staff before dismissal is approved.
+    <strong>School verification is always required.</strong>
+    Generating a pass does not release a student. Authorized school staff must
+    verify and approve every pickup.
   </aside>
 </main>
 
 <script type="module">
-import { auth, db } from "../shared/firebase-init.js";
+import { auth, db, getSchoolBranding } from "../shared/firebase-init.js";
 
 import {
   collection,
   query,
   where,
-  getDocs
+  getDocs,
+  doc,
+  getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import {
@@ -118,18 +131,22 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const ui = {
+  heroTitle: document.getElementById("parentHeroTitle"),
   list: document.getElementById("studentList"),
   loading: document.getElementById("loadingState"),
   error: document.getElementById("errorState"),
   empty: document.getElementById("emptyState"),
+  emptyDetail: document.getElementById("emptyDetail"),
   retry: document.getElementById("retryBtn"),
   count: document.getElementById("studentCount"),
   countLabel: document.getElementById("studentCountLabel"),
+  activeCount: document.getElementById("activeStudentCount"),
   trust: document.getElementById("trustNote")
 };
 
 let currentUser = null;
 let currentSchoolId = null;
+let currentSchoolName = "";
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) return;
@@ -145,7 +162,11 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
-    await loadStudents(user.uid, currentSchoolId);
+    await Promise.all([
+      loadParentIdentity(user.uid),
+      loadSchoolName(currentSchoolId),
+      loadStudents(user.uid, currentSchoolId)
+    ]);
   } catch (_) {
     showError();
   }
@@ -155,6 +176,32 @@ ui.retry.addEventListener("click", async () => {
   if (!currentUser || !currentSchoolId) return;
   await loadStudents(currentUser.uid, currentSchoolId);
 });
+
+async function loadParentIdentity(uid) {
+  try {
+    const snap = await getDoc(doc(db, "users", uid));
+    const displayName = String(snap.data()?.displayName || currentUser?.displayName || "").trim();
+    const firstName = displayName.split(/\s+/).filter(Boolean)[0] || "";
+    ui.heroTitle.textContent = firstName
+      ? `Welcome, ${firstName}.`
+      : "Safe pickup starts here.";
+  } catch (_) {
+    ui.heroTitle.textContent = "Safe pickup starts here.";
+  }
+}
+
+async function loadSchoolName(schoolId) {
+  try {
+    const branding = await getSchoolBranding(schoolId, { getDoc, doc });
+    currentSchoolName = String(branding?.schoolName || "").trim();
+    if (currentSchoolName) {
+      ui.emptyDetail.textContent =
+        `Contact ${currentSchoolName} to be added as an authorized pickup contact for a student.`;
+    }
+  } catch (_) {
+    currentSchoolName = "";
+  }
+}
 
 async function loadStudents(uid, schoolId) {
   showLoading();
@@ -193,11 +240,17 @@ async function loadStudents(uid, schoolId) {
 function renderStudents(students) {
   ui.list.innerHTML = "";
 
+  const activeCount = students.filter((student) =>
+    String(student.status || "active").toLowerCase() === "active"
+  ).length;
+
   ui.count.textContent = String(students.length);
   ui.countLabel.textContent =
-    students.length === 1 ? "student" : "students";
+    students.length === 1 ? "Linked student" : "Linked students";
+  ui.activeCount.textContent = String(activeCount);
 
   ui.loading.classList.add("hidden");
+  ui.loading.setAttribute("aria-busy", "false");
   ui.error.classList.add("hidden");
 
   if (students.length === 0) {
@@ -225,6 +278,11 @@ function createStudentCard(student) {
 
   const displayName =
     String(student.fullName || "Unnamed student").trim();
+
+  const guardianCount = [...new Set(
+    (Array.isArray(student.guardianUids) ? student.guardianUids : [])
+      .filter((uid) => typeof uid === "string" && uid.trim())
+  )].length;
 
   const initials = getInitials(displayName);
   const photo = safeImageSource(student.photoUrl);
@@ -259,7 +317,7 @@ function createStudentCard(student) {
 
       <p class="pp-student-meta">
         Grade ${escapeHtml(student.grade || "—")}
-        · Section ${escapeHtml(student.section || "—")}
+        · ${escapeHtml(student.section ? `Section ${student.section}` : "Section —")}
       </p>
 
       ${student.studentNumber
@@ -269,11 +327,27 @@ function createStudentCard(student) {
         : ""
       }
 
+      ${student.academicYearName
+        ? `<p class="pp-student-number">${escapeHtml(student.academicYearName)}</p>`
+        : ""
+      }
+
+      <div class="pp-student-guardian-summary">
+        <span aria-hidden="true">👥</span>
+        <span>${escapeHtml(
+          guardianCount === 0
+            ? "No linked pickup contacts"
+            : guardianCount === 1
+              ? "1 linked pickup contact"
+              : `${guardianCount} linked pickup contacts`
+        )}</span>
+      </div>
+
       ${active
         ? ""
         : `<div class="pp-student-note">
             Pickup passes are unavailable while this student is
-            ${escapeHtml(String(student.status || "inactive"))}.
+            ${escapeHtml(String(student.status || "inactive").toLowerCase())}.
           </div>`
       }
 
@@ -294,7 +368,7 @@ function createStudentCard(student) {
         <a
           class="manage-guardians-link pp-btn pp-btn--ghost"
           href="./manage-guardians.html?studentId=${encodeURIComponent(student.id)}">
-          Manage guardians
+          Guardians
         </a>
       </div>
     </div>
@@ -344,7 +418,8 @@ function showError() {
   ui.error.classList.remove("hidden");
 
   ui.count.textContent = "—";
-  ui.countLabel.textContent = "students";
+  ui.countLabel.textContent = "Linked students";
+  ui.activeCount.textContent = "—";
 }
 
 function safeImageSource(value) {
