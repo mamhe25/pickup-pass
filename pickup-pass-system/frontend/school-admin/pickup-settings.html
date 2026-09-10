@@ -1,58 +1,949 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pickup Settings — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head><body class="min-h-screen pp-portal-body">
-<div id="adminNav" data-active="pickup"></div><script type="module" src="../shared/school-admin-nav.js"></script>
-<main class="pp-page"><div class="pp-page-head"><div><h1>Pickup Configuration</h1><p>Manage campuses, gates, optional guardian verification, and optional staff gate restrictions. Zero gates remains a supported scanner mode; one gate auto-selects; multiple gates prompt for selection.</p></div><div class="pp-actions"><a href="../teacher/scanner.html" class="pp-btn pp-btn--primary">Open scanner</a><button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh</button></div></div>
-<section class="pp-section"><div class="pp-section__head"><h2>Campuses & gates</h2></div><div class="pp-section__body"><div class="pp-grid"><form id="campusForm" class="pp-kpi space-y-2"><div class="font-bold">Add campus</div><input id="campusName" class="pp-field" placeholder="Main Campus" required><input id="campusAddress" class="pp-field" placeholder="Address (optional)"><button class="pp-btn pp-btn--primary w-full">Create campus</button></form><form id="gateForm" class="pp-kpi space-y-2"><div class="font-bold">Add pickup gate</div><select id="gateCampus" class="pp-field"></select><input id="gateName" class="pp-field" placeholder="Front Gate" required><input id="gateDescription" class="pp-field" placeholder="Description (optional)"><button class="pp-btn pp-btn--primary w-full">Create gate</button></form></div></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Type</th><th>Name</th><th>Campus / Address</th><th>Status</th><th></th></tr></thead><tbody id="locationRows"><tr><td colspan="5" class="pp-empty">Loading…</td></tr></tbody></table></div></section>
-<section class="pp-section"><div class="pp-section__head"><div><h2>Guardian identity verification</h2><p class="pp-mini">Optional. Legacy guardians remain verified unless the policy is enabled and their status is changed.</p></div><label class="flex gap-2 items-center"><input id="verificationRequired" type="checkbox"> Require verified guardians</label></div><div id="guardianFeatureNotice" class="pp-section__body hidden"></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Guardian</th><th>Students</th><th>Status</th><th>Update</th></tr></thead><tbody id="guardianRows"><tr><td colspan="4" class="pp-empty">Loading…</td></tr></tbody></table></div></section>
-<section class="pp-section"><div class="pp-section__head"><div><h2>Staff gate restrictions</h2><p class="pp-mini">Empty assignment means access to all active gates. Restrictions only matter when explicitly configured.</p></div></div><div id="staffGateFeatureNotice" class="pp-section__body hidden"></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Staff</th><th>Role</th><th>Gate access</th><th></th></tr></thead><tbody id="staffRows"><tr><td colspan="4" class="pp-empty">Loading…</td></tr></tbody></table></div></section>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pickup Configuration — PickupPass</title>
+<meta name="theme-color" content="#4652C7">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<link rel="stylesheet" href="./pickup-settings.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="adminNav" data-active="pickup"></div>
+<script type="module" src="../shared/school-admin-nav.js"></script>
 
-<section class="pp-section pp-danger-zone"><div class="pp-section__head"><div><h2>Emergency / manual release</h2><p class="pp-mini">School Admin only. Use when QR pickup cannot be completed. Every manual release requires an authorized guardian, a reason, and is written to the audit/exit log.</p></div><span class="pp-status pp-status--warning">Controlled action</span></div><div class="pp-section__body">
-  <div id="manualFeatureNotice" class="pp-callout mb-4">Manual release is optional and may be disabled by the tenant feature policy. Normal QR pickup remains the preferred path.</div>
-  <form id="manualOverrideForm" class="pp-form-grid">
-    <label>Student<select id="manualStudent" class="pp-field" required><option value="">Loading active students…</option></select></label>
-    <label>Authorized guardian<select id="manualGuardian" class="pp-field" required><option value="">Select a student first…</option></select></label>
-    <label id="manualGateWrap" class="hidden">Pickup gate<select id="manualGate" class="pp-field"></select><span id="manualGateHint" class="pp-mini"></span></label>
-    <label class="col-span-full">Reason<textarea id="manualReason" class="pp-field" rows="3" minlength="5" maxlength="500" required placeholder="Why is a manual release necessary?"></textarea></label>
-    <div class="col-span-full pp-actions"><button id="manualReleaseBtn" class="pp-btn pp-btn--danger" type="submit">Approve manual release</button><span class="pp-mini">This action cannot be undone from the portal.</span></div>
+<main class="pp-page pp-pickup-page">
+  <section class="pp-pickup-hero">
+    <div>
+      <p class="pp-pickup-hero__eyebrow">School operations · dismissal controls</p>
+      <h1>Pickup configuration</h1>
+      <p>
+        Keep pickup policy, locations, guardian verification, staff gate access and
+        emergency release controls separated into focused workspaces. Scanner behavior
+        remains safe with zero, one or multiple active pickup gates.
+      </p>
+      <div class="pp-pickup-hero__actions">
+        <a href="../teacher/scanner.html" class="pp-btn pp-btn--primary">Open scanner</a>
+        <button id="refreshBtn" class="pp-btn pp-btn--secondary" type="button">Refresh all</button>
+      </div>
+    </div>
+    <div class="pp-pickup-hero__summary">
+      <span>Pickup policy</span>
+      <strong id="heroPolicySummary">Loading…</strong>
+    </div>
+  </section>
+
+  <section class="pp-pickup-workspaces" role="tablist" aria-label="Pickup configuration workspaces">
+    <button class="pp-pickup-workspace" type="button" role="tab" data-panel="policyPanel" aria-selected="true">
+      <span class="pp-pickup-workspace__icon" aria-hidden="true">P</span>
+      <span><strong>Policy</strong><span>Hours & manual override</span></span>
+    </button>
+    <button class="pp-pickup-workspace" type="button" role="tab" data-panel="locationsPanel" aria-selected="false">
+      <span class="pp-pickup-workspace__icon" aria-hidden="true">G</span>
+      <span><strong>Campuses & gates</strong><span>Release locations</span></span>
+    </button>
+    <button class="pp-pickup-workspace" type="button" role="tab" data-panel="guardiansPanel" aria-selected="false">
+      <span class="pp-pickup-workspace__icon" aria-hidden="true">V</span>
+      <span><strong>Guardian verification</strong><span>Identity policy</span></span>
+    </button>
+    <button class="pp-pickup-workspace" type="button" role="tab" data-panel="staffGatesPanel" aria-selected="false">
+      <span class="pp-pickup-workspace__icon" aria-hidden="true">S</span>
+      <span><strong>Staff gate access</strong><span>Optional restrictions</span></span>
+    </button>
+    <button class="pp-pickup-workspace" type="button" role="tab" data-panel="manualPanel" aria-selected="false">
+      <span class="pp-pickup-workspace__icon" aria-hidden="true">M</span>
+      <span><strong>Manual release</strong><span>Controlled fallback</span></span>
+    </button>
+  </section>
+
+  <section id="policyPanel" class="pp-pickup-panel" role="tabpanel">
+    <div class="pp-section mt-0">
+      <div class="pp-section__head">
+        <div>
+          <h2>Pickup policy</h2>
+          <p class="pp-mini">Parallel to Android: unrestricted QR pickup or a school-defined time window, with a separate manual-override control.</p>
+        </div>
+        <span id="policyDirtyBadge" class="pp-status hidden">Unsaved changes</span>
+      </div>
+      <div class="pp-section__body">
+        <form id="policyForm">
+          <div class="pp-policy-grid">
+            <article class="pp-policy-card">
+              <div class="pp-policy-toggle-row">
+                <div>
+                  <h3>Restrict QR pickup to school hours</h3>
+                  <p>When disabled, a valid pickup QR is not limited by a school-defined time window.</p>
+                </div>
+                <input id="policyRestricted" type="checkbox" aria-label="Restrict QR pickup to school hours">
+              </div>
+              <div id="policyTimeFields" class="pp-policy-time-grid hidden">
+                <label>Earliest pickup<input id="policyStart" type="time" class="pp-field" value="14:00"></label>
+                <label>Latest pickup<input id="policyEnd" type="time" class="pp-field" value="18:00"></label>
+              </div>
+            </article>
+
+            <article class="pp-policy-card">
+              <div class="pp-policy-toggle-row">
+                <div>
+                  <h3>Allow manual release</h3>
+                  <p>School Admin may use the controlled fallback when QR release cannot be completed. Every manual release is audited.</p>
+                </div>
+                <input id="policyManualOverride" type="checkbox" aria-label="Allow manual release">
+              </div>
+              <div class="pp-callout mt-3">Time zone: <strong id="policyTimeZone">Asia/Manila</strong></div>
+            </article>
+          </div>
+          <div class="pp-policy-actions">
+            <button id="resetPolicyBtn" class="pp-btn pp-btn--secondary" type="button" disabled>Reset changes</button>
+            <button id="savePolicyBtn" class="pp-btn pp-btn--primary" type="submit" disabled>Save pickup policy</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section id="locationsPanel" class="pp-pickup-panel" role="tabpanel" hidden>
+    <div class="pp-section mt-0">
+      <div class="pp-section__head">
+        <div>
+          <h2>Campuses & pickup gates</h2>
+          <p class="pp-mini">Zero gates is supported. One active gate is auto-selected by scanner flows; multiple active gates require a location choice.</p>
+        </div>
+        <button id="addLocationBtn" class="pp-btn pp-btn--primary" type="button">Add location</button>
+      </div>
+      <div class="pp-section__body">
+        <div id="locationSummary" class="pp-callout mb-4">Loading campus and gate configuration…</div>
+        <div id="locationCards" class="pp-location-grid"><div class="pp-empty">Loading locations…</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="guardiansPanel" class="pp-pickup-panel" role="tabpanel" hidden>
+    <div class="pp-section mt-0">
+      <div class="pp-section__head">
+        <div>
+          <h2>Guardian identity verification</h2>
+          <p class="pp-mini">Optional school policy. Legacy guardians remain usable unless the policy is enabled and their verification state requires review.</p>
+        </div>
+        <label class="pp-switch-card" style="min-width:250px">
+          <span><strong>Require verified guardians</strong><span>Apply verification status during release</span></span>
+          <input id="verificationRequired" type="checkbox" aria-label="Require verified guardians">
+        </label>
+      </div>
+      <div class="pp-section__body">
+        <div id="guardianFeatureNotice" class="pp-callout hidden mb-4"></div>
+        <div id="guardianCards" class="pp-guardian-grid"><div class="pp-empty">Loading guardians…</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="staffGatesPanel" class="pp-pickup-panel" role="tabpanel" hidden>
+    <div class="pp-section mt-0">
+      <div class="pp-section__head">
+        <div>
+          <h2>Staff gate access</h2>
+          <p class="pp-mini">Optional restriction. No selected gates means access to all active gates; restrictions apply only when explicitly saved.</p>
+        </div>
+      </div>
+      <div class="pp-section__body">
+        <div id="staffGateFeatureNotice" class="pp-callout hidden mb-4"></div>
+        <div id="staffGateCards" class="pp-gate-staff-grid"><div class="pp-empty">Loading staff access…</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="manualPanel" class="pp-pickup-panel" role="tabpanel" hidden>
+    <div class="pp-section mt-0 pp-danger-zone">
+      <div class="pp-section__head">
+        <div>
+          <h2>Emergency / manual release</h2>
+          <p class="pp-mini">School Admin only. Use when QR pickup cannot be completed. The selected guardian, reason and release location are written to the audit/exit log.</p>
+        </div>
+        <span class="pp-status pp-status--warning">Controlled action</span>
+      </div>
+      <div class="pp-section__body">
+        <div id="manualFeatureNotice" class="pp-callout mb-4">Normal QR pickup remains the preferred release path.</div>
+        <div class="pp-manual-layout">
+          <div>
+            <label>Find active student
+              <input id="manualStudentSearch" class="pp-field" type="search" placeholder="Student name, number, grade or section" autocomplete="off">
+            </label>
+            <div id="manualStudentResults" class="pp-manual-results"><div class="pp-empty">Loading active students…</div></div>
+          </div>
+
+          <form id="manualOverrideForm" class="pp-manual-details">
+            <h3>Release details</h3>
+            <div id="manualSelectedStudent" class="pp-manual-details__identity mt-3">
+              <strong>No student selected</strong>
+              <span>Search and select an active student first.</span>
+            </div>
+
+            <div class="mt-4">
+              <label>Authorized guardian</label>
+              <div id="manualGuardianOptions" class="pp-guardian-options mt-2">
+                <div class="pp-empty">Select a student first.</div>
+              </div>
+            </div>
+
+            <label id="manualGateWrap" class="mt-4 hidden">Pickup gate
+              <select id="manualGate" class="pp-field"></select>
+              <span id="manualGateHint" class="pp-mini"></span>
+            </label>
+
+            <label class="mt-4">Reason
+              <textarea id="manualReason" class="pp-field" rows="4" minlength="5" maxlength="500" required placeholder="Why is a manual release necessary?"></textarea>
+            </label>
+
+            <div class="pp-manual-danger mt-4">
+              Manual release is a privileged fallback. Confirm the student's identity, authorized guardian and physical handoff before approving.
+            </div>
+
+            <button id="manualReleaseBtn" class="pp-btn pp-btn--danger w-full mt-4" type="submit">Approve manual release</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<button id="locationFab" class="pp-floating-action" type="button" aria-label="Add campus or pickup gate" title="Add campus or pickup gate" hidden>+</button>
+
+<dialog id="locationChooser" class="pp-parity-dialog pp-parity-dialog--compact">
+  <div class="pp-parity-dialog__head">
+    <p class="pp-parity-dialog__eyebrow">Pickup location</p>
+    <h2>Add campus or gate</h2>
+    <p>Use a campus for a physical school site and a pickup gate for the actual release point.</p>
+  </div>
+  <div class="pp-parity-dialog__body">
+    <div class="pp-add-choice-grid">
+      <button id="chooseCampus" class="pp-add-choice" type="button">
+        <span class="pp-add-choice__icon" aria-hidden="true">C</span>
+        <span><strong>Campus</strong><span>Add a school site and optional address.</span></span>
+      </button>
+      <button id="chooseGate" class="pp-add-choice" type="button">
+        <span class="pp-add-choice__icon" aria-hidden="true">G</span>
+        <span><strong>Pickup gate</strong><span>Add a release point, with or without a campus.</span></span>
+      </button>
+    </div>
+  </div>
+  <div class="pp-parity-dialog__footer"><button id="closeLocationChooser" class="pp-btn pp-btn--secondary" type="button">Close</button></div>
+</dialog>
+
+<dialog id="campusDialog" class="pp-parity-dialog pp-parity-dialog--compact">
+  <form id="campusForm">
+    <div class="pp-parity-dialog__head"><p class="pp-parity-dialog__eyebrow">Campus</p><h2>Add campus</h2><p>Create a physical school site used to group pickup gates.</p></div>
+    <div class="pp-parity-dialog__body">
+      <label>Campus name<input id="campusName" class="pp-field" maxlength="120" placeholder="Main Campus" required></label>
+      <label class="block mt-3">Address<input id="campusAddress" class="pp-field" maxlength="240" placeholder="Optional address"></label>
+    </div>
+    <div class="pp-parity-dialog__footer"><button id="cancelCampus" class="pp-btn pp-btn--secondary" type="button">Cancel</button><button id="saveCampus" class="pp-btn pp-btn--primary" type="submit">Create campus</button></div>
   </form>
-</div></section>
-</main><script type="module">
-import { auth, db, authedFetch, showToast } from '../shared/firebase-init.js';import { collection, query, where, getDocs, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';import {apiJson,requireRole,bindRefresh,escapeHtml,statusPill,titleCase} from '../shared/portal.js';let locations={campuses:[],gates:[]};let staffGateData={staff:[],gates:[]};let manualStudents=new Map();
-async function loadLocations(){locations=await apiJson('/school-admin/campus-gates');const cs=locations.campuses||[],gs=locations.gates||[];gateCampus.innerHTML='<option value="">No campus / single-site</option>'+cs.filter(c=>c.active!==false).map(c=>`<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join('');locationRows.innerHTML=[...cs.map(c=>({kind:'Campus',...c})),...gs.map(g=>({kind:'Gate',...g}))].map(x=>`<tr><td>${x.kind}</td><td><strong>${escapeHtml(x.name)}</strong></td><td>${escapeHtml(x.kind==='Campus'?(x.address||'—'):(x.campusName||'No campus'))}</td><td>${statusPill(x.active===false?'archived':'active')}</td><td><button class="pp-btn pp-btn--ghost locToggle" data-kind="${x.kind}" data-id="${escapeHtml(x.id)}" data-active="${x.active!==false}">${x.active===false?'Reactivate':'Archive'}</button></td></tr>`).join('')||'<tr><td colspan="5" class="pp-empty">No campuses or gates configured. Scanner works normally without gate selection.</td></tr>';document.querySelectorAll('.locToggle').forEach(b=>b.onclick=async()=>{const base=b.dataset.kind==='Campus'?'campuses':'gates';try{await apiJson(`/school-admin/campus-gates/${base}/${encodeURIComponent(b.dataset.id)}/status`,{method:'PUT',body:JSON.stringify({active:b.dataset.active!=='true'})});showToast(`${b.dataset.kind} status updated.`);await Promise.all([loadLocations(),loadStaffGates()]);}catch(e){showToast(e.message,'error');}});}
-async function loadGuardians(){try{const d=await apiJson('/school-admin/guardian-verification');verificationRequired.checked=!!d.verificationRequired;guardianRows.innerHTML=(d.guardians||[]).map(g=>`<tr><td><strong>${escapeHtml(g.displayName||'')}</strong><div class="pp-mini">${escapeHtml(g.email||'')}</div></td><td>${escapeHtml((g.studentNames||[]).join(', '))}</td><td>${statusPill(g.status)}</td><td><div class="pp-actions"><select class="pp-field gvStatus" data-id="${escapeHtml(g.uid)}"><option value="verified" ${g.status==='verified'?'selected':''}>Verified</option><option value="pending" ${g.status==='pending'?'selected':''}>Pending</option><option value="suspended" ${g.status==='suspended'?'selected':''}>Suspended</option></select><button class="pp-btn pp-btn--ghost gvSave" data-id="${escapeHtml(g.uid)}">Save</button></div></td></tr>`).join('')||'<tr><td colspan="4" class="pp-empty">No guardians found.</td></tr>';document.querySelectorAll('.gvSave').forEach(b=>b.onclick=async()=>{const sel=document.querySelector(`.gvStatus[data-id="${CSS.escape(b.dataset.id)}"]`);const reason=window.prompt('Optional verification note/reason:','')??'';try{await apiJson(`/school-admin/guardian-verification/${encodeURIComponent(b.dataset.id)}`,{method:'PUT',body:JSON.stringify({status:sel.value,reason})});showToast('Guardian status updated.');await loadGuardians();}catch(e){showToast(e.message,'error');}});}catch(e){guardianFeatureNotice.textContent=e.status===403?'Guardian verification is disabled by the current plan/feature settings.':e.message;guardianFeatureNotice.classList.remove('hidden');guardianRows.innerHTML='<tr><td colspan="4" class="pp-empty">Feature unavailable.</td></tr>';}}
-async function loadStaffGates(){try{staffGateData=await apiJson('/school-admin/staff-gates');const gates=staffGateData.gates||[];staffRows.innerHTML=(staffGateData.staff||[]).map(s=>{const assigned=s.assignedPickupGateIds||[];const opts=gates.map(g=>`<label class="block text-xs"><input type="checkbox" class="gateCheck" data-uid="${escapeHtml(s.uid)}" value="${escapeHtml(g.id)}" ${assigned.includes(g.id)?'checked':''}> ${escapeHtml((g.campusName?g.campusName+' — ':'')+g.name)}</label>`).join('');return `<tr><td><strong>${escapeHtml(s.displayName||s.email)}</strong><div class="pp-mini">${escapeHtml(s.email||'')}</div></td><td>${escapeHtml(titleCase(s.role))}</td><td>${gates.length?`<div class="space-y-1">${opts}</div><div class="pp-mini mt-1">${s.allGates?'No boxes checked = all active gates':''}</div>`:'No active gates'}</td><td>${gates.length?`<button class="pp-btn pp-btn--ghost gateSave" data-uid="${escapeHtml(s.uid)}">Save</button>`:'—'}</td></tr>`;}).join('')||'<tr><td colspan="4" class="pp-empty">No staff accounts.</td></tr>';document.querySelectorAll('.gateSave').forEach(b=>b.onclick=async()=>{const ids=[...document.querySelectorAll(`.gateCheck[data-uid="${CSS.escape(b.dataset.uid)}"]:checked`)].map(x=>x.value);try{await apiJson(`/school-admin/staff-gates/${encodeURIComponent(b.dataset.uid)}`,{method:'PUT',body:JSON.stringify({pickupGateIds:ids})});showToast(ids.length?'Gate restriction saved.':'All-gates access restored.');await loadStaffGates();}catch(e){staffGateFeatureNotice.textContent=e.status===403?'Staff gate restrictions are disabled by the current plan/feature settings.':e.message;staffGateFeatureNotice.classList.remove('hidden');showToast(e.message,'error');}});}catch(e){staffGateFeatureNotice.textContent=e.message;staffGateFeatureNotice.classList.remove('hidden');}}
-async function loadManualOverride(){
-  try{
-    const token=await auth.currentUser.getIdTokenResult(); const schoolId=token.claims.schoolId;
-    const snap=await getDocs(query(collection(db,'students'),where('schoolId','==',schoolId)));
-    const students=snap.docs.map(d=>({id:d.id,...d.data()})).filter(s=>String(s.status||'active').toLowerCase()==='active').sort((a,b)=>String(a.fullName||'').localeCompare(String(b.fullName||'')));
-    manualStudents=new Map(students.map(s=>[s.id,s]));
-    manualStudent.innerHTML='<option value="">Select active student…</option>'+students.map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.fullName||'Unnamed student')} — ${escapeHtml(s.grade||'')} ${escapeHtml(s.section||'')}</option>`).join('');
+</dialog>
+
+<dialog id="gateDialog" class="pp-parity-dialog pp-parity-dialog--compact">
+  <form id="gateForm">
+    <div class="pp-parity-dialog__head"><p class="pp-parity-dialog__eyebrow">Pickup gate</p><h2>Add pickup gate</h2><p>Add the physical release point staff select during dismissal.</p></div>
+    <div class="pp-parity-dialog__body">
+      <label>Campus<select id="gateCampus" class="pp-field"></select></label>
+      <label class="block mt-3">Gate name<input id="gateName" class="pp-field" maxlength="120" placeholder="Front Gate" required></label>
+      <label class="block mt-3">Description<input id="gateDescription" class="pp-field" maxlength="240" placeholder="Optional directions or landmark"></label>
+    </div>
+    <div class="pp-parity-dialog__footer"><button id="cancelGate" class="pp-btn pp-btn--secondary" type="button">Cancel</button><button id="saveGate" class="pp-btn pp-btn--primary" type="submit">Create gate</button></div>
+  </form>
+</dialog>
+
+<script type="module">
+import { auth, db, authedFetch, showToast, setSubmitButtonBusy } from '../shared/firebase-init.js';
+import { collection, query, where, getDocs, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { apiJson, requireRole, bindRefresh, escapeHtml, statusPill, titleCase } from '../shared/portal.js';
+import { confirmDialog, promptDialog } from '../shared/dialogs.js';
+
+let locations = { campuses: [], gates: [] };
+let guardianData = { verificationRequired: false, guardians: [] };
+let staffGateData = { staff: [], gates: [] };
+let pickupPolicy = null;
+let policyBaseline = null;
+let manualStudents = [];
+let manualStudentMap = new Map();
+let selectedManualStudentId = '';
+let selectedGuardianUid = '';
+let activePanel = 'policyPanel';
+
+const panels = [...document.querySelectorAll('.pp-pickup-panel')];
+const workspaceButtons = [...document.querySelectorAll('.pp-pickup-workspace')];
+const locationFab = document.getElementById('locationFab');
+const locationChooser = document.getElementById('locationChooser');
+const campusDialog = document.getElementById('campusDialog');
+const gateDialog = document.getElementById('gateDialog');
+
+function normalize(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function activatePanel(panelId) {
+  activePanel = panelId;
+  workspaceButtons.forEach(button => {
+    const selected = button.dataset.panel === panelId;
+    button.setAttribute('aria-selected', String(selected));
+  });
+  panels.forEach(panel => { panel.hidden = panel.id !== panelId; });
+  locationFab.hidden = panelId !== 'locationsPanel';
+  history.replaceState(null, '', `#${panelId.replace('Panel', '')}`);
+}
+
+workspaceButtons.forEach(button => {
+  button.onclick = () => activatePanel(button.dataset.panel);
+});
+
+function restoreHashPanel() {
+  const key = location.hash.replace('#', '');
+  const target = `${key}Panel`;
+  if (panels.some(panel => panel.id === target)) activatePanel(target);
+}
+
+async function loadPolicy() {
+  try {
+    pickupPolicy = await apiJson('/school-admin/pickup-policy');
+    policyBaseline = {
+      restricted: pickupPolicy.mode === 'time_window',
+      start: pickupPolicy.earliestPickupTime || '14:00',
+      end: pickupPolicy.latestPickupTime || '18:00',
+      manual: pickupPolicy.allowManualOverride !== false,
+      timeZone: pickupPolicy.timeZone || 'Asia/Manila'
+    };
+    resetPolicyForm();
+  } catch (error) {
+    pickupPolicy = null;
+    policyBaseline = null;
+    document.getElementById('heroPolicySummary').textContent = 'Policy unavailable';
+    showToast(error.message, 'error');
+  }
+}
+
+function resetPolicyForm() {
+  if (!policyBaseline) return;
+  document.getElementById('policyRestricted').checked = policyBaseline.restricted;
+  document.getElementById('policyStart').value = policyBaseline.start;
+  document.getElementById('policyEnd').value = policyBaseline.end;
+  document.getElementById('policyManualOverride').checked = policyBaseline.manual;
+  document.getElementById('policyTimeZone').textContent = policyBaseline.timeZone;
+  syncPolicyUi();
+}
+
+function policySnapshot() {
+  return {
+    restricted: document.getElementById('policyRestricted').checked,
+    start: document.getElementById('policyStart').value,
+    end: document.getElementById('policyEnd').value,
+    manual: document.getElementById('policyManualOverride').checked,
+    timeZone: policyBaseline?.timeZone || 'Asia/Manila'
+  };
+}
+
+function syncPolicyUi() {
+  const current = policySnapshot();
+  document.getElementById('policyTimeFields').classList.toggle('hidden', !current.restricted);
+  const dirty = !!policyBaseline && (
+    current.restricted !== policyBaseline.restricted ||
+    current.start !== policyBaseline.start ||
+    current.end !== policyBaseline.end ||
+    current.manual !== policyBaseline.manual
+  );
+  document.getElementById('policyDirtyBadge').classList.toggle('hidden', !dirty);
+  document.getElementById('savePolicyBtn').disabled = !dirty;
+  document.getElementById('resetPolicyBtn').disabled = !dirty;
+  document.getElementById('heroPolicySummary').textContent = current.restricted
+    ? `${current.start}–${current.end} · ${current.manual ? 'Manual available' : 'QR only'}`
+    : `Unrestricted QR · ${current.manual ? 'Manual available' : 'QR only'}`;
+  document.getElementById('manualReleaseBtn').disabled = !current.manual;
+  document.getElementById('manualFeatureNotice').textContent = current.manual
+    ? 'Manual release is available as a controlled fallback. Normal QR pickup remains the preferred path.'
+    : 'Manual release is disabled by the school pickup policy. Enable it from the Policy workspace only if the school intentionally needs this fallback.';
+}
+
+['policyRestricted', 'policyStart', 'policyEnd', 'policyManualOverride'].forEach(id => {
+  document.getElementById(id).addEventListener('input', syncPolicyUi);
+  document.getElementById(id).addEventListener('change', syncPolicyUi);
+});
+
+document.getElementById('resetPolicyBtn').onclick = resetPolicyForm;
+document.getElementById('policyForm').onsubmit = async event => {
+  event.preventDefault();
+  const snapshot = policySnapshot();
+
+  if (snapshot.restricted && (!snapshot.start || !snapshot.end || snapshot.start >= snapshot.end)) {
+    showToast('Latest pickup time must be later than earliest pickup time.', 'error');
+    return;
+  }
+
+  const button = document.getElementById('savePolicyBtn');
+  setSubmitButtonBusy(button, true, 'Saving…');
+  try {
+    pickupPolicy = await apiJson('/school-admin/pickup-policy', {
+      method: 'PUT',
+      body: JSON.stringify({
+        mode: snapshot.restricted ? 'time_window' : 'unrestricted',
+        earliestPickupTime: snapshot.restricted ? snapshot.start : null,
+        latestPickupTime: snapshot.restricted ? snapshot.end : null,
+        allowManualOverride: snapshot.manual
+      })
+    });
+    policyBaseline = {
+      restricted: pickupPolicy.mode === 'time_window',
+      start: pickupPolicy.earliestPickupTime || snapshot.start,
+      end: pickupPolicy.latestPickupTime || snapshot.end,
+      manual: pickupPolicy.allowManualOverride !== false,
+      timeZone: pickupPolicy.timeZone || 'Asia/Manila'
+    };
+    resetPolicyForm();
+    showToast(
+      policyBaseline.restricted
+        ? `Pickup policy updated to ${policyBaseline.start}–${policyBaseline.end} (${policyBaseline.timeZone}).`
+        : 'Pickup policy updated. Valid QR pickup is unrestricted by school hours.'
+    );
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    setSubmitButtonBusy(button, false);
+  }
+};
+
+async function loadLocations() {
+  locations = await apiJson('/school-admin/campus-gates');
+  const campuses = locations.campuses || [];
+  const gates = locations.gates || [];
+  const activeCampuses = campuses.filter(item => item.active !== false);
+  const activeGates = gates.filter(item => item.active !== false);
+
+  document.getElementById('gateCampus').innerHTML =
+    '<option value="">No campus / single-site</option>' +
+    activeCampuses.map(campus => `<option value="${escapeHtml(campus.id)}">${escapeHtml(campus.name)}</option>`).join('');
+
+  document.getElementById('locationSummary').textContent = activeGates.length === 0
+    ? 'No active pickup gates. Scanner flows remain supported without gate selection.'
+    : activeGates.length === 1
+      ? `One active pickup gate (${activeGates[0].name}); scanner flows can auto-select it.`
+      : `${activeGates.length} active pickup gates; scanner and manual-release flows require the actual release location.`;
+
+  const records = [
+    ...campuses.map(item => ({ kind: 'Campus', ...item })),
+    ...gates.map(item => ({ kind: 'Gate', ...item }))
+  ];
+
+  document.getElementById('locationCards').innerHTML = records.length
+    ? records.map(item => `
+        <article class="pp-location-card">
+          <div class="pp-location-card__head">
+            <span class="pp-location-card__mark" aria-hidden="true">${item.kind === 'Campus' ? 'C' : 'G'}</span>
+            <div>
+              <h3>${escapeHtml(item.name || item.kind)}</h3>
+              <p>${escapeHtml(item.kind === 'Campus' ? (item.address || 'No address provided') : (item.campusName || 'Single-site / no campus'))}</p>
+            </div>
+            ${statusPill(item.active === false ? 'archived' : 'active')}
+          </div>
+          ${item.kind === 'Gate' && item.description ? `<div class="pp-mini">${escapeHtml(item.description)}</div>` : ''}
+          <div class="pp-location-card__actions">
+            <button class="pp-btn pp-btn--ghost locationStatus" type="button" data-kind="${item.kind}" data-id="${escapeHtml(item.id)}" data-active="${item.active !== false}">${item.active === false ? 'Reactivate' : 'Archive'}</button>
+          </div>
+        </article>
+      `).join('')
+    : '<div class="pp-empty">No campuses or gates configured. Scanner flows work normally without a gate selection.</div>';
+
+  document.querySelectorAll('.locationStatus').forEach(button => {
+    button.onclick = async () => {
+      const nextActive = button.dataset.active !== 'true';
+      const kind = button.dataset.kind;
+      const record = records.find(item => item.id === button.dataset.id && item.kind === kind);
+      const label = record?.name || kind;
+      const ok = await confirmDialog(
+        nextActive
+          ? `Reactivate ${label}? It will be available for pickup operations again.`
+          : `Archive ${label}? Historical release records remain preserved.`,
+        { title: nextActive ? `Reactivate ${kind.toLowerCase()}` : `Archive ${kind.toLowerCase()}`, confirmLabel: nextActive ? 'Reactivate' : 'Archive', danger: !nextActive }
+      );
+      if (!ok) return;
+
+      const base = kind === 'Campus' ? 'campuses' : 'gates';
+      try {
+        await apiJson(`/school-admin/campus-gates/${base}/${encodeURIComponent(button.dataset.id)}/status`, {
+          method: 'PUT',
+          body: JSON.stringify({ active: nextActive })
+        });
+        showToast(`${kind} ${nextActive ? 'reactivated' : 'archived'}.`);
+        await Promise.all([loadLocations(), loadStaffGates()]);
+        configureManualGates();
+      } catch (error) {
+        showToast(error.message, 'error');
+      }
+    };
+  });
+}
+
+async function loadGuardians() {
+  const notice = document.getElementById('guardianFeatureNotice');
+  try {
+    guardianData = await apiJson('/school-admin/guardian-verification');
+    notice.classList.add('hidden');
+    document.getElementById('verificationRequired').disabled = false;
+    document.getElementById('verificationRequired').checked = !!guardianData.verificationRequired;
+
+    const guardians = guardianData.guardians || [];
+    document.getElementById('guardianCards').innerHTML = guardians.length
+      ? guardians.map(guardian => `
+          <article class="pp-guardian-card">
+            <div class="pp-guardian-card__head">
+              <div>
+                <h3>${escapeHtml(guardian.displayName || guardian.email || 'Guardian')}</h3>
+                <p>${escapeHtml(guardian.email || '')}</p>
+              </div>
+              ${statusPill(guardian.status || 'verified')}
+            </div>
+            <div class="pp-mini">${escapeHtml((guardian.studentNames || []).join(', ') || 'No linked student names available')}</div>
+            <div class="pp-dialog-form-grid">
+              <label>Status
+                <select class="pp-field guardianStatus" data-id="${escapeHtml(guardian.uid)}">
+                  <option value="verified" ${guardian.status === 'verified' ? 'selected' : ''}>Verified</option>
+                  <option value="pending" ${guardian.status === 'pending' ? 'selected' : ''}>Pending</option>
+                  <option value="suspended" ${guardian.status === 'suspended' ? 'selected' : ''}>Suspended</option>
+                </select>
+              </label>
+              <div class="flex items-end"><button class="pp-btn pp-btn--secondary w-full guardianSave" type="button" data-id="${escapeHtml(guardian.uid)}">Update status</button></div>
+            </div>
+          </article>
+        `).join('')
+      : '<div class="pp-empty">No guardians found.</div>';
+
+    document.querySelectorAll('.guardianSave').forEach(button => {
+      button.onclick = async () => {
+        const guardian = guardians.find(item => item.uid === button.dataset.id);
+        const select = document.querySelector(`.guardianStatus[data-id="${CSS.escape(button.dataset.id)}"]`);
+        if (!guardian || !select) return;
+        const nextStatus = select.value;
+        if (nextStatus === guardian.status) {
+          showToast('Guardian verification status is unchanged.', 'info');
+          return;
+        }
+
+        const reason = await promptDialog({
+          title: 'Update guardian verification',
+          message: `Change ${guardian.displayName || guardian.email || 'this guardian'} to ${titleCase(nextStatus)}. Add a note if the status is being restricted or reviewed.`,
+          label: 'Verification note / reason',
+          required: nextStatus !== 'verified',
+          minLength: nextStatus !== 'verified' ? 3 : undefined,
+          multiline: true,
+          danger: nextStatus === 'suspended',
+          confirmLabel: 'Update status'
+        });
+        if (reason === null) return;
+
+        try {
+          await apiJson(`/school-admin/guardian-verification/${encodeURIComponent(guardian.uid)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: nextStatus, reason })
+          });
+          showToast('Guardian verification status updated.');
+          await loadGuardians();
+          if (selectedManualStudentId) await loadSelectedStudentGuardians();
+        } catch (error) {
+          showToast(error.message, 'error');
+        }
+      };
+    });
+  } catch (error) {
+    guardianData = { verificationRequired: false, guardians: [] };
+    document.getElementById('verificationRequired').disabled = true;
+    notice.textContent = error.status === 403
+      ? 'Guardian verification is disabled by the current plan or tenant feature settings.'
+      : error.message;
+    notice.classList.remove('hidden');
+    document.getElementById('guardianCards').innerHTML = '<div class="pp-empty">Guardian verification is unavailable.</div>';
+  }
+}
+
+document.getElementById('verificationRequired').onchange = async event => {
+  const checkbox = event.currentTarget;
+  const previous = !checkbox.checked;
+  const enabling = checkbox.checked;
+
+  if (enabling) {
+    const ok = await confirmDialog(
+      'Require verified guardian status during pickup? Review any Pending or Suspended guardians before relying on this policy for live dismissal.',
+      { title: 'Enable guardian verification', confirmLabel: 'Require verification' }
+    );
+    if (!ok) {
+      checkbox.checked = previous;
+      return;
+    }
+  }
+
+  try {
+    await apiJson('/school-admin/guardian-verification/policy', {
+      method: 'PUT',
+      body: JSON.stringify({ required: checkbox.checked })
+    });
+    guardianData.verificationRequired = checkbox.checked;
+    showToast(`Guardian verification ${checkbox.checked ? 'required' : 'made optional'}.`);
+    if (selectedManualStudentId) await loadSelectedStudentGuardians();
+  } catch (error) {
+    checkbox.checked = previous;
+    showToast(error.message, 'error');
+  }
+};
+
+async function loadStaffGates() {
+  const notice = document.getElementById('staffGateFeatureNotice');
+  try {
+    staffGateData = await apiJson('/school-admin/staff-gates');
+    notice.classList.add('hidden');
+    const gates = (staffGateData.gates || []).filter(gate => gate.active !== false);
+    const staff = staffGateData.staff || [];
+
+    document.getElementById('staffGateCards').innerHTML = staff.length
+      ? staff.map(member => {
+          const assigned = new Set(member.assignedPickupGateIds || []);
+          return `
+            <article class="pp-gate-staff-card">
+              <div class="pp-gate-staff-card__head">
+                <div><h3>${escapeHtml(member.displayName || member.email || 'Staff member')}</h3><p>${escapeHtml(member.email || '')} · ${escapeHtml(titleCase(member.role || 'staff'))}</p></div>
+                <span class="pp-status">${assigned.size ? `${assigned.size} restricted` : 'All gates'}</span>
+              </div>
+              ${gates.length
+                ? `<div class="pp-gate-checks">${gates.map(gate => `<label class="pp-gate-check"><input type="checkbox" class="gateAccessCheck" data-uid="${escapeHtml(member.uid)}" value="${escapeHtml(gate.id)}" ${assigned.has(gate.id) ? 'checked' : ''}><span>${escapeHtml((gate.campusName ? `${gate.campusName} — ` : '') + gate.name)}</span></label>`).join('')}</div>`
+                : '<div class="pp-assignment-empty">No active pickup gates. Staff do not need gate restrictions.</div>'}
+              ${gates.length ? `<button class="pp-btn pp-btn--secondary saveGateAccess" type="button" data-uid="${escapeHtml(member.uid)}">Save gate access</button>` : ''}
+            </article>
+          `;
+        }).join('')
+      : '<div class="pp-empty">No staff accounts available for gate assignment.</div>';
+
+    document.querySelectorAll('.saveGateAccess').forEach(button => {
+      button.onclick = async () => {
+        const ids = [...document.querySelectorAll(`.gateAccessCheck[data-uid="${CSS.escape(button.dataset.uid)}"]:checked`)].map(input => input.value);
+        try {
+          await apiJson(`/school-admin/staff-gates/${encodeURIComponent(button.dataset.uid)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ pickupGateIds: ids })
+          });
+          showToast(ids.length ? 'Staff gate restriction saved.' : 'All-gates access restored.');
+          await loadStaffGates();
+        } catch (error) {
+          notice.textContent = error.status === 403
+            ? 'Staff gate restrictions are disabled by the current plan or tenant feature settings.'
+            : error.message;
+          notice.classList.remove('hidden');
+          showToast(error.message, 'error');
+        }
+      };
+    });
+  } catch (error) {
+    staffGateData = { staff: [], gates: [] };
+    notice.textContent = error.status === 403
+      ? 'Staff gate restrictions are disabled by the current plan or tenant feature settings.'
+      : error.message;
+    notice.classList.remove('hidden');
+    document.getElementById('staffGateCards').innerHTML = '<div class="pp-empty">Staff gate access is unavailable.</div>';
+  }
+}
+
+async function loadManualStudents() {
+  try {
+    const token = await auth.currentUser.getIdTokenResult();
+    const schoolId = token.claims.schoolId;
+    const snapshot = await getDocs(query(collection(db, 'students'), where('schoolId', '==', schoolId)));
+    manualStudents = snapshot.docs
+      .map(record => ({ id: record.id, ...record.data() }))
+      .filter(student => String(student.status || 'active').toLowerCase() === 'active')
+      .sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || '')));
+    manualStudentMap = new Map(manualStudents.map(student => [student.id, student]));
+    renderManualStudentResults();
     configureManualGates();
-  }catch(e){manualStudent.innerHTML='<option value="">Could not load students</option>';manualFeatureNotice.textContent=e.message||'Could not load manual release data.';}
+  } catch (error) {
+    manualStudents = [];
+    manualStudentMap = new Map();
+    document.getElementById('manualStudentResults').innerHTML = '<div class="pp-empty">Could not load active students.</div>';
+    document.getElementById('manualFeatureNotice').textContent = error.message || 'Could not load manual release data.';
+  }
 }
-function configureManualGates(){
-  const gates=(locations.gates||[]).filter(g=>g.active!==false); manualGateWrap.classList.toggle('hidden',gates.length===0);
-  if(gates.length===0){manualGate.innerHTML='';manualGateHint.textContent='No gates configured; no gate is required.';return;}
-  if(gates.length===1){manualGate.innerHTML=`<option value="${escapeHtml(gates[0].id)}">${escapeHtml((gates[0].campusName?gates[0].campusName+' — ':'')+gates[0].name)}</option>`;manualGate.value=gates[0].id;manualGateHint.textContent='Automatically selected because only one active gate exists.';return;}
-  manualGate.innerHTML='<option value="">Select pickup gate…</option>'+gates.map(g=>`<option value="${escapeHtml(g.id)}">${escapeHtml((g.campusName?g.campusName+' — ':'')+g.name)}</option>`).join('');manualGateHint.textContent='Multiple active gates: select where the release occurs.';
+
+function renderManualStudentResults() {
+  const search = normalize(document.getElementById('manualStudentSearch').value);
+  const results = manualStudents.filter(student => {
+    const haystack = normalize(`${student.fullName || ''} ${student.studentNumber || ''} ${student.grade || ''} ${student.section || ''}`);
+    return !search || haystack.includes(search);
+  }).slice(0, 12);
+
+  document.getElementById('manualStudentResults').innerHTML = results.length
+    ? results.map(student => `
+        <button class="pp-manual-student" type="button" data-id="${escapeHtml(student.id)}" aria-selected="${student.id === selectedManualStudentId}">
+          <span><strong>${escapeHtml(student.fullName || 'Unnamed student')}</strong><span>${escapeHtml(student.studentNumber || 'No student number')} · ${escapeHtml(student.grade || '—')} · ${escapeHtml(student.section || '—')}</span></span>
+          <span class="pp-manual-student__status">Active</span>
+        </button>
+      `).join('')
+    : '<div class="pp-empty">No active students match the search.</div>';
+
+  document.querySelectorAll('.pp-manual-student').forEach(button => {
+    button.onclick = async () => {
+      selectedManualStudentId = button.dataset.id;
+      selectedGuardianUid = '';
+      renderManualStudentResults();
+      renderSelectedManualStudent();
+      await loadSelectedStudentGuardians();
+    };
+  });
 }
-manualStudent.onchange=async()=>{
-  manualGuardian.innerHTML='<option value="">Loading guardians…</option>';const s=manualStudents.get(manualStudent.value);if(!s){manualGuardian.innerHTML='<option value="">Select a student first…</option>';return;}
-  const guardians=s.guardians||{};const entries=[...new Set([...(s.guardianUids||[]),...Object.keys(guardians)])].map(uid=>[uid,guardians[uid]||{}]).filter(([,e])=>Number(e?.remainingUses??1)>0);const rows=[];
-  for(const [uid,e] of entries){try{const u=await getDoc(doc(db,'users',uid));const d=u.exists()?u.data():{};rows.push({uid,name:d.displayName||d.email||uid,relationship:e.relationship||'Authorized pickup',type:e.authorizationType||'permanent'});}catch(_){rows.push({uid,name:uid,relationship:e.relationship||'',type:e.authorizationType||'permanent'});}}
-  manualGuardian.innerHTML='<option value="">Select authorized guardian…</option>'+rows.map(g=>`<option value="${escapeHtml(g.uid)}">${escapeHtml(g.name)} — ${escapeHtml(g.relationship)}${String(g.type).toLowerCase()==='temporary'?' (one-day)':''}</option>`).join('');
+
+document.getElementById('manualStudentSearch').oninput = renderManualStudentResults;
+
+function renderSelectedManualStudent() {
+  const student = manualStudentMap.get(selectedManualStudentId);
+  const target = document.getElementById('manualSelectedStudent');
+  if (!student) {
+    target.innerHTML = '<strong>No student selected</strong><span>Search and select an active student first.</span>';
+    return;
+  }
+  target.innerHTML = `<strong>${escapeHtml(student.fullName || 'Unnamed student')}</strong><span>${escapeHtml(student.studentNumber || 'No student number')} · ${escapeHtml(student.grade || '—')} · ${escapeHtml(student.section || '—')}</span>`;
+}
+
+async function loadSelectedStudentGuardians() {
+  const student = manualStudentMap.get(selectedManualStudentId);
+  const target = document.getElementById('manualGuardianOptions');
+  if (!student) {
+    target.innerHTML = '<div class="pp-empty">Select a student first.</div>';
+    return;
+  }
+
+  const verificationByUid = new Map((guardianData.guardians || []).map(item => [item.uid, item]));
+  const guardianMap = student.guardians || {};
+  const uids = [...new Set([...(student.guardianUids || []), ...Object.keys(guardianMap)])];
+  const candidates = uids
+    .map(uid => ({ uid, auth: guardianMap[uid] || {}, verification: verificationByUid.get(uid) }))
+    .filter(item => Number(item.auth?.remainingUses ?? 1) > 0)
+    .filter(item => !guardianData.verificationRequired || String(item.verification?.status || 'verified').toLowerCase() === 'verified');
+
+  const rows = [];
+  for (const item of candidates) {
+    let display = item.verification?.displayName || item.verification?.email || '';
+    let email = item.verification?.email || '';
+    if (!display) {
+      try {
+        const snapshot = await getDoc(doc(db, 'users', item.uid));
+        const data = snapshot.exists() ? snapshot.data() : {};
+        display = data.displayName || data.email || 'Authorized guardian';
+        email = data.email || '';
+      } catch (_) {
+        display = 'Authorized guardian';
+      }
+    }
+    rows.push({
+      uid: item.uid,
+      display,
+      email,
+      relationship: item.auth.relationship || 'Authorized pickup',
+      type: item.auth.authorizationType || 'permanent'
+    });
+  }
+
+  target.innerHTML = rows.length
+    ? rows.map(guardian => `
+        <label class="pp-guardian-option">
+          <input type="radio" name="manualGuardian" value="${escapeHtml(guardian.uid)}" ${selectedGuardianUid === guardian.uid ? 'checked' : ''}>
+          <span><strong>${escapeHtml(guardian.display)}</strong><span>${escapeHtml(guardian.relationship)}${String(guardian.type).toLowerCase() === 'temporary' ? ' · One-day authorization' : ''}${guardian.email ? ` · ${escapeHtml(guardian.email)}` : ''}</span></span>
+        </label>
+      `).join('')
+    : `<div class="pp-risk-card">${guardianData.verificationRequired ? 'No currently verified authorized guardian is available for this student.' : 'No currently authorized guardian is available for this student.'}</div>`;
+
+  target.querySelectorAll('input[name="manualGuardian"]').forEach(input => {
+    input.onchange = () => { selectedGuardianUid = input.value; };
+  });
+}
+
+function configureManualGates() {
+  const gates = (locations.gates || []).filter(gate => gate.active !== false);
+  const wrap = document.getElementById('manualGateWrap');
+  const select = document.getElementById('manualGate');
+  const hint = document.getElementById('manualGateHint');
+
+  wrap.classList.toggle('hidden', gates.length === 0);
+  if (gates.length === 0) {
+    select.innerHTML = '';
+    hint.textContent = 'No active gates configured; no gate selection is required.';
+    return;
+  }
+  if (gates.length === 1) {
+    select.innerHTML = `<option value="${escapeHtml(gates[0].id)}">${escapeHtml((gates[0].campusName ? `${gates[0].campusName} — ` : '') + gates[0].name)}</option>`;
+    select.value = gates[0].id;
+    hint.textContent = 'Automatically selected because only one active pickup gate exists.';
+    return;
+  }
+  select.innerHTML = '<option value="">Select pickup gate…</option>' + gates.map(gate => `<option value="${escapeHtml(gate.id)}">${escapeHtml((gate.campusName ? `${gate.campusName} — ` : '') + gate.name)}</option>`).join('');
+  hint.textContent = 'Multiple active gates: select the actual release location.';
+}
+
+document.getElementById('manualOverrideForm').onsubmit = async event => {
+  event.preventDefault();
+  const student = manualStudentMap.get(selectedManualStudentId);
+  if (!student) {
+    showToast('Select an active student.', 'error');
+    return;
+  }
+  if (!selectedGuardianUid) {
+    showToast('Select an authorized guardian.', 'error');
+    return;
+  }
+  if (policyBaseline?.manual === false || document.getElementById('policyManualOverride').checked === false) {
+    showToast('Manual release is disabled by the pickup policy.', 'error');
+    return;
+  }
+
+  const gates = (locations.gates || []).filter(gate => gate.active !== false);
+  const gateId = document.getElementById('manualGate').value;
+  if (gates.length > 1 && !gateId) {
+    showToast('Select the pickup gate.', 'error');
+    return;
+  }
+
+  const guardian = (guardianData.guardians || []).find(item => item.uid === selectedGuardianUid);
+  const gate = gates.find(item => item.id === gateId);
+  const reason = document.getElementById('manualReason').value.trim();
+  const ok = await confirmDialog(
+    `Release ${student.fullName || 'this student'} to ${guardian?.displayName || guardian?.email || 'the selected authorized guardian'}${gate ? ` at ${gate.name}` : ''}? Reason: ${reason}`,
+    { title: 'Approve manual release', confirmLabel: 'Approve release', danger: true }
+  );
+  if (!ok) return;
+
+  const button = document.getElementById('manualReleaseBtn');
+  setSubmitButtonBusy(button, true, 'Approving…');
+  const headers = {
+    'Idempotency-Key': crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`
+  };
+  if (gateId) headers['X-Pickup-Gate-Id'] = gateId;
+
+  try {
+    const response = await authedFetch('/pickup/manual-override', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        studentId: selectedManualStudentId,
+        guardianUid: selectedGuardianUid,
+        reason
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(data.error || data.message || 'Manual release failed');
+      error.status = response.status;
+      throw error;
+    }
+
+    showToast('Manual release approved and written to the exit/audit log.');
+    selectedManualStudentId = '';
+    selectedGuardianUid = '';
+    document.getElementById('manualReason').value = '';
+    document.getElementById('manualStudentSearch').value = '';
+    renderSelectedManualStudent();
+    document.getElementById('manualGuardianOptions').innerHTML = '<div class="pp-empty">Select a student first.</div>';
+    renderManualStudentResults();
+    configureManualGates();
+  } catch (error) {
+    document.getElementById('manualFeatureNotice').textContent = error.status === 403
+      ? 'Manual release is disabled by the current feature or pickup policy.'
+      : (error.message || 'Manual release failed.');
+    showToast(error.message || 'Manual release failed.', 'error');
+  } finally {
+    setSubmitButtonBusy(button, false);
+    syncPolicyUi();
+  }
 };
-manualOverrideForm.onsubmit=async e=>{
-  e.preventDefault(); const gates=(locations.gates||[]).filter(g=>g.active!==false);if(gates.length>1&&!manualGate.value){showToast('Select the pickup gate.','error');return;}
-  if(!confirm('Approve this manual release? The action will be written to the permanent exit and audit logs.'))return;
-  const btn=manualReleaseBtn;btn.disabled=true;const old=btn.textContent;btn.textContent='Approving…';
-  const headers={'Idempotency-Key':crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`};if(manualGate.value)headers['X-Pickup-Gate-Id']=manualGate.value;
-  try{const r=await authedFetch('/pickup/manual-override',{method:'POST',headers,body:JSON.stringify({studentId:manualStudent.value,guardianUid:manualGuardian.value,reason:manualReason.value.trim()})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||d.message||'Manual release failed');showToast('Manual release approved and logged.');manualOverrideForm.reset();configureManualGates();manualGuardian.innerHTML='<option value="">Select a student first…</option>';}
-  catch(err){manualFeatureNotice.textContent=err.status===403?'Manual Override is disabled by the current feature policy.':(err.message||'Manual release failed');showToast(err.message||'Manual release failed','error');}
-  finally{btn.disabled=false;btn.textContent=old;}
+
+function openLocationChooser() {
+  locationChooser.showModal();
+}
+
+document.getElementById('addLocationBtn').onclick = openLocationChooser;
+locationFab.onclick = openLocationChooser;
+document.getElementById('closeLocationChooser').onclick = () => locationChooser.close();
+document.getElementById('chooseCampus').onclick = () => { locationChooser.close(); document.getElementById('campusForm').reset(); campusDialog.showModal(); };
+document.getElementById('chooseGate').onclick = () => { locationChooser.close(); document.getElementById('gateForm').reset(); gateDialog.showModal(); };
+document.getElementById('cancelCampus').onclick = () => campusDialog.close();
+document.getElementById('cancelGate').onclick = () => gateDialog.close();
+
+function closeOnBackdrop(dialog) {
+  dialog.addEventListener('click', event => {
+    if (event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+  });
+}
+[locationChooser, campusDialog, gateDialog].forEach(closeOnBackdrop);
+
+document.getElementById('campusForm').onsubmit = async event => {
+  event.preventDefault();
+  const button = document.getElementById('saveCampus');
+  setSubmitButtonBusy(button, true, 'Creating…');
+  try {
+    await apiJson('/school-admin/campus-gates/campuses', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: document.getElementById('campusName').value.trim(),
+        address: document.getElementById('campusAddress').value.trim()
+      })
+    });
+    campusDialog.close();
+    showToast('Campus created.');
+    await loadLocations();
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    setSubmitButtonBusy(button, false);
+  }
 };
-campusForm.onsubmit=async e=>{e.preventDefault();try{await apiJson('/school-admin/campus-gates/campuses',{method:'POST',body:JSON.stringify({name:campusName.value.trim(),address:campusAddress.value.trim()})});showToast('Campus created.');campusForm.reset();await loadLocations();}catch(err){showToast(err.message,'error');}};
-gateForm.onsubmit=async e=>{e.preventDefault();try{await apiJson('/school-admin/campus-gates/gates',{method:'POST',body:JSON.stringify({campusId:gateCampus.value,name:gateName.value.trim(),description:gateDescription.value.trim()})});showToast('Pickup gate created.');gateForm.reset();await Promise.all([loadLocations(),loadStaffGates()]);}catch(err){showToast(err.message,'error');}};
-verificationRequired.onchange=async()=>{try{await apiJson('/school-admin/guardian-verification/policy',{method:'PUT',body:JSON.stringify({required:verificationRequired.checked})});showToast('Guardian verification policy updated.');}catch(e){verificationRequired.checked=!verificationRequired.checked;showToast(e.message,'error');}};
-async function load(){await Promise.all([loadLocations(),loadGuardians(),loadStaffGates()]);await loadManualOverride();}bindRefresh('refreshBtn',load);requireRole('school_admin',load);
-</script></body></html>
+
+document.getElementById('gateForm').onsubmit = async event => {
+  event.preventDefault();
+  const button = document.getElementById('saveGate');
+  setSubmitButtonBusy(button, true, 'Creating…');
+  try {
+    await apiJson('/school-admin/campus-gates/gates', {
+      method: 'POST',
+      body: JSON.stringify({
+        campusId: document.getElementById('gateCampus').value,
+        name: document.getElementById('gateName').value.trim(),
+        description: document.getElementById('gateDescription').value.trim()
+      })
+    });
+    gateDialog.close();
+    showToast('Pickup gate created.');
+    await Promise.all([loadLocations(), loadStaffGates()]);
+    configureManualGates();
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    setSubmitButtonBusy(button, false);
+  }
+};
+
+async function loadAll() {
+  const results = await Promise.allSettled([
+    loadPolicy(),
+    loadLocations(),
+    loadGuardians(),
+    loadStaffGates()
+  ]);
+  await loadManualStudents();
+  configureManualGates();
+  syncPolicyUi();
+
+  const failures = results.filter(result => result.status === 'rejected');
+  if (failures.length) showToast('Some pickup configuration data could not be refreshed.', 'warning');
+}
+
+bindRefresh('refreshBtn', loadAll);
+restoreHashPanel();
+requireRole('school_admin', loadAll);
+</script>
+</body>
+</html>
