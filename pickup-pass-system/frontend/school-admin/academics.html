@@ -1,14 +1,509 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Academic Structure — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head><body class="min-h-screen pp-portal-body">
-<div id="adminNav" data-active="academics"></div><script type="module" src="../shared/school-admin-nav.js"></script>
-<main class="pp-page"><div class="pp-page-head"><div><h1>Academic Years & Sections</h1><p>Structure the school roster by academic year, grade, and section while preserving legacy student grade/section fields.</p></div><button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh</button></div>
-<div class="pp-grid"><section class="pp-section mt-0"><div class="pp-section__head"><h2>Create academic year</h2></div><div class="pp-section__body"><form id="yearForm" class="space-y-3"><input id="yearNameInput" class="pp-field" placeholder="2026–2027" required><div class="grid grid-cols-2 gap-2"><input id="yearStart" type="date" class="pp-field"><input id="yearEnd" type="date" class="pp-field"></div><label class="flex gap-2 items-center text-sm"><input id="yearCurrent" type="checkbox"> Make current</label><button class="pp-btn pp-btn--primary w-full">Create year</button></form></div></section>
-<section class="pp-section mt-0"><div class="pp-section__head"><h2>Create grade/section</h2></div><div class="pp-section__body"><form id="sectionForm" class="space-y-3"><select id="sectionYear" class="pp-field" required></select><input id="gradeLevel" class="pp-field" placeholder="Grade 5" required><input id="sectionName" class="pp-field" placeholder="Section A" required><button class="pp-btn pp-btn--primary w-full">Create section</button></form></div></section></div>
-<section class="pp-section"><div class="pp-section__head"><h2>Academic years</h2></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Year</th><th>Dates</th><th>Status</th><th></th></tr></thead><tbody id="yearRows"></tbody></table></div></section>
-<section class="pp-section"><div class="pp-section__head"><h2>Grade sections</h2></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Academic year</th><th>Grade</th><th>Section</th><th>Status</th><th></th></tr></thead><tbody id="sectionRows"></tbody></table></div></section>
-</main><script type="module">
-import { showToast } from '../shared/firebase-init.js';import { apiJson,requireRole,bindRefresh,escapeHtml,statusPill } from '../shared/portal.js';let structure={};
-async function load(){structure=await apiJson('/academic-structure');const years=structure.academicYears||[],sections=structure.gradeSections||[];sectionYear.innerHTML='<option value="">Select academic year…</option>'+years.filter(y=>y.status!=='archived').map(y=>`<option value="${escapeHtml(y.id)}">${escapeHtml(y.name)}</option>`).join('');yearRows.innerHTML=years.length?years.map(y=>`<tr><td><strong>${escapeHtml(y.name)}</strong></td><td>${escapeHtml(y.startDate||'—')} → ${escapeHtml(y.endDate||'—')}</td><td>${y.isCurrent?statusPill('current'):statusPill(y.status||'active')}</td><td>${!y.isCurrent?`<button class="pp-btn pp-btn--ghost makeCurrent" data-id="${escapeHtml(y.id)}">Set current</button>`:'—'}</td></tr>`).join(''):'<tr><td colspan="4" class="pp-empty">No academic years.</td></tr>';sectionRows.innerHTML=sections.length?sections.map(s=>`<tr><td>${escapeHtml(s.academicYearName||'')}</td><td>${escapeHtml(s.gradeLevel)}</td><td>${escapeHtml(s.sectionName)}</td><td>${statusPill(s.active===false?'archived':'active')}</td><td><button class="pp-btn pp-btn--ghost toggleSection" data-id="${escapeHtml(s.id)}" data-active="${s.active!==false}">${s.active===false?'Reactivate':'Archive'}</button></td></tr>`).join(''):'<tr><td colspan="5" class="pp-empty">No grade sections.</td></tr>';document.querySelectorAll('.makeCurrent').forEach(b=>b.onclick=async()=>{try{await apiJson(`/school-admin/academic-years/${encodeURIComponent(b.dataset.id)}/current`,{method:'PUT'});showToast('Current academic year updated.');await load();}catch(e){showToast(e.message,'error');}});document.querySelectorAll('.toggleSection').forEach(b=>b.onclick=async()=>{try{await apiJson(`/school-admin/grade-sections/${encodeURIComponent(b.dataset.id)}/status`,{method:'PUT',body:JSON.stringify({active:b.dataset.active!=='true'})});showToast('Section status updated.');await load();}catch(e){showToast(e.message,'error');}});}
-yearForm.onsubmit=async e=>{e.preventDefault();try{await apiJson('/school-admin/academic-years',{method:'POST',body:JSON.stringify({name:yearNameInput.value.trim(),startDate:yearStart.value,endDate:yearEnd.value,current:yearCurrent.checked})});showToast('Academic year created.');yearForm.reset();await load();}catch(err){showToast(err.message,'error');}};
-sectionForm.onsubmit=async e=>{e.preventDefault();try{await apiJson('/school-admin/grade-sections',{method:'POST',body:JSON.stringify({academicYearId:sectionYear.value,gradeLevel:gradeLevel.value.trim(),sectionName:sectionName.value.trim()})});showToast('Grade section created.');sectionForm.reset();await load();}catch(err){showToast(err.message,'error');}};
-bindRefresh('refreshBtn',load);requireRole('school_admin',load);
-</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>School Year & Sections — PickupPass</title>
+<meta name="theme-color" content="#4652C7">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<link rel="stylesheet" href="./academics.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="adminNav" data-active="academics"></div>
+<script type="module" src="../shared/school-admin-nav.js"></script>
+
+<main class="pp-page pp-academic-page">
+  <section class="pp-academic-hero">
+    <div class="pp-academic-hero__icon" aria-hidden="true">A</div>
+    <div>
+      <p class="pp-academic-hero__eyebrow">Academic structure · source of truth</p>
+      <h1>School year & sections</h1>
+      <p>
+        Keep school years and grade sections consistent across student placement,
+        teacher access, promotion, reporting and bulk import. Referenced records are
+        archived safely instead of being silently removed.
+      </p>
+    </div>
+    <div class="pp-academic-hero__current">
+      <span>Current school year</span>
+      <strong id="currentYearLabel">Not configured</strong>
+    </div>
+  </section>
+
+  <section class="pp-academic-metrics" aria-label="Academic structure summary">
+    <article class="pp-academic-metric"><span>Academic years</span><strong id="yearCount">—</strong></article>
+    <article class="pp-academic-metric"><span>Active sections</span><strong id="activeSectionCount">—</strong></article>
+    <article class="pp-academic-metric"><span>Archived sections</span><strong id="archivedSectionCount">—</strong></article>
+  </section>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Academic years</h2>
+        <p class="pp-mini">Edit dates, switch the current year, archive history, or remove setup records that have never been used.</p>
+      </div>
+      <button id="refreshBtn" class="pp-btn pp-btn--ghost" type="button">Refresh</button>
+    </div>
+    <div class="pp-section__body">
+      <div id="yearCards" class="pp-record-grid"><div class="pp-empty">Loading academic years…</div></div>
+    </div>
+  </section>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Grade & sections</h2>
+        <p class="pp-mini">Teacher assignments and student placement should always reference these configured records.</p>
+      </div>
+    </div>
+    <div class="pp-section__body">
+      <div id="sectionCards" class="pp-record-grid"><div class="pp-empty">Loading grade sections…</div></div>
+    </div>
+  </section>
+
+  <section class="pp-academic-safety">
+    <div class="pp-academic-safety__icon" aria-hidden="true">✓</div>
+    <div>
+      <strong>Data safety</strong>
+      <p>
+        PickupPass refuses destructive actions while students or teacher assignments still depend on a record.
+        Archive operational history instead of deleting it.
+      </p>
+    </div>
+  </section>
+</main>
+
+<button id="academicFab" class="pp-floating-action" type="button" aria-label="Add academic record" title="Add academic record">+</button>
+
+<dialog id="addChooser" class="pp-parity-dialog pp-parity-dialog--compact">
+  <div class="pp-parity-dialog__head">
+    <p class="pp-parity-dialog__eyebrow">Academic structure</p>
+    <h2>Add academic record</h2>
+    <p>Choose the record type to create. Existing records stay focused on review and management.</p>
+  </div>
+  <div class="pp-parity-dialog__body">
+    <div class="pp-add-choice-grid">
+      <button id="chooseYear" class="pp-add-choice" type="button">
+        <span class="pp-add-choice__icon" aria-hidden="true">Y</span>
+        <span><strong>Academic year</strong><span>Create a new school year and optionally make it current.</span></span>
+      </button>
+      <button id="chooseSection" class="pp-add-choice" type="button">
+        <span class="pp-add-choice__icon" aria-hidden="true">S</span>
+        <span><strong>Grade section</strong><span id="chooseSectionCopy">Add a grade and section under an active school year.</span></span>
+      </button>
+    </div>
+  </div>
+  <div class="pp-parity-dialog__footer">
+    <button id="closeChooser" class="pp-btn pp-btn--secondary" type="button">Close</button>
+  </div>
+</dialog>
+
+<dialog id="yearDialog" class="pp-parity-dialog pp-parity-dialog--compact">
+  <form id="yearForm">
+    <div class="pp-parity-dialog__head">
+      <p class="pp-parity-dialog__eyebrow">Academic year</p>
+      <h2 id="yearDialogTitle">Add academic year</h2>
+      <p>Use official school-year dates. Only one academic year can be current at a time.</p>
+    </div>
+    <div class="pp-parity-dialog__body">
+      <div class="pp-dialog-form-grid">
+        <label class="pp-span-full">School year name<input id="yearNameInput" class="pp-field" placeholder="2026–2027" maxlength="80" required></label>
+        <label>Start date<input id="yearStart" type="date" class="pp-field" required></label>
+        <label>End date<input id="yearEnd" type="date" class="pp-field" required></label>
+        <label id="yearCurrentCard" class="pp-switch-card pp-span-full">
+          <span><strong>Make current</strong><span>New student and teacher assignments use the current school year.</span></span>
+          <input id="yearCurrent" type="checkbox" aria-label="Make this the current school year">
+        </label>
+      </div>
+    </div>
+    <div class="pp-parity-dialog__footer">
+      <button id="cancelYear" class="pp-btn pp-btn--secondary" type="button">Cancel</button>
+      <button id="saveYear" class="pp-btn pp-btn--primary" type="submit">Save academic year</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="sectionDialog" class="pp-parity-dialog pp-parity-dialog--compact">
+  <form id="sectionForm">
+    <div class="pp-parity-dialog__head">
+      <p class="pp-parity-dialog__eyebrow">Grade section</p>
+      <h2 id="sectionDialogTitle">Add grade section</h2>
+      <p>Sections are created only under configured school years so staff and student placement stay consistent.</p>
+    </div>
+    <div class="pp-parity-dialog__body">
+      <div class="pp-dialog-form-grid">
+        <label id="sectionYearWrap" class="pp-span-full">Academic year<select id="sectionYear" class="pp-field" required></select></label>
+        <label>Grade level<input id="gradeLevel" class="pp-field" placeholder="Grade 5" maxlength="60" required></label>
+        <label>Section name<input id="sectionName" class="pp-field" placeholder="Rizal" maxlength="80" required></label>
+      </div>
+    </div>
+    <div class="pp-parity-dialog__footer">
+      <button id="cancelSection" class="pp-btn pp-btn--secondary" type="button">Cancel</button>
+      <button id="saveSection" class="pp-btn pp-btn--primary" type="submit">Save grade section</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module">
+import { showToast, setSubmitButtonBusy } from '../shared/firebase-init.js';
+import { apiJson, requireRole, bindRefresh, escapeHtml, statusPill, fmtDate } from '../shared/portal.js';
+import { confirmDialog } from '../shared/dialogs.js';
+
+let structure = { academicYears: [], gradeSections: [] };
+let editingYear = null;
+let editingSection = null;
+
+const addChooser = document.getElementById('addChooser');
+const yearDialog = document.getElementById('yearDialog');
+const sectionDialog = document.getElementById('sectionDialog');
+
+function isArchivedYear(year) {
+  return year.active === false || String(year.status || '').toLowerCase() === 'archived';
+}
+
+function yearById(id) {
+  return (structure.academicYears || []).find(year => year.id === id) || null;
+}
+
+function currentYear() {
+  return structure.currentAcademicYear || (structure.academicYears || []).find(year => year.isCurrent) || null;
+}
+
+async function load() {
+  structure = await apiJson('/academic-structure');
+  render();
+}
+
+function render() {
+  const years = structure.academicYears || [];
+  const sections = structure.gradeSections || [];
+  const current = currentYear();
+
+  document.getElementById('currentYearLabel').textContent = current?.name || 'Not configured';
+  document.getElementById('yearCount').textContent = years.length;
+  document.getElementById('activeSectionCount').textContent = sections.filter(section => section.active !== false).length;
+  document.getElementById('archivedSectionCount').textContent = sections.filter(section => section.active === false).length;
+
+  const availableYears = years.filter(year => !isArchivedYear(year));
+  document.getElementById('chooseSection').disabled = availableYears.length === 0;
+  document.getElementById('chooseSectionCopy').textContent = availableYears.length
+    ? 'Add a grade and section under an active school year.'
+    : 'Create or reactivate an academic year first.';
+
+  document.getElementById('sectionYear').innerHTML =
+    '<option value="">Select academic year…</option>' +
+    availableYears.map(year => `<option value="${escapeHtml(year.id)}">${escapeHtml(year.name)}${year.isCurrent ? ' — current' : ''}</option>`).join('');
+
+  renderYears(years);
+  renderSections(sections);
+}
+
+function renderYears(years) {
+  const cards = document.getElementById('yearCards');
+  cards.innerHTML = years.length
+    ? years.map(year => {
+        const archived = isArchivedYear(year);
+        return `
+          <article class="pp-record-card ${year.isCurrent ? 'is-current' : ''}">
+            <div class="pp-record-card__head">
+              <div>
+                <h3>${escapeHtml(year.name || 'Academic year')}</h3>
+                <p>${year.isCurrent ? 'Current academic year' : archived ? 'Archived academic history' : 'Available academic year'}</p>
+              </div>
+              ${year.isCurrent ? statusPill('current') : statusPill(archived ? 'archived' : 'active')}
+            </div>
+            <div class="pp-record-card__meta">
+              <div class="pp-record-meta"><span>Start</span><strong>${escapeHtml(fmtDate(year.startDate) || year.startDate || '—')}</strong></div>
+              <div class="pp-record-meta"><span>End</span><strong>${escapeHtml(fmtDate(year.endDate) || year.endDate || '—')}</strong></div>
+            </div>
+            <div class="pp-record-actions">
+              <button class="pp-btn pp-btn--secondary editYear" type="button" data-id="${escapeHtml(year.id)}">Edit</button>
+              ${!year.isCurrent && !archived ? `<button class="pp-btn pp-btn--ghost setCurrentYear" type="button" data-id="${escapeHtml(year.id)}">Set current</button>` : ''}
+              ${year.isCurrent ? '' : `<button class="pp-btn pp-btn--ghost toggleYear" type="button" data-id="${escapeHtml(year.id)}" data-active="${!archived}">${archived ? 'Reactivate' : 'Archive'}</button>`}
+              ${year.isCurrent ? '' : `<button class="pp-btn pp-btn--ghost deleteYear" type="button" data-id="${escapeHtml(year.id)}">Delete unused</button>`}
+            </div>
+          </article>
+        `;
+      }).join('')
+    : '<div class="pp-empty">No academic year yet. Add the current school year before creating sections.</div>';
+
+  document.querySelectorAll('.editYear').forEach(button => {
+    button.onclick = () => openYearEditor(yearById(button.dataset.id));
+  });
+
+  document.querySelectorAll('.setCurrentYear').forEach(button => {
+    button.onclick = async () => {
+      const year = yearById(button.dataset.id);
+      if (!year) return;
+      const ok = await confirmDialog(
+        `Make ${year.name} the current academic year? New student placement and teacher assignments will use this year.`,
+        { title: 'Change current academic year', confirmLabel: 'Set current' }
+      );
+      if (!ok) return;
+      await runAction(
+        () => apiJson(`/school-admin/academic-years/${encodeURIComponent(year.id)}/current`, { method: 'PUT' }),
+        'Current academic year updated.'
+      );
+    };
+  });
+
+  document.querySelectorAll('.toggleYear').forEach(button => {
+    button.onclick = async () => {
+      const year = yearById(button.dataset.id);
+      if (!year) return;
+      const activeNow = button.dataset.active === 'true';
+      const nextActive = !activeNow;
+      const ok = await confirmDialog(
+        nextActive
+          ? `Reactivate ${year.name}? It will become available for academic configuration again.`
+          : `Archive ${year.name}? Existing historical references remain preserved.`,
+        {
+          title: nextActive ? 'Reactivate academic year' : 'Archive academic year',
+          confirmLabel: nextActive ? 'Reactivate' : 'Archive',
+          danger: !nextActive
+        }
+      );
+      if (!ok) return;
+      await runAction(
+        () => apiJson(`/school-admin/academic-years/${encodeURIComponent(year.id)}/status`, {
+          method: 'PUT',
+          body: JSON.stringify({ active: nextActive })
+        }),
+        nextActive ? 'Academic year reactivated.' : 'Academic year archived.'
+      );
+    };
+  });
+
+  document.querySelectorAll('.deleteYear').forEach(button => {
+    button.onclick = async () => {
+      const year = yearById(button.dataset.id);
+      if (!year) return;
+      const ok = await confirmDialog(
+        `Delete ${year.name}? PickupPass will refuse this if students, teacher assignments, or academic records still depend on it.`,
+        { title: 'Delete unused academic year', confirmLabel: 'Delete unused record', danger: true }
+      );
+      if (!ok) return;
+      await runAction(
+        () => apiJson(`/school-admin/academic-years/${encodeURIComponent(year.id)}`, { method: 'DELETE' }),
+        'Unused academic year deleted.'
+      );
+    };
+  });
+}
+
+function renderSections(sections) {
+  const current = currentYear();
+  const sorted = [...sections].sort((a, b) =>
+    `${a.academicYearName || ''} ${a.gradeLevel || ''} ${a.sectionName || ''}`.localeCompare(
+      `${b.academicYearName || ''} ${b.gradeLevel || ''} ${b.sectionName || ''}`,
+      undefined,
+      { numeric: true }
+    )
+  );
+
+  document.getElementById('sectionCards').innerHTML = sorted.length
+    ? sorted.map(section => `
+        <article class="pp-record-card ${section.academicYearId === current?.id && section.active !== false ? 'is-current' : ''}">
+          <div class="pp-record-card__head">
+            <div>
+              <h3>${escapeHtml(section.gradeLevel || 'Grade')} · ${escapeHtml(section.sectionName || 'Section')}</h3>
+              <p>${escapeHtml(section.academicYearName || yearById(section.academicYearId)?.name || 'Academic year')}</p>
+            </div>
+            ${statusPill(section.active === false ? 'archived' : 'active')}
+          </div>
+          <div class="pp-record-card__meta">
+            <div class="pp-record-meta"><span>Grade</span><strong>${escapeHtml(section.gradeLevel || '—')}</strong></div>
+            <div class="pp-record-meta"><span>Section</span><strong>${escapeHtml(section.sectionName || '—')}</strong></div>
+          </div>
+          <div class="pp-record-actions">
+            <button class="pp-btn pp-btn--secondary editSection" type="button" data-id="${escapeHtml(section.id)}">Edit</button>
+            <button class="pp-btn pp-btn--ghost toggleSection" type="button" data-id="${escapeHtml(section.id)}" data-active="${section.active !== false}">${section.active === false ? 'Reactivate' : 'Archive'}</button>
+            <button class="pp-btn pp-btn--ghost deleteSection" type="button" data-id="${escapeHtml(section.id)}">Delete unused</button>
+          </div>
+        </article>
+      `).join('')
+    : '<div class="pp-empty">No grade sections yet. Add the sections used by your school.</div>';
+
+  document.querySelectorAll('.editSection').forEach(button => {
+    const section = (structure.gradeSections || []).find(item => item.id === button.dataset.id);
+    button.onclick = () => section && openSectionEditor(section);
+  });
+
+  document.querySelectorAll('.toggleSection').forEach(button => {
+    button.onclick = async () => {
+      const section = (structure.gradeSections || []).find(item => item.id === button.dataset.id);
+      if (!section) return;
+      const activeNow = button.dataset.active === 'true';
+      const nextActive = !activeNow;
+      const label = `${section.gradeLevel || 'Grade'} · ${section.sectionName || 'Section'}`;
+      const ok = await confirmDialog(
+        nextActive
+          ? `Reactivate ${label}? It will become available for teacher and student placement again.`
+          : `Archive ${label}? Existing roster history remains preserved, but it will no longer be available for new assignments.`,
+        { title: nextActive ? 'Reactivate grade section' : 'Archive grade section', confirmLabel: nextActive ? 'Reactivate' : 'Archive', danger: !nextActive }
+      );
+      if (!ok) return;
+      await runAction(
+        () => apiJson(`/school-admin/grade-sections/${encodeURIComponent(section.id)}/status`, {
+          method: 'PUT',
+          body: JSON.stringify({ active: nextActive })
+        }),
+        nextActive ? 'Grade section reactivated.' : 'Grade section archived.'
+      );
+    };
+  });
+
+  document.querySelectorAll('.deleteSection').forEach(button => {
+    button.onclick = async () => {
+      const section = (structure.gradeSections || []).find(item => item.id === button.dataset.id);
+      if (!section) return;
+      const label = `${section.gradeLevel || 'Grade'} · ${section.sectionName || 'Section'}`;
+      const ok = await confirmDialog(
+        `Delete ${label}? PickupPass will refuse this if students or teacher assignments still depend on the section.`,
+        { title: 'Delete unused grade section', confirmLabel: 'Delete unused record', danger: true }
+      );
+      if (!ok) return;
+      await runAction(
+        () => apiJson(`/school-admin/grade-sections/${encodeURIComponent(section.id)}`, { method: 'DELETE' }),
+        'Unused grade section deleted.'
+      );
+    };
+  });
+}
+
+async function runAction(action, successMessage) {
+  try {
+    await action();
+    showToast(successMessage);
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+}
+
+function openYearEditor(year = null) {
+  editingYear = year;
+  document.getElementById('yearForm').reset();
+  document.getElementById('yearDialogTitle').textContent = year ? 'Edit academic year' : 'Add academic year';
+  document.getElementById('saveYear').textContent = year ? 'Save changes' : 'Create academic year';
+  document.getElementById('yearNameInput').value = year?.name || '';
+  document.getElementById('yearStart').value = year?.startDate || '';
+  document.getElementById('yearEnd').value = year?.endDate || '';
+  document.getElementById('yearCurrent').checked = year?.isCurrent || (!year && !(structure.academicYears || []).length);
+  document.getElementById('yearCurrentCard').classList.toggle('hidden', !!year);
+  yearDialog.showModal();
+  requestAnimationFrame(() => document.getElementById('yearNameInput').focus());
+}
+
+function openSectionEditor(section = null) {
+  editingSection = section;
+  document.getElementById('sectionForm').reset();
+  document.getElementById('sectionDialogTitle').textContent = section ? 'Edit grade section' : 'Add grade section';
+  document.getElementById('saveSection').textContent = section ? 'Save changes' : 'Create grade section';
+  document.getElementById('sectionYearWrap').classList.toggle('hidden', !!section);
+  document.getElementById('sectionYear').value = section?.academicYearId || currentYear()?.id || '';
+  document.getElementById('gradeLevel').value = section?.gradeLevel || '';
+  document.getElementById('sectionName').value = section?.sectionName || '';
+  sectionDialog.showModal();
+  requestAnimationFrame(() => document.getElementById('gradeLevel').focus());
+}
+
+function closeOnBackdrop(dialog) {
+  dialog.addEventListener('click', event => {
+    if (event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+  });
+}
+
+[addChooser, yearDialog, sectionDialog].forEach(closeOnBackdrop);
+
+document.getElementById('academicFab').onclick = () => addChooser.showModal();
+document.getElementById('closeChooser').onclick = () => addChooser.close();
+document.getElementById('chooseYear').onclick = () => { addChooser.close(); openYearEditor(); };
+document.getElementById('chooseSection').onclick = () => { if (!document.getElementById('chooseSection').disabled) { addChooser.close(); openSectionEditor(); } };
+document.getElementById('cancelYear').onclick = () => yearDialog.close();
+document.getElementById('cancelSection').onclick = () => sectionDialog.close();
+
+yearDialog.addEventListener('close', () => { editingYear = null; });
+sectionDialog.addEventListener('close', () => { editingSection = null; });
+
+document.getElementById('yearForm').onsubmit = async event => {
+  event.preventDefault();
+  const button = document.getElementById('saveYear');
+  const name = document.getElementById('yearNameInput').value.trim();
+  const startDate = document.getElementById('yearStart').value;
+  const endDate = document.getElementById('yearEnd').value;
+
+  if (startDate && endDate && startDate > endDate) {
+    showToast('Academic year end date must be after the start date.', 'error');
+    return;
+  }
+
+  setSubmitButtonBusy(button, true, 'Saving…');
+  try {
+    if (editingYear) {
+      await apiJson(`/school-admin/academic-years/${encodeURIComponent(editingYear.id)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name, startDate, endDate })
+      });
+      showToast('Academic year updated.');
+    } else {
+      await apiJson('/school-admin/academic-years', {
+        method: 'POST',
+        body: JSON.stringify({ name, startDate, endDate, current: document.getElementById('yearCurrent').checked })
+      });
+      showToast('Academic year created.');
+    }
+    yearDialog.close();
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    setSubmitButtonBusy(button, false);
+  }
+};
+
+document.getElementById('sectionForm').onsubmit = async event => {
+  event.preventDefault();
+  const button = document.getElementById('saveSection');
+  const gradeLevel = document.getElementById('gradeLevel').value.trim();
+  const sectionName = document.getElementById('sectionName').value.trim();
+
+  setSubmitButtonBusy(button, true, 'Saving…');
+  try {
+    if (editingSection) {
+      await apiJson(`/school-admin/grade-sections/${encodeURIComponent(editingSection.id)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ gradeLevel, sectionName })
+      });
+      showToast('Grade section updated.');
+    } else {
+      await apiJson('/school-admin/grade-sections', {
+        method: 'POST',
+        body: JSON.stringify({
+          academicYearId: document.getElementById('sectionYear').value,
+          gradeLevel,
+          sectionName
+        })
+      });
+      showToast('Grade section created.');
+    }
+    sectionDialog.close();
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    setSubmitButtonBusy(button, false);
+  }
+};
+
+bindRefresh('refreshBtn', load);
+requireRole('school_admin', load);
+</script>
+</body>
+</html>
