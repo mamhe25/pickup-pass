@@ -1,145 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Teacher Sections — PickupPass</title>
-<link rel="stylesheet" href="../shared/theme.css" />
-<link rel="stylesheet" href="../shared/components.css" />
-<link rel="stylesheet" href="../shared/portal.css" />
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="../shared/tailwind-config.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teacher Assignments — PickupPass</title>
+<meta name="theme-color" content="#4652C7">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<meta http-equiv="refresh" content="0;url=./staff.html">
 </head>
-<body class="min-h-screen pp-portal-body">
-
-  <div id="adminNav" data-active="academics"></div>
-  <script type="module" src="../shared/school-admin-nav.js"></script>
-
-  <main class="pp-page pp-page--narrow">
-    <h1 class="text-xl font-bold text-ink-strong mb-1">Teacher Sections</h1>
-    <p class="text-sm text-ink-muted mb-4">
-      Assign each teacher's grade/section so their broadcasts reach the right guardians.
-    </p>
-
-    <div id="teacherList" class="space-y-3"></div>
-    <div id="emptyState" class="pp-empty hidden">
-      No teachers yet — invite one from School Admin first.
+<body class="pp-portal-body">
+<main class="pp-page pp-page--narrow">
+  <section class="pp-section">
+    <div class="pp-section__body">
+      <p class="pp-eyebrow">Teacher assignments moved</p>
+      <h1 class="text-xl font-bold text-ink-strong">Opening Staff Management…</h1>
+      <p class="pp-mini mt-2">
+        Teacher class assignments now use the School Year & Sections records configured by the School Admin. Free-text grade/section entry has been retired.
+      </p>
+      <a class="pp-btn pp-btn--primary mt-4" href="./staff.html">Open Staff Management</a>
     </div>
-    <div id="loadingState" class="text-center text-sm text-ink-subtle py-6">Loading…</div>
-  </main>
-
-<script type="module">
-import { auth, authedFetch } from "../shared/firebase-init.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    window.location.href = "../login.html";
-    return;
-  }
-  await loadTeachers();
-});
-
-async function loadTeachers() {
-  const loadingState = document.getElementById("loadingState");
-  loadingState.classList.remove("hidden");
-
-  try {
-    const res = await authedFetch("/school-admin/staff", { method: "GET" });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Could not load teachers");
-
-    loadingState.classList.add("hidden");
-    if (data.teachers.length === 0) {
-      document.getElementById("emptyState").classList.remove("hidden");
-      return;
-    }
-    renderTeachers(data.teachers);
-  } catch (err) {
-    loadingState.textContent = err.message;
-  }
-}
-
-function renderTeachers(teachers) {
-  const list = document.getElementById("teacherList");
-  list.innerHTML = "";
-
-  teachers.forEach((t) => {
-    const card = document.createElement("div");
-    card.className = "pp-card";
-    card.innerHTML = `
-      <p class="font-semibold text-ink-strong">${escapeHtml(t.displayName || t.email)}</p>
-      <p class="text-xs text-ink-subtle mb-2">${escapeHtml(t.email)}</p>
-      <div class="sections-list flex flex-wrap gap-1 mb-2"></div>
-      <div class="flex gap-2">
-        <input type="text" placeholder="Grade" class="grade-input pp-field w-1/3" />
-        <input type="text" placeholder="Section" class="section-input pp-field w-1/3" />
-        <button class="add-section-btn pp-btn pp-btn--primary w-1/3">Add</button>
-      </div>
-      <p class="save-status text-xs text-ink-subtle mt-1"></p>
-    `;
-
-    let sections = [...(t.assignedSections || [])];
-    const sectionsList = card.querySelector(".sections-list");
-    const saveStatus = card.querySelector(".save-status");
-
-    function renderChips() {
-      sectionsList.innerHTML = sections.length === 0
-        ? '<span class="text-xs text-ink-subtle">No sections assigned yet</span>'
-        : "";
-      sections.forEach((s, i) => {
-        const chip = document.createElement("span");
-        chip.className = "pp-chip is-active";
-        chip.innerHTML = `Grade ${escapeHtml(s.grade)} · ${escapeHtml(s.section)} <button class="font-bold ml-1">×</button>`;
-        chip.querySelector("button").addEventListener("click", async () => {
-          sections.splice(i, 1);
-          renderChips();
-          await save();
-        });
-        sectionsList.appendChild(chip);
-      });
-    }
-
-    async function save() {
-      saveStatus.textContent = "Saving…";
-      try {
-        const res = await authedFetch(`/school-admin/staff/${t.uid}/sections`, {
-          method: "PUT",
-          body: JSON.stringify({ sections }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Could not save");
-        saveStatus.textContent = "Saved";
-        setTimeout(() => { saveStatus.textContent = ""; }, 1500);
-      } catch (err) {
-        saveStatus.textContent = err.message;
-      }
-    }
-
-    card.querySelector(".add-section-btn").addEventListener("click", async () => {
-      const gradeInput = card.querySelector(".grade-input");
-      const sectionInput = card.querySelector(".section-input");
-      const grade = gradeInput.value.trim();
-      const section = sectionInput.value.trim();
-      if (!grade || !section) return;
-
-      sections.push({ grade, section });
-      gradeInput.value = "";
-      sectionInput.value = "";
-      renderChips();
-      await save();
-    });
-
-    renderChips();
-    list.appendChild(card);
-  });
-}
-
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
-}
-</script>
+  </section>
+</main>
+<script>location.replace('./staff.html');</script>
 </body>
 </html>
