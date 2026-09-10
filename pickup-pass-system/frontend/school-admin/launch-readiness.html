@@ -1,7 +1,275 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Launch Readiness — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head><body class="min-h-screen pp-portal-body">
-<div id="adminNav" data-active="launch"></div><script type="module" src="../shared/school-admin-nav.js"></script><main class="pp-page"><div class="pp-page-head"><div><h1>School Launch Readiness</h1><p>Complete required automated and manual checks, then request final platform review. Pickup locations remain optional by design.</p></div><div class="pp-actions"><button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh</button><button id="requestReviewBtn" class="pp-btn pp-btn--primary">Request launch review</button></div></div>
-<div class="pp-grid"><div class="pp-kpi"><div class="pp-kpi__label">Effective status</div><div id="effectiveStatus" class="pp-kpi__value text-lg">—</div></div><div class="pp-kpi"><div class="pp-kpi__label">Blockers</div><div id="blockers" class="pp-kpi__value">—</div></div><div class="pp-kpi"><div class="pp-kpi__label">Warnings</div><div id="warnings" class="pp-kpi__value">—</div></div><div class="pp-kpi"><div class="pp-kpi__label">Passed</div><div id="passed" class="pp-kpi__value">—</div></div></div>
-<section class="pp-section"><div class="pp-section__head"><h2>Manual confirmations</h2><button id="saveChecksBtn" class="pp-btn pp-btn--secondary">Save checks</button></div><div class="pp-section__body space-y-3"><label class="flex gap-3"><input id="scannerDeviceTested" type="checkbox"><span><strong>Scanner device tested</strong><span class="block pp-mini">Camera permission, QR scanning, connectivity, and staff sign-in tested on the actual device.</span></span></label><label class="flex gap-3"><input id="guardianQrTested" type="checkbox"><span><strong>End-to-end guardian QR test completed</strong><span class="block pp-mini">Guardian QR generation through staff verification and approval.</span></span></label><label class="flex gap-3"><input id="dismissalStaffBriefed" type="checkbox"><span><strong>Dismissal staff briefing completed</strong><span class="block pp-mini">Staff know approval flow, duplicate-pass handling, and escalation.</span></span></label><label class="flex gap-3"><input id="emergencyProcedureReviewed" type="checkbox"><span><strong>Emergency procedure reviewed</strong><span class="block pp-mini">Fallback for device/network problems and authorized manual pickup.</span></span></label></div></section>
-<section class="pp-section"><div class="pp-section__head"><h2>Readiness checks</h2></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Check</th><th>Required</th><th>Status</th><th>Detail</th></tr></thead><tbody id="rows"><tr><td colspan="4" class="pp-empty">Loading…</td></tr></tbody></table></div></section></main>
-<script type="module">import{showToast}from'../shared/firebase-init.js';import{apiJson,requireRole,bindRefresh,escapeHtml,statusPill}from'../shared/portal.js';let readiness={};async function load(){readiness=await apiJson('/school-admin/launch-readiness');effectiveStatus.innerHTML=statusPill(readiness.effectiveStatus||readiness.reviewStatus||'draft');blockers.textContent=readiness.blockerCount??0;warnings.textContent=readiness.warningCount??0;passed.textContent=readiness.passedCount??0;const m=readiness.manualChecks||{};scannerDeviceTested.checked=!!m.scannerDeviceTested;guardianQrTested.checked=!!m.guardianQrTested;dismissalStaffBriefed.checked=!!m.dismissalStaffBriefed;emergencyProcedureReviewed.checked=!!m.emergencyProcedureReviewed;requestReviewBtn.disabled=!readiness.readyForReview||['review_requested','approved'].includes(readiness.reviewStatus);rows.innerHTML=(readiness.checks||[]).map(c=>`<tr><td><strong>${escapeHtml(c.label||c.key)}</strong></td><td>${c.required?'Yes':'No'}</td><td>${statusPill(c.status)}</td><td>${escapeHtml(c.detail||'')}</td></tr>`).join('')||'<tr><td colspan="4" class="pp-empty">No checks.</td></tr>';}
-saveChecksBtn.onclick=async()=>{const manualChecks={scannerDeviceTested:scannerDeviceTested.checked,guardianQrTested:guardianQrTested.checked,dismissalStaffBriefed:dismissalStaffBriefed.checked,emergencyProcedureReviewed:emergencyProcedureReviewed.checked};try{await apiJson('/school-admin/launch-readiness/manual-checks',{method:'PUT',body:JSON.stringify({manualChecks})});showToast('Manual checks saved.');await load();}catch(e){showToast(e.message,'error');}};requestReviewBtn.onclick=async()=>{if(!confirm('Request final platform launch review?'))return;try{await apiJson('/school-admin/launch-readiness/request-review',{method:'POST'});showToast('Launch review requested.');await load();}catch(e){showToast(e.message,'error');}};bindRefresh('refreshBtn',load);requireRole('school_admin',load);</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Launch Readiness — PickupPass</title>
+<meta name="theme-color" content="#4652C7">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<link rel="stylesheet" href="./school-admin-parity.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="adminNav" data-active="launch"></div>
+<script type="module" src="../shared/school-admin-nav.js"></script>
+
+<main class="pp-page pp-school-work-page">
+  <section class="pp-school-work-hero">
+    <div>
+      <p class="pp-school-work-hero__eyebrow">Go-live · school readiness</p>
+      <h1 id="launchHeroTitle">Preparing launch readiness…</h1>
+      <p id="launchHeroCopy">
+        Complete automated checks and school confirmations, then request final Platform Owner review for live dismissal.
+      </p>
+      <div class="pp-school-work-hero__actions">
+        <button id="requestReviewBtn" class="pp-btn pp-btn--primary" type="button" disabled>Request launch review</button>
+        <button id="refreshBtn" class="pp-btn pp-btn--secondary" type="button">Refresh readiness</button>
+      </div>
+    </div>
+    <div class="pp-school-work-hero__summary">
+      <span>Readiness</span>
+      <strong id="heroProgress">—</strong>
+    </div>
+  </section>
+
+  <section class="pp-school-metrics" aria-label="Launch readiness summary">
+    <article class="pp-school-metric"><span>Status</span><strong id="effectiveStatusText">—</strong><small>Effective launch state</small></article>
+    <article class="pp-school-metric"><span>Blockers</span><strong id="blockers">—</strong><small>Must be resolved</small></article>
+    <article class="pp-school-metric"><span>Warnings</span><strong id="warnings">—</strong><small>Review before go-live</small></article>
+    <article class="pp-school-metric"><span>Passed</span><strong id="passed">—</strong><small>Checks completed</small></article>
+  </section>
+
+  <section id="launchAttention" class="pp-owner-priority pp-owner-priority--attention hidden mt-4">
+    <div class="pp-owner-priority__icon" aria-hidden="true">!</div>
+    <div><strong id="launchAttentionTitle">Readiness needs attention</strong><p id="launchAttentionCopy"></p></div>
+  </section>
+  <section id="launchHealthy" class="pp-owner-priority pp-owner-priority--healthy hidden mt-4">
+    <div class="pp-owner-priority__icon" aria-hidden="true">✓</div>
+    <div><strong id="launchHealthyTitle">Ready for review</strong><p id="launchHealthyCopy"></p></div>
+  </section>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>School confirmations</h2>
+        <p class="pp-mini">Confirm real operational testing, not just configuration. Changes remain local until saved.</p>
+      </div>
+      <span id="manualDirtyBadge" class="pp-status pp-status--warning hidden">Unsaved changes</span>
+    </div>
+    <div class="pp-section__body">
+      <div class="pp-check-grid">
+        <label class="pp-check-card">
+          <input id="scannerDeviceTested" type="checkbox">
+          <span><strong>Scanner device tested</strong><span>Camera permission, QR scanning, connectivity and staff sign-in tested on the actual device.</span></span>
+        </label>
+        <label class="pp-check-card">
+          <input id="guardianQrTested" type="checkbox">
+          <span><strong>End-to-end guardian QR test completed</strong><span>Guardian QR generation through staff verification and approval was tested.</span></span>
+        </label>
+        <label class="pp-check-card">
+          <input id="dismissalStaffBriefed" type="checkbox">
+          <span><strong>Dismissal staff briefing completed</strong><span>Staff understand approval flow, duplicate-pass handling and escalation.</span></span>
+        </label>
+        <label class="pp-check-card">
+          <input id="emergencyProcedureReviewed" type="checkbox">
+          <span><strong>Emergency procedure reviewed</strong><span>Fallback for device/network issues and authorized manual release was reviewed.</span></span>
+        </label>
+      </div>
+      <div class="pp-policy-actions">
+        <button id="resetChecksBtn" class="pp-btn pp-btn--secondary" type="button" disabled>Reset changes</button>
+        <button id="saveChecksBtn" class="pp-btn pp-btn--primary" type="button" disabled>Save confirmations</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div><h2>Readiness checks</h2><p class="pp-mini">Automated and manual checks are evaluated together. Pickup locations remain optional by design.</p></div>
+    </div>
+    <div class="pp-section__body">
+      <div class="pp-progress-track"><span id="readinessProgress"></span></div>
+      <p id="progressCopy" class="pp-mini mt-2">Loading checks…</p>
+      <div id="checkList" class="pp-history-list mt-4"><div class="pp-empty">Loading readiness checks…</div></div>
+    </div>
+  </section>
+
+  <section class="pp-callout">
+    Platform Owner approval switches the tenant from pre-launch testing to live dismissal. Do not request review until the school has tested the real scanner and guardian QR flow on production-intended devices.
+  </section>
+</main>
+
+<script type="module">
+import { showToast, setSubmitButtonBusy } from '../shared/firebase-init.js';
+import { apiJson, requireRole, bindRefresh, escapeHtml, statusPill, titleCase } from '../shared/portal.js';
+import { confirmDialog } from '../shared/dialogs.js';
+
+let readiness = {};
+let manualBaseline = null;
+
+function manualSnapshot() {
+  return {
+    scannerDeviceTested: document.getElementById('scannerDeviceTested').checked,
+    guardianQrTested: document.getElementById('guardianQrTested').checked,
+    dismissalStaffBriefed: document.getElementById('dismissalStaffBriefed').checked,
+    emergencyProcedureReviewed: document.getElementById('emergencyProcedureReviewed').checked
+  };
+}
+
+function sameManual(a, b) {
+  if (!a || !b) return false;
+  return Object.keys(a).every(key => a[key] === b[key]);
+}
+
+function syncDirty() {
+  const dirty = !sameManual(manualSnapshot(), manualBaseline);
+  document.getElementById('manualDirtyBadge').classList.toggle('hidden', !dirty);
+  document.getElementById('saveChecksBtn').disabled = !dirty;
+  document.getElementById('resetChecksBtn').disabled = !dirty;
+}
+
+function applyManualBaseline() {
+  if (!manualBaseline) return;
+  for (const [key, value] of Object.entries(manualBaseline)) {
+    const input = document.getElementById(key);
+    if (input) input.checked = !!value;
+  }
+  syncDirty();
+}
+
+async function load() {
+  readiness = await apiJson('/school-admin/launch-readiness');
+  manualBaseline = {
+    scannerDeviceTested: !!readiness.manualChecks?.scannerDeviceTested,
+    guardianQrTested: !!readiness.manualChecks?.guardianQrTested,
+    dismissalStaffBriefed: !!readiness.manualChecks?.dismissalStaffBriefed,
+    emergencyProcedureReviewed: !!readiness.manualChecks?.emergencyProcedureReviewed
+  };
+  applyManualBaseline();
+  render();
+}
+
+function render() {
+  const checks = readiness.checks || [];
+  const blockers = Number(readiness.blockerCount || 0);
+  const warnings = Number(readiness.warningCount || 0);
+  const passed = Number(readiness.passedCount || checks.filter(check => String(check.status || '').toLowerCase() === 'passed').length);
+  const total = checks.length || Number(readiness.totalCount || 0);
+  const progress = total > 0 ? Math.round((passed / total) * 100) : 0;
+  const reviewStatus = String(readiness.reviewStatus || 'draft').toLowerCase();
+  const effective = readiness.effectiveStatus || reviewStatus || 'draft';
+
+  document.getElementById('effectiveStatusText').textContent = titleCase(effective);
+  document.getElementById('blockers').textContent = blockers;
+  document.getElementById('warnings').textContent = warnings;
+  document.getElementById('passed').textContent = passed;
+  document.getElementById('heroProgress').textContent = `${progress}%`;
+  document.getElementById('readinessProgress').style.width = `${Math.max(0, Math.min(progress, 100))}%`;
+  document.getElementById('progressCopy').textContent = total
+    ? `${passed} of ${total} readiness checks passed.`
+    : 'No readiness checks were returned.';
+
+  const requested = reviewStatus === 'review_requested';
+  const approved = reviewStatus === 'approved' || String(effective).toLowerCase() === 'approved';
+  const ready = !!readiness.readyForReview;
+  document.getElementById('requestReviewBtn').disabled = !ready || requested || approved;
+
+  const heroTitle = approved
+    ? 'School launch is approved'
+    : requested
+      ? 'Launch review requested'
+      : ready
+        ? 'Ready for Platform Owner review'
+        : blockers > 0
+          ? `${blockers} launch blocker${blockers === 1 ? '' : 's'} remain`
+          : 'Complete school launch checks';
+  document.getElementById('launchHeroTitle').textContent = heroTitle;
+  document.getElementById('launchHeroCopy').textContent = approved
+    ? 'This school is approved for live dismissal. Continue monitoring staff readiness and operational configuration.'
+    : requested
+      ? 'The Platform Owner has been asked to review this school for live dismissal. Keep configuration stable while the review is pending.'
+      : ready
+        ? 'Required readiness checks are complete. Request final Platform Owner review when the school is ready to move beyond pre-launch testing.'
+        : 'Complete automated checks and school confirmations, then request final Platform Owner review for live dismissal.';
+
+  const attention = document.getElementById('launchAttention');
+  const healthy = document.getElementById('launchHealthy');
+  attention.classList.toggle('hidden', blockers === 0 && warnings === 0);
+  healthy.classList.toggle('hidden', blockers > 0 || warnings > 0);
+  if (blockers > 0 || warnings > 0) {
+    document.getElementById('launchAttentionTitle').textContent = blockers > 0 ? 'Resolve launch blockers' : 'Review launch warnings';
+    document.getElementById('launchAttentionCopy').textContent = `${blockers} blocker${blockers === 1 ? '' : 's'} and ${warnings} warning${warnings === 1 ? '' : 's'} are currently reported.`;
+  } else {
+    document.getElementById('launchHealthyTitle').textContent = approved ? 'Launch approved' : requested ? 'Review is pending' : 'Readiness checks are clear';
+    document.getElementById('launchHealthyCopy').textContent = approved
+      ? 'The Platform Owner approved live dismissal for this tenant.'
+      : requested
+        ? 'No current blocker or warning is reported while Platform Owner review is pending.'
+        : 'No current blocker or warning is reported. Request review when operational testing is complete.';
+  }
+
+  document.getElementById('checkList').innerHTML = checks.length
+    ? checks.map(check => `
+        <article class="pp-history-card">
+          <div>
+            <h3>${escapeHtml(check.label || check.key || 'Readiness check')}</h3>
+            <p>${escapeHtml(check.detail || '')}</p>
+            <div class="pp-history-card__meta">
+              ${statusPill(check.status || 'unknown')}
+              <span class="pp-status">${check.required ? 'Required' : 'Recommended'}</span>
+            </div>
+          </div>
+        </article>
+      `).join('')
+    : '<div class="pp-empty">No readiness checks are currently available.</div>';
+}
+
+['scannerDeviceTested', 'guardianQrTested', 'dismissalStaffBriefed', 'emergencyProcedureReviewed'].forEach(id => {
+  document.getElementById(id).onchange = syncDirty;
+});
+document.getElementById('resetChecksBtn').onclick = applyManualBaseline;
+
+document.getElementById('saveChecksBtn').onclick = async () => {
+  const button = document.getElementById('saveChecksBtn');
+  setSubmitButtonBusy(button, true, 'Saving…');
+  try {
+    await apiJson('/school-admin/launch-readiness/manual-checks', {
+      method: 'PUT',
+      body: JSON.stringify({ manualChecks: manualSnapshot() })
+    });
+    showToast('School launch confirmations saved.');
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    setSubmitButtonBusy(button, false);
+  }
+};
+
+document.getElementById('requestReviewBtn').onclick = async () => {
+  const ok = await confirmDialog(
+    'Request final Platform Owner launch review? Confirm that scanner devices, end-to-end guardian QR release, staff briefing and emergency procedures have been tested for real operations.',
+    { title: 'Request launch review', confirmLabel: 'Request Platform Owner review' }
+  );
+  if (!ok) return;
+
+  const button = document.getElementById('requestReviewBtn');
+  setSubmitButtonBusy(button, true, 'Requesting…');
+  try {
+    await apiJson('/school-admin/launch-readiness/request-review', { method: 'POST' });
+    showToast('Launch review requested.');
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    setSubmitButtonBusy(button, false);
+  }
+};
+
+bindRefresh('refreshBtn', load);
+requireRole('school_admin', load);
+</script>
+</body>
+</html>
