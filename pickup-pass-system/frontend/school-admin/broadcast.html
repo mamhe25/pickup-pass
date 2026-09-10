@@ -1,8 +1,344 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Announcements — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head><body class="min-h-screen pp-portal-body">
-<div id="adminNav" data-active="announce"></div><script type="module" src="../shared/school-admin-nav.js"></script><main class="pp-page"><div class="pp-page-head"><div><h1>Announcements</h1><p>Send immediately or schedule an announcement for teachers, guardians, or both. Scheduled delivery is governed by your plan's feature entitlement.</p></div><button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh history</button></div>
-<div class="pp-grid"><section class="pp-section mt-0"><div class="pp-section__head"><h2>Compose announcement</h2></div><div class="pp-section__body"><form id="broadcastForm" class="space-y-3"><label>Title<input id="title" class="pp-field" maxlength="120" required></label><label>Message<textarea id="body" class="pp-field" rows="5" maxlength="2000" required></textarea></label><div><div class="pp-label">Audience</div><div class="pp-actions"><label><input id="audienceTeacher" type="checkbox" checked> Teachers</label><label><input id="audienceParent" type="checkbox" checked> Guardians</label></div></div><label>Schedule (optional)<input id="scheduledAt" type="datetime-local" class="pp-field"><span class="pp-mini">Leave blank to send now. Scheduled time must be at least 30 seconds ahead and no more than 90 days away.</span></label><button id="sendBtn" class="pp-btn pp-btn--primary w-full">Send now</button></form></div></section>
-<section class="pp-section mt-0"><div class="pp-section__head"><h2>Delivery model</h2></div><div class="pp-section__body"><div class="pp-kpi"><div class="pp-kpi__label">Immediate</div><div class="pp-mini">Delivered to selected audiences as a push notification and stored in their notification inbox.</div></div><div class="pp-kpi mt-3"><div class="pp-kpi__label">Scheduled</div><div class="pp-mini">Stored as a pending broadcast job and delivered by the backend scheduler. If Scheduled Announcements is disabled by the subscription plan, the backend will refuse the schedule request.</div></div></div></section></div>
-<section class="pp-section"><div class="pp-section__head"><h2>Announcement history</h2></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Announcement</th><th>Audience</th><th>Schedule / sent</th><th>Status</th><th>Recipients</th><th>Action</th></tr></thead><tbody id="historyRows"><tr><td colspan="6" class="pp-empty">Loading…</td></tr></tbody></table></div></section></main>
-<script type="module">import{showToast}from'../shared/firebase-init.js';import{apiJson,requireRole,bindRefresh,escapeHtml,statusPill,fmtDate,confirmAction}from'../shared/portal.js';
-async function loadHistory(){try{const d=await apiJson('/school-admin/broadcasts/history?limit=100');historyRows.innerHTML=(d.broadcasts||[]).map(x=>`<tr><td><strong>${escapeHtml(x.title)}</strong><div class="pp-mini">${escapeHtml(x.body||'')}</div></td><td>${escapeHtml((x.audience||[]).join(', '))}</td><td>${fmtDate(x.scheduledAt||x.sentAt||x.createdAt)}</td><td>${statusPill(x.status)}</td><td>${x.recipientCount??'—'}</td><td>${x.status==='scheduled'?`<button class="pp-btn pp-btn--ghost cancel" data-id="${escapeHtml(x.broadcastId||x.id)}">Cancel</button>`:'—'}</td></tr>`).join('')||'<tr><td colspan="6" class="pp-empty">No announcements yet.</td></tr>';document.querySelectorAll('.cancel').forEach(b=>b.onclick=async()=>{if(!confirmAction('Cancel this pending announcement?'))return;try{await apiJson(`/school-admin/broadcasts/${encodeURIComponent(b.dataset.id)}`,{method:'DELETE'});showToast('Scheduled announcement cancelled.');await loadHistory();}catch(e){showToast(e.message,'error')}});}catch(e){historyRows.innerHTML=`<tr><td colspan="6" class="pp-empty">${escapeHtml(e.message)}</td></tr>`;}}
-broadcastForm.onsubmit=async e=>{e.preventDefault();const audience=[];if(audienceTeacher.checked)audience.push('teacher');if(audienceParent.checked)audience.push('parent');if(!audience.length){showToast('Select at least one audience.','error');return;}const payload={title:title.value.trim(),body:body.value.trim(),audience};let path='/school-admin/broadcasts';if(scheduledAt.value){payload.scheduledAt=new Date(scheduledAt.value).toISOString();path+='/schedule';}sendBtn.disabled=true;const old=sendBtn.textContent;sendBtn.textContent=scheduledAt.value?'Scheduling…':'Sending…';try{const r=await apiJson(path,{method:'POST',body:JSON.stringify(payload)});showToast(scheduledAt.value?'Announcement scheduled.':`Announcement sent to ${r.recipientCount??0} recipient(s).`);broadcastForm.reset();audienceTeacher.checked=true;audienceParent.checked=true;await loadHistory();}catch(err){showToast(err.message,'error')}finally{sendBtn.disabled=false;sendBtn.textContent=old;}};scheduledAt.oninput=()=>sendBtn.textContent=scheduledAt.value?'Schedule announcement':'Send now';bindRefresh('refreshBtn',loadHistory);requireRole('school_admin',loadHistory);</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Announcements — PickupPass</title>
+<meta name="theme-color" content="#4652C7">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<link rel="stylesheet" href="./school-admin-parity.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="adminNav" data-active="announce"></div>
+<script type="module" src="../shared/school-admin-nav.js"></script>
+
+<main class="pp-page pp-school-work-page">
+  <section class="pp-school-work-hero">
+    <div>
+      <p class="pp-school-work-hero__eyebrow">School communication · notifications</p>
+      <h1>Announcements</h1>
+      <p>
+        Send a school-wide message now or schedule it for later. Audience, delivery timing,
+        and history stay visible so communication remains deliberate and reviewable.
+      </p>
+      <div class="pp-school-work-hero__actions">
+        <button id="composeBtn" class="pp-btn pp-btn--primary" type="button">Compose announcement</button>
+        <button id="refreshBtn" class="pp-btn pp-btn--secondary" type="button">Refresh history</button>
+      </div>
+    </div>
+    <div class="pp-school-work-hero__summary">
+      <span>Scheduled</span>
+      <strong id="scheduledCount">—</strong>
+    </div>
+  </section>
+
+  <section class="pp-school-metrics" aria-label="Announcement summary">
+    <article class="pp-school-metric"><span>Total history</span><strong id="totalCount">—</strong><small>Recent announcements</small></article>
+    <article class="pp-school-metric"><span>Scheduled</span><strong id="scheduledMetric">—</strong><small>Waiting for delivery</small></article>
+    <article class="pp-school-metric"><span>Sent</span><strong id="sentCount">—</strong><small>Completed delivery jobs</small></article>
+    <article class="pp-school-metric"><span>Recipients</span><strong id="recipientCount">—</strong><small>Across loaded history</small></article>
+  </section>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Announcement history</h2>
+        <p class="pp-mini">Scheduled items can be cancelled before delivery. Completed messages remain available for operational review.</p>
+      </div>
+      <div class="pp-actions">
+        <select id="statusFilter" class="pp-field" aria-label="Announcement status filter">
+          <option value="">All statuses</option>
+          <option value="scheduled">Scheduled</option>
+          <option value="sent">Sent</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="failed">Failed</option>
+        </select>
+      </div>
+    </div>
+    <div class="pp-section__body">
+      <div id="historyList" class="pp-history-list"><div class="pp-empty">Loading announcement history…</div></div>
+    </div>
+  </section>
+
+  <section class="pp-school-split">
+    <article class="pp-section mt-0">
+      <div class="pp-section__head"><div><h2>Immediate delivery</h2><p class="pp-mini">Push + notification inbox</p></div></div>
+      <div class="pp-section__body">
+        <div class="pp-summary-list">
+          <div class="pp-summary-row"><span>Teachers</span><strong>School staff audience</strong></div>
+          <div class="pp-summary-row"><span>Guardians</span><strong>Parent / guardian audience</strong></div>
+          <div class="pp-summary-row"><span>Delivery</span><strong>Backend fan-out + inbox copy</strong></div>
+        </div>
+      </div>
+    </article>
+    <article class="pp-section mt-0">
+      <div class="pp-section__head"><div><h2>Scheduled delivery</h2><p class="pp-mini">Subscription feature</p></div></div>
+      <div class="pp-section__body">
+        <div class="pp-callout">
+          Scheduled announcements are delivered by the backend scheduler. PickupPass will refuse a schedule request when that feature is unavailable for the tenant plan.
+        </div>
+      </div>
+    </article>
+  </section>
+</main>
+
+<button id="announcementFab" class="pp-floating-action" type="button" aria-label="Compose announcement" title="Compose announcement">+</button>
+
+<dialog id="composeDialog" class="pp-parity-dialog pp-parity-dialog--wide">
+  <form id="broadcastForm">
+    <div class="pp-parity-dialog__head">
+      <p class="pp-parity-dialog__eyebrow">School announcement</p>
+      <h2>Compose announcement</h2>
+      <p>Choose the audience, message and delivery time. Review the summary before sending.</p>
+    </div>
+    <div class="pp-parity-dialog__body">
+      <div class="pp-dialog-form-grid">
+        <label class="pp-span-full">Title<input id="announcementTitle" class="pp-field" maxlength="120" required placeholder="Short announcement title"></label>
+        <label class="pp-span-full">Message<textarea id="announcementBody" class="pp-field" rows="6" maxlength="2000" required placeholder="Write the school announcement"></textarea></label>
+      </div>
+
+      <div class="pp-dialog-section">
+        <h3 class="pp-dialog-section__title">Audience</h3>
+        <div class="pp-audience-grid">
+          <label class="pp-audience-card">
+            <input id="audienceTeacher" type="checkbox" checked>
+            <span><strong>Teachers</strong><span>School staff notification inbox</span></span>
+          </label>
+          <label class="pp-audience-card">
+            <input id="audienceParent" type="checkbox" checked>
+            <span><strong>Guardians</strong><span>Parent / guardian notification inbox</span></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="pp-dialog-section">
+        <h3 class="pp-dialog-section__title">Delivery</h3>
+        <div class="pp-audience-grid">
+          <label class="pp-audience-card">
+            <input type="radio" name="deliveryMode" value="now" checked>
+            <span><strong>Send now</strong><span>Deliver as soon as the backend accepts the request.</span></span>
+          </label>
+          <label class="pp-audience-card">
+            <input type="radio" name="deliveryMode" value="scheduled">
+            <span><strong>Schedule</strong><span>Choose a future date and time.</span></span>
+          </label>
+        </div>
+        <label id="scheduleWrap" class="block mt-3 hidden">Scheduled date & time
+          <input id="scheduledAt" type="datetime-local" class="pp-field">
+          <span class="pp-mini">Must be at least 30 seconds ahead and no more than 90 days away.</span>
+        </label>
+      </div>
+
+      <div id="announcementReview" class="pp-staff-review mt-4">
+        <strong>Announcement not ready yet</strong>
+        <p>Add a title and message, then confirm the intended audience.</p>
+      </div>
+    </div>
+    <div class="pp-parity-dialog__footer">
+      <button id="clearComposeBtn" class="pp-btn pp-btn--ghost" type="button">Clear</button>
+      <button id="cancelComposeBtn" class="pp-btn pp-btn--secondary" type="button">Cancel</button>
+      <button id="sendBtn" class="pp-btn pp-btn--primary" type="submit">Send now</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module">
+import { showToast, setSubmitButtonBusy } from '../shared/firebase-init.js';
+import { apiJson, requireRole, bindRefresh, escapeHtml, statusPill, fmtDate } from '../shared/portal.js';
+import { confirmDialog } from '../shared/dialogs.js';
+
+let history = [];
+const composeDialog = document.getElementById('composeDialog');
+
+function deliveryMode() {
+  return document.querySelector('input[name="deliveryMode"]:checked')?.value || 'now';
+}
+
+function selectedAudience() {
+  const audience = [];
+  if (document.getElementById('audienceTeacher').checked) audience.push('teacher');
+  if (document.getElementById('audienceParent').checked) audience.push('parent');
+  return audience;
+}
+
+function audienceLabel(audience) {
+  const values = Array.isArray(audience) ? audience : [];
+  if (values.includes('teacher') && values.includes('parent')) return 'Teachers + guardians';
+  if (values.includes('teacher')) return 'Teachers';
+  if (values.includes('parent')) return 'Guardians';
+  return 'Audience unavailable';
+}
+
+function updateComposeUi() {
+  const mode = deliveryMode();
+  const scheduled = mode === 'scheduled';
+  document.getElementById('scheduleWrap').classList.toggle('hidden', !scheduled);
+  document.getElementById('scheduledAt').required = scheduled;
+  document.getElementById('sendBtn').textContent = scheduled ? 'Schedule announcement' : 'Send now';
+
+  const title = document.getElementById('announcementTitle').value.trim();
+  const body = document.getElementById('announcementBody').value.trim();
+  const audience = selectedAudience();
+  const review = document.getElementById('announcementReview');
+  const ready = title && body && audience.length;
+  review.innerHTML = ready
+    ? `<strong>${escapeHtml(title)}</strong><p>${escapeHtml(audienceLabel(audience))} · ${scheduled ? 'Scheduled delivery' : 'Send immediately'} · ${body.length} characters</p>`
+    : '<strong>Announcement not ready yet</strong><p>Add a title and message, then confirm the intended audience.</p>';
+}
+
+function openCompose() {
+  document.getElementById('broadcastForm').reset();
+  document.getElementById('audienceTeacher').checked = true;
+  document.getElementById('audienceParent').checked = true;
+  document.querySelector('input[name="deliveryMode"][value="now"]').checked = true;
+  updateComposeUi();
+  composeDialog.showModal();
+  requestAnimationFrame(() => document.getElementById('announcementTitle').focus());
+}
+
+async function loadHistory() {
+  try {
+    const data = await apiJson('/school-admin/broadcasts/history?limit=100');
+    history = data.broadcasts || [];
+    renderHistory();
+  } catch (error) {
+    history = [];
+    document.getElementById('historyList').innerHTML = `<div class="pp-empty">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function renderHistory() {
+  const filter = document.getElementById('statusFilter').value;
+  const visible = history.filter(item => !filter || String(item.status || '').toLowerCase() === filter);
+  const scheduled = history.filter(item => String(item.status || '').toLowerCase() === 'scheduled').length;
+  const sent = history.filter(item => String(item.status || '').toLowerCase() === 'sent').length;
+  const recipients = history.reduce((sum, item) => sum + Number(item.recipientCount || 0), 0);
+
+  document.getElementById('scheduledCount').textContent = scheduled;
+  document.getElementById('scheduledMetric').textContent = scheduled;
+  document.getElementById('totalCount').textContent = history.length;
+  document.getElementById('sentCount').textContent = sent;
+  document.getElementById('recipientCount').textContent = recipients;
+
+  document.getElementById('historyList').innerHTML = visible.length
+    ? visible.map(item => `
+        <article class="pp-history-card">
+          <div>
+            <h3>${escapeHtml(item.title || 'Announcement')}</h3>
+            <p>${escapeHtml(item.body || '')}</p>
+            <div class="pp-history-card__meta">
+              ${statusPill(item.status || 'unknown')}
+              <span class="pp-status">${escapeHtml(audienceLabel(item.audience))}</span>
+              <span class="pp-status">${escapeHtml(fmtDate(item.scheduledAt || item.sentAt || item.createdAt))}</span>
+              ${item.recipientCount != null ? `<span class="pp-status">${item.recipientCount} recipient${item.recipientCount === 1 ? '' : 's'}</span>` : ''}
+            </div>
+          </div>
+          <div class="pp-history-card__actions">
+            ${String(item.status || '').toLowerCase() === 'scheduled'
+              ? `<button class="pp-btn pp-btn--secondary cancelScheduled" type="button" data-id="${escapeHtml(item.broadcastId || item.id)}" data-title="${escapeHtml(item.title || 'announcement')}">Cancel schedule</button>`
+              : ''}
+          </div>
+        </article>
+      `).join('')
+    : '<div class="pp-empty">No announcements match this status.</div>';
+
+  document.querySelectorAll('.cancelScheduled').forEach(button => {
+    button.onclick = async () => {
+      const ok = await confirmDialog(
+        `Cancel the pending announcement “${button.dataset.title || 'Announcement'}”? It will not be delivered by the scheduler.`,
+        { title: 'Cancel scheduled announcement', confirmLabel: 'Cancel schedule', danger: true }
+      );
+      if (!ok) return;
+
+      try {
+        await apiJson(`/school-admin/broadcasts/${encodeURIComponent(button.dataset.id)}`, { method: 'DELETE' });
+        showToast('Scheduled announcement cancelled.');
+        await loadHistory();
+      } catch (error) {
+        showToast(error.message, 'error');
+      }
+    };
+  });
+}
+
+document.getElementById('composeBtn').onclick = openCompose;
+document.getElementById('announcementFab').onclick = openCompose;
+document.getElementById('cancelComposeBtn').onclick = () => composeDialog.close();
+document.getElementById('clearComposeBtn').onclick = openCompose;
+document.getElementById('statusFilter').onchange = renderHistory;
+
+['announcementTitle', 'announcementBody', 'audienceTeacher', 'audienceParent', 'scheduledAt'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateComposeUi);
+  document.getElementById(id).addEventListener('change', updateComposeUi);
+});
+document.querySelectorAll('input[name="deliveryMode"]').forEach(input => input.onchange = updateComposeUi);
+
+composeDialog.addEventListener('click', event => {
+  if (event.target !== composeDialog) return;
+  const rect = composeDialog.getBoundingClientRect();
+  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) composeDialog.close();
+});
+
+document.getElementById('broadcastForm').onsubmit = async event => {
+  event.preventDefault();
+  const audience = selectedAudience();
+  if (!audience.length) {
+    showToast('Select at least one audience.', 'error');
+    return;
+  }
+
+  const mode = deliveryMode();
+  const payload = {
+    title: document.getElementById('announcementTitle').value.trim(),
+    body: document.getElementById('announcementBody').value.trim(),
+    audience
+  };
+  let path = '/school-admin/broadcasts';
+
+  if (mode === 'scheduled') {
+    const value = document.getElementById('scheduledAt').value;
+    if (!value) {
+      showToast('Choose the scheduled date and time.', 'error');
+      return;
+    }
+    const when = new Date(value);
+    const now = Date.now();
+    if (!Number.isFinite(when.getTime()) || when.getTime() < now + 30_000) {
+      showToast('Scheduled time must be at least 30 seconds from now.', 'error');
+      return;
+    }
+    if (when.getTime() > now + 90 * 24 * 60 * 60 * 1000) {
+      showToast('Scheduled time cannot be more than 90 days away.', 'error');
+      return;
+    }
+    payload.scheduledAt = when.toISOString();
+    path += '/schedule';
+  }
+
+  const button = document.getElementById('sendBtn');
+  setSubmitButtonBusy(button, true, mode === 'scheduled' ? 'Scheduling…' : 'Sending…');
+  try {
+    const result = await apiJson(path, { method: 'POST', body: JSON.stringify(payload) });
+    composeDialog.close();
+    showToast(
+      mode === 'scheduled'
+        ? 'Announcement scheduled.'
+        : `Announcement sent to ${result.recipientCount ?? 0} recipient${result.recipientCount === 1 ? '' : 's'}.`
+    );
+    await loadHistory();
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    setSubmitButtonBusy(button, false);
+  }
+};
+
+bindRefresh('refreshBtn', loadHistory);
+requireRole('school_admin', loadHistory);
+</script>
+</body>
+</html>
