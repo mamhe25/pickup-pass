@@ -31,26 +31,33 @@ function enhance(input) {
   wrapper.append(input, ...slots);
 
   let lastSubmitted = '';
+  let blockedValue = '';
 
   const sync = () => {
     const value = normalize(input.value);
     if (value !== input.value) input.value = value;
 
+    const invalid = input.getAttribute('aria-invalid') === 'true';
     const activeIndex = Math.min(value.length, DIGITS - 1);
+
     slots.forEach((slot, index) => {
       slot.textContent = value[index] || '';
       slot.classList.toggle('is-active', index === activeIndex && value.length < DIGITS);
     });
 
     wrapper.classList.toggle('is-complete', value.length === DIGITS);
-    wrapper.setAttribute('aria-invalid', input.getAttribute('aria-invalid') === 'true' ? 'true' : 'false');
+    wrapper.setAttribute('aria-invalid', invalid ? 'true' : 'false');
 
     if (value.length < DIGITS) {
       lastSubmitted = '';
+      blockedValue = '';
       return;
     }
 
-    if (value === lastSubmitted) return;
+    // A rejected six-digit value must not immediately submit again merely
+    // because the error UI re-rendered. A genuine user edit below clears this
+    // block, including replacing the selected value with the same pasted code.
+    if (invalid || value === blockedValue || value === lastSubmitted) return;
     lastSubmitted = value;
 
     const target = input.dataset.ppAutoSubmit || '';
@@ -58,6 +65,7 @@ function enhance(input) {
 
     queueMicrotask(() => {
       if (normalize(input.value).length !== DIGITS) return;
+      if (input.getAttribute('aria-invalid') === 'true') return;
 
       const [kind, id] = target.split(':', 2);
       const element = id ? document.getElementById(id) : null;
@@ -71,7 +79,16 @@ function enhance(input) {
     });
   };
 
-  input.addEventListener('input', sync);
+  input.addEventListener('input', event => {
+    if (event.isTrusted) {
+      input.setAttribute('aria-invalid', 'false');
+      blockedValue = '';
+      // Permit a deliberate retry even when the user pastes the same six-digit
+      // value over a selected rejected code.
+      if (normalize(input.value) === lastSubmitted) lastSubmitted = '';
+    }
+    sync();
+  });
   input.addEventListener('change', sync);
   input.addEventListener('focus', () => {
     wrapper.classList.add('is-focused');
@@ -80,6 +97,7 @@ function enhance(input) {
   input.addEventListener('blur', () => wrapper.classList.remove('is-focused'));
   input.addEventListener('invalid', () => {
     input.setAttribute('aria-invalid', 'true');
+    blockedValue = normalize(input.value);
     sync();
   });
 
@@ -90,13 +108,21 @@ function enhance(input) {
     if (!errorId) return;
     const error = document.getElementById(errorId);
     const visibleError = error && !error.classList.contains('hidden') && String(error.textContent || '').trim();
+    if (visibleError) blockedValue = normalize(input.value);
     input.setAttribute('aria-invalid', visibleError ? 'true' : 'false');
     sync();
   });
 
   const errorId = input.getAttribute('aria-describedby');
   const error = errorId ? document.getElementById(errorId) : null;
-  if (error) errorObserver.observe(error, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  if (error) {
+    errorObserver.observe(error, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class']
+    });
+  }
 
   sync();
 }
