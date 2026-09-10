@@ -1,9 +1,604 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Staff — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head><body class="min-h-screen pp-portal-body">
-<div id="adminNav" data-active="staff"></div><script type="module" src="../shared/school-admin-nav.js"></script><main class="pp-page"><div class="pp-page-head"><div><h1>Staff Management</h1><p>Invite teachers, deactivate/reactivate accounts, and revoke sessions from lost or shared devices.</p></div><button id="refreshStaffBtn" class="pp-btn pp-btn--ghost">Refresh</button></div>
-<div class="pp-grid"><section class="pp-section mt-0"><div class="pp-section__head"><h2>Invite a teacher</h2></div><div class="pp-section__body"><form id="inviteForm" class="space-y-3"><input id="lastName" class="pp-field" required placeholder="Last name"><input id="firstName" class="pp-field" required placeholder="First name"><div class="flex gap-2"><input id="middleInitial" class="pp-field w-1/3" maxlength="4" placeholder="M.I."><input id="suffix" class="pp-field w-2/3" placeholder="Suffix"></div><input id="teacherEmail" type="email" class="pp-field" required placeholder="Email address"><button class="pp-btn pp-btn--primary w-full" type="submit">Send invite</button></form></div></section>
-<section class="pp-section mt-0"><div class="pp-section__head"><h2>Staff notes</h2></div><div class="pp-section__body pp-mini"><p>Inactive teachers are disabled in Firebase Auth and their refresh tokens are revoked. Reactivation counts against the plan's active-staff quota.</p><p class="mt-2">Section assignments remain available on the legacy <a class="underline" href="./manage-sections.html">section assignment page</a>.</p></div></section></div>
-<section class="pp-section"><div class="pp-section__head"><h2>Teacher accounts</h2></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Teacher</th><th>Sections</th><th>Status</th><th>Actions</th></tr></thead><tbody id="staffRows"><tr><td colspan="4" class="pp-empty">Loading…</td></tr></tbody></table></div></section></main>
-<script type="module">import{showToast,setSubmitButtonBusy}from'../shared/firebase-init.js';import{apiJson,requireRole,bindRefresh,escapeHtml,statusPill,confirmAction}from'../shared/portal.js';
-async function loadStaff(){try{const data=await apiJson('/school-admin/staff');const teachers=data.teachers||[];staffRows.innerHTML=teachers.length?teachers.map(t=>`<tr><td><strong>${escapeHtml(t.displayName||t.email||'Teacher')}</strong><div class="pp-mini">${escapeHtml(t.email||'')}</div></td><td>${escapeHtml((t.assignedSections||[]).map(s=>`${s.grade||''} ${s.section||''}`.trim()).join(', ')||'—')}</td><td>${statusPill(t.isActive===false?'inactive':'active')}</td><td><div class="pp-actions"><button class="pp-btn pp-btn--ghost staffStatus" data-id="${escapeHtml(t.uid)}" data-active="${t.isActive!==false}">${t.isActive===false?'Reactivate':'Deactivate'}</button><button class="pp-btn pp-btn--ghost revokeSessions" data-id="${escapeHtml(t.uid)}">Revoke sessions</button></div></td></tr>`).join(''):'<tr><td colspan="4" class="pp-empty">No teacher accounts yet.</td></tr>';document.querySelectorAll('.staffStatus').forEach(btn=>btn.onclick=async()=>{const next=btn.dataset.active!=='true';if(!confirmAction(`${next?'Reactivate':'Deactivate'} this teacher?`))return;try{await apiJson(`/school-admin/staff/${encodeURIComponent(btn.dataset.id)}/status`,{method:'PUT',body:JSON.stringify({active:next})});showToast('Staff status updated.');await loadStaff();}catch(e){showToast(e.message,'error');}});document.querySelectorAll('.revokeSessions').forEach(btn=>btn.onclick=async()=>{if(!confirmAction("Revoke this teacher's active sessions?"))return;try{await apiJson(`/school-admin/staff/${encodeURIComponent(btn.dataset.id)}/revoke-sessions`,{method:'POST'});showToast('Sessions revoked.');}catch(e){showToast(e.message,'error');}});}catch(e){staffRows.innerHTML=`<tr><td colspan="4" class="pp-empty">${escapeHtml(e.message)}</td></tr>`;}}
-inviteForm.onsubmit=async e=>{e.preventDefault();const btn=e.currentTarget.querySelector('button[type=submit]');setSubmitButtonBusy(btn,true,'Sending invite…');try{const d=await apiJson('/school-admin/staff',{method:'POST',body:JSON.stringify({lastName:lastName.value.trim(),firstName:firstName.value.trim(),middleInitial:middleInitial.value.trim(),suffix:suffix.value.trim(),email:teacherEmail.value.trim()})});showToast(d.emailSent?'Invite sent.':'Account created; invite email could not be sent.',d.emailSent?'success':'warning');inviteForm.reset();await loadStaff();}catch(err){showToast(err.message,'error');}finally{setSubmitButtonBusy(btn,false);}};
-bindRefresh('refreshStaffBtn',loadStaff);requireRole('school_admin',loadStaff);</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Staff — PickupPass</title>
+<meta name="theme-color" content="#4652C7">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<link rel="stylesheet" href="./staff.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="adminNav" data-active="staff"></div>
+<script type="module" src="../shared/school-admin-nav.js"></script>
+
+<main class="pp-page pp-staff-page">
+  <section class="pp-staff-hero">
+    <div>
+      <p class="pp-staff-hero__eyebrow">School administration · staff access</p>
+      <h1>Teachers & class assignments</h1>
+      <p>
+        Invite teachers into the current academic structure, keep roster access scoped to
+        assigned grade sections, and respond safely to account or device concerns.
+      </p>
+      <div class="pp-staff-hero__actions">
+        <button id="inviteTeacherBtn" class="pp-btn pp-btn--primary" type="button">Invite teacher</button>
+        <a href="./academics.html" class="pp-btn pp-btn--secondary">Manage school year & sections</a>
+      </div>
+    </div>
+    <div class="pp-staff-hero__year">
+      <span>Current academic year</span>
+      <strong id="currentYearName">Loading…</strong>
+    </div>
+  </section>
+
+  <section class="pp-staff-metrics" aria-label="Staff summary">
+    <article class="pp-staff-metric"><span>Teachers</span><strong id="teacherCount">—</strong></article>
+    <article class="pp-staff-metric"><span>Active</span><strong id="activeCount">—</strong></article>
+    <article class="pp-staff-metric"><span>Inactive</span><strong id="inactiveCount">—</strong></article>
+    <article class="pp-staff-metric"><span>Needs assignment</span><strong id="unassignedCount">—</strong></article>
+  </section>
+
+  <section id="structureWarning" class="pp-owner-priority pp-owner-priority--attention hidden" aria-live="polite">
+    <div class="pp-owner-priority__icon" aria-hidden="true">!</div>
+    <div>
+      <strong>Academic structure needs attention</strong>
+      <p id="structureWarningText">Set a current school year and at least one active section before inviting teachers.</p>
+    </div>
+  </section>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Teacher accounts</h2>
+        <p class="pp-mini">Class assignments come only from the current School Year & Sections setup. Free-text section creation is no longer used.</p>
+      </div>
+      <button id="refreshStaffBtn" class="pp-btn pp-btn--ghost" type="button">Refresh</button>
+    </div>
+    <div class="pp-section__body">
+      <div class="pp-staff-toolbar">
+        <label>Search teachers
+          <input id="staffSearch" class="pp-field" type="search" placeholder="Name, email, grade or section" autocomplete="off">
+        </label>
+        <label>Status
+          <select id="staffStatusFilter" class="pp-field">
+            <option value="">All teachers</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="unassigned">Needs assignment</option>
+          </select>
+        </label>
+      </div>
+      <div id="staffCards" class="pp-staff-grid mt-4">
+        <div class="pp-empty">Loading teacher accounts…</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pp-staff-security-note">
+    <div class="pp-staff-security-note__icon" aria-hidden="true">✓</div>
+    <div>
+      <strong>Scoped access by design</strong>
+      <p>
+        Teacher roster access and section-targeted announcements are limited to the classes
+        assigned here. Deactivating a teacher disables the Firebase account and revokes sessions;
+        reactivation counts against the active-staff plan quota.
+      </p>
+    </div>
+  </section>
+</main>
+
+<button id="staffFab" class="pp-floating-action" type="button" aria-label="Invite teacher" title="Invite teacher">+</button>
+
+<dialog id="inviteDialog" class="pp-parity-dialog pp-parity-dialog--wide">
+  <form id="inviteForm">
+    <div class="pp-parity-dialog__head">
+      <p class="pp-parity-dialog__eyebrow">Teacher onboarding</p>
+      <h2>Invite teacher</h2>
+      <p id="inviteYearCopy">Create a school-scoped teacher account and assign at least one current grade section.</p>
+    </div>
+    <div class="pp-parity-dialog__body">
+      <div class="pp-dialog-section">
+        <h3 class="pp-dialog-section__title">Teacher identity</h3>
+        <div class="pp-dialog-form-grid">
+          <label>Last name<input id="lastName" class="pp-field" maxlength="80" required></label>
+          <label>First name<input id="firstName" class="pp-field" maxlength="80" required></label>
+          <label>Middle initial<input id="middleInitial" class="pp-field" maxlength="2" placeholder="Optional"></label>
+          <label>Suffix<input id="suffix" class="pp-field" maxlength="20" placeholder="Optional"></label>
+          <label class="pp-span-full">Email<input id="teacherEmail" type="email" class="pp-field" maxlength="160" autocomplete="email" required></label>
+        </div>
+      </div>
+
+      <div class="pp-dialog-section">
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h3 class="pp-dialog-section__title mb-1">Teaching assignment</h3>
+            <p class="pp-mini">Choose one or more active grade sections from the current academic year.</p>
+          </div>
+          <span id="inviteSelectedCount" class="pp-status pp-status--info">0 selected</span>
+        </div>
+        <div id="invitePlacementPicker" class="pp-placement-picker mt-3"></div>
+      </div>
+
+      <div id="inviteReview" class="pp-staff-review mt-4">
+        <strong>Ready when identity and assignment are complete</strong>
+        <p>The teacher account will be scoped to this school and to the sections you select.</p>
+      </div>
+    </div>
+    <div class="pp-parity-dialog__footer">
+      <button id="clearInviteBtn" class="pp-btn pp-btn--ghost" type="button">Clear</button>
+      <button id="cancelInviteBtn" class="pp-btn pp-btn--secondary" type="button">Cancel</button>
+      <button id="sendInviteBtn" class="pp-btn pp-btn--primary" type="submit">Send invite</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="assignmentDialog" class="pp-parity-dialog pp-parity-dialog--wide">
+  <form id="assignmentForm">
+    <div class="pp-parity-dialog__head">
+      <p class="pp-parity-dialog__eyebrow">Roster scope</p>
+      <h2 id="assignmentTitle">Manage class assignments</h2>
+      <p id="assignmentCopy">Select the current grade sections this teacher can access.</p>
+    </div>
+    <div class="pp-parity-dialog__body">
+      <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+        <span id="assignmentEmail" class="pp-mini"></span>
+        <span id="assignmentSelectedCount" class="pp-status pp-status--info">0 selected</span>
+      </div>
+      <div id="assignmentPlacementPicker" class="pp-placement-picker"></div>
+      <div class="pp-risk-card mt-4">
+        Removing a section removes that class from the teacher's scoped roster and section-targeted operations. Save only after confirming the intended assignment.
+      </div>
+    </div>
+    <div class="pp-parity-dialog__footer">
+      <button id="cancelAssignmentBtn" class="pp-btn pp-btn--secondary" type="button">Cancel</button>
+      <button id="saveAssignmentBtn" class="pp-btn pp-btn--primary" type="submit">Save assignments</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module">
+import { showToast, setSubmitButtonBusy } from '../shared/firebase-init.js';
+import { apiJson, requireRole, bindRefresh, escapeHtml, statusPill } from '../shared/portal.js';
+import { confirmDialog, promptDialog } from '../shared/dialogs.js';
+
+let teachers = [];
+let structure = {};
+let currentYear = null;
+let placements = [];
+let inviteSelected = new Set();
+let assignmentSelected = new Set();
+let assignmentTeacher = null;
+
+const inviteDialog = document.getElementById('inviteDialog');
+const assignmentDialog = document.getElementById('assignmentDialog');
+
+function normalize(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function placementKey(grade, section) {
+  return `${normalize(grade)}|${normalize(section)}`;
+}
+
+function teacherInitial(name, email) {
+  return String(name || email || 'T').trim().charAt(0).toUpperCase() || 'T';
+}
+
+function getCurrentYear(data) {
+  return data.currentAcademicYear || (data.academicYears || []).find(year => year.isCurrent) || null;
+}
+
+function currentPlacements(data) {
+  const year = getCurrentYear(data);
+  if (!year) return [];
+  return (data.gradeSections || [])
+    .filter(section => section.active !== false && section.academicYearId === year.id)
+    .map(section => ({
+      id: section.id,
+      grade: section.gradeLevel || section.grade || '',
+      section: section.sectionName || section.section || '',
+      academicYearId: section.academicYearId,
+      academicYearName: section.academicYearName || year.name || ''
+    }))
+    .filter(item => item.grade && item.section)
+    .sort((a, b) => `${a.grade} ${a.section}`.localeCompare(`${b.grade} ${b.section}`, undefined, { numeric: true }));
+}
+
+async function load() {
+  const [staffData, academicData] = await Promise.all([
+    apiJson('/school-admin/staff'),
+    apiJson('/academic-structure')
+  ]);
+
+  teachers = staffData.teachers || [];
+  structure = academicData || {};
+  currentYear = getCurrentYear(structure);
+  placements = currentPlacements(structure);
+
+  document.getElementById('currentYearName').textContent = currentYear?.name || 'Not configured';
+  document.getElementById('inviteYearCopy').textContent = currentYear
+    ? `Assign the teacher only to active sections in ${currentYear.name}.`
+    : 'Set a current academic year before inviting teachers.';
+
+  document.getElementById('teacherCount').textContent = teachers.length;
+  document.getElementById('activeCount').textContent = teachers.filter(t => t.isActive !== false).length;
+  document.getElementById('inactiveCount').textContent = teachers.filter(t => t.isActive === false).length;
+  document.getElementById('unassignedCount').textContent = teachers.filter(t => !(t.assignedSections || []).length).length;
+
+  const warning = document.getElementById('structureWarning');
+  const warningText = document.getElementById('structureWarningText');
+  const inviteDisabled = !currentYear || placements.length === 0;
+  warning.classList.toggle('hidden', !inviteDisabled);
+  warningText.textContent = !currentYear
+    ? 'Set a current academic year before inviting teachers.'
+    : 'Add at least one active grade section to the current academic year before inviting teachers.';
+  document.getElementById('inviteTeacherBtn').disabled = inviteDisabled;
+  document.getElementById('staffFab').disabled = inviteDisabled;
+
+  renderStaff();
+  renderPlacementPicker('invitePlacementPicker', inviteSelected, updateInviteSelection);
+
+  if (assignmentTeacher && assignmentDialog.open) {
+    assignmentTeacher = teachers.find(t => t.uid === assignmentTeacher.uid) || null;
+    if (assignmentTeacher) openAssignment(assignmentTeacher, true);
+    else assignmentDialog.close();
+  }
+}
+
+function renderStaff() {
+  const query = normalize(document.getElementById('staffSearch').value);
+  const filter = document.getElementById('staffStatusFilter').value;
+
+  const visible = teachers.filter(teacher => {
+    const sections = (teacher.assignedSections || []).map(s => `${s.grade || ''} ${s.section || ''}`).join(' ');
+    const haystack = normalize(`${teacher.displayName || ''} ${teacher.email || ''} ${sections}`);
+    const matchesQuery = !query || haystack.includes(query);
+    const assigned = (teacher.assignedSections || []).length > 0;
+    const matchesFilter = !filter ||
+      (filter === 'active' && teacher.isActive !== false) ||
+      (filter === 'inactive' && teacher.isActive === false) ||
+      (filter === 'unassigned' && !assigned);
+    return matchesQuery && matchesFilter;
+  });
+
+  const cards = document.getElementById('staffCards');
+  cards.innerHTML = visible.length
+    ? visible.map(teacher => {
+        const sections = teacher.assignedSections || [];
+        return `
+          <article class="pp-staff-card">
+            <div class="pp-staff-card__head">
+              <span class="pp-staff-avatar" aria-hidden="true">${escapeHtml(teacherInitial(teacher.displayName, teacher.email))}</span>
+              <div>
+                <h3>${escapeHtml(teacher.displayName || 'Teacher')}</h3>
+                <p>${escapeHtml(teacher.email || '')}</p>
+              </div>
+              ${statusPill(teacher.isActive === false ? 'inactive' : 'active')}
+            </div>
+
+            <div>
+              <div class="pp-staff-assignment-title">
+                <strong>Current class access</strong>
+                <span class="pp-mini">${sections.length} section${sections.length === 1 ? '' : 's'}</span>
+              </div>
+              <div class="pp-assignment-chips mt-2">
+                ${sections.length
+                  ? sections.map(section => `<span class="pp-assignment-chip">${escapeHtml(section.grade || 'Grade')} · ${escapeHtml(section.section || 'Section')}</span>`).join('')
+                  : '<div class="pp-assignment-empty">No current section assignment. This teacher should not rely on broad school-wide roster access.</div>'}
+              </div>
+            </div>
+
+            <div class="pp-staff-card__actions">
+              <button class="pp-btn pp-btn--primary manageAssignments" type="button" data-id="${escapeHtml(teacher.uid)}">Manage assignments</button>
+              <button class="pp-btn pp-btn--secondary staffStatus" type="button" data-id="${escapeHtml(teacher.uid)}" data-active="${teacher.isActive !== false}">${teacher.isActive === false ? 'Reactivate account' : 'Deactivate account'}</button>
+            </div>
+            <div class="pp-staff-secondary-actions">
+              <button class="pp-btn pp-btn--ghost revokeSessions" type="button" data-id="${escapeHtml(teacher.uid)}" data-name="${escapeHtml(teacher.displayName || teacher.email || 'Teacher')}">Revoke signed-in sessions</button>
+            </div>
+          </article>
+        `;
+      }).join('')
+    : '<div class="pp-empty">No teachers match the current search or filter.</div>';
+
+  document.querySelectorAll('.manageAssignments').forEach(button => {
+    button.onclick = () => {
+      const teacher = teachers.find(item => item.uid === button.dataset.id);
+      if (teacher) openAssignment(teacher);
+    };
+  });
+
+  document.querySelectorAll('.staffStatus').forEach(button => {
+    button.onclick = async () => {
+      const teacher = teachers.find(item => item.uid === button.dataset.id);
+      if (!teacher) return;
+      const next = button.dataset.active !== 'true';
+      const ok = await confirmDialog(
+        next
+          ? `Reactivate ${teacher.displayName || teacher.email || 'this teacher'}? Reactivation counts against the active-staff plan quota.`
+          : `Deactivate ${teacher.displayName || teacher.email || 'this teacher'}? Firebase sign-in will be disabled and active sessions will be revoked.`,
+        {
+          title: next ? 'Reactivate teacher' : 'Deactivate teacher',
+          confirmLabel: next ? 'Reactivate account' : 'Deactivate account',
+          danger: !next
+        }
+      );
+      if (!ok) return;
+
+      try {
+        await apiJson(`/school-admin/staff/${encodeURIComponent(teacher.uid)}/status`, {
+          method: 'PUT',
+          body: JSON.stringify({ active: next })
+        });
+        showToast(`Teacher account ${next ? 'reactivated' : 'deactivated'}.`);
+        await load();
+      } catch (error) {
+        showToast(error.message, 'error');
+      }
+    };
+  });
+
+  document.querySelectorAll('.revokeSessions').forEach(button => {
+    button.onclick = async () => {
+      const reason = await promptDialog({
+        title: 'Revoke teacher sessions',
+        message: `Sign out ${button.dataset.name || 'this teacher'} from active devices. Use this for lost/shared devices or a deliberate security response.`,
+        label: 'Reason',
+        value: 'School administrator security action',
+        required: true,
+        minLength: 5,
+        multiline: true,
+        danger: true,
+        confirmLabel: 'Revoke sessions'
+      });
+      if (reason === null) return;
+
+      const ok = await confirmDialog(
+        `Revoke all active sessions for ${button.dataset.name || 'this teacher'} now?`,
+        { title: 'Final session revocation', confirmLabel: 'Revoke sessions', danger: true }
+      );
+      if (!ok) return;
+
+      try {
+        await apiJson(`/school-admin/staff/${encodeURIComponent(button.dataset.id)}/revoke-sessions`, {
+          method: 'POST',
+          body: JSON.stringify({ reason })
+        });
+        showToast('Teacher sessions revoked.');
+      } catch (error) {
+        showToast(error.message, 'error');
+      }
+    };
+  });
+}
+
+function groupedPlacements(search = '') {
+  const q = normalize(search);
+  const filtered = placements.filter(item => !q || normalize(`${item.grade} ${item.section}`).includes(q));
+  return filtered.reduce((groups, item) => {
+    (groups[item.grade] ||= []).push(item);
+    return groups;
+  }, {});
+}
+
+function renderPlacementPicker(targetId, selectedSet, onChange) {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+
+  if (!currentYear) {
+    target.innerHTML = '<div class="pp-risk-card">Set a current academic year before assigning teachers. <a href="./academics.html" class="underline font-semibold">Open School Year & Sections</a>.</div>';
+    return;
+  }
+
+  if (!placements.length) {
+    target.innerHTML = `<div class="pp-risk-card">No active sections exist in ${escapeHtml(currentYear.name || 'the current academic year')}. <a href="./academics.html" class="underline font-semibold">Add a grade section first</a>.</div>`;
+    return;
+  }
+
+  const searchId = `${targetId}Search`;
+  target.innerHTML = `
+    ${placements.length > 6 ? `<div class="pp-placement-search"><input id="${searchId}" class="pp-field" type="search" placeholder="Find grade or section" autocomplete="off"></div>` : ''}
+    <div id="${targetId}Groups"></div>
+  `;
+
+  const draw = () => {
+    const search = document.getElementById(searchId)?.value || '';
+    const groups = groupedPlacements(search);
+    const groupTarget = document.getElementById(`${targetId}Groups`);
+    const entries = Object.entries(groups);
+
+    groupTarget.innerHTML = entries.length
+      ? entries.map(([grade, items]) => `
+          <section class="pp-placement-group">
+            <h4 class="pp-placement-group__title">${escapeHtml(grade)}</h4>
+            <div class="pp-placement-options">
+              ${items.map(item => {
+                const key = placementKey(item.grade, item.section);
+                return `
+                  <label class="pp-placement-option">
+                    <input type="checkbox" value="${escapeHtml(key)}" ${selectedSet.has(key) ? 'checked' : ''}>
+                    <span>${escapeHtml(item.section)}</span>
+                  </label>
+                `;
+              }).join('')}
+            </div>
+          </section>
+        `).join('')
+      : '<div class="pp-empty">No current grade sections match the search.</div>';
+
+    groupTarget.querySelectorAll('input[type="checkbox"]').forEach(box => {
+      box.onchange = () => {
+        if (box.checked) selectedSet.add(box.value);
+        else selectedSet.delete(box.value);
+        onChange();
+      };
+    });
+  };
+
+  document.getElementById(searchId)?.addEventListener('input', draw);
+  draw();
+}
+
+function selectedSections(selectedSet) {
+  return placements
+    .filter(item => selectedSet.has(placementKey(item.grade, item.section)))
+    .map(item => ({ grade: item.grade, section: item.section }));
+}
+
+function updateInviteSelection() {
+  const selected = selectedSections(inviteSelected);
+  document.getElementById('inviteSelectedCount').textContent = `${selected.length} selected`;
+  updateInviteReview(selected);
+}
+
+function updateInviteReview(selected = selectedSections(inviteSelected)) {
+  const first = document.getElementById('firstName').value.trim();
+  const last = document.getElementById('lastName').value.trim();
+  const email = document.getElementById('teacherEmail').value.trim();
+  const review = document.getElementById('inviteReview');
+  const name = [first, last].filter(Boolean).join(' ') || 'Teacher identity incomplete';
+
+  review.innerHTML = `
+    <strong>${escapeHtml(name)}</strong>
+    <p>${email ? escapeHtml(email) : 'Add a valid email address'} · ${selected.length ? `${selected.length} current section${selected.length === 1 ? '' : 's'} selected` : 'Select at least one current section'}</p>
+  `;
+}
+
+function resetInvite() {
+  document.getElementById('inviteForm').reset();
+  inviteSelected = new Set();
+  renderPlacementPicker('invitePlacementPicker', inviteSelected, updateInviteSelection);
+  updateInviteSelection();
+}
+
+function openInvite() {
+  if (!currentYear || !placements.length) {
+    showToast('Complete School Year & Sections setup before inviting a teacher.', 'warning');
+    return;
+  }
+  resetInvite();
+  inviteDialog.showModal();
+  requestAnimationFrame(() => document.getElementById('lastName').focus());
+}
+
+function openAssignment(teacher, preserveOpen = false) {
+  assignmentTeacher = teacher;
+  assignmentSelected = new Set(
+    (teacher.assignedSections || []).map(section => placementKey(section.grade, section.section))
+  );
+  document.getElementById('assignmentTitle').textContent = `Manage ${teacher.displayName || 'teacher'} assignments`;
+  document.getElementById('assignmentEmail').textContent = teacher.email || '';
+  document.getElementById('assignmentCopy').textContent = currentYear
+    ? `Only active sections in ${currentYear.name} can be assigned.`
+    : 'Set a current academic year before editing assignments.';
+  renderPlacementPicker('assignmentPlacementPicker', assignmentSelected, updateAssignmentSelection);
+  updateAssignmentSelection();
+  if (!preserveOpen && !assignmentDialog.open) assignmentDialog.showModal();
+}
+
+function updateAssignmentSelection() {
+  const count = selectedSections(assignmentSelected).length;
+  document.getElementById('assignmentSelectedCount').textContent = `${count} selected`;
+  document.getElementById('saveAssignmentBtn').disabled = !count;
+}
+
+function closeOnBackdrop(dialog) {
+  dialog.addEventListener('click', event => {
+    if (event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    const outside = event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
+    if (outside) dialog.close();
+  });
+}
+
+[inviteDialog, assignmentDialog].forEach(closeOnBackdrop);
+
+document.getElementById('inviteTeacherBtn').onclick = openInvite;
+document.getElementById('staffFab').onclick = openInvite;
+document.getElementById('cancelInviteBtn').onclick = () => inviteDialog.close();
+document.getElementById('clearInviteBtn').onclick = resetInvite;
+document.getElementById('cancelAssignmentBtn').onclick = () => assignmentDialog.close();
+document.getElementById('staffSearch').oninput = renderStaff;
+document.getElementById('staffStatusFilter').onchange = renderStaff;
+['lastName', 'firstName', 'teacherEmail'].forEach(id => document.getElementById(id).addEventListener('input', () => updateInviteReview()));
+
+inviteDialog.addEventListener('close', () => resetInvite());
+assignmentDialog.addEventListener('close', () => {
+  assignmentTeacher = null;
+  assignmentSelected = new Set();
+});
+
+document.getElementById('inviteForm').onsubmit = async event => {
+  event.preventDefault();
+  const sections = selectedSections(inviteSelected);
+  if (!sections.length) {
+    showToast('Assign at least one current grade and section.', 'error');
+    return;
+  }
+
+  const button = document.getElementById('sendInviteBtn');
+  setSubmitButtonBusy(button, true, 'Creating account…');
+  try {
+    const result = await apiJson('/school-admin/staff', {
+      method: 'POST',
+      body: JSON.stringify({
+        lastName: document.getElementById('lastName').value.trim(),
+        firstName: document.getElementById('firstName').value.trim(),
+        middleInitial: document.getElementById('middleInitial').value.trim(),
+        suffix: document.getElementById('suffix').value.trim(),
+        email: document.getElementById('teacherEmail').value.trim(),
+        assignedSections: sections
+      })
+    });
+
+    const invitedEmail = document.getElementById('teacherEmail').value.trim();
+    inviteDialog.close();
+    showToast(
+      result.emailSent
+        ? `Invite sent to ${invitedEmail} with ${sections.length} section${sections.length === 1 ? '' : 's'} assigned.`
+        : `Account created for ${invitedEmail}, but the invite email could not be sent. Ask the teacher to use Forgot password? on sign-in.`,
+      result.emailSent ? 'success' : 'warning'
+    );
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    setSubmitButtonBusy(button, false);
+  }
+};
+
+document.getElementById('assignmentForm').onsubmit = async event => {
+  event.preventDefault();
+  if (!assignmentTeacher) return;
+  const sections = selectedSections(assignmentSelected);
+  if (!sections.length) {
+    showToast('Assign at least one current grade and section.', 'error');
+    return;
+  }
+
+  const button = document.getElementById('saveAssignmentBtn');
+  setSubmitButtonBusy(button, true, 'Saving…');
+  try {
+    await apiJson(`/school-admin/staff/${encodeURIComponent(assignmentTeacher.uid)}/sections`, {
+      method: 'PUT',
+      body: JSON.stringify({ sections })
+    });
+    assignmentDialog.close();
+    showToast('Teacher class assignments updated.');
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    setSubmitButtonBusy(button, false);
+  }
+};
+
+bindRefresh('refreshStaffBtn', load);
+requireRole('school_admin', load);
+</script>
+</body>
+</html>
