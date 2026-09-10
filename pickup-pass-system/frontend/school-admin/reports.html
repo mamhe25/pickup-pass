@@ -1,11 +1,231 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dismissal Reports — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head><body class="min-h-screen pp-portal-body">
-<div id="adminNav" data-active="reports"></div><script type="module" src="../shared/school-admin-nav.js"></script><main class="pp-page"><div class="pp-page-head"><div><h1>Dismissal Reports</h1><p>Review historical release activity and export a CSV for school records.</p></div><button id="exportBtn" class="pp-btn pp-btn--secondary">Export CSV</button></div>
-<section class="pp-section mt-0"><div class="pp-section__body"><form id="filterForm" class="pp-form-grid"><label>From<input id="fromDate" type="date" class="pp-field" required></label><label>To<input id="toDate" type="date" class="pp-field" required></label><label>Grade<input id="grade" class="pp-field" placeholder="Optional"></label><label>Section<input id="section" class="pp-field" placeholder="Optional"></label><div class="flex items-end"><button class="pp-btn pp-btn--primary w-full">Run report</button></div></form></div></section>
-<div id="featureNotice" class="pp-alert pp-alert--info hidden mt-3"></div><div class="pp-grid mt-3"><div class="pp-kpi"><div class="pp-kpi__label">Total releases</div><div id="total" class="pp-kpi__value">—</div></div><div class="pp-kpi"><div class="pp-kpi__label">Unique students</div><div id="unique" class="pp-kpi__value">—</div></div><div class="pp-kpi"><div class="pp-kpi__label">QR releases</div><div id="qr" class="pp-kpi__value">—</div></div><div class="pp-kpi"><div class="pp-kpi__label">Manual overrides</div><div id="manual" class="pp-kpi__value">—</div></div></div>
-<section class="pp-section"><div class="pp-section__head"><h2>Daily activity</h2></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Date</th><th>Releases</th></tr></thead><tbody id="dailyRows"><tr><td colspan="2" class="pp-empty">Run a report.</td></tr></tbody></table></div></section>
-<section class="pp-section"><div class="pp-section__head"><h2>Grade / section activity</h2></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Grade / section</th><th>Releases</th></tr></thead><tbody id="groupRows"><tr><td colspan="2" class="pp-empty">Run a report.</td></tr></tbody></table></div></section></main>
-<script type="module">import {showToast} from '../shared/firebase-init.js';import {apiJson,requireRole,downloadAuthed,escapeHtml} from '../shared/portal.js';
-function iso(d){return d.toISOString().slice(0,10)}const now=new Date(),week=new Date(now);week.setDate(now.getDate()-7);fromDate.value=iso(week);toDate.value=iso(now);
-function query(){const p=new URLSearchParams({from:fromDate.value,to:toDate.value});if(grade.value.trim())p.set('grade',grade.value.trim());if(section.value.trim())p.set('section',section.value.trim());return p.toString();}
-async function load(){try{featureNotice.classList.add('hidden');const d=await apiJson('/school-admin/reports/dismissals/summary?'+query());total.textContent=d.totalReleases??0;unique.textContent=d.uniqueStudentsReleased??0;qr.textContent=d.qrReleases??0;manual.textContent=d.manualOverrides??0;const daily=d.dailyCounts||{};dailyRows.innerHTML=Object.entries(daily).length?Object.entries(daily).map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${v}</td></tr>`).join(''):'<tr><td colspan="2" class="pp-empty">No releases in this range.</td></tr>';const groups=d.gradeSectionCounts||{};groupRows.innerHTML=Object.entries(groups).length?Object.entries(groups).map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${v}</td></tr>`).join(''):'<tr><td colspan="2" class="pp-empty">No grouped activity.</td></tr>';}catch(e){featureNotice.textContent=e.status===403?'Advanced reporting is disabled by the current plan/feature settings.':e.message;featureNotice.classList.remove('hidden');showToast(e.message,'error');}}
-filterForm.onsubmit=e=>{e.preventDefault();load()};exportBtn.onclick=async()=>{try{await downloadAuthed('/school-admin/reports/dismissals/export?'+query(),'pickuppass-dismissals.csv');}catch(e){showToast(e.message,'error');}};requireRole('school_admin',load);</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dismissal Reports — PickupPass</title>
+<meta name="theme-color" content="#4652C7">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<link rel="stylesheet" href="./school-admin-parity.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="adminNav" data-active="reports"></div>
+<script type="module" src="../shared/school-admin-nav.js"></script>
+
+<main class="pp-page pp-school-work-page">
+  <section class="pp-school-work-hero">
+    <div>
+      <p class="pp-school-work-hero__eyebrow">School operations · analytics</p>
+      <h1>Dismissal intelligence</h1>
+      <p>
+        Review completed student releases, spot daily activity patterns, compare grade/section
+        activity, and export tenant-isolated records for school operations.
+      </p>
+      <div class="pp-school-work-hero__actions">
+        <button id="runHeroBtn" class="pp-btn pp-btn--primary" type="button">Run report</button>
+        <button id="exportBtn" class="pp-btn pp-btn--secondary" type="button" disabled>Export CSV</button>
+      </div>
+    </div>
+    <div class="pp-school-work-hero__summary">
+      <span>Displayed range</span>
+      <strong id="heroRange">Loading…</strong>
+    </div>
+  </section>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Report filters</h2>
+        <p class="pp-mini">Choose a date range, then optionally narrow results by grade or section.</p>
+      </div>
+      <span id="dirtyBadge" class="pp-status pp-status--warning hidden">Run report to refresh</span>
+    </div>
+    <div class="pp-section__body">
+      <form id="filterForm" class="pp-filter-card">
+        <div class="pp-filter-presets">
+          <button type="button" data-preset="7">Last 7 days</button>
+          <button type="button" data-preset="month">This month</button>
+          <button type="button" data-preset="today">Today</button>
+        </div>
+        <div class="pp-form-grid">
+          <label>From<input id="fromDate" type="date" class="pp-field" required></label>
+          <label>To<input id="toDate" type="date" class="pp-field" required></label>
+          <label>Grade filter<input id="grade" class="pp-field" placeholder="All grades"></label>
+          <label>Section filter<input id="section" class="pp-field" placeholder="All sections"></label>
+        </div>
+        <div class="pp-actions mt-4 justify-end">
+          <button id="runBtn" class="pp-btn pp-btn--primary" type="submit">Run report</button>
+        </div>
+      </form>
+      <div id="featureNotice" class="pp-alert pp-alert--info hidden mt-3"></div>
+    </div>
+  </section>
+
+  <section id="reportSummary" class="hidden">
+    <div class="pp-school-metrics">
+      <article class="pp-school-metric"><span>Total releases</span><strong id="total">—</strong><small>Completed pickup events</small></article>
+      <article class="pp-school-metric"><span>Unique students</span><strong id="unique">—</strong><small>Distinct students released</small></article>
+      <article class="pp-school-metric"><span>QR verified</span><strong id="qr">—</strong><small>Normal QR release path</small></article>
+      <article class="pp-school-metric"><span>Manual overrides</span><strong id="manual">—</strong><small>Controlled fallback releases</small></article>
+    </div>
+
+    <div id="prelaunchNotice" class="pp-callout hidden mt-4"></div>
+
+    <div class="pp-school-split mt-4">
+      <section class="pp-section mt-0">
+        <div class="pp-section__head"><div><h2>Daily activity</h2><p class="pp-mini">Completed releases by calendar date.</p></div></div>
+        <div class="pp-table-wrap">
+          <table class="pp-table"><thead><tr><th>Date</th><th>Releases</th></tr></thead><tbody id="dailyRows"></tbody></table>
+        </div>
+      </section>
+
+      <section class="pp-section mt-0">
+        <div class="pp-section__head"><div><h2>Grade / section activity</h2><p class="pp-mini">Release volume by student placement.</p></div></div>
+        <div class="pp-table-wrap">
+          <table class="pp-table"><thead><tr><th>Grade / section</th><th>Releases</th></tr></thead><tbody id="groupRows"></tbody></table>
+        </div>
+      </section>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { showToast, setSubmitButtonBusy } from '../shared/firebase-init.js';
+import { apiJson, requireRole, downloadAuthed, escapeHtml } from '../shared/portal.js';
+
+let lastRunQuery = '';
+let hasReport = false;
+
+function iso(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function setPreset(kind) {
+  const now = new Date();
+  let from = new Date(now);
+  if (kind === '7') from.setDate(now.getDate() - 6);
+  if (kind === 'month') from = new Date(now.getFullYear(), now.getMonth(), 1);
+  if (kind === 'today') from = new Date(now);
+  document.getElementById('fromDate').value = iso(from);
+  document.getElementById('toDate').value = iso(now);
+  markDirty();
+}
+
+function currentQuery() {
+  const params = new URLSearchParams({
+    from: document.getElementById('fromDate').value,
+    to: document.getElementById('toDate').value
+  });
+  const gradeValue = document.getElementById('grade').value.trim();
+  const sectionValue = document.getElementById('section').value.trim();
+  if (gradeValue) params.set('grade', gradeValue);
+  if (sectionValue) params.set('section', sectionValue);
+  return params.toString();
+}
+
+function markDirty() {
+  if (!hasReport) return;
+  const dirty = currentQuery() !== lastRunQuery;
+  document.getElementById('dirtyBadge').classList.toggle('hidden', !dirty);
+  document.getElementById('exportBtn').disabled = dirty;
+}
+
+async function runReport() {
+  const from = document.getElementById('fromDate').value;
+  const to = document.getElementById('toDate').value;
+  if (!from || !to) {
+    showToast('Choose both report dates.', 'error');
+    return;
+  }
+  if (from > to) {
+    showToast('The report end date must be on or after the start date.', 'error');
+    return;
+  }
+
+  const query = currentQuery();
+  const buttons = [document.getElementById('runBtn'), document.getElementById('runHeroBtn')];
+  buttons.forEach(button => setSubmitButtonBusy(button, true, 'Running…'));
+
+  try {
+    document.getElementById('featureNotice').classList.add('hidden');
+    const report = await apiJson('/school-admin/reports/dismissals/summary?' + query);
+    lastRunQuery = query;
+    hasReport = true;
+    render(report);
+    document.getElementById('dirtyBadge').classList.add('hidden');
+    document.getElementById('exportBtn').disabled = false;
+  } catch (error) {
+    const notice = document.getElementById('featureNotice');
+    notice.textContent = error.status === 403
+      ? 'Advanced reporting is disabled by the current plan or tenant feature settings.'
+      : error.message;
+    notice.classList.remove('hidden');
+    showToast(error.message, 'error');
+  } finally {
+    buttons.forEach(button => setSubmitButtonBusy(button, false));
+  }
+}
+
+function render(report) {
+  document.getElementById('reportSummary').classList.remove('hidden');
+  document.getElementById('total').textContent = report.totalReleases ?? 0;
+  document.getElementById('unique').textContent = report.uniqueStudentsReleased ?? 0;
+  document.getElementById('qr').textContent = report.qrReleases ?? 0;
+  document.getElementById('manual').textContent = report.manualOverrides ?? 0;
+  document.getElementById('heroRange').textContent = `${report.from || document.getElementById('fromDate').value} → ${report.to || document.getElementById('toDate').value}`;
+
+  const excluded = Number(report.prelaunchTestReleasesExcluded || 0);
+  const prelaunch = document.getElementById('prelaunchNotice');
+  prelaunch.classList.toggle('hidden', excluded <= 0);
+  prelaunch.textContent = excluded > 0
+    ? `${excluded} pre-launch test release${excluded === 1 ? '' : 's'} excluded from operational totals.`
+    : '';
+
+  const daily = report.dailyCounts || {};
+  document.getElementById('dailyRows').innerHTML = Object.entries(daily).length
+    ? Object.entries(daily).map(([date, count]) => `<tr><td>${escapeHtml(date)}</td><td><strong>${count}</strong></td></tr>`).join('')
+    : '<tr><td colspan="2" class="pp-empty">No releases in this range.</td></tr>';
+
+  const groups = report.gradeSectionCounts || {};
+  document.getElementById('groupRows').innerHTML = Object.entries(groups).length
+    ? Object.entries(groups).map(([placement, count]) => `<tr><td>${escapeHtml(placement)}</td><td><strong>${count}</strong></td></tr>`).join('')
+    : '<tr><td colspan="2" class="pp-empty">No grouped activity.</td></tr>';
+}
+
+const now = new Date();
+const week = new Date(now);
+week.setDate(now.getDate() - 6);
+document.getElementById('fromDate').value = iso(week);
+document.getElementById('toDate').value = iso(now);
+
+document.querySelectorAll('[data-preset]').forEach(button => {
+  button.onclick = () => setPreset(button.dataset.preset);
+});
+['fromDate', 'toDate', 'grade', 'section'].forEach(id => {
+  document.getElementById(id).addEventListener('input', markDirty);
+  document.getElementById(id).addEventListener('change', markDirty);
+});
+
+document.getElementById('filterForm').onsubmit = event => { event.preventDefault(); runReport(); };
+document.getElementById('runHeroBtn').onclick = runReport;
+document.getElementById('exportBtn').onclick = async () => {
+  if (!hasReport || currentQuery() !== lastRunQuery) {
+    showToast('Run the report with the current filters before exporting.', 'warning');
+    return;
+  }
+  try {
+    await downloadAuthed('/school-admin/reports/dismissals/export?' + lastRunQuery, 'pickuppass-dismissals.csv');
+    showToast('Dismissal report exported.');
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+};
+
+requireRole('school_admin', runReport);
+</script>
+</body>
+</html>
