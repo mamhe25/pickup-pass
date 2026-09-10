@@ -3,702 +3,415 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="theme-color" content="#047857" />
+<meta name="theme-color" content="#4652C7" />
 <title>Students — PickupPass</title>
-
 <link rel="stylesheet" href="../shared/theme.css" />
 <link rel="stylesheet" href="../shared/components.css" />
 <link rel="stylesheet" href="../shared/portal.css" />
+<link rel="stylesheet" href="../shared/android-parity.css" />
 <link rel="stylesheet" href="./students.css" />
-
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../shared/tailwind-config.js"></script>
 </head>
-
 <body class="min-h-screen pp-portal-body">
 <div id="teacherNav" data-active="students"></div>
 <script type="module" src="../shared/teacher-nav.js"></script>
 
 <main class="pp-page pp-students-page">
   <section class="pp-roster-hero">
-    <p class="pp-roster-hero__eyebrow">Dismissal roster</p>
-
-    <h1 id="rosterHeroTitle">Your student roster at a glance.</h1>
-
+    <p class="pp-roster-hero__eyebrow">Teacher roster · assigned classes</p>
+    <h1 id="rosterHeroTitle">Your assigned students</h1>
     <p>
-      Search by student, confirm primary-guardian readiness, and manage pickup contacts
-      without leaving the roster.
+      Search your current classes, confirm primary-guardian readiness, and register students
+      only into grade sections assigned to your teacher account by the School Admin.
     </p>
-
     <div class="pp-roster-metrics" aria-label="Roster summary">
-      <div class="pp-roster-metric">
-        <strong id="studentCount">—</strong>
-        <span>Students</span>
-      </div>
-
-      <div class="pp-roster-metric">
-        <strong id="readyCount">—</strong>
-        <span>Primary ready</span>
-      </div>
-
-      <div class="pp-roster-metric">
-        <strong id="needsGuardianCount">—</strong>
-        <span>Needs primary</span>
-      </div>
+      <div class="pp-roster-metric"><strong id="studentCount">—</strong><span>Active students</span></div>
+      <div class="pp-roster-metric"><strong id="readyCount">—</strong><span>Primary ready</span></div>
+      <div class="pp-roster-metric"><strong id="needsGuardianCount">—</strong><span>Needs primary</span></div>
     </div>
   </section>
+
+  <div id="assignmentBanner" class="pp-callout mt-4 hidden"></div>
 
   <div class="pp-roster-toolbar">
     <label class="pp-roster-search">
       <span class="sr-only">Search students</span>
-
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-        aria-hidden="true">
-        <circle cx="11" cy="11" r="8"/>
-        <path d="m21 21-4.3-4.3"/>
-      </svg>
-
-      <input
-        id="searchBox"
-        type="search"
-        placeholder="Search name, grade, or section"
-        class="pp-field" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="searchBox" type="search" placeholder="Search name, student number, grade, or section" class="pp-field" autocomplete="off" />
     </label>
-
-    <button
-      id="toggleAddStudentBtn"
-      type="button"
-      class="pp-btn pp-btn--primary">
-      Add student
-    </button>
+    <button id="addStudentTopBtn" type="button" class="pp-btn pp-btn--primary">Add student</button>
   </div>
 
   <div id="loadingState" class="pp-roster-state pp-roster-loading">
     <strong>Loading roster…</strong>
-    <p>Fetching the students available to your account.</p>
+    <p>Fetching active students from your assigned grade sections.</p>
   </div>
-
   <div id="studentList" class="pp-roster-groups hidden"></div>
-
   <div id="emptyState" class="pp-roster-state hidden">
     <div class="pp-roster-state__icon" aria-hidden="true">ST</div>
-    <strong>No students yet</strong>
-    <p>Add the first student to begin building this dismissal roster.</p>
+    <strong>No active students yet</strong>
+    <p>Add the first student to one of your assigned sections.</p>
   </div>
-
   <div id="noResultsState" class="pp-roster-state hidden">
     <div class="pp-roster-state__icon" aria-hidden="true">?</div>
     <strong>No students found</strong>
-    <p>Try another name, grade, or section.</p>
+    <p>Try another name, number, grade, or section.</p>
   </div>
-
   <div id="noSectionsState" class="pp-roster-state hidden">
     <div class="pp-roster-state__icon" aria-hidden="true">—</div>
     <strong>No sections assigned yet</strong>
-    <p>
-      Ask your school admin to assign your grade and section. Your roster stays
-      scoped to those assignments.
-    </p>
+    <p>Ask your School Admin to assign at least one current grade and section. Teacher roster access remains scoped to those assignments.</p>
   </div>
-
   <div id="errorState" class="pp-roster-state hidden" role="alert">
     <strong>We couldn't load the student roster.</strong>
     <p id="errorDetail">Check your connection and try again.</p>
-
-    <button id="retryBtn" type="button" class="pp-btn pp-btn--ghost">
-      Try again
-    </button>
+    <button id="retryBtn" type="button" class="pp-btn pp-btn--ghost">Try again</button>
   </div>
-
-  <section id="addStudentPanel" class="pp-add-student-panel hidden">
-    <h2>Add student</h2>
-
-    <p class="pp-add-student-panel__intro">
-      Create the roster record first. After a successful save, PickupPass can
-      take you directly to parent / guardian registration.
-    </p>
-
-    <form id="addStudentForm">
-      <div class="pp-add-student-form">
-        <label>
-          Last name
-          <input id="lastName" type="text" required class="pp-field" />
-        </label>
-
-        <label>
-          First name
-          <input id="firstName" type="text" required class="pp-field" />
-        </label>
-
-        <label>
-          Middle initial
-          <input id="middleInitial" type="text" maxlength="4" class="pp-field" />
-        </label>
-
-        <label>
-          Suffix
-          <input id="suffix" type="text" class="pp-field" />
-        </label>
-
-        <label>
-          Grade
-          <input id="studentGrade" type="text" class="pp-field" />
-        </label>
-
-        <label>
-          Section
-          <input id="studentSection" type="text" class="pp-field" />
-        </label>
-      </div>
-
-      <p id="formError" class="pp-alert pp-alert--danger hidden mt-3"></p>
-
-      <div class="pp-add-student-actions">
-        <button
-          id="cancelAddStudentBtn"
-          type="button"
-          class="pp-btn pp-btn--ghost">
-          Cancel
-        </button>
-
-        <button
-          id="addStudentBtn"
-          type="submit"
-          class="pp-btn pp-btn--primary">
-          Add student
-        </button>
-      </div>
-    </form>
-  </section>
-
-  <section
-    id="studentAddedPanel"
-    class="pp-alert pp-alert--success pp-student-added hidden"
-    role="status">
-    <strong>Student added successfully</strong>
-
-    <p id="addedStudentName" class="mt-1"></p>
-
-    <p class="mt-2">
-      Register the primary guardian now so this student is ready for secure
-      pickup.
-    </p>
-
-    <div class="pp-student-added__actions">
-      <button
-        id="registerAddedStudentParentBtn"
-        type="button"
-        class="pp-btn pp-btn--primary">
-        Register primary guardian
-      </button>
-
-      <button
-        id="backToStudentListBtn"
-        type="button"
-        class="pp-btn pp-btn--secondary">
-        Back to roster
-      </button>
-    </div>
-  </section>
 </main>
 
+<button id="studentFab" class="pp-floating-action" type="button" aria-label="Add student" title="Add student">+</button>
+
+<dialog id="addStudentDialog" class="pp-parity-dialog pp-parity-dialog--wide">
+  <form id="addStudentForm">
+    <div class="pp-parity-dialog__head">
+      <p class="pp-parity-dialog__eyebrow">Assigned roster</p>
+      <h2>Add student</h2>
+      <p>Create the student only inside one of your School Admin-assigned current grade sections.</p>
+    </div>
+    <div class="pp-parity-dialog__body">
+      <div class="pp-dialog-form-grid">
+        <label>Last name<input id="lastName" type="text" maxlength="80" required class="pp-field" /></label>
+        <label>First name<input id="firstName" type="text" maxlength="80" required class="pp-field" /></label>
+        <label>Middle initial<input id="middleInitial" type="text" maxlength="4" class="pp-field" placeholder="Optional" /></label>
+        <label>Suffix<input id="suffix" type="text" maxlength="20" class="pp-field" placeholder="Optional" /></label>
+        <label class="pp-span-full">Assigned grade & section
+          <select id="assignedSection" class="pp-field" required></select>
+          <span class="pp-mini">Only sections assigned to your teacher account are available.</span>
+        </label>
+      </div>
+      <div class="pp-callout mt-4">After the student is created, PickupPass will offer the next production step: register the primary guardian.</div>
+      <p id="formError" class="pp-alert pp-alert--danger hidden mt-3" role="alert"></p>
+    </div>
+    <div class="pp-parity-dialog__footer">
+      <button id="cancelAddStudentBtn" type="button" class="pp-btn pp-btn--secondary">Cancel</button>
+      <button id="addStudentBtn" type="submit" class="pp-btn pp-btn--primary">Add student</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="studentAddedDialog" class="pp-parity-dialog pp-parity-dialog--compact">
+  <div class="pp-parity-dialog__head">
+    <p class="pp-parity-dialog__eyebrow">Student created</p>
+    <h2>Register the primary guardian next</h2>
+    <p id="addedStudentName"></p>
+  </div>
+  <div class="pp-parity-dialog__body">
+    <div class="pp-success-card">The roster record is ready. A primary guardian is still required before secure pickup is fully prepared.</div>
+  </div>
+  <div class="pp-parity-dialog__footer">
+    <button id="backToStudentListBtn" type="button" class="pp-btn pp-btn--secondary">Back to roster</button>
+    <button id="registerAddedStudentParentBtn" type="button" class="pp-btn pp-btn--primary">Register primary guardian</button>
+  </div>
+</dialog>
+
 <script type="module">
-import {
-  auth,
-  db,
-  authedFetch,
-  showToast,
-  setSubmitButtonBusy
-} from "../shared/firebase-init.js";
+import { auth, db, authedFetch, showToast, setSubmitButtonBusy } from '../shared/firebase-init.js';
+import { collection, query, where, getDocs, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  getDocs,
-  doc,
-  getDoc
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-import {
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-let currentSchoolId = null;
-let currentRole = null;
+let currentSchoolId = '';
+let assignedSections = [];
 let allStudents = [];
+let addedStudentId = '';
 let isAddingStudent = false;
-let addedStudentId = null;
+const addDialog = document.getElementById('addStudentDialog');
+const addedDialog = document.getElementById('studentAddedDialog');
 
 const ui = {
-  heroTitle: document.getElementById("rosterHeroTitle"),
-  studentCount: document.getElementById("studentCount"),
-  readyCount: document.getElementById("readyCount"),
-  needsGuardianCount: document.getElementById("needsGuardianCount"),
-  search: document.getElementById("searchBox"),
-  list: document.getElementById("studentList"),
-  loading: document.getElementById("loadingState"),
-  empty: document.getElementById("emptyState"),
-  noResults: document.getElementById("noResultsState"),
-  noSections: document.getElementById("noSectionsState"),
-  error: document.getElementById("errorState"),
-  errorDetail: document.getElementById("errorDetail"),
-  addPanel: document.getElementById("addStudentPanel"),
-  addedPanel: document.getElementById("studentAddedPanel"),
-  toggleAdd: document.getElementById("toggleAddStudentBtn")
+  heroTitle: document.getElementById('rosterHeroTitle'),
+  studentCount: document.getElementById('studentCount'),
+  readyCount: document.getElementById('readyCount'),
+  needsGuardianCount: document.getElementById('needsGuardianCount'),
+  search: document.getElementById('searchBox'),
+  list: document.getElementById('studentList'),
+  loading: document.getElementById('loadingState'),
+  empty: document.getElementById('emptyState'),
+  noResults: document.getElementById('noResultsState'),
+  noSections: document.getElementById('noSectionsState'),
+  error: document.getElementById('errorState'),
+  errorDetail: document.getElementById('errorDetail')
 };
 
-document.getElementById("registerAddedStudentParentBtn").addEventListener("click", () => {
-  if (!addedStudentId) return;
-  sessionStorage.setItem("pendingParentStudentId", addedStudentId);
-  window.location.href = `./register-parent.html?studentId=${encodeURIComponent(addedStudentId)}`;
-});
+function normalize(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
 
-document.getElementById("backToStudentListBtn").addEventListener("click", () => {
-  ui.addedPanel.classList.add("hidden");
-  ui.addPanel.classList.add("hidden");
-  ui.toggleAdd.textContent = "Add student";
-  ui.search.focus();
-});
+function sectionKey(section) {
+  return `${normalize(section.grade)}|${normalize(section.section)}`;
+}
 
-ui.toggleAdd.addEventListener("click", () => {
-  const opening = ui.addPanel.classList.contains("hidden");
-  ui.addedPanel.classList.add("hidden");
-  ui.addPanel.classList.toggle("hidden", !opening);
-  ui.toggleAdd.textContent = opening ? "Close form" : "Add student";
-  if (opening) document.getElementById("lastName").focus();
-});
+function currentAssignedSections(raw) {
+  const seen = new Set();
+  return (Array.isArray(raw) ? raw : [])
+    .filter(item => item && item.grade && item.section)
+    .filter(item => {
+      const key = sectionKey(item);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => `${a.grade} ${a.section}`.localeCompare(`${b.grade} ${b.section}`, undefined, { numeric: true }));
+}
 
-document.getElementById("cancelAddStudentBtn").addEventListener("click", () => {
-  ui.addPanel.classList.add("hidden");
-  ui.toggleAdd.textContent = "Add student";
-});
+function renderAssignmentUi() {
+  const banner = document.getElementById('assignmentBanner');
+  const addTop = document.getElementById('addStudentTopBtn');
+  const fab = document.getElementById('studentFab');
+  const select = document.getElementById('assignedSection');
+  const hasSections = assignedSections.length > 0;
 
-document.getElementById("retryBtn").addEventListener("click", loadStudents);
+  addTop.disabled = !hasSections;
+  fab.disabled = !hasSections;
+  banner.classList.toggle('hidden', !hasSections);
+  if (hasSections) {
+    banner.textContent = `Your roster is scoped to ${assignedSections.length} assigned section${assignedSections.length === 1 ? '' : 's'}: ${assignedSections.map(item => `${item.grade} · ${item.section}`).join(', ')}.`;
+  }
 
-onAuthStateChanged(auth, async (user) => {
+  select.innerHTML = hasSections
+    ? '<option value="">Select assigned grade & section…</option>' + assignedSections.map((item, index) => `<option value="${index}">${escapeHtml(item.grade)} · ${escapeHtml(item.section)}</option>`).join('')
+    : '<option value="">No assigned sections</option>';
+}
+
+onAuthStateChanged(auth, async user => {
   if (!user) return;
-
-  const tokenResult = await user.getIdTokenResult();
-  currentSchoolId = tokenResult.claims.schoolId;
-  currentRole = tokenResult.claims.role;
-  await loadStudents();
+  try {
+    const token = await user.getIdTokenResult();
+    if (token.claims.role !== 'teacher' && token.claims.role !== 'staff') {
+      location.replace('../login.html');
+      return;
+    }
+    currentSchoolId = token.claims.schoolId || '';
+    const profile = await getDoc(doc(db, 'users', user.uid));
+    assignedSections = currentAssignedSections(profile.exists() ? profile.data().assignedSections : []);
+    renderAssignmentUi();
+    await loadStudents();
+  } catch (error) {
+    showError(error);
+  }
 });
 
 async function loadStudents() {
   showLoading();
-
   try {
-    if (currentRole === "teacher") {
-      const mySections = await getMyAssignedSections();
-
-      if (mySections.length === 0) {
-        allStudents = [];
-        updateMetrics();
-        showNoSections();
-        return;
-      }
-
-      allStudents = await getStudentsForSections(mySections);
-    } else {
-      const q = query(
-        collection(db, "students"),
-        where("schoolId", "==", currentSchoolId),
-        orderBy("fullName")
-      );
-
-      const snap = await getDocs(q);
-      allStudents = snap.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data()
-      }));
-    }
-
-    updateMetrics();
-
-    if (allStudents.length === 0) {
-      showEmpty();
+    if (!assignedSections.length) {
+      allStudents = [];
+      updateMetrics();
+      showNoSections();
       return;
     }
 
-    renderList(allStudents);
+    const results = [];
+    const seen = new Set();
+    for (const section of assignedSections) {
+      const snap = await getDocs(query(
+        collection(db, 'students'),
+        where('schoolId', '==', currentSchoolId),
+        where('grade', '==', section.grade),
+        where('section', '==', section.section)
+      ));
+      snap.docs.forEach(record => {
+        if (seen.has(record.id)) return;
+        const student = { id: record.id, ...record.data() };
+        if (String(student.status || 'active').toLowerCase() !== 'active') return;
+        seen.add(record.id);
+        results.push(student);
+      });
+    }
+    allStudents = results.sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || '')));
+    updateMetrics();
+    if (!allStudents.length) showEmpty();
+    else renderList(allStudents);
   } catch (error) {
     showError(error);
   }
 }
 
-async function getMyAssignedSections() {
-  const uid = auth.currentUser.uid;
-  const snap = await getDoc(doc(db, "users", uid));
-  if (!snap.exists()) return [];
-  return snap.data().assignedSections || [];
-}
-
-async function getStudentsForSections(sections) {
-  const results = [];
-  const seenIds = new Set();
-
-  for (const section of sections) {
-    const q = query(
-      collection(db, "students"),
-      where("schoolId", "==", currentSchoolId),
-      where("grade", "==", section.grade),
-      where("section", "==", section.section)
-    );
-
-    const snap = await getDocs(q);
-
-    snap.docs.forEach((docSnap) => {
-      if (!seenIds.has(docSnap.id)) {
-        seenIds.add(docSnap.id);
-        results.push({ id: docSnap.id, ...docSnap.data() });
-      }
-    });
-  }
-
-  results.sort((a, b) =>
-    (a.fullName || "").localeCompare(b.fullName || "")
-  );
-
-  return results;
-}
-
 function primaryGuardianUid(student) {
   const guardians = student?.guardians || {};
-  const linkedUids = (student?.guardianUids || [])
-    .filter((uid) => typeof uid === "string" && uid.trim());
-
-  const explicitPrimary = linkedUids.find(
-    (uid) => guardians[uid]?.isPrimary === true
-  );
-  if (explicitPrimary) return explicitPrimary;
-
-  const legacyUid = linkedUids[0] || "";
-  if (!legacyUid) return "";
-
-  const entry = guardians[legacyUid];
-  if (
-    entry &&
-    Object.prototype.hasOwnProperty.call(entry, "isPrimary") &&
-    entry.isPrimary === false
-  ) {
-    return "";
-  }
-
-  return legacyUid;
-}
-
-function hasPrimaryGuardian(student) {
-  return Boolean(primaryGuardianUid(student));
+  const linked = (student?.guardianUids || []).filter(uid => typeof uid === 'string' && uid.trim());
+  const explicit = linked.find(uid => guardians[uid]?.isPrimary === true);
+  if (explicit) return explicit;
+  const legacy = linked[0] || '';
+  if (!legacy) return '';
+  if (guardians[legacy] && Object.prototype.hasOwnProperty.call(guardians[legacy], 'isPrimary') && guardians[legacy].isPrimary === false) return '';
+  return legacy;
 }
 
 function updateMetrics() {
-  const ready = allStudents.filter(
-    (student) => hasPrimaryGuardian(student)
-  ).length;
-
-  const needs = allStudents.length - ready;
-
+  const ready = allStudents.filter(student => !!primaryGuardianUid(student)).length;
   ui.studentCount.textContent = String(allStudents.length);
   ui.readyCount.textContent = String(ready);
-  ui.needsGuardianCount.textContent = String(needs);
-
-  ui.heroTitle.textContent = allStudents.length === 0
-    ? "Your student roster at a glance."
-    : `${allStudents.length} student${allStudents.length === 1 ? "" : "s"} in this dismissal roster`;
+  ui.needsGuardianCount.textContent = String(allStudents.length - ready);
+  ui.heroTitle.textContent = allStudents.length
+    ? `${allStudents.length} active student${allStudents.length === 1 ? '' : 's'} in your assigned roster`
+    : 'Your assigned students';
 }
 
 function gradeCompare(a, b) {
-  const na = parseInt((a || "").replace(/\D/g, ""), 10);
-  const nb = parseInt((b || "").replace(/\D/g, ""), 10);
-  const aIsNum = !Number.isNaN(na);
-  const bIsNum = !Number.isNaN(nb);
-
-  if (aIsNum && bIsNum) return na - nb;
-  if (aIsNum) return -1;
-  if (bIsNum) return 1;
-  return (a || "").localeCompare(b || "");
+  const na = parseInt(String(a || '').replace(/\D/g, ''), 10);
+  const nb = parseInt(String(b || '').replace(/\D/g, ''), 10);
+  if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+  return String(a || '').localeCompare(String(b || ''));
 }
 
 function groupStudents(students) {
-  const byGrade = new Map();
-
-  students.forEach((student) => {
-    const grade = student.grade || "—";
-    const section = student.section || "—";
-
-    if (!byGrade.has(grade)) byGrade.set(grade, new Map());
-    const bySection = byGrade.get(grade);
-    if (!bySection.has(section)) bySection.set(section, []);
-    bySection.get(section).push(student);
+  const grades = new Map();
+  students.forEach(student => {
+    const grade = student.grade || '—';
+    const section = student.section || '—';
+    if (!grades.has(grade)) grades.set(grade, new Map());
+    if (!grades.get(grade).has(section)) grades.get(grade).set(section, []);
+    grades.get(grade).get(section).push(student);
   });
-
-  return [...byGrade.keys()]
-    .sort(gradeCompare)
-    .map((grade) => ({
-      grade,
-      sections: [...byGrade.get(grade).keys()]
-        .sort()
-        .map((section) => ({
-          section,
-          students: byGrade
-            .get(grade)
-            .get(section)
-            .sort((a, b) =>
-              (a.fullName || "").localeCompare(b.fullName || "")
-            )
-        }))
-    }));
+  return [...grades.keys()].sort(gradeCompare).map(grade => ({
+    grade,
+    sections: [...grades.get(grade).keys()].sort().map(section => ({
+      section,
+      students: grades.get(grade).get(section).sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || '')))
+    }))
+  }));
 }
 
 function renderList(students) {
   hideRosterStates();
-
-  if (students.length === 0) {
-    if (allStudents.length > 0) {
-      ui.noResults.classList.remove("hidden");
-    } else {
-      ui.empty.classList.remove("hidden");
-    }
+  if (!students.length) {
+    if (allStudents.length) ui.noResults.classList.remove('hidden');
+    else ui.empty.classList.remove('hidden');
     return;
   }
+  ui.list.classList.remove('hidden');
+  ui.list.innerHTML = groupStudents(students).map(group => {
+    const count = group.sections.reduce((sum, section) => sum + section.students.length, 0);
+    return `<section class="pp-grade-block">
+      <div class="pp-grade-head"><h2>${escapeHtml(group.grade)}</h2><span>${count} student${count === 1 ? '' : 's'}</span></div>
+      ${group.sections.map(section => `<div>
+        <div class="pp-section-head"><span class="pp-section-pill">${escapeHtml(section.section)} · ${section.students.length}</span></div>
+        <div class="pp-student-grid mt-2">${section.students.map(studentCard).join('')}</div>
+      </div>`).join('')}
+    </section>`;
+  }).join('');
 
-  ui.list.classList.remove("hidden");
-  ui.list.innerHTML = "";
-
-  groupStudents(students).forEach((gradeGroup) => {
-    const block = document.createElement("section");
-    block.className = "pp-grade-block";
-
-    const total = gradeGroup.sections.reduce(
-      (sum, section) => sum + section.students.length,
-      0
-    );
-
-    block.innerHTML = `
-      <div class="pp-grade-head">
-        <h2>Grade ${escapeHtml(gradeGroup.grade)}</h2>
-        <span>${total} student${total === 1 ? "" : "s"}</span>
-      </div>
-    `;
-
-    gradeGroup.sections.forEach((sectionGroup) => {
-      const sectionWrap = document.createElement("div");
-
-      sectionWrap.innerHTML = `
-        <div class="pp-section-head">
-          <span class="pp-section-pill">
-            Section ${escapeHtml(sectionGroup.section)} · ${sectionGroup.students.length}
-          </span>
-        </div>
-        <div class="pp-student-grid"></div>
-      `;
-
-      const grid = sectionWrap.querySelector(".pp-student-grid");
-      sectionGroup.students.forEach((student) => {
-        grid.appendChild(renderStudentCard(student));
-      });
-
-      block.appendChild(sectionWrap);
-    });
-
-    ui.list.appendChild(block);
+  document.querySelectorAll('.student-action-link').forEach(link => {
+    link.onclick = () => {
+      sessionStorage.setItem(link.dataset.guardians === 'true' ? 'pendingStaffGuardianStudentId' : 'pendingParentStudentId', link.dataset.id);
+    };
   });
 }
 
-function renderStudentCard(student) {
+function studentCard(student) {
   const guardianCount = (student.guardianUids || []).length;
-  const hasPrimary = hasPrimaryGuardian(student);
-  const card = document.createElement("article");
-  card.className = "pp-student-card";
-
-  card.innerHTML = `
+  const ready = !!primaryGuardianUid(student);
+  return `<article class="pp-student-card">
     <div class="pp-student-card__head">
-      <div class="pp-student-avatar">
-        ${escapeHtml(initials(student.fullName))}
-      </div>
-
-      <div class="min-w-0">
-        <p class="pp-student-name truncate">
-          ${escapeHtml(student.fullName || "Unnamed student")}
-        </p>
-        <p class="pp-student-meta">
-          Grade ${escapeHtml(student.grade || "—")} ·
-          Section ${escapeHtml(student.section || "—")}
-        </p>
-      </div>
-
-      <span class="pp-status ${
-        hasPrimary
-          ? "pp-status--success"
-          : "pp-status--warning"
-      }">
-        ${hasPrimary ? "Primary ready" : "Action needed"}
-      </span>
+      <div class="pp-student-avatar">${escapeHtml(initials(student.fullName))}</div>
+      <div class="min-w-0"><p class="pp-student-name">${escapeHtml(student.fullName || 'Unnamed student')}</p><p class="pp-student-meta">${escapeHtml(student.studentNumber || 'No student number')} · ${escapeHtml(student.grade || '—')} · ${escapeHtml(student.section || '—')}</p></div>
+      <span class="pp-status ${ready ? 'pp-status--success' : 'pp-status--warning'}">${ready ? 'Primary ready' : 'Action needed'}</span>
     </div>
-
-    <div class="pp-student-readiness ${
-      hasPrimary
-        ? "pp-student-readiness--ready"
-        : "pp-student-readiness--needs"
-    }">
-      ${
-        hasPrimary
-          ? `${guardianCount} authorized guardian${guardianCount === 1 ? "" : "s"} · primary guardian on file`
-          : guardianCount > 0
-            ? `Primary guardian missing · ${guardianCount} secondary guardian${guardianCount === 1 ? "" : "s"} on file`
-            : "No primary guardian on file yet"
-      }
-    </div>
-
-    <div class="pp-student-card__actions">
-      <a
-        href="${
-          guardianCount > 0
-            ? `./manage-guardians.html?studentId=${encodeURIComponent(student.id)}`
-            : `./register-parent.html?studentId=${encodeURIComponent(student.id)}`
-        }"
-        class="student-action-link pp-btn pp-btn--secondary">
-        ${guardianCount > 0 ? "Manage guardians" : "Register primary"}
-      </a>
-    </div>
-  `;
-
-  card.querySelector(".student-action-link").addEventListener("click", () => {
-    sessionStorage.setItem(
-      guardianCount > 0
-        ? "pendingStaffGuardianStudentId"
-        : "pendingParentStudentId",
-      student.id
-    );
-  });
-
-  return card;
+    <div class="pp-student-readiness ${ready ? 'pp-student-readiness--ready' : 'pp-student-readiness--needs'}">${ready ? `${guardianCount} authorized guardian${guardianCount === 1 ? '' : 's'} · primary guardian on file` : guardianCount ? `Primary guardian missing · ${guardianCount} secondary guardian${guardianCount === 1 ? '' : 's'} on file` : 'No primary guardian on file yet'}</div>
+    <div class="pp-student-card__actions"><a href="${guardianCount ? `./manage-guardians.html?studentId=${encodeURIComponent(student.id)}` : `./register-parent.html?studentId=${encodeURIComponent(student.id)}`}" data-id="${escapeHtml(student.id)}" data-guardians="${guardianCount > 0}" class="student-action-link pp-btn pp-btn--secondary">${guardianCount ? 'Manage guardians' : 'Register primary'}</a></div>
+  </article>`;
 }
 
-ui.search.addEventListener("input", (event) => {
-  const term = event.target.value.trim().toLowerCase();
+ui.search.oninput = event => {
+  const term = normalize(event.target.value);
+  if (!term) return renderList(allStudents);
+  renderList(allStudents.filter(student => normalize(`${student.fullName || ''} ${student.studentNumber || ''} ${student.grade || ''} ${student.section || ''}`).includes(term)));
+};
 
-  if (!term) {
-    renderList(allStudents);
+document.getElementById('retryBtn').onclick = loadStudents;
+
+function openAddStudent() {
+  if (!assignedSections.length) {
+    showToast('Ask your School Admin to assign a current grade and section before adding students.', 'warning');
     return;
   }
+  document.getElementById('addStudentForm').reset();
+  document.getElementById('formError').classList.add('hidden');
+  renderAssignmentUi();
+  addDialog.showModal();
+  requestAnimationFrame(() => document.getElementById('lastName').focus());
+}
 
-  const filtered = allStudents.filter((student) =>
-    (student.fullName || "").toLowerCase().includes(term) ||
-    (student.grade || "").toLowerCase().includes(term) ||
-    (student.section || "").toLowerCase().includes(term)
-  );
+document.getElementById('addStudentTopBtn').onclick = openAddStudent;
+document.getElementById('studentFab').onclick = openAddStudent;
+document.getElementById('cancelAddStudentBtn').onclick = () => addDialog.close();
+document.getElementById('backToStudentListBtn').onclick = () => addedDialog.close();
+document.getElementById('registerAddedStudentParentBtn').onclick = () => {
+  if (!addedStudentId) return;
+  sessionStorage.setItem('pendingParentStudentId', addedStudentId);
+  location.href = `./register-parent.html?studentId=${encodeURIComponent(addedStudentId)}`;
+};
 
-  renderList(filtered);
-});
+[addDialog, addedDialog].forEach(dialog => dialog.addEventListener('click', event => {
+  if (event.target !== dialog) return;
+  const rect = dialog.getBoundingClientRect();
+  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+}));
 
-document.getElementById("addStudentForm").addEventListener("submit", async (event) => {
+document.getElementById('addStudentForm').onsubmit = async event => {
   event.preventDefault();
   if (isAddingStudent) return;
+  const selectedIndex = Number(document.getElementById('assignedSection').value);
+  const placement = Number.isInteger(selectedIndex) ? assignedSections[selectedIndex] : null;
+  if (!placement) {
+    showToast('Choose one of your assigned grade and sections.', 'error');
+    return;
+  }
 
-  const formError = document.getElementById("formError");
-  const submitButton = document.getElementById("addStudentBtn");
-  formError.classList.add("hidden");
+  const formError = document.getElementById('formError');
+  const button = document.getElementById('addStudentBtn');
+  formError.classList.add('hidden');
   isAddingStudent = true;
-  setSubmitButtonBusy(submitButton, true, "Adding…");
-
-  const lastName = document.getElementById("lastName").value.trim();
-  const firstName = document.getElementById("firstName").value.trim();
-  const middleInitial = document.getElementById("middleInitial").value.trim();
-  const suffix = document.getElementById("suffix").value.trim();
-  const grade = document.getElementById("studentGrade").value.trim();
-  const section = document.getElementById("studentSection").value.trim();
-
+  setSubmitButtonBusy(button, true, 'Adding…');
   try {
-    const res = await authedFetch("/teacher/students", {
-      method: "POST",
+    const response = await authedFetch('/teacher/students', {
+      method: 'POST',
       body: JSON.stringify({
-        lastName,
-        firstName,
-        middleInitial,
-        suffix,
-        grade,
-        section
+        lastName: document.getElementById('lastName').value.trim(),
+        firstName: document.getElementById('firstName').value.trim(),
+        middleInitial: document.getElementById('middleInitial').value.trim(),
+        suffix: document.getElementById('suffix').value.trim(),
+        grade: placement.grade,
+        section: placement.section
       })
     });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Could not add student');
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Could not add student");
-
-    await loadStudents();
-    event.currentTarget.reset();
     addedStudentId = data.studentId;
-    document.getElementById("addedStudentName").textContent = data.fullName;
-    ui.addPanel.classList.add("hidden");
-    ui.addedPanel.classList.remove("hidden");
-    ui.toggleAdd.textContent = "Add student";
-
-    showToast(
-      `${data.fullName} was added. Register the primary guardian next.`,
-      "success"
-    );
-
-    sessionStorage.setItem("pendingParentStudentId", data.studentId);
+    addDialog.close();
+    document.getElementById('addedStudentName').textContent = `${data.fullName || 'Student'} was added to ${placement.grade} · ${placement.section}.`;
+    await loadStudents();
+    addedDialog.showModal();
+    showToast(`${data.fullName || 'Student'} added to your assigned roster.`);
   } catch (error) {
-    formError.textContent = error.message;
-    formError.classList.remove("hidden");
-    showToast(error.message || "Could not add student.", "error");
+    formError.textContent = error.message || 'Could not add student.';
+    formError.classList.remove('hidden');
+    showToast(error.message || 'Could not add student.', 'error');
   } finally {
     isAddingStudent = false;
-    setSubmitButtonBusy(submitButton, false);
+    setSubmitButtonBusy(button, false);
   }
-});
+};
 
-function showLoading() {
-  hideRosterStates();
-  ui.loading.classList.remove("hidden");
-}
-
-function showEmpty() {
-  hideRosterStates();
-  ui.empty.classList.remove("hidden");
-}
-
-function showNoSections() {
-  hideRosterStates();
-  ui.noSections.classList.remove("hidden");
-}
-
-function showError(error) {
-  hideRosterStates();
-  ui.errorDetail.textContent = error?.message || "Check your connection and try again.";
-  ui.error.classList.remove("hidden");
-}
-
-function hideRosterStates() {
-  ui.loading.classList.add("hidden");
-  ui.list.classList.add("hidden");
-  ui.empty.classList.add("hidden");
-  ui.noResults.classList.add("hidden");
-  ui.noSections.classList.add("hidden");
-  ui.error.classList.add("hidden");
-}
-
-function initials(name) {
-  const parts = String(name || "")
-    .replace(",", " ")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (parts.length === 0) return "S";
-
-  return ((parts[0][0] || "") + (parts[1]?.[0] || "")).toUpperCase();
-}
-
-function escapeHtml(value) {
-  const div = document.createElement("div");
-  div.textContent = String(value ?? "");
-  return div.innerHTML;
-}
+function showLoading() { hideRosterStates(); ui.loading.classList.remove('hidden'); }
+function showEmpty() { hideRosterStates(); ui.empty.classList.remove('hidden'); }
+function showNoSections() { hideRosterStates(); ui.noSections.classList.remove('hidden'); }
+function showError(error) { hideRosterStates(); ui.errorDetail.textContent = error?.message || 'Check your connection and try again.'; ui.error.classList.remove('hidden'); }
+function hideRosterStates() { [ui.loading, ui.list, ui.empty, ui.noResults, ui.noSections, ui.error].forEach(element => element.classList.add('hidden')); }
+function initials(name) { const parts = String(name || '').replace(',', ' ').trim().split(/\s+/).filter(Boolean); return parts.length ? `${parts[0][0] || ''}${parts[1]?.[0] || ''}`.toUpperCase() : 'S'; }
+function escapeHtml(value) { const div = document.createElement('div'); div.textContent = String(value ?? ''); return div.innerHTML; }
 </script>
 </body>
 </html>
