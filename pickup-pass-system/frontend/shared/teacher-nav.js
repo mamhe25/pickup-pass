@@ -4,7 +4,14 @@
 // =============================================================================
 import { auth, db, getSchoolBranding } from "./firebase-init.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { mountThemeToggle, enhancePortal } from './shell.js';
 import { mountAccountLink } from './account-link.js';
 
@@ -14,8 +21,11 @@ const NAV_ITEMS = [
   { key: "history",       label: "History",       href: "/teacher/exit-logs.html",     icon: iconClock },
   { key: "operations",    label: "Operations",    href: "/teacher/operations.html",    icon: iconSettings },
   { key: "announce",      label: "Announce",      href: "/teacher/broadcast.html",     icon: iconMegaphone },
-  { key: "notifications", label: "Notifications", href: "/teacher/notifications.html", icon: iconBell },
+  { key: "notifications", label: "Notifications", href: "/teacher/notifications.html", icon: iconBell, badge: true },
 ];
+
+let unsubscribeUnread = null;
+let unreadUid = "";
 
 function render(mount) {
   ensureTeacherParityStyles();
@@ -23,7 +33,10 @@ function render(mount) {
   const active = mount.dataset.active || "";
   const links = NAV_ITEMS.map((item) => {
     const current = item.key === active ? ' aria-current="page"' : "";
-    return `<a class="pp-navlink" href="${item.href}" aria-label="${item.label}"${current}>${item.icon()}<span class="pp-navlink__label">${item.label}</span></a>`;
+    const badge = item.badge
+      ? '<span id="navUnreadBadge" class="pp-navlink__badge hidden" aria-label="Unread notifications"></span>'
+      : "";
+    return `<a class="pp-navlink" href="${item.href}" aria-label="${item.label}"${current}>${item.icon()}<span class="pp-navlink__label">${item.label}</span>${badge}</a>`;
   }).join("");
 
   mount.innerHTML = `
@@ -56,17 +69,64 @@ function render(mount) {
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
+      stopUnreadListener();
       window.location.href = "../login.html";
       return;
     }
+
     const emailEl = mount.querySelector("#currentUserEmail");
     if (emailEl) emailEl.textContent = user.email || "";
+    startUnreadListener(user.uid);
+
     try {
       const tokenResult = await user.getIdTokenResult();
       await loadSchoolIdentity(mount, tokenResult.claims.schoolId);
     } catch (_) { /* school chrome is non-critical */ }
   });
 }
+
+function startUnreadListener(uid) {
+  const badge = document.getElementById("navUnreadBadge");
+  if (!badge || !uid) return;
+
+  if (unsubscribeUnread && unreadUid === uid) return;
+  stopUnreadListener();
+  unreadUid = uid;
+
+  const unreadQuery = query(
+    collection(db, "notifications"),
+    where("recipientUid", "==", uid),
+    where("read", "==", false)
+  );
+
+  unsubscribeUnread = onSnapshot(
+    unreadQuery,
+    (snapshot) => {
+      const count = snapshot.size;
+      if (count > 0) {
+        badge.textContent = count > 9 ? "9+" : String(count);
+        badge.setAttribute("aria-label", `${count} unread notification${count === 1 ? "" : "s"}`);
+        badge.classList.remove("hidden");
+      } else {
+        badge.textContent = "";
+        badge.setAttribute("aria-label", "No unread notifications");
+        badge.classList.add("hidden");
+      }
+    },
+    () => {
+      badge.textContent = "";
+      badge.classList.add("hidden");
+    }
+  );
+}
+
+function stopUnreadListener() {
+  unsubscribeUnread?.();
+  unsubscribeUnread = null;
+  unreadUid = "";
+}
+
+window.addEventListener("pagehide", stopUnreadListener);
 
 function ensureTeacherParityStyles() {
   if (document.querySelector('link[data-pp-teacher-parity]')) return;
@@ -243,7 +303,7 @@ function svg(paths) {
   return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 }
 function iconScan() { return svg('<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/>'); }
-function iconUsers() { return svg('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'); }
+function iconUsers() { return svg('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 1-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'); }
 function iconClock() { return svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'); }
 function iconSettings() { return svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1Z"/>'); }
 function iconMegaphone() { return svg('<path d="M3 11v2a1 1 0 0 0 1 1h2l4 4V6L6 10H4a1 1 0 0 0-1 1Z"/><path d="M14 8a4 4 0 0 1 0 8"/>'); }
