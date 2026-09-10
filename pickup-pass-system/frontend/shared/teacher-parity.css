@@ -1,0 +1,282 @@
+/* PickupPass Teacher/Staff web parity layer.
+   Loaded by teacher-nav.js so role screens share the same production-grade
+   interaction and visual rules without duplicating page-specific overrides. */
+
+:root {
+  --pp-teacher-accent: var(--primary);
+  --pp-teacher-accent-container: var(--primary-container);
+}
+
+/* Legacy back links are redundant with the persistent role navigation. */
+.pp-backlink {
+  display: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Dismissal scanner — preserve the purpose-built dark camera surface while
+   removing the retired green/teal product treatment.
+   -------------------------------------------------------------------------- */
+.pp-scanner-step--active {
+  background: var(--pp-teacher-accent) !important;
+}
+
+.pp-gate-select:focus {
+  border-color: var(--pp-teacher-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pp-teacher-accent) 24%, transparent) !important;
+}
+
+.pp-gate-ready,
+.pp-scanner-step--complete {
+  background: color-mix(in srgb, var(--pp-teacher-accent) 18%, transparent) !important;
+  color: #c7d2fe !important;
+}
+
+.pp-scanner-bottom__icon {
+  background: color-mix(in srgb, var(--pp-teacher-accent) 22%, transparent) !important;
+  color: #c7d2fe !important;
+}
+
+.pp-guardian-photo {
+  border-color: var(--pp-teacher-accent) !important;
+  cursor: zoom-in;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.pp-guardian-photo:hover,
+.pp-guardian-photo:focus-visible {
+  transform: scale(1.035);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--pp-teacher-accent) 24%, transparent);
+  outline: none;
+}
+
+.pp-photo-state--ready {
+  background: var(--pp-teacher-accent) !important;
+}
+
+.pp-approve-btn {
+  background: var(--pp-teacher-accent) !important;
+}
+
+.pp-scanner-photo-dialog {
+  width: min(92vw, 620px);
+  max-width: 620px;
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  overflow: visible;
+}
+
+.pp-scanner-photo-dialog::backdrop {
+  background: rgba(2, 6, 23, .82);
+  backdrop-filter: blur(6px);
+}
+
+.pp-scanner-photo-dialog__card {
+  position: relative;
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 24px;
+  background: #0f172a;
+  box-shadow: 0 28px 80px rgba(0,0,0,.5);
+}
+
+.pp-scanner-photo-dialog__image {
+  width: 100%;
+  max-height: 72vh;
+  display: block;
+  object-fit: contain;
+  border-radius: 17px;
+  background: #020617;
+}
+
+.pp-scanner-photo-dialog__close {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  z-index: 2;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 999px;
+  background: rgba(15,23,42,.82);
+  color: #fff;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+.pp-scanner-photo-dialog__caption {
+  margin: 11px 4px 2px;
+  color: #cbd5e1;
+  font-size: .74rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   Guardian management — collection-first layout. The existing create forms
+   are moved into this focused overlay by teacher-nav.js; their API handlers,
+   validation, and review dialogs remain unchanged.
+   -------------------------------------------------------------------------- */
+.pp-guardian-create-fab {
+  position: fixed;
+  right: max(22px, calc((100vw - 1120px) / 2 + 22px));
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  z-index: 35;
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 19px;
+  background: var(--pp-teacher-accent);
+  color: var(--on-primary, #fff);
+  box-shadow: 0 16px 36px color-mix(in srgb, var(--pp-teacher-accent) 34%, transparent);
+  cursor: pointer;
+  font-size: 1.65rem;
+  font-weight: 500;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.pp-guardian-create-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 19px 42px color-mix(in srgb, var(--pp-teacher-accent) 40%, transparent);
+}
+
+.pp-guardian-create-fab:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--pp-teacher-accent) 32%, transparent);
+  outline-offset: 3px;
+}
+
+.pp-guardian-create-fab[hidden] {
+  display: none !important;
+}
+
+.pp-guardian-create-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15,23,42,.58);
+  backdrop-filter: blur(5px);
+}
+
+.pp-guardian-create-overlay.hidden {
+  display: none !important;
+}
+
+.pp-guardian-create-sheet {
+  position: relative;
+  width: min(100%, 720px);
+  max-height: min(88vh, 780px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: 26px 26px 20px 20px;
+  background: var(--surface);
+  box-shadow: 0 28px 80px rgba(15,23,42,.30);
+}
+
+.pp-guardian-create-sheet > .pp-staff-guardians-card {
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: inherit !important;
+  box-shadow: none !important;
+}
+
+.pp-guardian-create-sheet__top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.pp-guardian-create-sheet__top strong {
+  color: var(--text-strong);
+  font-size: .88rem;
+}
+
+.pp-guardian-create-sheet__close {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-variant);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.05rem;
+}
+
+.pp-staff-guardians-page {
+  padding-bottom: 104px;
+}
+
+/* Inline success duplicates the shared feedback surface; keep page-level
+   validation/errors, but successful actions use the standard toast/card. */
+#actionFeedback.pp-alert--success,
+#actionFeedback.pp-alert--warning {
+  display: none !important;
+}
+
+/* Primary registration keeps the form focused and compact on desktop. */
+.pp-register-parent-page {
+  max-width: 820px !important;
+}
+
+.pp-register-parent-form-card {
+  box-shadow: var(--shadow-sm);
+}
+
+@media (min-width: 760px) {
+  .pp-guardian-create-overlay {
+    align-items: center;
+  }
+
+  .pp-guardian-create-sheet {
+    border-radius: 26px;
+  }
+}
+
+@media (max-width: 620px) {
+  .pp-guardian-create-overlay {
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .pp-guardian-create-sheet {
+    width: 100%;
+    max-height: 92vh;
+  }
+
+  .pp-guardian-create-fab {
+    right: 18px;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+
+  .pp-scanner-photo-dialog__card {
+    padding: 10px;
+    border-radius: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-guardian-photo,
+  .pp-guardian-create-fab {
+    transition: none;
+  }
+}
