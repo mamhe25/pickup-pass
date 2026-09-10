@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="theme-color" content="#047857" />
+<meta name="theme-color" content="#4f46e5" />
 
 <title>Send Announcement — PickupPass</title>
 
@@ -109,11 +109,6 @@
         class="pp-alert pp-alert--danger hidden"
         role="alert"></div>
 
-      <div
-        id="formSuccess"
-        class="pp-alert pp-alert--success hidden"
-        role="status"></div>
-
       <aside class="pp-broadcast-note">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -191,7 +186,8 @@
 
 <script type="module">
 import {
-  authedFetch
+  authedFetch,
+  showToast
 } from "../shared/firebase-init.js";
 
 const form =
@@ -254,11 +250,6 @@ const formError =
     "formError"
   );
 
-const formSuccess =
-  document.getElementById(
-    "formSuccess"
-  );
-
 const dialogError =
   document.getElementById(
     "dialogError"
@@ -294,10 +285,6 @@ function updateComposer() {
 
 function clearMessages() {
   formError.classList.add(
-    "hidden"
-  );
-
-  formSuccess.classList.add(
     "hidden"
   );
 
@@ -340,12 +327,14 @@ reviewBtn.addEventListener(
     ) {
       dialog.showModal();
     } else {
-      formError.textContent =
+      const message =
         "Your browser cannot open the review dialog. Please update your browser before sending announcements.";
 
+      formError.textContent = message;
       formError.classList.remove(
         "hidden"
       );
+      showToast(message, "error");
     }
   }
 );
@@ -406,30 +395,33 @@ sendBtn.addEventListener(
 
       dialog.close();
 
-      formSuccess.textContent =
-        data.recipientCount > 0
-          ? `Sent to ${data.recipientCount} guardian${
-              data.recipientCount === 1
-                ? ""
-                : "s"
-            }.`
-          : "Sent — but no guardians were reachable in your section(s) yet.";
+      const recipientCount =
+        Number(data.recipientCount || 0);
 
-      formSuccess.classList.remove(
-        "hidden"
+      const message =
+        recipientCount > 0
+          ? `Sent to ${recipientCount} guardian${recipientCount === 1 ? "" : "s"}.`
+          : "Announcement saved, but no guardians are currently reachable in your assigned sections.";
+
+      showToast(
+        message,
+        recipientCount > 0
+          ? "success"
+          : "warning"
       );
 
       form.reset();
       updateComposer();
-      titleInput.focus();
     } catch (error) {
-      dialogError.textContent =
+      const message =
         error?.message ||
         "Could not send announcement.";
 
+      dialogError.textContent = message;
       dialogError.classList.remove(
         "hidden"
       );
+      showToast(message, "error");
     } finally {
       sendBtn.disabled = false;
       keepEditingBtn.disabled =
