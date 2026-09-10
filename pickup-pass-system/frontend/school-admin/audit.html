@@ -1,1 +1,201 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Audit Log — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head><body class="min-h-screen pp-portal-body"><div id="adminNav" data-active="audit"></div><script type="module" src="../shared/school-admin-nav.js"></script><main class="pp-page"><div class="pp-page-head"><div><h1>Audit Log</h1><p>Recent administrative and pickup-security events for this school tenant.</p></div><div class="pp-actions"><select id="limit" class="pp-field"><option>50</option><option selected>100</option><option>250</option></select><button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh</button></div></div><section class="pp-section mt-0"><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Time</th><th>Action</th><th>Actor</th><th>Target</th><th>Details</th></tr></thead><tbody id="rows"><tr><td colspan="5" class="pp-empty">Loading…</td></tr></tbody></table></div></section></main><script type="module">import{apiJson,requireRole,bindRefresh,escapeHtml,fmtDate}from'../shared/portal.js';async function load(){const d=await apiJson('/school-admin/audit-events?limit='+encodeURIComponent(limit.value));rows.innerHTML=(d.events||[]).map(e=>`<tr><td>${escapeHtml(fmtDate(e.timestamp))}</td><td><strong>${escapeHtml(e.action||e.eventType||'')}</strong></td><td>${escapeHtml(e.actorEmail||e.actorUid||e.uid||'—')}</td><td>${escapeHtml((e.targetType||'')+(e.targetId?' / '+e.targetId:''))}</td><td><pre class="pp-mini whitespace-pre-wrap">${escapeHtml(JSON.stringify(e.details||e.metadata||{},null,1))}</pre></td></tr>`).join('')||'<tr><td colspan="5" class="pp-empty">No audit events.</td></tr>';}limit.onchange=load;bindRefresh('refreshBtn',load);requireRole('school_admin',load);</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Audit Log — PickupPass</title>
+<meta name="theme-color" content="#4652C7">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<link rel="stylesheet" href="./school-admin-parity.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="adminNav" data-active="audit"></div>
+<script type="module" src="../shared/school-admin-nav.js"></script>
+
+<main class="pp-page pp-school-work-page">
+  <section class="pp-school-work-hero">
+    <div>
+      <p class="pp-school-work-hero__eyebrow">School security · accountability</p>
+      <h1>Administrative activity trail</h1>
+      <p>
+        Review privileged configuration, access and dismissal actions in human-readable form.
+        Internal user, tenant and resource identifiers stay out of the normal School Admin view.
+      </p>
+      <div class="pp-school-work-hero__actions">
+        <button id="refreshBtn" class="pp-btn pp-btn--primary" type="button">Refresh activity</button>
+      </div>
+    </div>
+    <div class="pp-school-work-hero__summary">
+      <span>Loaded events</span>
+      <strong id="loadedCount">—</strong>
+    </div>
+  </section>
+
+  <section class="pp-school-metrics" aria-label="Audit summary">
+    <article class="pp-school-metric"><span>Loaded</span><strong id="metricLoaded">—</strong><small>Recent tenant events</small></article>
+    <article class="pp-school-metric"><span>Actor roles</span><strong id="metricRoles">—</strong><small>Distinct role types</small></article>
+    <article class="pp-school-metric"><span>Security / access</span><strong id="metricSecurity">—</strong><small>Matching loaded actions</small></article>
+    <article class="pp-school-metric"><span>Pickup actions</span><strong id="metricPickup">—</strong><small>Release-related events</small></article>
+  </section>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Recent activity</h2>
+        <p class="pp-mini">Search by action, role, resource type or readable event context.</p>
+      </div>
+      <div class="pp-actions">
+        <select id="limit" class="pp-field" aria-label="Audit event limit">
+          <option value="50">50 events</option>
+          <option value="100" selected>100 events</option>
+          <option value="250">250 events</option>
+        </select>
+      </div>
+    </div>
+    <div class="pp-section__body">
+      <div class="pp-staff-toolbar">
+        <label>Search activity
+          <input id="auditSearch" class="pp-field" type="search" placeholder="Action, role, resource or detail" autocomplete="off">
+        </label>
+        <label>Actor role
+          <select id="roleFilter" class="pp-field"><option value="">All roles</option></select>
+        </label>
+      </div>
+      <div id="auditList" class="pp-history-list mt-4"><div class="pp-empty">Loading audit activity…</div></div>
+    </div>
+  </section>
+
+  <section class="pp-callout">
+    PickupPass deliberately hides raw UIDs, tenant IDs, resource IDs, tokens, hashes and fingerprints from this operational view. The immutable backend audit record remains available for authorized technical investigation.
+  </section>
+</main>
+
+<script type="module">
+import { apiJson, requireRole, bindRefresh, escapeHtml, fmtDate, titleCase } from '../shared/portal.js';
+
+let events = [];
+
+const HIDDEN_KEY = /(uid|(^|_)id$|Id$|token|secret|password|hash|fingerprint|schoolId|studentId|guardianUid|actorUid|resourceId|targetId|deviceId)/i;
+const USEFUL_NAME_KEYS = ['schoolName', 'studentName', 'guardianName', 'teacherName', 'displayName', 'invoiceNumber', 'referenceNumber', 'status', 'reason', 'note', 'grade', 'section', 'plan', 'subscriptionStatus', 'gateName', 'campusName', 'fileName', 'totalRows', 'importedRows', 'recipientCount', 'emailSent', 'source'];
+
+function pretty(value) {
+  return String(value || '')
+    .replace(/[._-]+/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase())
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function actorLabel(event) {
+  if (event.actorEmail) return event.actorEmail;
+  const role = event.actorRole || event.role;
+  return role ? pretty(role) : 'Authorized PickupPass actor';
+}
+
+function resourceLabel(event) {
+  const type = event.resourceType || event.targetType || 'platform resource';
+  const details = event.details || event.metadata || {};
+  const named = ['schoolName', 'studentName', 'guardianName', 'teacherName', 'displayName', 'invoiceNumber', 'gateName', 'campusName']
+    .map(key => details[key])
+    .find(value => value != null && String(value).trim());
+  return named ? `${pretty(type)} · ${String(named)}` : pretty(type);
+}
+
+function safeDetails(event) {
+  const details = event.details || event.metadata || {};
+  if (!details || typeof details !== 'object' || Array.isArray(details)) return [];
+
+  const ordered = [];
+  const seen = new Set();
+  for (const key of USEFUL_NAME_KEYS) {
+    if (!(key in details) || HIDDEN_KEY.test(key)) continue;
+    const value = details[key];
+    if (value == null || value === '' || typeof value === 'object') continue;
+    ordered.push([key, value]);
+    seen.add(key);
+  }
+  for (const [key, value] of Object.entries(details)) {
+    if (seen.has(key) || HIDDEN_KEY.test(key)) continue;
+    if (value == null || value === '' || typeof value === 'object') continue;
+    if (ordered.length >= 8) break;
+    ordered.push([key, value]);
+  }
+  return ordered.slice(0, 8);
+}
+
+function searchable(event) {
+  return [
+    event.action,
+    event.eventType,
+    event.actorRole,
+    event.actorEmail,
+    resourceLabel(event),
+    ...safeDetails(event).flatMap(([key, value]) => [key, value])
+  ].join(' ').toLowerCase();
+}
+
+async function load() {
+  const data = await apiJson('/school-admin/audit-events?limit=' + encodeURIComponent(document.getElementById('limit').value));
+  events = data.events || [];
+  rebuildRoleFilter();
+  render();
+}
+
+function rebuildRoleFilter() {
+  const select = document.getElementById('roleFilter');
+  const previous = select.value;
+  const roles = [...new Set(events.map(event => event.actorRole || event.role).filter(Boolean))].sort();
+  select.innerHTML = '<option value="">All roles</option>' + roles.map(role => `<option value="${escapeHtml(role)}">${escapeHtml(pretty(role))}</option>`).join('');
+  if (roles.includes(previous)) select.value = previous;
+}
+
+function render() {
+  const roles = new Set(events.map(event => event.actorRole || event.role).filter(Boolean));
+  const securityCount = events.filter(event => /(security|session|access|auth|role|staff|verification)/i.test(event.action || event.eventType || '')).length;
+  const pickupCount = events.filter(event => /(pickup|release|dismissal|qr|manual)/i.test(event.action || event.eventType || '')).length;
+
+  document.getElementById('loadedCount').textContent = events.length;
+  document.getElementById('metricLoaded').textContent = events.length;
+  document.getElementById('metricRoles').textContent = roles.size;
+  document.getElementById('metricSecurity').textContent = securityCount;
+  document.getElementById('metricPickup').textContent = pickupCount;
+
+  const query = document.getElementById('auditSearch').value.trim().toLowerCase();
+  const role = document.getElementById('roleFilter').value;
+  const filtered = events.filter(event => {
+    const eventRole = event.actorRole || event.role || '';
+    return (!role || eventRole === role) && (!query || searchable(event).includes(query));
+  });
+
+  document.getElementById('auditList').innerHTML = filtered.length
+    ? filtered.map(event => {
+        const details = safeDetails(event);
+        return `
+          <article class="pp-history-card">
+            <div>
+              <h3>${escapeHtml(pretty(event.action || event.eventType || 'Administrative action'))}</h3>
+              <p>${escapeHtml(actorLabel(event))} · ${escapeHtml(resourceLabel(event))}</p>
+              <div class="pp-history-card__meta">
+                <span class="pp-status">${escapeHtml(fmtDate(event.timestamp) || 'Time unavailable')}</span>
+                ${event.actorRole || event.role ? `<span class="pp-status">${escapeHtml(pretty(event.actorRole || event.role))}</span>` : ''}
+              </div>
+              ${details.length ? `<div class="pp-human-detail">${details.map(([key, value]) => `<div class="pp-human-detail__row"><span>${escapeHtml(pretty(key))}</span><strong>${escapeHtml(String(value))}</strong></div>`).join('')}</div>` : '<div class="pp-mini mt-3">No additional human-readable context is needed for this event.</div>'}
+            </div>
+          </article>
+        `;
+      }).join('')
+    : `<div class="pp-empty">${events.length ? 'No audit events match the current search or role filter.' : 'No audit events have been recorded yet.'}</div>`;
+}
+
+document.getElementById('auditSearch').oninput = render;
+document.getElementById('roleFilter').onchange = render;
+document.getElementById('limit').onchange = load;
+bindRefresh('refreshBtn', load);
+requireRole('school_admin', load);
+</script>
+</body>
+</html>
