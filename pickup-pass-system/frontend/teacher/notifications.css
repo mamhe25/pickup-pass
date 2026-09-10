@@ -125,13 +125,20 @@ button.pp-staff-notification-row {
   cursor: pointer;
 }
 
-button.pp-staff-notification-row:hover {
+button.pp-staff-notification-row:hover,
+button.pp-staff-notification-row:focus-visible {
   border-color:
     color-mix(
       in srgb,
-      var(--primary) 24%,
+      var(--primary) 30%,
       var(--border)
     );
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+button.pp-staff-notification-row:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 18%, transparent);
+  outline-offset: 2px;
 }
 
 .pp-staff-notification-row--unread {
@@ -205,6 +212,15 @@ button.pp-staff-notification-row:hover {
   margin-left: auto;
   border-radius: 999px;
   background: var(--primary);
+}
+
+.pp-staff-notification-open {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--primary);
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .pp-staff-notification-meta {
