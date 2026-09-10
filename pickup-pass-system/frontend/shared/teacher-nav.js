@@ -18,6 +18,8 @@ const NAV_ITEMS = [
 ];
 
 function render(mount) {
+  ensureTeacherParityStyles();
+
   const active = mount.dataset.active || "";
   const links = NAV_ITEMS.map((item) => {
     const current = item.key === active ? ' aria-current="page"' : "";
@@ -50,6 +52,7 @@ function render(mount) {
   mountThemeToggle(mount.querySelector("[data-pp-theme-toggle]"));
   mountAccountLink(mount);
   enhancePortal();
+  enhanceTeacherParity();
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
@@ -63,6 +66,162 @@ function render(mount) {
       await loadSchoolIdentity(mount, tokenResult.claims.schoolId);
     } catch (_) { /* school chrome is non-critical */ }
   });
+}
+
+function ensureTeacherParityStyles() {
+  if (document.querySelector('link[data-pp-teacher-parity]')) return;
+
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "../shared/teacher-parity.css";
+  link.dataset.ppTeacherParity = "true";
+  document.head.appendChild(link);
+}
+
+function enhanceTeacherParity() {
+  const themeColor = document.querySelector('meta[name="theme-color"]');
+  if (themeColor) themeColor.setAttribute("content", "#4f46e5");
+
+  enhanceScannerPhotoViewer();
+  enhanceGuardianCollectionFlow();
+}
+
+function enhanceScannerPhotoViewer() {
+  const photo = document.getElementById("parentPhoto");
+  if (!photo || photo.dataset.ppZoomBound === "true") return;
+
+  photo.dataset.ppZoomBound = "true";
+  photo.tabIndex = 0;
+  photo.setAttribute("role", "button");
+  photo.setAttribute("aria-label", "View guardian identity photo larger");
+
+  const dialog = document.createElement("dialog");
+  dialog.className = "pp-scanner-photo-dialog";
+  dialog.setAttribute("aria-label", "Guardian identity photo");
+  dialog.innerHTML = `
+    <div class="pp-scanner-photo-dialog__card">
+      <button type="button" class="pp-scanner-photo-dialog__close" aria-label="Close photo">×</button>
+      <img class="pp-scanner-photo-dialog__image" alt="Authorized guardian identity photo enlarged" />
+      <p class="pp-scanner-photo-dialog__caption">
+        Compare this identity photo with the person present before approving release.
+      </p>
+    </div>
+  `;
+  document.body.appendChild(dialog);
+
+  const enlarged = dialog.querySelector(".pp-scanner-photo-dialog__image");
+  const close = dialog.querySelector(".pp-scanner-photo-dialog__close");
+
+  const openPhoto = () => {
+    const source = String(photo.currentSrc || photo.src || "");
+    if (!source || source.includes("default-avatar.svg")) return;
+    enlarged.src = source;
+    if (typeof dialog.showModal === "function") dialog.showModal();
+  };
+
+  photo.addEventListener("click", openPhoto);
+  photo.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    openPhoto();
+  });
+
+  close.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+}
+
+function enhanceGuardianCollectionFlow() {
+  const guardianList = document.getElementById("guardianList");
+  const permanentForm = document.getElementById("permanentForm");
+  if (!guardianList || !permanentForm || document.querySelector(".pp-guardian-create-fab")) return;
+
+  const addSection = [...document.querySelectorAll(".pp-staff-guardians-card")]
+    .find((section) => section.querySelector(".pp-staff-section-kicker")?.textContent?.includes("ADD PICKUP ACCESS"));
+
+  if (!addSection) return;
+
+  const overlay = document.createElement("div");
+  overlay.className = "pp-guardian-create-overlay hidden";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Add pickup guardian");
+
+  const sheet = document.createElement("div");
+  sheet.className = "pp-guardian-create-sheet";
+
+  const top = document.createElement("div");
+  top.className = "pp-guardian-create-sheet__top";
+  top.innerHTML = `
+    <strong>Add pickup access</strong>
+    <button type="button" class="pp-guardian-create-sheet__close" aria-label="Close add guardian form">×</button>
+  `;
+
+  sheet.appendChild(top);
+  sheet.appendChild(addSection);
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+
+  const fab = document.createElement("button");
+  fab.type = "button";
+  fab.className = "pp-guardian-create-fab";
+  fab.setAttribute("aria-label", "Add pickup guardian");
+  fab.title = "Add pickup guardian";
+  fab.textContent = "+";
+  document.body.appendChild(fab);
+
+  const close = () => {
+    overlay.classList.add("hidden");
+    document.body.style.overflow = "";
+    fab.focus({ preventScroll: true });
+  };
+
+  const open = () => {
+    overlay.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    requestAnimationFrame(() => {
+      const firstEnabled = overlay.querySelector("button:not([disabled]), input:not([disabled]), select:not([disabled])");
+      firstEnabled?.focus({ preventScroll: true });
+    });
+  };
+
+  fab.addEventListener("click", open);
+  top.querySelector("button").addEventListener("click", close);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) close();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !overlay.classList.contains("hidden")) close();
+  });
+
+  const primaryRequired = document.getElementById("primaryRequired");
+  const syncFab = () => {
+    if (!primaryRequired) return;
+    const primaryMissing = !primaryRequired.classList.contains("hidden");
+    fab.hidden = primaryMissing;
+    if (primaryMissing && !overlay.classList.contains("hidden")) close();
+  };
+
+  if (primaryRequired) {
+    new MutationObserver(syncFab).observe(primaryRequired, {
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+    syncFab();
+  }
+
+  const actionFeedback = document.getElementById("actionFeedback");
+  if (actionFeedback) {
+    new MutationObserver(() => {
+      if (!actionFeedback.classList.contains("hidden") && !overlay.classList.contains("hidden")) {
+        close();
+      }
+    }).observe(actionFeedback, {
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+  }
 }
 
 async function loadSchoolIdentity(mount, schoolId) {
