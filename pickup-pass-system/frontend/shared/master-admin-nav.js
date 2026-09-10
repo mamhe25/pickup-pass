@@ -1,36 +1,15 @@
 import { auth } from './firebase-init.js';
 import {
-  onAuthStateChanged,
-  signOut
+  onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { mountThemeToggle, enhancePortal } from './shell.js';
 import { mountAccountLink } from './account-link.js';
 
 const ITEMS = [
-  {
-    key: 'overview',
-    label: 'Overview',
-    href: './overview.html',
-    icon: iconDashboard
-  },
-  {
-    key: 'schools',
-    label: 'Schools',
-    href: './index.html',
-    icon: iconSchool
-  },
-  {
-    key: 'billing',
-    label: 'Billing',
-    href: './billing.html',
-    icon: iconReceipt
-  },
-  {
-    key: 'operations',
-    label: 'Operations',
-    href: './operations.html',
-    icon: iconShield
-  }
+  { key: 'overview', label: 'Overview', href: './overview.html', icon: iconDashboard },
+  { key: 'schools', label: 'Schools', href: './index.html', icon: iconSchool },
+  { key: 'billing', label: 'Billing', href: './billing.html', icon: iconReceipt },
+  { key: 'operations', label: 'Operations', href: './operations.html', icon: iconShield }
 ];
 
 function render(mount) {
@@ -39,10 +18,7 @@ function render(mount) {
   mount.innerHTML = `
     <header class="pp-appbar">
       <div class="pp-appbar__inner">
-        <a
-          class="pp-brandmark"
-          href="./overview.html"
-          aria-label="PickupPass platform control center">
+        <a class="pp-brandmark" href="./overview.html" aria-label="PickupPass platform control center">
           <span class="pp-brandmark__badge"><img src="../assets/pickuppass-mark.svg" alt="" /></span>
           <span class="flex flex-col">
             <span class="pp-brandmark__name"><span class="pp-wordmark__pickup">Pickup</span><span class="pp-wordmark__pass">Pass</span></span>
@@ -51,28 +27,14 @@ function render(mount) {
         </a>
 
         <div class="pp-shell-actions">
-          <span
-            id="masterEmail"
-            class="text-xs text-ink-subtle hidden sm:inline"></span>
-          <button
-            data-pp-theme-toggle
-            class="pp-icon-btn"
-            type="button"></button>
-          <button
-            id="masterSignOut"
-            class="pp-btn pp-btn--ghost"
-            type="button">
-            Sign out
-          </button>
+          <span id="masterEmail" class="text-xs text-ink-subtle hidden sm:inline"></span>
+          <button data-pp-theme-toggle class="pp-icon-btn" type="button"></button>
         </div>
       </div>
 
       <nav class="pp-navrow" aria-label="Platform administration">
         ${ITEMS.map(item => `
-          <a
-            class="pp-navlink"
-            href="${item.href}"
-            ${item.key === active ? 'aria-current="page"' : ''}>
+          <a class="pp-navlink" href="${item.href}" ${item.key === active ? 'aria-current="page"' : ''}>
             ${item.icon()}
             <span class="pp-navlink__label">${item.label}</span>
           </a>
@@ -81,17 +43,9 @@ function render(mount) {
     </header>
   `;
 
-  mountThemeToggle(
-    mount.querySelector('[data-pp-theme-toggle]')
-  );
-
+  mountThemeToggle(mount.querySelector('[data-pp-theme-toggle]'));
   mountAccountLink(mount);
   enhancePortal();
-
-  mount.querySelector('#masterSignOut').onclick = async () => {
-    await signOut(auth);
-    location.href = '../login.html';
-  };
 
   onAuthStateChanged(auth, async user => {
     if (!user) {
@@ -99,15 +53,11 @@ function render(mount) {
       return;
     }
 
-    mount.querySelector('#masterEmail').textContent =
-      user.email || '';
+    mount.querySelector('#masterEmail').textContent = user.email || '';
 
     try {
       const token = await user.getIdTokenResult(true);
-
-      if (token.claims.role !== 'master_admin') {
-        location.href = '../login.html';
-      }
+      if (token.claims.role !== 'master_admin') location.href = '../login.html';
     } catch (_) {
       location.href = '../login.html';
     }
@@ -116,16 +66,7 @@ function render(mount) {
 
 function svg(paths) {
   return `
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       ${paths}
     </svg>
   `;
@@ -156,29 +97,7 @@ function iconReceipt() {
   );
 }
 
-function iconShield(filled = false) {
-  if (filled) {
-    return `
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        aria-hidden="true">
-        <path
-          d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z"
-          fill="white"
-          fill-opacity=".2"/>
-        <path
-          d="m9.5 12.2 1.8 1.8 3.5-3.7"
-          stroke="white"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"/>
-      </svg>
-    `;
-  }
-
+function iconShield() {
   return svg(
     '<path d="M12 3 4 6v5c0 5 3.4 9 8 10 4.6-1 8-5 8-10V6l-8-3Z"/>' +
     '<path d="m9 12 2 2 4-4"/>'
@@ -186,7 +105,4 @@ function iconShield(filled = false) {
 }
 
 const mount = document.getElementById('masterNav');
-
-if (mount) {
-  render(mount);
-}
+if (mount) render(mount);

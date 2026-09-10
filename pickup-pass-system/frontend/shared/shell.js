@@ -1,5 +1,15 @@
 const PICKUPPASS_BRAND_COLOR = '#4652C7';
 const PICKUPPASS_MARK_URL = '/assets/pickuppass-mark.svg';
+const PARITY_STYLE_ID = 'pp-android-parity-style';
+
+function ensureParityStyles() {
+  if (document.getElementById(PARITY_STYLE_ID)) return;
+  const link = document.createElement('link');
+  link.id = PARITY_STYLE_ID;
+  link.rel = 'stylesheet';
+  link.href = new URL('./android-parity.css', import.meta.url).href;
+  document.head.appendChild(link);
+}
 
 function applyPickupPassBrandChrome() {
   let themeMeta = document.querySelector('meta[name="theme-color"]');
@@ -62,11 +72,12 @@ export function mountThemeToggle(button) {
 }
 
 export function enhancePortal() {
+  ensureParityStyles();
   document.body.classList.add('pp-portal-body');
   applyThemePreference();
   const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   if (reduce || !('IntersectionObserver' in window)) return;
-  const items = [...document.querySelectorAll('.pp-page-head,.pp-section,.pp-kpi,.pp-card')].slice(0, 80);
+  const items = [...document.querySelectorAll('.pp-page-head,.pp-section,.pp-kpi,.pp-card,.pp-owner-hero,.pp-owner-metric,.pp-owner-workspace,.pp-tenant-card')].slice(0, 100);
   const io = new IntersectionObserver(entries => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
@@ -81,5 +92,6 @@ export function enhancePortal() {
   });
 }
 
+ensureParityStyles();
 applyPickupPassBrandChrome();
 applyThemePreference();

@@ -1,17 +1,416 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Platform Operations — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head><body class="min-h-screen pp-portal-body">
-<div id="masterNav" data-active="operations"></div><script type="module" src="../shared/master-admin-nav.js"></script><main class="pp-page"><div class="pp-page-head"><div><h1>Operations, Security & Recovery</h1><p>One low-cost control center for tenant health, security alerts, runtime incidents, Firestore connectivity, and startup-first disaster-recovery controls.</p></div><div class="pp-actions"><button id="evaluateBtn" class="pp-btn pp-btn--secondary">Evaluate now</button><button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh</button></div></div>
-<div id="opsKpis" class="pp-grid"></div>
-<section class="pp-section"><div class="pp-section__head"><h2>Tenant operations health</h2><button id="refreshOpsBtn" class="pp-btn pp-btn--ghost">Refresh health materialization</button></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>School</th><th>Plan</th><th>Health</th><th>Alerts</th><th>Quota</th></tr></thead><tbody id="tenantRows"><tr><td colspan="5" class="pp-empty">Loading…</td></tr></tbody></table></div></section>
-<section class="pp-section"><div class="pp-section__head"><h2>Security center</h2><p class="pp-mini">Privacy-preserving security telemetry; no raw tokens or IP addresses are displayed.</p></div><div id="securityKpis" class="pp-grid pp-section__body"></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Alert</th><th>Severity</th><th>User / school</th><th>Occurrences</th><th>Last seen</th><th>Actions</th></tr></thead><tbody id="securityRows"></tbody></table></div></section>
-<section class="pp-section"><div class="pp-section__head"><h2>Platform runtime & incidents</h2></div><div id="runtimeCards" class="pp-grid pp-section__body"></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Incident</th><th>Severity</th><th>Status</th><th>Message</th><th>Action</th></tr></thead><tbody id="incidentRows"></tbody></table></div></section>
-<section class="pp-section"><div class="pp-section__head"><div><h2>Firestore disaster recovery</h2><p class="pp-mini">Startup-first: native backup controls are platform-owner only. Applying a stronger paid profile can incur Google Cloud charges.</p></div></div><div class="pp-section__body"><div id="drSummary" class="pp-grid"></div><div class="pp-actions mt-4"><button id="freeBtn" class="pp-btn pp-btn--ghost">Apply Free Safeguards</button><button id="startupBtn" class="pp-btn pp-btn--secondary">Apply Startup Backup</button><button id="growthBtn" class="pp-btn pp-btn--ghost">Apply Growth Protection</button></div><p class="pp-mini mt-3">Free: delete protection only. Startup: delete protection + daily backup. Growth: daily + weekly backups + PITR. Pickup/QR availability remains independent from these controls.</p><pre id="drResult" class="pp-mini whitespace-pre-wrap mt-3"></pre></div></section>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Platform Operations — PickupPass</title>
+<meta name="theme-color" content="#4652C7">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="masterNav" data-active="operations"></div>
+<script type="module" src="../shared/master-admin-nav.js"></script>
+
+<main class="pp-page">
+  <section class="pp-owner-hero">
+    <div>
+      <p class="pp-owner-hero__eyebrow">Platform owner · privileged console</p>
+      <h1 id="opsHeadline">Platform operations</h1>
+      <p id="opsSummary" class="pp-owner-hero__copy">
+        Tenant health, runtime observability, security signals and recovery controls in one focused workspace.
+      </p>
+      <div class="pp-owner-hero__actions">
+        <button id="evaluateBtn" class="pp-btn pp-btn--primary" type="button">Run health check</button>
+        <button id="refreshBtn" class="pp-btn pp-btn--secondary" type="button">Refresh</button>
+      </div>
+    </div>
+    <div class="pp-owner-hero__summary">
+      <span>Platform posture</span>
+      <strong id="postureScore">—</strong>
+      <small id="postureLabel">Checking signals…</small>
+    </div>
+  </section>
+
+  <section id="opsKpis" class="pp-owner-metrics" aria-label="Operations summary"></section>
+
+  <section id="operations" class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Tenant operations</h2>
+        <p class="pp-mini">School-level health, quota pressure and subscription risk. Internal tenant identifiers are intentionally hidden.</p>
+      </div>
+      <button id="refreshOpsBtn" class="pp-btn pp-btn--ghost" type="button">Recalculate health</button>
+    </div>
+    <div class="pp-table-wrap">
+      <table class="pp-table">
+        <thead><tr><th>School</th><th>Plan</th><th>Health</th><th>Alerts</th><th>Quota</th></tr></thead>
+        <tbody id="tenantRows"><tr><td colspan="5" class="pp-empty">Loading tenant health…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="runtime" class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Runtime & incidents</h2>
+        <p class="pp-mini">Current application availability and active incident posture.</p>
+      </div>
+    </div>
+    <div id="runtimeCards" class="pp-owner-metrics pp-section__body"></div>
+    <div class="pp-table-wrap">
+      <table class="pp-table">
+        <thead><tr><th>Incident</th><th>Severity</th><th>Status</th><th>Message</th><th>Action</th></tr></thead>
+        <tbody id="incidentRows"><tr><td colspan="5" class="pp-empty">Loading incidents…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="security" class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Security center</h2>
+        <p class="pp-mini">Privacy-preserving telemetry only. Raw tokens, IP addresses, user IDs and tenant IDs are not displayed.</p>
+      </div>
+    </div>
+    <div id="securityKpis" class="pp-owner-metrics pp-section__body"></div>
+    <div class="pp-table-wrap">
+      <table class="pp-table">
+        <thead><tr><th>Alert</th><th>Severity</th><th>Context</th><th>Occurrences</th><th>Last seen</th><th>Actions</th></tr></thead>
+        <tbody id="securityRows"><tr><td colspan="6" class="pp-empty">Loading security alerts…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="recovery" class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Backup & disaster recovery</h2>
+        <p class="pp-mini">Platform-owner protection controls. Stronger Google Cloud protection profiles may add infrastructure cost.</p>
+      </div>
+    </div>
+    <div class="pp-section__body">
+      <div id="drSummary" class="pp-owner-metrics"></div>
+      <div id="drMessage" class="pp-callout mt-4 hidden"></div>
+      <div class="pp-dialog-section">
+        <h3 class="pp-dialog-section__title">Protection profiles</h3>
+        <div class="pp-owner-workspaces">
+          <button id="freeBtn" class="pp-owner-workspace" type="button">
+            <span class="pp-owner-workspace__icon">F</span>
+            <div><h2>Free safeguards</h2><p>Delete protection only. Lowest-cost safety baseline.</p></div>
+            <span class="pp-owner-workspace__status">Owner action</span>
+          </button>
+          <button id="startupBtn" class="pp-owner-workspace" type="button">
+            <span class="pp-owner-workspace__icon">S</span>
+            <div><h2>Startup backup</h2><p>Delete protection plus daily backups for early production.</p></div>
+            <span class="pp-owner-workspace__status">Recommended baseline</span>
+          </button>
+          <button id="growthBtn" class="pp-owner-workspace" type="button">
+            <span class="pp-owner-workspace__icon">G</span>
+            <div><h2>Growth protection</h2><p>Daily and weekly backups plus point-in-time recovery.</p></div>
+            <span class="pp-owner-workspace__status">Higher protection</span>
+          </button>
+        </div>
+      </div>
+      <p class="pp-mini mt-4">Pickup and QR availability remain independent from backup configuration. Recovery controls protect stored data rather than authorizing a student release.</p>
+    </div>
+  </section>
 </main>
+
 <script type="module">
-import{showToast}from'../shared/firebase-init.js';import{apiJson,requireRole,bindRefresh,escapeHtml,statusPill,fmtDate,titleCase,confirmAction}from'../shared/portal.js';let ops={},security={},observability={},dr={};
-const kpi=(label,value)=>`<div class="pp-kpi"><div class="pp-kpi__label">${escapeHtml(label)}</div><div class="pp-kpi__value">${escapeHtml(value??'—')}</div></div>`;
-async function load(){[ops,security,observability,dr]=await Promise.all([apiJson('/master-admin/operations/overview'),apiJson('/master-admin/security/overview?limit=100'),apiJson('/master-admin/observability/overview'),apiJson('/master-admin/disaster-recovery/overview')]);render();}
-function render(){const m=ops.metrics||{};opsKpis.innerHTML=kpi('Schools',m.totalSchools)+kpi('Healthy',m.healthySchools)+kpi('Attention',m.attentionNeededSchools)+kpi('Billing risk',m.billingRiskSchools)+kpi('Over quota',m.overQuotaSchools)+kpi('Pending GCash',m.pendingGcashReviews);tenantRows.innerHTML=(ops.tenants||[]).map(t=>`<tr><td><strong>${escapeHtml(t.schoolName)}</strong><div class="pp-mini">${escapeHtml(t.schoolId)}</div></td><td>${escapeHtml(titleCase(t.plan))}<div class="pp-mini">${escapeHtml(titleCase(t.subscriptionStatus))}</div></td><td>${statusPill(t.healthState)}</td><td>${t.activeAlertCount??0}<div class="pp-mini">Critical ${t.criticalAlertCount??0} · Warning ${t.warningAlertCount??0}</div></td><td>${Number(t.maxQuotaPercent||0).toFixed(0)}%</td></tr>`).join('')||'<tr><td colspan="5" class="pp-empty">No tenant health rows.</td></tr>';const sm=security.metrics||{};securityKpis.innerHTML=kpi('Active alerts',sm.activeAlerts)+kpi('Critical',sm.critical)+kpi('High',sm.high)+kpi('Acknowledged',sm.acknowledged);securityRows.innerHTML=(security.alerts||[]).map(a=>`<tr><td><strong>${escapeHtml(a.title||a.type)}</strong><div class="pp-mini">${escapeHtml(a.message||'')}</div></td><td>${statusPill(a.severity)}</td><td><span class="pp-code">${escapeHtml(a.uid||'—')}</span><div class="pp-mini">${escapeHtml(a.schoolId||a.role||'')}</div></td><td>${a.occurrences??1}</td><td>${fmtDate(a.lastSeenAt)}</td><td><div class="pp-actions"><button class="pp-btn pp-btn--ghost alertStatus" data-id="${escapeHtml(a.id)}" data-status="acknowledged">Acknowledge</button><button class="pp-btn pp-btn--ghost alertStatus" data-id="${escapeHtml(a.id)}" data-status="resolved">Resolve</button>${a.uid?`<button class="pp-btn pp-btn--ghost revokeSessions" data-uid="${escapeHtml(a.uid)}">Revoke sessions</button>`:''}</div></td></tr>`).join('')||'<tr><td colspan="6" class="pp-empty">No active security alerts.</td></tr>';const rt=observability.runtime||{},http=observability.http||{},mem=observability.memory||{},fs=observability.firestore||{};runtimeCards.innerHTML=kpi('Backend uptime',rt.uptimeText||rt.uptimeSeconds||'—')+kpi('Requests (window)',http.totalRequests??http.requests??0)+kpi('5xx rate',`${Number(http.serverErrorRatePercent||0).toFixed(1)}%`)+kpi('Memory',`${Number(mem.usedPercent||mem.usagePercent||0).toFixed(1)}%`)+kpi('Firestore',fs.reachable===false?'Degraded':'Reachable');incidentRows.innerHTML=(observability.incidents||[]).map(i=>`<tr><td><strong>${escapeHtml(i.title||i.type)}</strong></td><td>${statusPill(i.severity)}</td><td>${statusPill(i.status)}</td><td>${escapeHtml(i.message||'')}</td><td>${String(i.id||'').startsWith('runtime-')?'<span class="pp-mini">Runtime-only</span>':`<div class="pp-actions"><button class="pp-btn pp-btn--ghost incidentStatus" data-id="${escapeHtml(i.id)}" data-status="acknowledged">Acknowledge</button><button class="pp-btn pp-btn--ghost incidentStatus" data-id="${escapeHtml(i.id)}" data-status="resolved">Resolve</button></div>`}</td></tr>`).join('')||'<tr><td colspan="5" class="pp-empty">No active platform incidents.</td></tr>';drSummary.innerHTML=kpi('Integration',dr.enabled?'Enabled':'Disabled')+kpi('Profile',dr.activeProfile||dr.defaultProfile||'startup')+kpi('Protection health',dr.protectionHealthy?'Healthy':(dr.enabled?'Attention':'Not enabled'))+kpi('Delete protection',dr.deleteProtectionEnabled?'On':'Off')+kpi('PITR',dr.pitrEnabled?'On':'Off')+kpi('Latest backup age',dr.latestBackupAgeHours>=0?`${dr.latestBackupAgeHours}h`:'—');drResult.textContent=dr.message||'';bindActions();}
-function bindActions(){document.querySelectorAll('.alertStatus').forEach(b=>b.onclick=async()=>{const note=prompt(`Optional note for ${b.dataset.status}:`,'')||'';try{await apiJson(`/master-admin/security/alerts/${encodeURIComponent(b.dataset.id)}/status`,{method:'POST',body:JSON.stringify({status:b.dataset.status,note})});showToast('Security alert updated.');await load();}catch(e){showToast(e.message,'error')}});document.querySelectorAll('.revokeSessions').forEach(b=>b.onclick=async()=>{const reason=prompt('Reason for revoking all sessions (minimum 5 characters):','Security review');if(!reason)return;try{await apiJson(`/master-admin/security/users/${encodeURIComponent(b.dataset.uid)}/revoke-sessions`,{method:'POST',body:JSON.stringify({reason})});showToast('Sessions revoked.');}catch(e){showToast(e.message,'error')}});document.querySelectorAll('.incidentStatus').forEach(b=>b.onclick=async()=>{const note=prompt(`Optional note for ${b.dataset.status}:`,'')||'';try{await apiJson(`/master-admin/observability/incidents/${encodeURIComponent(b.dataset.id)}/status`,{method:'POST',body:JSON.stringify({status:b.dataset.status,note})});showToast('Incident updated.');await load();}catch(e){showToast(e.message,'error')}});}
-refreshOpsBtn.onclick=async()=>{try{await apiJson('/master-admin/operations/refresh',{method:'POST'});showToast('Tenant health refreshed.');await load();}catch(e){showToast(e.message,'error')}};evaluateBtn.onclick=async()=>{try{await apiJson('/master-admin/observability/evaluate',{method:'POST'});showToast('Platform evaluation complete.');await load();}catch(e){showToast(e.message,'error')}};
-async function applyProtection(path,phrase,label){if(!confirmAction(`${label} changes Firestore protection configuration. Continue?`))return;const typed=prompt(`Type exactly: ${phrase}`,'');if(typed!==phrase){showToast('Confirmation text did not match.','error');return;}try{const r=await apiJson(path,{method:'POST',body:JSON.stringify({confirmationText:typed})});drResult.textContent=JSON.stringify(r,null,2);showToast(`${label} requested.`);await load();}catch(e){showToast(e.message,'error')}}freeBtn.onclick=()=>applyProtection('/master-admin/disaster-recovery/protection/free','ENABLE FREE SAFEGUARDS','Free safeguards');startupBtn.onclick=()=>applyProtection('/master-admin/disaster-recovery/protection/startup','ENABLE STARTUP BACKUP','Startup backup');growthBtn.onclick=()=>applyProtection('/master-admin/disaster-recovery/protection/recommended','ENABLE BACKUP PROTECTION','Growth protection');bindRefresh('refreshBtn',load);requireRole('master_admin',load);
-</script></body></html>
+import { showToast } from '../shared/firebase-init.js';
+import {
+  apiJson,
+  requireRole,
+  bindRefresh,
+  escapeHtml,
+  statusPill,
+  fmtDate,
+  titleCase
+} from '../shared/portal.js';
+import { confirmDialog, promptDialog, fieldsDialog } from '../shared/dialogs.js';
+
+let ops = {};
+let security = {};
+let observability = {};
+let dr = {};
+
+function metric(label, value, hint = '') {
+  return `
+    <article class="pp-owner-metric">
+      <span class="pp-owner-metric__label">${escapeHtml(label)}</span>
+      <strong class="pp-owner-metric__value">${escapeHtml(value ?? '—')}</strong>
+      ${hint ? `<span class="pp-owner-metric__hint">${escapeHtml(hint)}</span>` : ''}
+    </article>
+  `;
+}
+
+function contextLabel(alert) {
+  const role = titleCase(alert.role || 'Account');
+  const school = alert.schoolName || alert.tenantName || '';
+  if (school) return `${role} · ${school}`;
+  return role;
+}
+
+async function load() {
+  [ops, security, observability, dr] = await Promise.all([
+    apiJson('/master-admin/operations/overview'),
+    apiJson('/master-admin/security/overview?limit=100'),
+    apiJson('/master-admin/observability/overview'),
+    apiJson('/master-admin/disaster-recovery/overview')
+  ]);
+  render();
+}
+
+function render() {
+  const m = ops.metrics || {};
+  const sm = security.metrics || {};
+  const rt = observability.runtime || {};
+  const http = observability.http || {};
+  const mem = observability.memory || {};
+  const fs = observability.firestore || {};
+  const incidents = observability.incidents || [];
+
+  const attention = Number(m.attentionNeededSchools || 0);
+  const activeAlerts = Number(sm.activeAlerts || 0);
+  const errorRate = Number(http.serverErrorRatePercent || http.errorRate5xxPercent || 0);
+  const critical = Number(sm.critical || 0) + Number(sm.high || 0);
+  const healthySignals = [attention === 0, activeAlerts === 0, incidents.length === 0, errorRate === 0, fs.reachable !== false];
+  const score = Math.round((healthySignals.filter(Boolean).length / healthySignals.length) * 100);
+
+  document.getElementById('postureScore').textContent = `${score}%`;
+  document.getElementById('postureLabel').textContent = score === 100 ? 'No active owner signals' : 'Review highlighted signals';
+  document.getElementById('opsHeadline').textContent = score === 100 ? 'Platform operations are healthy' : 'Platform operations need review';
+  document.getElementById('opsSummary').textContent = score === 100
+    ? 'Tenant health, security, runtime and Firestore reachability are within the current expected range.'
+    : 'Use the workspaces below to investigate tenant, security, runtime or recovery signals without exposing sensitive identifiers.';
+
+  document.getElementById('opsKpis').innerHTML =
+    metric('Healthy schools', m.healthySchools ?? 0, `${m.totalSchools ?? 0} total`) +
+    metric('Need attention', attention, 'Tenant operations') +
+    metric('Security alerts', activeAlerts, critical ? `${critical} high/critical` : 'No high-severity signal') +
+    metric('HTTP 5xx', `${Number.isFinite(errorRate) ? errorRate.toFixed(1) : '0.0'}%`, 'Current request window');
+
+  document.getElementById('tenantRows').innerHTML = (ops.tenants || []).map(t => `
+    <tr>
+      <td><strong>${escapeHtml(t.schoolName || 'School')}</strong></td>
+      <td>${escapeHtml(titleCase(t.plan || 'legacy'))}<div class="pp-mini">${escapeHtml(titleCase(t.subscriptionStatus || 'active'))}</div></td>
+      <td>${statusPill(t.healthState || 'unknown')}</td>
+      <td>${t.activeAlertCount ?? 0}<div class="pp-mini">Critical ${t.criticalAlertCount ?? 0} · Warning ${t.warningAlertCount ?? 0}</div></td>
+      <td>${Number(t.maxQuotaPercent || 0).toFixed(0)}%</td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" class="pp-empty">No tenant health rows.</td></tr>';
+
+  document.getElementById('runtimeCards').innerHTML =
+    metric('Backend uptime', rt.uptimeText || rt.uptimeSeconds || '—', 'Current process') +
+    metric('Requests', http.totalRequests ?? http.requests ?? 0, 'Observability window') +
+    metric('Memory used', `${Number(mem.usedPercent || mem.usagePercent || 0).toFixed(1)}%`, 'Backend runtime') +
+    metric('Firestore', fs.reachable === false ? 'Degraded' : 'Reachable', 'Data service');
+
+  document.getElementById('incidentRows').innerHTML = incidents.map(i => `
+    <tr>
+      <td><strong>${escapeHtml(i.title || titleCase(i.type) || 'Platform incident')}</strong></td>
+      <td>${statusPill(i.severity || 'unknown')}</td>
+      <td>${statusPill(i.status || 'active')}</td>
+      <td>${escapeHtml(i.message || 'No additional incident detail.')}</td>
+      <td>${String(i.id || '').startsWith('runtime-')
+        ? '<span class="pp-mini">Runtime-only signal</span>'
+        : `<div class="pp-actions"><button class="pp-btn pp-btn--ghost incidentStatus" type="button" data-id="${escapeHtml(i.id)}" data-status="acknowledged">Acknowledge</button><button class="pp-btn pp-btn--ghost incidentStatus" type="button" data-id="${escapeHtml(i.id)}" data-status="resolved">Resolve</button></div>`}
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" class="pp-empty">No active platform incidents.</td></tr>';
+
+  document.getElementById('securityKpis').innerHTML =
+    metric('Active alerts', sm.activeAlerts ?? 0, 'Security posture') +
+    metric('High severity', Number(sm.critical || 0) + Number(sm.high || 0), 'High + critical') +
+    metric('Medium', sm.medium ?? 0, 'Review queue') +
+    metric('Acknowledged', sm.acknowledged ?? 0, 'Already triaged');
+
+  document.getElementById('securityRows').innerHTML = (security.alerts || []).map(a => `
+    <tr>
+      <td><strong>${escapeHtml(a.title || titleCase(a.type) || 'Security alert')}</strong><div class="pp-mini">${escapeHtml(a.message || '')}</div></td>
+      <td>${statusPill(a.severity || 'unknown')}</td>
+      <td>${escapeHtml(contextLabel(a))}</td>
+      <td>${a.occurrences ?? 1}</td>
+      <td>${fmtDate(a.lastSeenAt)}</td>
+      <td><div class="pp-actions">
+        <button class="pp-btn pp-btn--ghost alertStatus" type="button" data-id="${escapeHtml(a.id)}" data-status="acknowledged">Acknowledge</button>
+        <button class="pp-btn pp-btn--ghost alertStatus" type="button" data-id="${escapeHtml(a.id)}" data-status="resolved">Resolve</button>
+        ${a.uid ? `<button class="pp-btn pp-btn--ghost revokeSessions" type="button" data-uid="${escapeHtml(a.uid)}" data-context="${escapeHtml(contextLabel(a))}">Revoke sessions</button>` : ''}
+      </div></td>
+    </tr>
+  `).join('') || '<tr><td colspan="6" class="pp-empty">No active security alerts.</td></tr>';
+
+  const latestBackup = Number(dr.latestBackupAgeHours);
+  document.getElementById('drSummary').innerHTML =
+    metric('Integration', dr.enabled ? 'Enabled' : 'Disabled', 'Recovery control') +
+    metric('Profile', titleCase(dr.activeProfile || dr.defaultProfile || 'startup'), 'Protection level') +
+    metric('Delete protection', dr.deleteProtectionEnabled ? 'On' : 'Off', 'Database safeguard') +
+    metric('PITR', dr.pitrEnabled ? 'On' : 'Off', latestBackup >= 0 ? `Latest backup ${latestBackup}h ago` : 'Point-in-time recovery');
+
+  const drMessage = document.getElementById('drMessage');
+  drMessage.textContent = dr.message || '';
+  drMessage.classList.toggle('hidden', !dr.message);
+  bindActions();
+}
+
+function bindActions() {
+  document.querySelectorAll('.alertStatus').forEach(button => {
+    button.onclick = async () => {
+      const note = await promptDialog({
+        title: button.dataset.status === 'resolved' ? 'Resolve security alert' : 'Acknowledge security alert',
+        message: 'Add an optional review note for the privileged action history.',
+        label: 'Review note',
+        multiline: true,
+        required: false,
+        confirmLabel: button.dataset.status === 'resolved' ? 'Resolve' : 'Acknowledge'
+      });
+      if (note === null) return;
+
+      try {
+        await apiJson(`/master-admin/security/alerts/${encodeURIComponent(button.dataset.id)}/status`, {
+          method: 'POST',
+          body: JSON.stringify({ status: button.dataset.status, note })
+        });
+        showToast('Security alert updated.');
+        await load();
+      } catch (error) {
+        showToast(error.message, 'error');
+      }
+    };
+  });
+
+  document.querySelectorAll('.revokeSessions').forEach(button => {
+    button.onclick = async () => {
+      const reason = await promptDialog({
+        title: 'Revoke account sessions',
+        message: `Sign out all active sessions for ${button.dataset.context || 'this account'}. Use this only for a security response or deliberate administrator action.`,
+        label: 'Reason',
+        value: 'Security review',
+        required: true,
+        minLength: 5,
+        multiline: true,
+        danger: true,
+        confirmLabel: 'Revoke sessions'
+      });
+      if (reason === null) return;
+
+      try {
+        await apiJson(`/master-admin/security/users/${encodeURIComponent(button.dataset.uid)}/revoke-sessions`, {
+          method: 'POST',
+          body: JSON.stringify({ reason })
+        });
+        showToast('Account sessions revoked.');
+      } catch (error) {
+        showToast(error.message, 'error');
+      }
+    };
+  });
+
+  document.querySelectorAll('.incidentStatus').forEach(button => {
+    button.onclick = async () => {
+      const note = await promptDialog({
+        title: button.dataset.status === 'resolved' ? 'Resolve incident' : 'Acknowledge incident',
+        message: 'Add an optional incident note for the operational history.',
+        label: 'Incident note',
+        multiline: true,
+        required: false,
+        confirmLabel: button.dataset.status === 'resolved' ? 'Resolve' : 'Acknowledge'
+      });
+      if (note === null) return;
+
+      try {
+        await apiJson(`/master-admin/observability/incidents/${encodeURIComponent(button.dataset.id)}/status`, {
+          method: 'POST',
+          body: JSON.stringify({ status: button.dataset.status, note })
+        });
+        showToast('Incident updated.');
+        await load();
+      } catch (error) {
+        showToast(error.message, 'error');
+      }
+    };
+  });
+}
+
+async function applyProtection(path, phrase, label) {
+  const values = await fieldsDialog({
+    title: label,
+    message: `This changes Firestore protection configuration and may affect Google Cloud cost. Type the exact confirmation phrase to continue: ${phrase}`,
+    confirmLabel: `Apply ${label}`,
+    fields: [{
+      name: 'confirmationText',
+      label: 'Confirmation phrase',
+      required: true,
+      placeholder: phrase
+    }]
+  });
+  if (!values) return;
+
+  if (values.confirmationText !== phrase) {
+    showToast('Confirmation text did not match the required phrase.', 'error');
+    return;
+  }
+
+  const ok = await confirmDialog(
+    `Apply ${label} to Firestore protection now?`,
+    { title: 'Final recovery confirmation', confirmLabel: 'Apply protection' }
+  );
+  if (!ok) return;
+
+  try {
+    await apiJson(path, {
+      method: 'POST',
+      body: JSON.stringify({ confirmationText: values.confirmationText })
+    });
+    showToast(`${label} requested.`);
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+}
+
+document.getElementById('refreshOpsBtn').onclick = async () => {
+  try {
+    await apiJson('/master-admin/operations/refresh', { method: 'POST' });
+    showToast('Tenant health recalculated.');
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+};
+
+document.getElementById('evaluateBtn').onclick = async () => {
+  try {
+    await apiJson('/master-admin/observability/evaluate', { method: 'POST' });
+    showToast('Platform health check complete.');
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+};
+
+document.getElementById('freeBtn').onclick = () => applyProtection(
+  '/master-admin/disaster-recovery/protection/free',
+  'ENABLE FREE SAFEGUARDS',
+  'Free safeguards'
+);
+document.getElementById('startupBtn').onclick = () => applyProtection(
+  '/master-admin/disaster-recovery/protection/startup',
+  'ENABLE STARTUP BACKUP',
+  'Startup backup'
+);
+document.getElementById('growthBtn').onclick = () => applyProtection(
+  '/master-admin/disaster-recovery/protection/recommended',
+  'ENABLE BACKUP PROTECTION',
+  'Growth protection'
+);
+
+bindRefresh('refreshBtn', load);
+requireRole('master_admin', load);
+</script>
+</body>
+</html>

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Platform Control Center — PickupPass</title>
-<meta name="theme-color" content="#047857">
+<title>Platform Overview — PickupPass</title>
+<meta name="theme-color" content="#4652C7">
 <link rel="stylesheet" href="../shared/theme.css">
 <link rel="stylesheet" href="../shared/components.css">
 <link rel="stylesheet" href="../shared/portal.css">
@@ -17,119 +17,97 @@
 <script type="module" src="../shared/master-admin-nav.js"></script>
 
 <main class="pp-page pp-master-control">
-  <section class="pp-master-hero">
+  <section class="pp-owner-hero">
     <div>
-      <p class="pp-master-hero__eyebrow">Platform owner</p>
-      <h1>PickupPass Control Center</h1>
-      <p>
-        Start with platform health. Open tenant, billing, security or recovery
-        actions only when something needs attention.
+      <p class="pp-owner-hero__eyebrow">Platform owner · live posture</p>
+      <h1 id="platformHeadline">Checking platform health…</h1>
+      <p id="platformSummary" class="pp-owner-hero__copy">
+        Loading tenant operations, security and runtime signals.
       </p>
     </div>
 
-    <div class="pp-master-school-count">
+    <div class="pp-owner-hero__summary" aria-label="School portfolio summary">
+      <span>Active schools</span>
       <strong id="activeSchools">—</strong>
-      <span>
-        active schools ·
-        <span id="totalSchools">—</span> total
-      </span>
+      <small>of <span id="totalSchools">—</span> total tenants</small>
     </div>
   </section>
 
-  <section class="pp-master-metrics" aria-label="Platform health">
-    <article class="pp-master-metric">
-      <span>Needs attention</span>
-      <strong id="attentionSchools">—</strong>
+  <section class="pp-owner-metrics" aria-label="Platform pulse">
+    <article class="pp-owner-metric">
+      <span class="pp-owner-metric__label">Need attention</span>
+      <strong id="attentionSchools" class="pp-owner-metric__value">—</strong>
+      <span class="pp-owner-metric__hint">Tenant health signals</span>
     </article>
-
-    <article class="pp-master-metric">
-      <span>Security alerts</span>
-      <strong id="securityAlerts">—</strong>
+    <article class="pp-owner-metric">
+      <span class="pp-owner-metric__label">Security alerts</span>
+      <strong id="securityAlerts" class="pp-owner-metric__value">—</strong>
+      <span class="pp-owner-metric__hint">Active platform alerts</span>
     </article>
-
-    <article class="pp-master-metric">
-      <span>Billing risk</span>
-      <strong id="billingRisk">—</strong>
+    <article class="pp-owner-metric">
+      <span class="pp-owner-metric__label">Billing risk</span>
+      <strong id="billingRisk" class="pp-owner-metric__value">—</strong>
+      <span class="pp-owner-metric__hint">Schools requiring review</span>
     </article>
-
-    <article class="pp-master-metric">
-      <span>5xx rate</span>
-      <strong id="errorRate">—</strong>
+    <article class="pp-owner-metric">
+      <span class="pp-owner-metric__label">HTTP 5xx</span>
+      <strong id="errorRate" class="pp-owner-metric__value">—</strong>
+      <span class="pp-owner-metric__hint">Current observability window</span>
     </article>
   </section>
 
-  <section
-    id="healthyPanel"
-    class="pp-master-healthy hidden"
-    aria-live="polite">
-    No current platform alerts require immediate review.
+  <section id="healthyPanel" class="pp-owner-priority pp-owner-priority--healthy hidden" aria-live="polite">
+    <div class="pp-owner-priority__icon" aria-hidden="true">✓</div>
+    <div>
+      <strong>Platform is operating normally</strong>
+      <p>No current operations, billing, security or runtime signal requires immediate owner review.</p>
+    </div>
   </section>
 
-  <section
-    id="attentionPanel"
-    class="pp-master-attention hidden"
-    aria-live="polite">
-    <div class="pp-master-attention__head">
-      <h2>Attention queue</h2>
+  <section id="attentionPanel" class="pp-owner-priority pp-owner-priority--attention hidden" aria-live="polite">
+    <div class="pp-owner-priority__icon" aria-hidden="true">!</div>
+    <div>
+      <strong>Priority review</strong>
+      <p>These signals deserve attention before lower-priority administration work.</p>
     </div>
     <ul id="attentionList"></ul>
   </section>
 
-  <section class="pp-master-grid" aria-label="Platform control areas">
-    <a class="pp-master-area" href="./index.html">
+  <section class="pp-owner-workspaces" aria-label="Platform workspaces">
+    <a class="pp-owner-workspace" href="./index.html">
+      <span class="pp-owner-workspace__icon" aria-hidden="true">S</span>
       <div>
-        <span class="pp-master-area__icon" aria-hidden="true">S</span>
         <h2>Schools</h2>
-        <p>
-          Create and manage tenants, plans, feature overrides, launch approval
-          and tenant export controls.
-        </p>
+        <p>Tenant lifecycle, subscription controls, launch readiness, administrators and export permissions.</p>
       </div>
-      <div id="schoolDetail" class="pp-master-area__detail">
-        Open school management
-      </div>
+      <span id="schoolDetail" class="pp-owner-workspace__status">Open portfolio</span>
     </a>
 
-    <a class="pp-master-area" href="./billing.html">
+    <a class="pp-owner-workspace" href="./billing.html">
+      <span class="pp-owner-workspace__icon" aria-hidden="true">₱</span>
       <div>
-        <span class="pp-master-area__icon" aria-hidden="true">₱</span>
         <h2>Billing</h2>
-        <p>
-          Invoices, billing profiles, manual GCash claims, receipts and overdue
-          reconciliation.
-        </p>
+        <p>Invoices, billing profiles, manual GCash reviews, receipts and overdue reconciliation.</p>
       </div>
-      <div id="billingDetail" class="pp-master-area__detail">
-        Open billing operations
-      </div>
+      <span id="billingDetail" class="pp-owner-workspace__status">Open billing</span>
     </a>
 
-    <a class="pp-master-area" href="./operations.html">
+    <a class="pp-owner-workspace" href="./operations.html#operations">
+      <span class="pp-owner-workspace__icon" aria-hidden="true">O</span>
       <div>
-        <span class="pp-master-area__icon" aria-hidden="true">O</span>
         <h2>Operations</h2>
-        <p>
-          Tenant health, quota pressure, runtime incidents and platform
-          observability.
-        </p>
+        <p>Tenant health, quota pressure, runtime availability, incidents and observability.</p>
       </div>
-      <div id="operationsDetail" class="pp-master-area__detail">
-        Open operations
-      </div>
+      <span id="operationsDetail" class="pp-owner-workspace__status">Open operations</span>
     </a>
 
-    <a class="pp-master-area" href="./operations.html">
+    <a class="pp-owner-workspace" href="./operations.html#security">
+      <span class="pp-owner-workspace__icon" aria-hidden="true">✓</span>
       <div>
-        <span class="pp-master-area__icon" aria-hidden="true">✓</span>
         <h2>Security & recovery</h2>
-        <p>
-          Security alerts, session revocation, incident handling and Firestore
-          protection controls.
-        </p>
+        <p>Security alerts, session revocation, incident actions and disaster-recovery protection.</p>
       </div>
-      <div id="securityDetail" class="pp-master-area__detail">
-        Open security center
-      </div>
+      <span id="securityDetail" class="pp-owner-workspace__status">Open security</span>
     </a>
   </section>
 
@@ -137,14 +115,9 @@
     <div class="pp-section__head">
       <div>
         <h2>Tenant health snapshot</h2>
-        <p class="pp-mini">
-          Highest-risk tenants are surfaced first. Detailed actions stay on the
-          dedicated Operations page.
-        </p>
+        <p class="pp-mini">Highest-risk schools are surfaced first. Internal database identifiers stay out of the normal owner interface.</p>
       </div>
-      <button id="refreshBtn" class="pp-btn pp-btn--ghost">
-        Refresh
-      </button>
+      <button id="refreshBtn" class="pp-btn pp-btn--ghost" type="button">Refresh</button>
     </div>
 
     <div class="pp-table-wrap">
@@ -159,9 +132,7 @@
           </tr>
         </thead>
         <tbody id="tenantRows">
-          <tr>
-            <td colspan="5" class="pp-empty">Loading…</td>
-          </tr>
+          <tr><td colspan="5" class="pp-empty">Loading platform health…</td></tr>
         </tbody>
       </table>
     </div>
@@ -179,6 +150,8 @@ import {
 } from '../shared/portal.js';
 
 const ui = {
+  headline: document.getElementById('platformHeadline'),
+  summary: document.getElementById('platformSummary'),
   activeSchools: document.getElementById('activeSchools'),
   totalSchools: document.getElementById('totalSchools'),
   attentionSchools: document.getElementById('attentionSchools'),
@@ -208,216 +181,102 @@ async function load() {
     apiJson('/master-admin/observability/overview')
   ]);
 
-  schools =
-    results[0].status === 'fulfilled'
-      ? results[0].value
-      : null;
-
-  operations =
-    results[1].status === 'fulfilled'
-      ? results[1].value
-      : null;
-
-  security =
-    results[2].status === 'fulfilled'
-      ? results[2].value
-      : null;
-
-  observability =
-    results[3].status === 'fulfilled'
-      ? results[3].value
-      : null;
-
+  schools = results[0].status === 'fulfilled' ? results[0].value : null;
+  operations = results[1].status === 'fulfilled' ? results[1].value : null;
+  security = results[2].status === 'fulfilled' ? results[2].value : null;
+  observability = results[3].status === 'fulfilled' ? results[3].value : null;
   render();
 }
 
 function render() {
-  const schoolTotal =
-    schools?.totalSchools ??
-    schools?.schools?.length ??
-    0;
-
-  const schoolActive =
-    schools?.activeSchools ??
-    schools?.schools?.filter(
-      school => school.status === 'active'
-    ).length ??
-    0;
-
+  const schoolTotal = schools?.totalSchools ?? schools?.schools?.length ?? 0;
+  const schoolActive = schools?.activeSchools ?? schools?.schools?.filter(school => school.status === 'active').length ?? 0;
   const ops = operations?.metrics || {};
   const sec = security?.metrics || {};
   const http = observability?.http || {};
 
+  const serverErrorRate = Number(http.serverErrorRatePercent ?? http.errorRate5xxPercent ?? 0);
+  const normalizedErrorRate = Number.isFinite(serverErrorRate) ? serverErrorRate : 0;
+  const attentionCount = Number(ops.attentionNeededSchools || 0);
+  const securityCount = Number(sec.activeAlerts || 0);
+  const incidentCount = Number(observability?.incidents?.length || 0);
+  const signalCount = attentionCount + securityCount + incidentCount + (normalizedErrorRate > 0 ? 1 : 0);
+
+  ui.headline.textContent = signalCount === 0
+    ? 'Platform is operating normally'
+    : `${signalCount} platform signal${signalCount === 1 ? '' : 's'} need review`;
+  ui.summary.textContent = signalCount === 0
+    ? 'Tenant operations, billing, security and runtime health are within the current expected range.'
+    : 'Priority signals are summarized below. Open the relevant workspace to investigate and take audited action.';
+
   ui.activeSchools.textContent = schoolActive;
   ui.totalSchools.textContent = schoolTotal;
-  ui.attentionSchools.textContent =
-    ops.attentionNeededSchools ?? '—';
-  ui.securityAlerts.textContent =
-    sec.activeAlerts ?? '—';
-  ui.billingRisk.textContent =
-    ops.billingRiskSchools ?? '—';
+  ui.attentionSchools.textContent = ops.attentionNeededSchools ?? '—';
+  ui.securityAlerts.textContent = sec.activeAlerts ?? '—';
+  ui.billingRisk.textContent = ops.billingRiskSchools ?? '—';
+  ui.errorRate.textContent = `${normalizedErrorRate.toFixed(1)}%`;
 
-  const serverErrorRate =
-    Number(
-      http.serverErrorRatePercent ??
-      http.errorRate5xxPercent ??
-      0
-    );
+  ui.schoolDetail.textContent = `${schoolActive}/${schoolTotal} active`;
+  ui.billingDetail.textContent = `${ops.pendingGcashReviews ?? 0} GCash · ${ops.overdueInvoices ?? 0} overdue`;
+  ui.operationsDetail.textContent = attentionCount === 0 ? 'Healthy' : `${attentionCount} need review`;
+  ui.securityDetail.textContent = securityCount === 0 && incidentCount === 0
+    ? 'No active alerts'
+    : `${securityCount} alerts · ${incidentCount} incidents`;
 
-  ui.errorRate.textContent =
-    Number.isFinite(serverErrorRate)
-      ? `${serverErrorRate.toFixed(1)}%`
-      : '—';
-
-  ui.schoolDetail.textContent =
-    `${schoolActive} active · ` +
-    `${schools?.suspendedSchools ?? 0} suspended`;
-
-  ui.billingDetail.textContent =
-    `${ops.pendingGcashReviews ?? 0} pending GCash · ` +
-    `${ops.overdueInvoices ?? 0} overdue`;
-
-  ui.operationsDetail.textContent =
-    `${ops.attentionNeededSchools ?? 0} attention · ` +
-    `${ops.overQuotaSchools ?? 0} over quota`;
-
-  ui.securityDetail.textContent =
-    `${sec.activeAlerts ?? 0} active alerts · ` +
-    `${observability?.incidents?.length ?? 0} incidents`;
-
-  renderAttention(
-    ops,
-    sec,
-    observability
-  );
-
-  renderTenantRows(
-    operations?.tenants || []
-  );
+  renderAttention(ops, sec, observability, normalizedErrorRate);
+  renderTenantRows(operations?.tenants || []);
 }
 
-function renderAttention(
-  ops,
-  sec,
-  observabilityData
-) {
+function renderAttention(ops, sec, observabilityData, serverErrorRate) {
   const items = [];
 
   if ((ops.billingRiskSchools || 0) > 0) {
-    items.push(
-      `${ops.billingRiskSchools} school(s) have billing risk.`
-    );
+    items.push(`${ops.billingRiskSchools} school(s) have billing risk.`);
   }
-
   if ((ops.overQuotaSchools || 0) > 0) {
-    items.push(
-      `${ops.overQuotaSchools} school(s) are over quota.`
-    );
+    items.push(`${ops.overQuotaSchools} school(s) are over quota.`);
   }
-
   if ((ops.pendingGcashReviews || 0) > 0) {
-    items.push(
-      `${ops.pendingGcashReviews} manual GCash claim(s) await review.`
-    );
+    items.push(`${ops.pendingGcashReviews} manual GCash claim(s) await review.`);
   }
-
   if ((sec.high || 0) > 0 || (sec.critical || 0) > 0) {
-    items.push(
-      `${(sec.critical || 0) + (sec.high || 0)} high/critical security alert(s) require review.`
-    );
+    items.push(`${(sec.critical || 0) + (sec.high || 0)} high/critical security alert(s) require review.`);
+  }
+  if ((observabilityData?.incidents || []).length > 0) {
+    items.push(`${observabilityData.incidents.length} active platform incident(s) are being tracked.`);
+  }
+  if (serverErrorRate > 0) {
+    items.push(`HTTP 5xx rate is ${serverErrorRate.toFixed(1)}% in the current observability window.`);
   }
 
-  const incidents =
-    observabilityData?.incidents || [];
-
-  if (incidents.length > 0) {
-    items.push(
-      `${incidents.length} active platform incident(s) are being tracked.`
-    );
-  }
-
-  ui.attentionPanel.classList.toggle(
-    'hidden',
-    items.length === 0
-  );
-
-  ui.healthyPanel.classList.toggle(
-    'hidden',
-    items.length !== 0
-  );
-
-  ui.attentionList.innerHTML =
-    items
-      .map(item => `<li>${escapeHtml(item)}</li>`)
-      .join('');
+  ui.attentionPanel.classList.toggle('hidden', items.length === 0);
+  ui.healthyPanel.classList.toggle('hidden', items.length !== 0);
+  ui.attentionList.innerHTML = items.map(item => `<li>${escapeHtml(item)}</li>`).join('');
 }
 
 function renderTenantRows(tenants) {
-  const rank = {
-    critical: 5,
-    risk: 4,
-    attention: 3,
-    warning: 2,
-    healthy: 1
-  };
+  const rank = { critical: 5, risk: 4, attention: 3, warning: 2, healthy: 1 };
+  const sorted = [...tenants]
+    .sort((a, b) => (rank[String(b.healthState || '').toLowerCase()] || 0) - (rank[String(a.healthState || '').toLowerCase()] || 0))
+    .slice(0, 10);
 
-  const sorted =
-    [...tenants]
-      .sort((a, b) => {
-        const aRank =
-          rank[
-            String(a.healthState || '')
-              .toLowerCase()
-          ] || 0;
-
-        const bRank =
-          rank[
-            String(b.healthState || '')
-              .toLowerCase()
-          ] || 0;
-
-        return bRank - aRank;
-      })
-      .slice(0, 10);
-
-  ui.tenantRows.innerHTML =
-    sorted.length
-      ? sorted.map(tenant => `
-          <tr>
-            <td>
-              <strong>${escapeHtml(tenant.schoolName)}</strong>
-              <div class="pp-mini">
-                ${escapeHtml(tenant.schoolId)}
-              </div>
-            </td>
-            <td>
-              ${escapeHtml(titleCase(tenant.plan || 'legacy'))}
-              <div class="pp-mini">
-                ${escapeHtml(titleCase(tenant.subscriptionStatus || 'active'))}
-              </div>
-            </td>
-            <td>
-              ${statusPill(tenant.healthState || 'unknown')}
-            </td>
-            <td>
-              ${tenant.activeAlertCount ?? 0}
-              <div class="pp-mini">
-                Critical ${tenant.criticalAlertCount ?? 0}
-                · Warning ${tenant.warningAlertCount ?? 0}
-              </div>
-            </td>
-            <td>
-              ${Number(tenant.maxQuotaPercent || 0).toFixed(0)}%
-            </td>
-          </tr>
-        `).join('')
-      : `
+  ui.tenantRows.innerHTML = sorted.length
+    ? sorted.map(tenant => `
         <tr>
-          <td colspan="5" class="pp-empty">
-            No tenant health rows yet.
+          <td><strong>${escapeHtml(tenant.schoolName || 'School')}</strong></td>
+          <td>
+            ${escapeHtml(titleCase(tenant.plan || 'legacy'))}
+            <div class="pp-mini">${escapeHtml(titleCase(tenant.subscriptionStatus || 'active'))}</div>
           </td>
+          <td>${statusPill(tenant.healthState || 'unknown')}</td>
+          <td>
+            ${tenant.activeAlertCount ?? 0}
+            <div class="pp-mini">Critical ${tenant.criticalAlertCount ?? 0} · Warning ${tenant.warningAlertCount ?? 0}</div>
+          </td>
+          <td>${Number(tenant.maxQuotaPercent || 0).toFixed(0)}%</td>
         </tr>
-      `;
+      `).join('')
+    : '<tr><td colspan="5" class="pp-empty">No tenant health rows yet.</td></tr>';
 }
 
 bindRefresh('refreshBtn', load);

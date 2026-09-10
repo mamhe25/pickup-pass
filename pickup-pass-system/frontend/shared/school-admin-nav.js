@@ -1,19 +1,9 @@
 // =============================================================================
 // PickupPass — shared School Admin navigation
-//
-// The School Admin counterpart of teacher-nav.js: one navigation shell for the
-// whole persona so every admin page is unmistakably the same product. Renders
-// the sticky brand app-bar + scrollable pill nav, and centrally owns sign-out
-// and the signed-in email (previously re-implemented on every page).
-//
-// Usage in a page:
-//   <div id="adminNav" data-active="home"></div>                     (top of <body>)
-//   <script type="module" src="../shared/school-admin-nav.js"></script>
-//
-// data-active values: home | staff | sections | announce
+// Sign-out lives in Profile & Security, matching the Android account pattern.
 // =============================================================================
 import { auth, db, getSchoolBranding } from "./firebase-init.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { mountThemeToggle, enhancePortal } from './shell.js';
 import { mountAccountLink } from './account-link.js';
@@ -34,7 +24,6 @@ const NAV_ITEMS = [
 
 function render(mount) {
   const active = mount.dataset.active || "";
-
   const links = NAV_ITEMS.map((item) => {
     const current = item.key === active ? ' aria-current="page"' : "";
     return `<a class="pp-navlink" href="${item.href}" aria-label="${item.label}"${current}>${item.icon()}<span class="pp-navlink__label">${item.label}</span></a>`;
@@ -52,7 +41,7 @@ function render(mount) {
         </a>
         <div class="flex items-center gap-3">
           <span id="currentUserEmail" class="text-xs text-ink-subtle hidden sm:inline"></span>
-          <button data-pp-theme-toggle class="pp-icon-btn" type="button"></button><button id="signOutBtn" class="pp-btn pp-btn--ghost" type="button">Sign out</button>
+          <button data-pp-theme-toggle class="pp-icon-btn" type="button"></button>
         </div>
       </div>
       <div id="navSchoolSlot" class="pp-appbar__schoolband hidden">
@@ -67,13 +56,6 @@ function render(mount) {
   mountAccountLink(mount);
   enhancePortal();
 
-  mount.querySelector("#signOutBtn").addEventListener("click", async () => {
-    await signOut(auth);
-    window.location.href = "/login.html";
-  });
-
-  // Central auth guard + email + school identity. Pages keep their own
-  // onAuthStateChanged for data loading; this one only fills the shared chrome.
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
       window.location.href = "/login.html";
@@ -84,12 +66,10 @@ function render(mount) {
     try {
       const tokenResult = await user.getIdTokenResult();
       await loadSchoolIdentity(mount, tokenResult.claims.schoolId);
-    } catch (_) { /* school chrome is non-critical — never block the page */ }
+    } catch (_) { /* school chrome is non-critical */ }
   });
 }
 
-// Fills the always-present school band below the app-bar, from the localStorage
-// TTL cache (see getSchoolBranding) — normally zero Firestore reads.
 async function loadSchoolIdentity(mount, schoolId) {
   if (!schoolId) return;
   const school = await getSchoolBranding(schoolId, { getDoc, doc });
@@ -99,8 +79,8 @@ async function loadSchoolIdentity(mount, schoolId) {
   const logoEl = mount.querySelector("#navSchoolLogo");
   if (nameEl) nameEl.textContent = school.schoolName || "";
   if (logoEl) {
-    if (school.logoUrl) { logoEl.src = school.logoUrl; }
-    else { logoEl.remove(); }
+    if (school.logoUrl) logoEl.src = school.logoUrl;
+    else logoEl.remove();
   }
   if (slot) { slot.classList.remove("hidden"); slot.classList.add("flex"); }
 }
@@ -118,12 +98,7 @@ function iconBilling() { return svg('<rect x="3" y="5" width="18" height="14" rx
 function iconClock() { return svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'); }
 function iconRocket() { return svg('<path d="M4 13c-1.5 1.2-2 3-2 5 2 0 3.8-.5 5-2"/><path d="M10 14 5 9c2.5-4.5 7-7 12.5-7 .3 5.5-2.5 10-7 12Z"/><circle cx="14" cy="7" r="1.5"/><path d="m9 15-1 5 5-1"/>'); }
 function iconPalette() { return svg('<path d="M12 3a9 9 0 1 0 0 18h1.5a2 2 0 0 0 0-4H12a2 2 0 0 1 0-4h4a5 5 0 0 0 0-10Z"/><circle cx="7.5" cy="10" r=".5"/><circle cx="9" cy="6.5" r=".5"/>'); }
-function iconShield() {
-  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M12 2 4 5v6c0 4.4 3.1 8.4 8 9.6 4.9-1.2 8-5.2 8-9.6V5l-8-3Z" fill="white" fill-opacity="0.2"/>
-    <path d="M9.5 12.2l1.8 1.8 3.5-3.7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`;
-}
+function iconShield() { return svg('<path d="M12 3 4 6v5c0 5 3.4 9 8 10 4.6-1 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/>'); }
 
 const mount = document.getElementById("adminNav");
 if (mount) render(mount);

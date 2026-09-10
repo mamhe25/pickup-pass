@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="./shared/theme.css">
 <link rel="stylesheet" href="./shared/components.css">
 <link rel="stylesheet" href="./shared/portal.css">
+<link rel="stylesheet" href="./shared/android-parity.css">
 </head>
 <body class="pp-portal-body pp-auth-page">
 <main class="pp-auth-shell" aria-labelledby="loginTitle">
@@ -188,8 +189,7 @@
     </div>
   </section>
 </main>
-<!-- Premium blocking TOTP challenge. It is intentionally non-dismissible by
-     clicking outside: cancelling explicitly signs the incomplete session out. -->
+
 <div id="mfaDialog"
      class="hidden pp-mfa-backdrop"
      role="dialog"
@@ -208,21 +208,16 @@
             <path d="M9.5 12.2 11.3 14l3.8-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
-        <div class="pp-mfa-eyebrow">
-          Two-factor authentication
-        </div>
-        <h2 id="mfaTitle" class="pp-mfa-title">
-          Confirm your sign-in
-        </h2>
+        <div class="pp-mfa-eyebrow">Two-factor authentication</div>
+        <h2 id="mfaTitle" class="pp-mfa-title">Confirm your sign-in</h2>
         <p class="pp-mfa-copy">
           Open your authenticator app and enter the current 6-digit PickupPass code.
+          Verification starts automatically after the sixth digit.
         </p>
       </div>
 
       <form id="mfaForm" class="pp-mfa-form">
-        <label class="pp-mfa-label" for="mfaCode">
-          Authenticator code
-        </label>
+        <label class="pp-mfa-label" for="mfaCode">Authenticator code</label>
         <input
           id="mfaCode"
           type="text"
@@ -231,26 +226,26 @@
           maxlength="6"
           pattern="[0-9]{6}"
           class="pp-field pp-mfa-code"
-          placeholder="000000"
+          aria-describedby="mfaError"
+          data-pp-totp
+          data-pp-auto-submit="form:mfaForm"
           required>
+        <p class="pp-totp-field__hint">Paste is supported. The code is submitted automatically when all six digits are present.</p>
 
         <p id="mfaError"
            class="pp-alert pp-alert--danger hidden pp-mfa-error"
            role="alert"></p>
 
         <div class="pp-mfa-actions">
-          <button id="cancelMfa" type="button" class="pp-btn pp-btn--ghost">
-            Cancel sign-in
-          </button>
-          <button id="verifyMfa" type="submit" class="pp-btn pp-btn--primary">
-            Verify
-          </button>
+          <button id="cancelMfa" type="button" class="pp-btn pp-btn--ghost">Cancel sign-in</button>
+          <button id="verifyMfa" type="submit" class="pp-btn pp-btn--primary">Verify</button>
         </div>
       </form>
     </div>
   </div>
 </div>
 
+<script type="module" src="./shared/totp-field.js"></script>
 <script type="module">
 import {
   auth,
@@ -324,11 +319,7 @@ loginForm.addEventListener("submit", async event => {
   setSubmitButtonBusy(loginButton, true, "Signing in…");
 
   try {
-    const credential = await signInWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
+    const credential = await signInWithEmailAndPassword(auth, email, password);
     await routeByRole(credential.user);
   } catch (error) {
     if (error?.code === "auth/multi-factor-auth-required") {
@@ -343,6 +334,7 @@ loginForm.addEventListener("submit", async event => {
 
         pendingResolver = resolver;
         mfaCode.value = "";
+        mfaCode.dispatchEvent(new Event('input', { bubbles: true }));
         mfaError.classList.add("hidden");
         mfaDialog.classList.remove("hidden");
         requestAnimationFrame(() => mfaCode.focus());
@@ -359,6 +351,7 @@ loginForm.addEventListener("submit", async event => {
 
 mfaCode.addEventListener("input", () => {
   mfaCode.value = mfaCode.value.replace(/\D/g, "").slice(0, 6);
+  mfaCode.setAttribute('aria-invalid', 'false');
   mfaError.classList.add("hidden");
 });
 
@@ -371,17 +364,14 @@ mfaForm.addEventListener("submit", async event => {
   cancelMfa.disabled = true;
 
   try {
-    const result = await resolveTotpSignIn(
-      pendingResolver,
-      mfaCode.value
-    );
-
+    const result = await resolveTotpSignIn(pendingResolver, mfaCode.value);
     pendingResolver = null;
     mfaDialog.classList.add("hidden");
     await routeByRole(result.user);
   } catch (error) {
     mfaError.textContent = friendlyMfaError(error);
     mfaError.classList.remove("hidden");
+    mfaCode.setAttribute('aria-invalid', 'true');
     mfaCode.select();
   } finally {
     setSubmitButtonBusy(verifyMfa, false);
@@ -393,6 +383,7 @@ cancelMfa.addEventListener("click", async () => {
   pendingResolver = null;
   mfaDialog.classList.add("hidden");
   mfaCode.value = "";
+  mfaCode.dispatchEvent(new Event('input', { bubbles: true }));
   await signOut(auth);
   document.getElementById("password").value = "";
 });
@@ -449,9 +440,6 @@ async function routeByRole(user) {
 
     if (context.mfaRequired) {
       if (!context.mfaEnabled) {
-        // First-time protected-role enrollment happens in the shared Account
-        // Security surface. The backend and Firestore independently block all
-        // privileged access until enrollment + a fresh MFA sign-in are complete.
         location.replace("./account.html?mfa=setup");
         return;
       }
@@ -470,19 +458,15 @@ async function routeByRole(user) {
       case "parent":
         location.replace("./parent/students.html");
         return;
-
       case "teacher":
         location.replace("./teacher/scanner.html");
         return;
-
       case "school_admin":
         location.replace("./school-admin/dashboard.html");
         return;
-
       case "master_admin":
         location.replace("./master-admin/overview.html");
         return;
-
       default:
         await signOut(auth);
         throw new Error(
@@ -507,16 +491,12 @@ function friendlyError(code) {
     case "auth/wrong-password":
     case "auth/user-not-found":
       return "Incorrect email or password.";
-
     case "auth/too-many-requests":
       return "Too many attempts — try again in a bit.";
-
     case "auth/network-request-failed":
       return "No connection. Check your internet and try again.";
-
     case "auth/user-disabled":
       return "This account is disabled. Contact your administrator.";
-
     default:
       return "Sign-in failed. Please try again.";
   }

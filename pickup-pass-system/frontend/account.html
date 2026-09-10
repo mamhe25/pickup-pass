@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Account security — PickupPass</title>
+<title>Profile & Security — PickupPass</title>
 <meta name="theme-color" content="#4652C7" />
 <link rel="icon" href="./assets/pickuppass-mark.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="./assets/pickuppass-mark.svg" />
 <link rel="stylesheet" href="./shared/theme.css" />
 <link rel="stylesheet" href="./shared/components.css" />
 <link rel="stylesheet" href="./shared/account.css" />
+<link rel="stylesheet" href="./shared/android-parity.css" />
 </head>
 <body>
 <main class="account-page">
@@ -29,11 +30,11 @@
 
   <header class="account-hero">
     <div class="account-hero__copy">
-      <p class="account-eyebrow account-eyebrow--light">Account protection</p>
-      <h1>Keep your PickupPass account protected.</h1>
+      <p class="account-eyebrow account-eyebrow--light">Profile & account protection</p>
+      <h1>Keep your PickupPass identity protected.</h1>
       <p>
-        Manage sign-in credentials, authenticator-based two-factor authentication,
-        and recovery details from one secure place.
+        Review your signed-in identity, update credentials, manage authenticator-based
+        two-factor authentication, and securely sign out from one place.
       </p>
 
       <div class="account-hero__chips" aria-label="Security capabilities">
@@ -99,12 +100,8 @@
           Firebase requires a verified email before an authenticator can be enrolled.
         </p>
         <div class="button-row">
-          <button id="sendMfaVerification" type="button">
-            Send verification email
-          </button>
-          <button id="refreshMfaVerification" type="button" class="button-secondary">
-            I’ve verified
-          </button>
+          <button id="sendMfaVerification" type="button">Send verification email</button>
+          <button id="refreshMfaVerification" type="button" class="button-secondary">I’ve verified</button>
         </div>
       </div>
     </div>
@@ -113,9 +110,7 @@
       <div class="security-step__number">1</div>
       <div>
         <h3>Set up your authenticator</h3>
-        <p>
-          Confirm your current password to generate a private PickupPass setup key.
-        </p>
+        <p>Confirm your current password to generate a private PickupPass setup key.</p>
         <label for="mfaPassword">Current password</label>
         <input
           id="mfaPassword"
@@ -125,9 +120,7 @@
         <p id="mfaSetupHelp" class="field-help">
           Your password is sent only to Firebase Authentication.
         </p>
-        <button id="beginMfaButton" type="button">
-          Set up authenticator
-        </button>
+        <button id="beginMfaButton" type="button">Set up authenticator</button>
       </div>
     </div>
 
@@ -136,18 +129,12 @@
         <div class="security-step__number">1</div>
         <div>
           <h3>Add PickupPass to your authenticator</h3>
-          <p>
-            Open a compatible authenticator app or enter the setup key manually.
-          </p>
+          <p>Open a compatible authenticator app or enter the setup key manually.</p>
           <div class="secret-box">
             <span>Setup key</span>
             <code id="totpSetupKey"></code>
           </div>
-          <a
-            id="authenticatorLink"
-            class="button-link"
-            href="#"
-            rel="noopener">
+          <a id="authenticatorLink" class="button-link" href="#" rel="noopener">
             Open authenticator app
           </a>
         </div>
@@ -157,7 +144,10 @@
         <div class="security-step__number">2</div>
         <div>
           <h3>Confirm a code</h3>
-          <p>Enter the current 6-digit code shown for PickupPass.</p>
+          <p>
+            Enter the current 6-digit code shown for PickupPass. The setup completes
+            automatically after the sixth digit, and paste remains supported.
+          </p>
           <label for="mfaCode">Authenticator code</label>
           <input
             id="mfaCode"
@@ -165,14 +155,13 @@
             inputmode="numeric"
             autocomplete="one-time-code"
             maxlength="6"
-            pattern="[0-9]{6}" />
+            pattern="[0-9]{6}"
+            data-pp-totp
+            data-pp-auto-submit="button:finishMfaButton" />
+          <p class="pp-totp-field__hint">You can type or paste the complete six-digit code.</p>
           <div class="button-row">
-            <button id="finishMfaButton" type="button">
-              Enable 2FA
-            </button>
-            <button id="cancelMfaSetup" type="button" class="button-secondary">
-              Cancel setup
-            </button>
+            <button id="finishMfaButton" type="button">Enable 2FA</button>
+            <button id="cancelMfaSetup" type="button" class="button-secondary">Cancel setup</button>
           </div>
         </div>
       </div>
@@ -182,9 +171,7 @@
       <div class="security-enabled__mark" aria-hidden="true">✓</div>
       <div>
         <h3>Two-factor authentication is enabled</h3>
-        <p>
-          A current authenticator code will be required at future sign-ins.
-        </p>
+        <p>A current authenticator code will be required at future sign-ins.</p>
       </div>
     </div>
 
@@ -198,17 +185,10 @@
 
     <div id="optionalDisablePanel" class="security-disable hidden">
       <h3>Disable 2FA</h3>
-      <p>
-        Parent and Teacher accounts can opt out after confirming the current password.
-      </p>
+      <p>Parent and Teacher accounts can opt out after confirming the current password.</p>
       <label for="disableMfaPassword">Current password</label>
-      <input
-        id="disableMfaPassword"
-        type="password"
-        autocomplete="current-password" />
-      <button id="disableMfaButton" type="button" class="button-danger">
-        Disable 2FA
-      </button>
+      <input id="disableMfaPassword" type="password" autocomplete="current-password" />
+      <button id="disableMfaButton" type="button" class="button-danger">Disable 2FA</button>
     </div>
 
     <p id="mfaStatus" class="form-status" role="status" aria-live="polite"></p>
@@ -239,21 +219,10 @@
       <form id="emailForm">
         <fieldset disabled>
           <label for="newEmail">New email</label>
-          <input
-            id="newEmail"
-            name="email"
-            type="email"
-            autocomplete="email"
-            required
-            maxlength="254" />
+          <input id="newEmail" name="email" type="email" autocomplete="email" required maxlength="254" />
 
           <label for="emailPassword">Current password</label>
-          <input
-            id="emailPassword"
-            name="current-password"
-            type="password"
-            autocomplete="current-password"
-            required />
+          <input id="emailPassword" name="current-password" type="password" autocomplete="current-password" required />
 
           <button type="submit">Send verification email</button>
         </fieldset>
@@ -272,39 +241,22 @@
         </div>
       </div>
 
-      <p class="account-card__intro">
-        Use a strong password you do not reuse on other services.
-      </p>
+      <p class="account-card__intro">Use a strong password you do not reuse on other services.</p>
 
       <form id="passwordForm">
         <fieldset disabled>
           <label for="currentPassword">Current password</label>
-          <input
-            id="currentPassword"
-            type="password"
-            autocomplete="current-password"
-            required />
+          <input id="currentPassword" type="password" autocomplete="current-password" required />
 
           <label for="newPassword">New password</label>
-          <input
-            id="newPassword"
-            type="password"
-            autocomplete="new-password"
-            minlength="8"
-            required
-            aria-describedby="passwordHelp" />
+          <input id="newPassword" type="password" autocomplete="new-password" minlength="8" required aria-describedby="passwordHelp" />
 
           <p id="passwordHelp" class="field-help">
             Use at least 8 characters and meet your account’s password requirements.
           </p>
 
           <label for="confirmPassword">Confirm new password</label>
-          <input
-            id="confirmPassword"
-            type="password"
-            autocomplete="new-password"
-            minlength="8"
-            required />
+          <input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required />
 
           <button type="submit">Change password</button>
         </fieldset>
@@ -318,13 +270,31 @@
       <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 8.5 6"/><path d="M20 3v6h-6"/></svg>
     </div>
     <div>
-      <strong>Forgot your password?</strong>
-      <p>Use the password reset flow on the sign-in page to recover access securely.</p>
+      <strong>Account access</strong>
+      <p>Use password reset if needed, or sign out securely when you are finished on this device.</p>
     </div>
-    <a href="./login.html">Open sign-in</a>
+    <div class="button-row">
+      <a href="./login.html" class="pp-btn pp-btn--secondary">Open sign-in</a>
+      <button id="accountSignOut" type="button" class="pp-btn pp-btn--ghost">Sign out</button>
+    </div>
   </aside>
 </main>
 
+<script type="module" src="./shared/totp-field.js"></script>
 <script type="module" src="./shared/account.js"></script>
+<script type="module">
+import { auth } from './shared/firebase-init.js';
+import { signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+
+const button = document.getElementById('accountSignOut');
+button?.addEventListener('click', async () => {
+  button.disabled = true;
+  try {
+    await signOut(auth);
+  } finally {
+    location.replace('./login.html');
+  }
+});
+</script>
 </body>
 </html>

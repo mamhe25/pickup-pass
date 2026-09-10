@@ -1,16 +1,585 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Platform Schools — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head><body class="min-h-screen pp-portal-body">
-<div id="masterNav" data-active="schools"></div><script type="module" src="../shared/master-admin-nav.js"></script><main class="pp-page"><div class="pp-page-head"><div><h1>Tenant & Subscription Console</h1><p>Create schools, manage plans and feature overrides, monitor quota usage, control tenant export access, and review launch readiness.</p></div><button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh</button></div>
-<div class="pp-grid"><div class="pp-kpi"><div class="pp-kpi__label">Total schools</div><div id="totalSchools" class="pp-kpi__value">—</div></div><div class="pp-kpi"><div class="pp-kpi__label">Active</div><div id="activeSchools" class="pp-kpi__value">—</div></div><div class="pp-kpi"><div class="pp-kpi__label">Suspended</div><div id="suspendedSchools" class="pp-kpi__value">—</div></div></div>
-<div class="pp-grid mt-3"><section class="pp-section mt-0"><div class="pp-section__head"><h2>Create school</h2></div><div class="pp-section__body"><form id="schoolForm" class="pp-actions"><input id="schoolName" class="pp-field flex-1" placeholder="School name" required><button class="pp-btn pp-btn--primary">Create 30-day Trial</button></form></div></section><section class="pp-section mt-0"><div class="pp-section__head"><h2>Create initial staff</h2></div><div class="pp-section__body"><form id="staffForm" class="pp-form-grid"><select id="staffSchool" class="pp-field" required></select><input id="staffFirst" class="pp-field" placeholder="First name" required><input id="staffLast" class="pp-field" placeholder="Last name" required><input id="staffEmail" type="email" class="pp-field" placeholder="Email" required><select id="staffRole" class="pp-field"><option value="school_admin">School admin</option><option value="teacher">Teacher</option></select><button class="pp-btn pp-btn--secondary">Create staff</button></form></div></section></div>
-<section class="pp-section"><div class="pp-section__head"><h2>Schools</h2></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>School</th><th>Plan</th><th>Subscription</th><th>Usage</th><th>Launch</th><th>Status</th><th>Actions</th></tr></thead><tbody id="schoolRows"><tr><td colspan="7" class="pp-empty">Loading…</td></tr></tbody></table></div></section>
-<section id="managePanel" class="pp-section hidden"><div class="pp-section__head"><div><h2 id="manageTitle">Manage school</h2><p id="manageId" class="pp-mini"></p></div><button id="closeManage" class="pp-btn pp-btn--ghost">Close</button></div><div class="pp-section__body"><form id="subscriptionForm" class="pp-form-grid"><label>Plan<select id="planSelect" class="pp-field"></select></label><label>Subscription<select id="subSelect" class="pp-field"><option value="trialing">Trialing</option><option value="active">Active</option><option value="past_due">Past Due</option><option value="cancelled">Cancelled</option></select></label><label class="flex gap-2 items-center mt-6"><input id="autoRenew" type="checkbox"> Auto-renew</label><label class="flex gap-2 items-center mt-6"><input id="cancelAtEnd" type="checkbox"> Cancel at period end</label><label>Extend trial days<input id="extendTrial" type="number" min="0" max="365" value="0" class="pp-field"></label><label class="flex gap-2 items-center mt-6"><input id="startNewPeriod" type="checkbox"> Start new 30-day period</label><div class="col-span-full"><div class="font-bold mb-2">Feature overrides</div><div id="featureOverrides" class="pp-grid"></div></div><div class="col-span-full pp-actions"><button class="pp-btn pp-btn--primary" type="submit">Save subscription</button><button id="reconcileUsageBtn" class="pp-btn pp-btn--ghost" type="button">Reconcile usage</button><button id="reconcileSubscriptionBtn" class="pp-btn pp-btn--ghost" type="button">Reconcile lifecycle</button><button id="launchReviewBtn" class="pp-btn pp-btn--ghost" type="button">Review launch readiness</button></div></form><pre id="manageResult" class="pp-mini whitespace-pre-wrap mt-4"></pre></div></section>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Platform Schools — PickupPass</title>
+<meta name="theme-color" content="#4652C7">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="masterNav" data-active="schools"></div>
+<script type="module" src="../shared/master-admin-nav.js"></script>
+
+<main class="pp-page">
+  <section class="pp-owner-hero">
+    <div>
+      <p class="pp-owner-hero__eyebrow">Platform owner · tenant portfolio</p>
+      <h1>School portfolio</h1>
+      <p class="pp-owner-hero__copy">
+        Manage tenant lifecycle, subscription access, launch readiness and administrators
+        without exposing internal database identifiers in the normal workspace.
+      </p>
+      <div class="pp-owner-hero__actions">
+        <button id="openSchoolBtn" class="pp-btn pp-btn--primary" type="button">Create school</button>
+        <button id="openStaffBtn" class="pp-btn pp-btn--secondary" type="button">Add administrator</button>
+      </div>
+    </div>
+    <div class="pp-owner-hero__summary">
+      <span>Total schools</span>
+      <strong id="totalSchools">—</strong>
+      <small>managed PickupPass tenants</small>
+    </div>
+  </section>
+
+  <section class="pp-owner-metrics" aria-label="Tenant portfolio summary">
+    <article class="pp-owner-metric">
+      <span class="pp-owner-metric__label">Active</span>
+      <strong id="activeSchools" class="pp-owner-metric__value">—</strong>
+      <span class="pp-owner-metric__hint">Available school tenants</span>
+    </article>
+    <article class="pp-owner-metric">
+      <span class="pp-owner-metric__label">Suspended</span>
+      <strong id="suspendedSchools" class="pp-owner-metric__value">—</strong>
+      <span class="pp-owner-metric__hint">Restricted by the platform owner</span>
+    </article>
+    <article class="pp-owner-metric">
+      <span class="pp-owner-metric__label">Launch approved</span>
+      <strong id="approvedSchools" class="pp-owner-metric__value">—</strong>
+      <span class="pp-owner-metric__hint">Ready for live dismissal</span>
+    </article>
+    <article class="pp-owner-metric">
+      <span class="pp-owner-metric__label">Launch review</span>
+      <strong id="reviewSchools" class="pp-owner-metric__value">—</strong>
+      <span class="pp-owner-metric__hint">Waiting on owner review</span>
+    </article>
+  </section>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Schools</h2>
+        <p class="pp-mini">Each tenant card keeps subscription, launch and usage posture visible while secondary actions remain contextual.</p>
+      </div>
+      <button id="refreshBtn" class="pp-btn pp-btn--ghost" type="button">Refresh</button>
+    </div>
+    <div class="pp-section__body">
+      <div id="schoolCards" class="pp-tenant-grid">
+        <div class="pp-empty">Loading schools…</div>
+      </div>
+    </div>
+  </section>
 </main>
-<script type="module">import{showToast}from'../shared/firebase-init.js';import{apiJson,requireRole,bindRefresh,escapeHtml,statusPill,titleCase,downloadAuthed,confirmAction}from'../shared/portal.js';let data={schools:[]},catalog={plans:{},featureKeys:[]},selected=null;
-function limitText(v,l){return `${v??0}/${l===-1?'∞':(l??'—')}`}
-async function load(){const [schools,plans]=await Promise.all([apiJson('/master-admin/schools'),apiJson('/master-admin/plans')]);data=schools;catalog=plans;totalSchools.textContent=schools.totalSchools??0;activeSchools.textContent=schools.activeSchools??0;suspendedSchools.textContent=schools.suspendedSchools??0;const opts=(schools.schools||[]).map(s=>`<option value="${escapeHtml(s.schoolId)}">${escapeHtml(s.schoolName)}</option>`).join('');staffSchool.innerHTML='<option value="">Select school…</option>'+opts;planSelect.innerHTML=Object.entries(catalog.plans||{}).map(([k,v])=>`<option value="${escapeHtml(k)}">${escapeHtml(v.displayName||titleCase(k))}</option>`).join('');schoolRows.innerHTML=(schools.schools||[]).map(s=>{const u=s.usage||{};return `<tr><td><strong>${escapeHtml(s.schoolName)}</strong><div class="pp-mini"><span class="pp-code">${escapeHtml(s.schoolId)}</span></div></td><td>${escapeHtml(titleCase(s.plan||'legacy'))}</td><td>${statusPill(s.subscriptionStatus||'active')}</td><td><div class="pp-mini">Students ${limitText(u.activeStudents,u.studentLimit)}<br>Staff ${limitText(u.activeStaff,u.staffLimit)}<br>Campuses ${limitText(u.activeCampuses,u.campusLimit)}</div></td><td>${statusPill(s.launchStatus||'draft')}</td><td>${statusPill(s.status||'active')}</td><td><div class="pp-actions"><button class="pp-btn pp-btn--ghost manage" data-id="${escapeHtml(s.schoolId)}">Manage</button><button class="pp-btn pp-btn--ghost status" data-id="${escapeHtml(s.schoolId)}" data-status="${escapeHtml(s.status||'active')}">${s.status==='suspended'?'Reactivate':'Suspend'}</button><button class="pp-btn pp-btn--ghost exportAccess" data-id="${escapeHtml(s.schoolId)}" data-enabled="${!!s.selfServiceDataExportEnabled}">${s.selfServiceDataExportEnabled?'Disable export':'Enable export'}</button><button class="pp-btn pp-btn--ghost exportData" data-id="${escapeHtml(s.schoolId)}">Export data</button></div></td></tr>`}).join('')||'<tr><td colspan="7" class="pp-empty">No schools yet.</td></tr>';bindRowActions();if(selected){selected=(schools.schools||[]).find(s=>s.schoolId===selected.schoolId)||null;if(selected)openManage(selected);}}
-function bindRowActions(){document.querySelectorAll('.manage').forEach(b=>b.onclick=()=>{const s=data.schools.find(x=>x.schoolId===b.dataset.id);if(s)openManage(s)});document.querySelectorAll('.status').forEach(b=>b.onclick=async()=>{const next=b.dataset.status==='suspended'?'active':'suspended';if(!confirmAction(`${titleCase(next)} this school tenant?`))return;try{await apiJson(`/master-admin/schools/${encodeURIComponent(b.dataset.id)}/status`,{method:'POST',body:JSON.stringify({status:next})});showToast(`School ${next}.`);await load();}catch(e){showToast(e.message,'error')}});document.querySelectorAll('.exportAccess').forEach(b=>b.onclick=async()=>{try{await apiJson(`/master-admin/schools/${encodeURIComponent(b.dataset.id)}/data-export-access`,{method:'PUT',body:JSON.stringify({enabled:b.dataset.enabled!=='true'})});showToast('Data export access updated.');await load();}catch(e){showToast(e.message,'error')}});document.querySelectorAll('.exportData').forEach(b=>b.onclick=()=>downloadAuthed(`/master-admin/schools/${encodeURIComponent(b.dataset.id)}/data-export`,'school-export.zip').catch(e=>showToast(e.message,'error')));}
-function openManage(s){selected=s;managePanel.classList.remove('hidden');manageTitle.textContent=s.schoolName;manageId.textContent=s.schoolId;planSelect.value=s.plan||'trial';subSelect.value=s.subscriptionStatus||'active';autoRenew.checked=s.autoRenew!==false;cancelAtEnd.checked=!!s.cancelAtPeriodEnd;extendTrial.value=0;startNewPeriod.checked=false;const overrides=s.featureOverrides||{};featureOverrides.innerHTML=(catalog.featureKeys||[]).map(k=>`<div class="pp-kpi"><div class="pp-kpi__label">${escapeHtml(titleCase(k))}</div><select class="pp-field featureOverride" data-key="${escapeHtml(k)}"><option value="default" ${!(k in overrides)?'selected':''}>Plan default</option><option value="true" ${overrides[k]===true?'selected':''}>Force enabled</option><option value="false" ${overrides[k]===false?'selected':''}>Force disabled</option></select></div>`).join('');managePanel.scrollIntoView({behavior:'smooth',block:'start'});}
-closeManage.onclick=()=>{selected=null;managePanel.classList.add('hidden')};subscriptionForm.onsubmit=async e=>{e.preventDefault();if(!selected)return;const overrides={};document.querySelectorAll('.featureOverride').forEach(x=>{if(x.value!=='default')overrides[x.dataset.key]=x.value==='true'});const body={plan:planSelect.value,subscriptionStatus:subSelect.value,autoRenew:autoRenew.checked,cancelAtPeriodEnd:cancelAtEnd.checked,startNewPeriod:startNewPeriod.checked,extendTrialDays:Number(extendTrial.value||0),featureOverrides:overrides};try{const r=await apiJson(`/master-admin/schools/${encodeURIComponent(selected.schoolId)}/subscription`,{method:'PUT',body:JSON.stringify(body)});manageResult.textContent=JSON.stringify(r,null,2);showToast('Subscription updated.');await load();}catch(err){showToast(err.message,'error')}};
-reconcileUsageBtn.onclick=async()=>{if(!selected)return;try{manageResult.textContent=JSON.stringify(await apiJson(`/master-admin/schools/${encodeURIComponent(selected.schoolId)}/usage/reconcile`,{method:'POST'}),null,2);showToast('Usage reconciled.');await load();}catch(e){showToast(e.message,'error')}};reconcileSubscriptionBtn.onclick=async()=>{if(!selected)return;try{manageResult.textContent=JSON.stringify(await apiJson(`/master-admin/schools/${encodeURIComponent(selected.schoolId)}/subscription/reconcile`,{method:'POST'}),null,2);showToast('Subscription lifecycle reconciled.');await load();}catch(e){showToast(e.message,'error')}};launchReviewBtn.onclick=async()=>{if(!selected)return;try{const r=await apiJson(`/master-admin/schools/${encodeURIComponent(selected.schoolId)}/launch-readiness`);manageResult.textContent=JSON.stringify(r,null,2);if(r.readyForReview&&r.reviewStatus==='review_requested'&&confirmAction('This school is ready and requested review. Approve launch now?')){const note=prompt('Optional approval note:','')||'';await apiJson(`/master-admin/schools/${encodeURIComponent(selected.schoolId)}/launch-readiness/approve`,{method:'POST',body:JSON.stringify({note})});showToast('Launch approved.');await load();}}catch(e){showToast(e.message,'error')}};
-schoolForm.onsubmit=async e=>{e.preventDefault();try{const r=await apiJson('/master-admin/schools',{method:'POST',body:JSON.stringify({schoolName:schoolName.value.trim()})});showToast(`School created: ${r.schoolName}`);schoolForm.reset();await load();}catch(err){showToast(err.message,'error')}};staffForm.onsubmit=async e=>{e.preventDefault();try{const r=await apiJson(`/master-admin/schools/${encodeURIComponent(staffSchool.value)}/staff`,{method:'POST',body:JSON.stringify({email:staffEmail.value.trim(),firstName:staffFirst.value.trim(),lastName:staffLast.value.trim(),middleInitial:'',suffix:'',role:staffRole.value})});showToast(r.emailSent?'Staff account created and invite sent.':'Staff account created; invite email was not sent.',r.emailSent?'success':'warning');staffForm.reset();await load();}catch(err){showToast(err.message,'error')}};
-bindRefresh('refreshBtn',load);requireRole('master_admin',load);</script></body></html>
+
+<button id="schoolFab" class="pp-floating-action" type="button" aria-label="Create school" title="Create school">+</button>
+
+<dialog id="schoolDialog" class="pp-parity-dialog pp-parity-dialog--compact">
+  <form id="schoolForm">
+    <div class="pp-parity-dialog__head">
+      <p class="pp-parity-dialog__eyebrow">New tenant</p>
+      <h2>Create school</h2>
+      <p>New schools start on a 30-day Trial and remain in pre-launch mode until approved.</p>
+    </div>
+    <div class="pp-parity-dialog__body">
+      <label>
+        School name
+        <input id="schoolName" class="pp-field" placeholder="Official school name" maxlength="160" required>
+      </label>
+    </div>
+    <div class="pp-parity-dialog__footer">
+      <button id="cancelSchool" class="pp-btn pp-btn--secondary" type="button">Cancel</button>
+      <button class="pp-btn pp-btn--primary" type="submit">Create 30-day Trial</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="staffDialog" class="pp-parity-dialog pp-parity-dialog--wide">
+  <form id="staffForm">
+    <div class="pp-parity-dialog__head">
+      <p class="pp-parity-dialog__eyebrow">Tenant administrator</p>
+      <h2>Add school administrator</h2>
+      <p>Create the school-level administrator who will configure staff, academics, pickup operations and launch readiness.</p>
+    </div>
+    <div class="pp-parity-dialog__body">
+      <div class="pp-dialog-form-grid">
+        <label class="pp-span-full">School<select id="staffSchool" class="pp-field" required></select></label>
+        <label>First name<input id="staffFirst" class="pp-field" maxlength="80" required></label>
+        <label>Last name<input id="staffLast" class="pp-field" maxlength="80" required></label>
+        <label>Middle initial<input id="staffMiddle" class="pp-field" maxlength="8" placeholder="Optional"></label>
+        <label>Suffix<input id="staffSuffix" class="pp-field" maxlength="20" placeholder="Optional"></label>
+        <label class="pp-span-full">Email<input id="staffEmail" type="email" class="pp-field" autocomplete="email" required></label>
+        <input id="staffRole" type="hidden" value="school_admin">
+      </div>
+    </div>
+    <div class="pp-parity-dialog__footer">
+      <button id="cancelStaff" class="pp-btn pp-btn--secondary" type="button">Cancel</button>
+      <button class="pp-btn pp-btn--primary" type="submit">Create administrator</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="manageDialog" class="pp-parity-dialog pp-parity-dialog--wide">
+  <form id="subscriptionForm">
+    <div class="pp-parity-dialog__head">
+      <p class="pp-parity-dialog__eyebrow">Subscription control</p>
+      <h2 id="manageTitle">Manage school</h2>
+      <p id="manageSummary">Plan, lifecycle and feature access.</p>
+    </div>
+    <div class="pp-parity-dialog__body">
+      <div class="pp-dialog-section">
+        <h3 class="pp-dialog-section__title">Plan & subscription</h3>
+        <div class="pp-dialog-form-grid">
+          <label>Plan<select id="planSelect" class="pp-field"></select></label>
+          <label>Subscription<select id="subSelect" class="pp-field">
+            <option value="trialing">Trialing</option>
+            <option value="active">Active</option>
+            <option value="past_due">Past due</option>
+            <option value="cancelled">Cancelled</option>
+          </select></label>
+          <label>Extend trial days<input id="extendTrial" type="number" min="0" max="365" value="0" class="pp-field"></label>
+          <div class="pp-switch-card">
+            <div><strong>Start a new 30-day period</strong><span>Use when deliberately beginning a fresh subscription period.</span></div>
+            <input id="startNewPeriod" type="checkbox" aria-label="Start new 30-day period">
+          </div>
+          <div class="pp-switch-card">
+            <div><strong>Auto-renew</strong><span>Continue the subscription at the end of the current period.</span></div>
+            <input id="autoRenew" type="checkbox" aria-label="Auto-renew subscription">
+          </div>
+          <div class="pp-switch-card">
+            <div><strong>Cancel at period end</strong><span>Keep access through the current period, then cancel.</span></div>
+            <input id="cancelAtEnd" type="checkbox" aria-label="Cancel at period end">
+          </div>
+        </div>
+      </div>
+
+      <div class="pp-dialog-section">
+        <h3 class="pp-dialog-section__title">Feature overrides</h3>
+        <p class="pp-mini">Leave a feature on Plan default unless this tenant needs an explicit owner override.</p>
+        <div id="featureOverrides" class="pp-dialog-form-grid mt-3"></div>
+      </div>
+
+      <div class="pp-dialog-section">
+        <h3 class="pp-dialog-section__title">Lifecycle tools</h3>
+        <div class="pp-actions">
+          <button id="reconcileUsageBtn" class="pp-btn pp-btn--secondary" type="button">Reconcile usage</button>
+          <button id="reconcileSubscriptionBtn" class="pp-btn pp-btn--secondary" type="button">Reconcile lifecycle</button>
+          <button id="launchReviewBtn" class="pp-btn pp-btn--secondary" type="button">Review launch readiness</button>
+        </div>
+      </div>
+    </div>
+    <div class="pp-parity-dialog__footer">
+      <button id="closeManage" class="pp-btn pp-btn--secondary" type="button">Cancel</button>
+      <button class="pp-btn pp-btn--primary" type="submit">Save subscription</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module">
+import { showToast } from '../shared/firebase-init.js';
+import {
+  apiJson,
+  requireRole,
+  bindRefresh,
+  escapeHtml,
+  statusPill,
+  titleCase,
+  downloadAuthed
+} from '../shared/portal.js';
+import { confirmDialog, promptDialog } from '../shared/dialogs.js';
+
+const ui = {
+  total: document.getElementById('totalSchools'),
+  active: document.getElementById('activeSchools'),
+  suspended: document.getElementById('suspendedSchools'),
+  approved: document.getElementById('approvedSchools'),
+  review: document.getElementById('reviewSchools'),
+  cards: document.getElementById('schoolCards'),
+  schoolDialog: document.getElementById('schoolDialog'),
+  staffDialog: document.getElementById('staffDialog'),
+  manageDialog: document.getElementById('manageDialog')
+};
+
+let data = { schools: [] };
+let catalog = { plans: {}, featureKeys: [] };
+let selected = null;
+
+function limitText(value, limit) {
+  return `${value ?? 0}/${limit === -1 ? '∞' : (limit ?? '—')}`;
+}
+
+function schoolInitial(name) {
+  return String(name || 'S').trim().charAt(0).toUpperCase() || 'S';
+}
+
+function formatLifecycle(school) {
+  const parts = [];
+  if (school.currentPeriodEnd) parts.push(`Period ends ${new Date(school.currentPeriodEnd).toLocaleDateString()}`);
+  if (school.trialEnd) parts.push(`Trial ends ${new Date(school.trialEnd).toLocaleDateString()}`);
+  if (school.graceEnd) parts.push(`Grace ends ${new Date(school.graceEnd).toLocaleDateString()}`);
+  return parts.join(' · ') || 'Plan and feature access can be managed here.';
+}
+
+async function load() {
+  const [schools, plans] = await Promise.all([
+    apiJson('/master-admin/schools'),
+    apiJson('/master-admin/plans')
+  ]);
+
+  data = schools;
+  catalog = plans;
+
+  const list = schools.schools || [];
+  ui.total.textContent = schools.totalSchools ?? list.length;
+  ui.active.textContent = schools.activeSchools ?? list.filter(s => s.status === 'active').length;
+  ui.suspended.textContent = schools.suspendedSchools ?? list.filter(s => s.status === 'suspended').length;
+  ui.approved.textContent = list.filter(s => String(s.launchStatus || '').toLowerCase() === 'approved').length;
+  ui.review.textContent = list.filter(s => /review/.test(String(s.launchStatus || '').toLowerCase())).length;
+
+  document.getElementById('staffSchool').innerHTML =
+    '<option value="">Select school…</option>' +
+    list.map(s => `<option value="${escapeHtml(s.schoolId)}">${escapeHtml(s.schoolName)}</option>`).join('');
+
+  document.getElementById('planSelect').innerHTML = Object.entries(catalog.plans || {})
+    .map(([key, plan]) => `<option value="${escapeHtml(key)}">${escapeHtml(plan.displayName || titleCase(key))}</option>`)
+    .join('');
+
+  renderSchoolCards(list);
+
+  if (selected && ui.manageDialog.open) {
+    selected = list.find(s => s.schoolId === selected.schoolId) || null;
+    if (selected) populateManage(selected);
+    else ui.manageDialog.close();
+  }
+}
+
+function renderSchoolCards(schools) {
+  ui.cards.innerHTML = schools.length
+    ? schools.map(s => {
+        const usage = s.usage || {};
+        const accessRestricted = ['past_due', 'cancelled'].includes(String(s.subscriptionStatus || '').toLowerCase());
+        return `
+          <article class="pp-tenant-card">
+            <div class="pp-tenant-card__head">
+              <span class="pp-tenant-card__mark" aria-hidden="true">${escapeHtml(schoolInitial(s.schoolName))}</span>
+              <div>
+                <h3>${escapeHtml(s.schoolName || 'School')}</h3>
+                <p>${escapeHtml(titleCase(s.plan || 'trial'))} plan</p>
+              </div>
+              ${statusPill(s.status || 'active')}
+            </div>
+
+            <div class="pp-tenant-card__meta">
+              <div class="pp-tenant-detail"><span>Subscription</span><strong>${escapeHtml(titleCase(s.subscriptionStatus || 'active'))}</strong></div>
+              <div class="pp-tenant-detail"><span>Launch</span><strong>${escapeHtml(titleCase(s.launchStatus || 'draft'))}</strong></div>
+              <div class="pp-tenant-detail"><span>Export access</span><strong>${s.selfServiceDataExportEnabled ? 'School enabled' : 'Owner only'}</strong></div>
+              <div class="pp-tenant-detail"><span>Renewal</span><strong>${s.autoRenew === false ? 'Manual' : 'Auto-renew'}</strong></div>
+            </div>
+
+            <div class="pp-tenant-card__usage" aria-label="Usage">
+              <div class="pp-tenant-usage"><strong>${escapeHtml(limitText(usage.activeStudents, usage.studentLimit))}</strong><span>Students</span></div>
+              <div class="pp-tenant-usage"><strong>${escapeHtml(limitText(usage.activeStaff, usage.staffLimit))}</strong><span>Staff</span></div>
+              <div class="pp-tenant-usage"><strong>${escapeHtml(limitText(usage.activeCampuses, usage.campusLimit))}</strong><span>Campuses</span></div>
+            </div>
+
+            ${accessRestricted ? '<div class="pp-risk-card">Subscription access may be restricted. Review the lifecycle before making tenant changes.</div>' : ''}
+
+            <div class="pp-tenant-card__actions">
+              <button class="pp-btn pp-btn--primary manage" type="button" data-id="${escapeHtml(s.schoolId)}">Plan & features</button>
+              <button class="pp-btn pp-btn--secondary addAdmin" type="button" data-id="${escapeHtml(s.schoolId)}">Add administrator</button>
+            </div>
+            <div class="pp-tenant-card__subactions">
+              <button class="pp-btn pp-btn--ghost status" type="button" data-id="${escapeHtml(s.schoolId)}" data-status="${escapeHtml(s.status || 'active')}">${s.status === 'suspended' ? 'Reactivate tenant' : 'Suspend tenant'}</button>
+              <button class="pp-btn pp-btn--ghost exportAccess" type="button" data-id="${escapeHtml(s.schoolId)}" data-enabled="${!!s.selfServiceDataExportEnabled}">${s.selfServiceDataExportEnabled ? 'Disable school export' : 'Enable school export'}</button>
+              <button class="pp-btn pp-btn--ghost exportData" type="button" data-id="${escapeHtml(s.schoolId)}">Export tenant data</button>
+            </div>
+          </article>
+        `;
+      }).join('')
+    : '<div class="pp-empty">No schools yet. Create the first tenant to begin onboarding.</div>';
+
+  bindCardActions();
+}
+
+function bindCardActions() {
+  document.querySelectorAll('.manage').forEach(button => {
+    button.onclick = () => {
+      const school = data.schools.find(item => item.schoolId === button.dataset.id);
+      if (school) openManage(school);
+    };
+  });
+
+  document.querySelectorAll('.addAdmin').forEach(button => {
+    button.onclick = () => openStaff(button.dataset.id);
+  });
+
+  document.querySelectorAll('.status').forEach(button => {
+    button.onclick = async () => {
+      const next = button.dataset.status === 'suspended' ? 'active' : 'suspended';
+      const ok = await confirmDialog(
+        `${next === 'active' ? 'Reactivate' : 'Suspend'} this school tenant?`,
+        {
+          title: next === 'active' ? 'Reactivate tenant' : 'Suspend tenant',
+          confirmLabel: next === 'active' ? 'Reactivate' : 'Suspend',
+          danger: next === 'suspended'
+        }
+      );
+      if (!ok) return;
+
+      try {
+        await apiJson(`/master-admin/schools/${encodeURIComponent(button.dataset.id)}/status`, {
+          method: 'POST',
+          body: JSON.stringify({ status: next })
+        });
+        showToast(`School ${next}.`);
+        await load();
+      } catch (error) {
+        showToast(error.message, 'error');
+      }
+    };
+  });
+
+  document.querySelectorAll('.exportAccess').forEach(button => {
+    button.onclick = async () => {
+      const enabling = button.dataset.enabled !== 'true';
+      const ok = await confirmDialog(
+        enabling
+          ? 'Allow this school to use self-service tenant data export?'
+          : 'Remove this school’s self-service tenant data export access?',
+        { title: 'Tenant data export', confirmLabel: enabling ? 'Enable access' : 'Disable access' }
+      );
+      if (!ok) return;
+
+      try {
+        await apiJson(`/master-admin/schools/${encodeURIComponent(button.dataset.id)}/data-export-access`, {
+          method: 'PUT',
+          body: JSON.stringify({ enabled: enabling })
+        });
+        showToast('Data export access updated.');
+        await load();
+      } catch (error) {
+        showToast(error.message, 'error');
+      }
+    };
+  });
+
+  document.querySelectorAll('.exportData').forEach(button => {
+    button.onclick = () => downloadAuthed(
+      `/master-admin/schools/${encodeURIComponent(button.dataset.id)}/data-export`,
+      'school-export.zip'
+    ).catch(error => showToast(error.message, 'error'));
+  });
+}
+
+function openManage(school) {
+  selected = school;
+  populateManage(school);
+  if (!ui.manageDialog.open) ui.manageDialog.showModal();
+}
+
+function populateManage(school) {
+  document.getElementById('manageTitle').textContent = school.schoolName || 'Manage school';
+  document.getElementById('manageSummary').textContent = formatLifecycle(school);
+  document.getElementById('planSelect').value = school.plan || 'trial';
+  document.getElementById('subSelect').value = school.subscriptionStatus || 'active';
+  document.getElementById('autoRenew').checked = school.autoRenew !== false;
+  document.getElementById('cancelAtEnd').checked = !!school.cancelAtPeriodEnd;
+  document.getElementById('extendTrial').value = 0;
+  document.getElementById('startNewPeriod').checked = false;
+
+  const overrides = school.featureOverrides || {};
+  document.getElementById('featureOverrides').innerHTML = (catalog.featureKeys || []).map(key => `
+    <label class="pp-switch-card">
+      <div><strong>${escapeHtml(titleCase(key))}</strong><span>Tenant override</span></div>
+      <select class="pp-field featureOverride" data-key="${escapeHtml(key)}" style="max-width:150px">
+        <option value="default" ${!(key in overrides) ? 'selected' : ''}>Plan default</option>
+        <option value="true" ${overrides[key] === true ? 'selected' : ''}>Enabled</option>
+        <option value="false" ${overrides[key] === false ? 'selected' : ''}>Disabled</option>
+      </select>
+    </label>
+  `).join('');
+}
+
+function openStaff(schoolId = '') {
+  if (!(data.schools || []).length) {
+    showToast('Create a school before adding an administrator.', 'info');
+    return;
+  }
+  document.getElementById('staffForm').reset();
+  document.getElementById('staffRole').value = 'school_admin';
+  document.getElementById('staffSchool').value = schoolId || '';
+  ui.staffDialog.showModal();
+}
+
+function openSchool() {
+  document.getElementById('schoolForm').reset();
+  ui.schoolDialog.showModal();
+  requestAnimationFrame(() => document.getElementById('schoolName').focus());
+}
+
+function closeOnBackdrop(dialog) {
+  dialog.addEventListener('click', event => {
+    if (event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) {
+      dialog.close();
+    }
+  });
+}
+
+[ui.schoolDialog, ui.staffDialog, ui.manageDialog].forEach(closeOnBackdrop);
+document.getElementById('openSchoolBtn').onclick = openSchool;
+document.getElementById('schoolFab').onclick = openSchool;
+document.getElementById('openStaffBtn').onclick = () => openStaff();
+document.getElementById('cancelSchool').onclick = () => ui.schoolDialog.close();
+document.getElementById('cancelStaff').onclick = () => ui.staffDialog.close();
+document.getElementById('closeManage').onclick = () => ui.manageDialog.close();
+
+ui.manageDialog.addEventListener('close', () => { selected = null; });
+
+document.getElementById('subscriptionForm').onsubmit = async event => {
+  event.preventDefault();
+  if (!selected) return;
+
+  const overrides = {};
+  document.querySelectorAll('.featureOverride').forEach(select => {
+    if (select.value !== 'default') overrides[select.dataset.key] = select.value === 'true';
+  });
+
+  const body = {
+    plan: document.getElementById('planSelect').value,
+    subscriptionStatus: document.getElementById('subSelect').value,
+    autoRenew: document.getElementById('autoRenew').checked,
+    cancelAtPeriodEnd: document.getElementById('cancelAtEnd').checked,
+    startNewPeriod: document.getElementById('startNewPeriod').checked,
+    extendTrialDays: Number(document.getElementById('extendTrial').value || 0),
+    featureOverrides: overrides
+  };
+
+  try {
+    await apiJson(`/master-admin/schools/${encodeURIComponent(selected.schoolId)}/subscription`, {
+      method: 'PUT',
+      body: JSON.stringify(body)
+    });
+    showToast('Subscription updated.');
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+};
+
+document.getElementById('reconcileUsageBtn').onclick = async () => {
+  if (!selected) return;
+  try {
+    await apiJson(`/master-admin/schools/${encodeURIComponent(selected.schoolId)}/usage/reconcile`, { method: 'POST' });
+    showToast('Usage reconciled.');
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+};
+
+document.getElementById('reconcileSubscriptionBtn').onclick = async () => {
+  if (!selected) return;
+  try {
+    await apiJson(`/master-admin/schools/${encodeURIComponent(selected.schoolId)}/subscription/reconcile`, { method: 'POST' });
+    showToast('Subscription lifecycle reconciled.');
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+};
+
+document.getElementById('launchReviewBtn').onclick = async () => {
+  if (!selected) return;
+  try {
+    const readiness = await apiJson(`/master-admin/schools/${encodeURIComponent(selected.schoolId)}/launch-readiness`);
+
+    if (readiness.readyForReview && readiness.reviewStatus === 'review_requested') {
+      const note = await promptDialog({
+        title: 'Approve school launch',
+        message: `${selected.schoolName} completed its launch-readiness checks and requested owner review. Add an optional approval note, then approve live dismissal.`,
+        label: 'Approval note',
+        multiline: true,
+        required: false,
+        confirmLabel: 'Approve launch'
+      });
+      if (note === null) return;
+
+      await apiJson(`/master-admin/schools/${encodeURIComponent(selected.schoolId)}/launch-readiness/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ note })
+      });
+      showToast('Launch approved.');
+      await load();
+      return;
+    }
+
+    const completed = readiness.completedItems ?? readiness.completedCount ?? 0;
+    const total = readiness.totalItems ?? readiness.totalCount ?? 0;
+    showToast(
+      readiness.readyForReview
+        ? `Launch readiness is complete. Current review status: ${titleCase(readiness.reviewStatus || 'ready')}.`
+        : `Launch readiness is not complete yet${total ? ` (${completed}/${total} checks complete)` : ''}.`,
+      readiness.readyForReview ? 'info' : 'warning'
+    );
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+};
+
+document.getElementById('schoolForm').onsubmit = async event => {
+  event.preventDefault();
+  const schoolName = document.getElementById('schoolName').value.trim();
+  if (!schoolName) return;
+
+  try {
+    const result = await apiJson('/master-admin/schools', {
+      method: 'POST',
+      body: JSON.stringify({ schoolName })
+    });
+    ui.schoolDialog.close();
+    showToast(`School created: ${result.schoolName}`);
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+};
+
+document.getElementById('staffForm').onsubmit = async event => {
+  event.preventDefault();
+
+  try {
+    const result = await apiJson(`/master-admin/schools/${encodeURIComponent(document.getElementById('staffSchool').value)}/staff`, {
+      method: 'POST',
+      body: JSON.stringify({
+        email: document.getElementById('staffEmail').value.trim(),
+        firstName: document.getElementById('staffFirst').value.trim(),
+        lastName: document.getElementById('staffLast').value.trim(),
+        middleInitial: document.getElementById('staffMiddle').value.trim(),
+        suffix: document.getElementById('staffSuffix').value.trim(),
+        role: 'school_admin'
+      })
+    });
+
+    ui.staffDialog.close();
+    showToast(
+      result.emailSent
+        ? 'School administrator created and invite sent.'
+        : 'School administrator created, but the invite email was not sent.',
+      result.emailSent ? 'success' : 'warning'
+    );
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+};
+
+bindRefresh('refreshBtn', load);
+requireRole('master_admin', load);
+</script>
+</body>
+</html>
