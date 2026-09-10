@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="theme-color" content="#047857" />
+<meta name="theme-color" content="#4f46e5" />
 <title>Notifications — PickupPass</title>
 
 <link rel="stylesheet" href="../shared/theme.css" />
@@ -122,7 +122,7 @@ import {
   where,
   orderBy,
   limit,
-  getDocs,
+  onSnapshot,
   doc,
   updateDoc,
   writeBatch
@@ -135,6 +135,7 @@ import {
 let currentUid = null;
 let allNotifications = [];
 let activeFilter = "all";
+let unsubscribeNotifications = null;
 
 const ui = {
   unreadCount:
@@ -167,15 +168,20 @@ const ui = {
 
 onAuthStateChanged(
   auth,
-  async (user) => {
+  (user) => {
     if (!user) {
+      unsubscribeNotifications?.();
       window.location.href =
         "../login.html";
       return;
     }
 
+    if (currentUid === user.uid && unsubscribeNotifications) {
+      return;
+    }
+
     currentUid = user.uid;
-    await loadNotifications();
+    startNotificationListener();
   }
 );
 
@@ -199,47 +205,57 @@ ui.unreadFilter.addEventListener(
 
 ui.retry.addEventListener(
   "click",
-  loadNotifications
+  startNotificationListener
 );
 
-async function loadNotifications() {
+window.addEventListener("pagehide", () => {
+  unsubscribeNotifications?.();
+  unsubscribeNotifications = null;
+});
+
+function startNotificationListener() {
+  if (!currentUid) return;
+
+  unsubscribeNotifications?.();
+  unsubscribeNotifications = null;
   showLoading();
 
-  try {
-    const q = query(
-      collection(db, "notifications"),
-      where(
-        "recipientUid",
-        "==",
-        currentUid
-      ),
-      orderBy(
-        "createdAt",
-        "desc"
-      ),
-      limit(100)
-    );
+  const q = query(
+    collection(db, "notifications"),
+    where(
+      "recipientUid",
+      "==",
+      currentUid
+    ),
+    orderBy(
+      "createdAt",
+      "desc"
+    ),
+    limit(100)
+  );
 
-    const snap =
-      await getDocs(q);
+  unsubscribeNotifications = onSnapshot(
+    q,
+    (snap) => {
+      allNotifications =
+        snap.docs.map(
+          (d) => ({
+            id: d.id,
+            ...d.data()
+          })
+        );
 
-    allNotifications =
-      snap.docs.map(
-        (d) => ({
-          id: d.id,
-          ...d.data()
-        })
+      render();
+    },
+    (error) => {
+      console.error(
+        "Failed to listen for notifications",
+        error
       );
 
-    render();
-  } catch (error) {
-    console.error(
-      "Failed to load notifications",
-      error
-    );
-
-    showError(error);
-  }
+      showError(error);
+    }
+  );
 }
 
 function render() {
@@ -335,9 +351,17 @@ function createNotificationRow(
       notification.type
     );
 
+  const destination =
+    notificationDestination(
+      notification
+    );
+
+  const actionable =
+    unread || Boolean(destination);
+
   const row =
     document.createElement(
-      unread ? "button" : "article"
+      actionable ? "button" : "article"
     );
 
   row.className =
@@ -345,13 +369,19 @@ function createNotificationRow(
       unread
         ? " pp-staff-notification-row--unread"
         : ""
+    }${
+      destination
+        ? " pp-staff-notification-row--actionable"
+        : ""
     }`;
 
-  if (unread) {
+  if (actionable) {
     row.type = "button";
     row.setAttribute(
       "aria-label",
-      `Mark ${notification.title || "notification"} as read`
+      destination
+        ? `Open ${notification.title || presentation.label}`
+        : `Mark ${notification.title || "notification"} as read`
     );
   }
 
@@ -389,7 +419,9 @@ function createNotificationRow(
         ${
           unread
             ? '<span class="pp-staff-unread-dot" aria-label="Unread"></span>'
-            : ""
+            : destination
+              ? '<span class="pp-staff-notification-open" aria-hidden="true">›</span>'
+              : ""
         }
       </div>
 
@@ -423,13 +455,19 @@ function createNotificationRow(
     </div>
   `;
 
-  if (unread) {
+  if (actionable) {
     row.addEventListener(
       "click",
-      () =>
-        markAsRead(
-          notification
-        )
+      async () => {
+        const marked =
+          await markAsRead(
+            notification
+          );
+
+        if (destination && marked) {
+          window.location.href = destination;
+        }
+      }
     );
   }
 
@@ -440,7 +478,7 @@ async function markAsRead(
   notification
 ) {
   if (notification.read) {
-    return;
+    return true;
   }
 
   notification.read = true;
@@ -455,6 +493,8 @@ async function markAsRead(
       ),
       { read: true }
     );
+
+    return true;
   } catch (error) {
     notification.read = false;
     render();
@@ -463,6 +503,8 @@ async function markAsRead(
       "Couldn't mark this notification as read.",
       "error"
     );
+
+    return false;
   }
 }
 
@@ -546,6 +588,83 @@ ui.markAll.addEventListener(
     }
   }
 );
+
+function notificationDestination(notification) {
+  const explicit = [
+    notification.destination,
+    notification.destinationPath,
+    notification.route,
+    notification.path
+  ].find(
+    (value) =>
+      typeof value === "string" &&
+      value.trim()
+  );
+
+  if (explicit) {
+    const safe = safeTeacherDestination(explicit);
+    if (safe) return safe;
+  }
+
+  const normalized =
+    String(notification.type || "")
+      .trim()
+      .toLowerCase();
+
+  if (
+    normalized.includes("pickup") ||
+    normalized.includes("release") ||
+    normalized.includes("dismiss")
+  ) {
+    return "./exit-logs.html";
+  }
+
+  if (
+    normalized.includes("guardian") ||
+    normalized.includes("verification")
+  ) {
+    if (notification.studentId) {
+      return `./manage-guardians.html?studentId=${encodeURIComponent(notification.studentId)}`;
+    }
+
+    return "./students.html";
+  }
+
+  if (
+    normalized.includes("security") ||
+    normalized.includes("session") ||
+    normalized.includes("account")
+  ) {
+    return "../account/profile.html";
+  }
+
+  return "";
+}
+
+function safeTeacherDestination(value) {
+  const raw = String(value || "").trim();
+  if (!raw || /^https?:\/\//i.test(raw) || raw.startsWith("//")) {
+    return "";
+  }
+
+  try {
+    const url = new URL(raw, window.location.origin);
+    if (url.origin !== window.location.origin) return "";
+
+    const allowed = [
+      "/teacher/",
+      "/account/"
+    ];
+
+    if (!allowed.some((prefix) => url.pathname.startsWith(prefix))) {
+      return "";
+    }
+
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch (_) {
+    return "";
+  }
+}
 
 function updateFilterButtons() {
   ui.allFilter.setAttribute(
