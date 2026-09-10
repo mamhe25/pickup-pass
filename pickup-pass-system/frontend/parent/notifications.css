@@ -13,7 +13,7 @@
   background:
     radial-gradient(
       360px 220px at 100% 0%,
-      rgba(132, 204, 22, .24),
+      rgba(139, 92, 246, .25),
       transparent 72%
     ),
     linear-gradient(
@@ -254,6 +254,14 @@ button.pp-notification-card:focus-visible,
   margin-top: 5px;
   border-radius: 999px;
   background: var(--primary);
+}
+
+.pp-notification-open {
+  align-self: center;
+  color: var(--primary);
+  font-size: 1.35rem;
+  line-height: 1;
+  font-weight: 800;
 }
 
 .pp-notification-empty,
