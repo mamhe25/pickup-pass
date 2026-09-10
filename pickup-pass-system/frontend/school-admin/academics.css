@@ -1,0 +1,38 @@
+/* PickupPass School Admin — academic structure parity */
+.pp-academic-page{max-width:1120px}
+.pp-academic-hero{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:16px;align-items:center;padding:21px;border:1px solid var(--border);border-radius:21px;background:linear-gradient(145deg,var(--surface),color-mix(in srgb,var(--surface) 94%,var(--primary-container) 6%));box-shadow:var(--shadow-sm)}
+.pp-academic-hero__icon{width:56px;height:56px;display:grid;place-items:center;border-radius:17px;background:var(--primary-container);color:var(--on-primary-container);font-size:1.05rem;font-weight:850}
+.pp-academic-hero__eyebrow{margin:0;color:var(--primary);font-size:.64rem;font-weight:830;letter-spacing:.1em;text-transform:uppercase}
+.pp-academic-hero h1{margin:4px 0 0;color:var(--text-strong);font-size:1.22rem;font-weight:840;letter-spacing:-.025em}
+.pp-academic-hero p{max-width:700px;margin:6px 0 0;color:var(--text-muted);font-size:.76rem;line-height:1.55}
+.pp-academic-hero__current{min-width:165px;padding:12px 14px;border-radius:14px;background:var(--surface-variant);text-align:right}
+.pp-academic-hero__current span{display:block;color:var(--text-subtle);font-size:.61rem;font-weight:780;text-transform:uppercase;letter-spacing:.07em}
+.pp-academic-hero__current strong{display:block;margin-top:4px;color:var(--text-strong);font-size:.8rem;font-weight:800;overflow-wrap:anywhere}
+.pp-academic-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin-top:14px}
+.pp-academic-metric{padding:15px;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:var(--shadow-sm)}
+.pp-academic-metric span{display:block;color:var(--text-subtle);font-size:.62rem;font-weight:780;letter-spacing:.07em;text-transform:uppercase}
+.pp-academic-metric strong{display:block;margin-top:5px;color:var(--text-strong);font-size:1.28rem;font-weight:840}
+.pp-record-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.pp-record-card{display:flex;min-width:0;flex-direction:column;gap:12px;padding:16px;border:1px solid var(--border);border-radius:17px;background:linear-gradient(145deg,var(--surface),color-mix(in srgb,var(--surface) 96%,var(--primary-container) 4%));box-shadow:var(--shadow-sm)}
+.pp-record-card.is-current{border-color:color-mix(in srgb,var(--primary) 35%,var(--border));background:linear-gradient(145deg,color-mix(in srgb,var(--primary-container) 24%,var(--surface)),var(--surface))}
+.pp-record-card__head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.pp-record-card__head h3{margin:0;color:var(--text-strong);font-size:.88rem;font-weight:820;overflow-wrap:anywhere}
+.pp-record-card__head p{margin:4px 0 0;color:var(--text-muted);font-size:.68rem;line-height:1.4}
+.pp-record-card__meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.pp-record-meta{padding:9px 10px;border-radius:11px;background:var(--surface-variant)}
+.pp-record-meta span{display:block;color:var(--text-subtle);font-size:.58rem;font-weight:770;letter-spacing:.05em;text-transform:uppercase}
+.pp-record-meta strong{display:block;margin-top:3px;color:var(--text-strong);font-size:.69rem;font-weight:740;overflow-wrap:anywhere}
+.pp-record-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.pp-academic-safety{display:grid;grid-template-columns:35px minmax(0,1fr);gap:10px;align-items:start;padding:14px;border:1px solid var(--border);border-radius:15px;background:var(--surface-variant)}
+.pp-academic-safety__icon{width:35px;height:35px;display:grid;place-items:center;border-radius:11px;background:var(--primary-container);color:var(--primary);font-weight:850}
+.pp-academic-safety strong{display:block;color:var(--text-strong);font-size:.75rem}
+.pp-academic-safety p{margin:3px 0 0;color:var(--text-muted);font-size:.68rem;line-height:1.5}
+.pp-add-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.pp-add-choice{display:grid;grid-template-columns:42px minmax(0,1fr);gap:11px;align-items:start;padding:14px;border:1px solid var(--border);border-radius:15px;background:var(--surface);text-align:left;cursor:pointer}
+.pp-add-choice:hover{border-color:color-mix(in srgb,var(--primary) 32%,var(--border));background:color-mix(in srgb,var(--primary-container) 20%,var(--surface))}
+.pp-add-choice:disabled{opacity:.5;cursor:not-allowed}
+.pp-add-choice__icon{width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:var(--primary-container);color:var(--primary);font-weight:840}
+.pp-add-choice strong{display:block;color:var(--text-strong);font-size:.76rem}
+.pp-add-choice span{display:block;margin-top:4px;color:var(--text-muted);font-size:.67rem;line-height:1.45}
+@media(max-width:760px){.pp-record-grid{grid-template-columns:1fr}.pp-academic-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.pp-academic-hero{grid-template-columns:48px minmax(0,1fr)}.pp-academic-hero__current{grid-column:2;min-width:0;text-align:left}.pp-add-choice-grid{grid-template-columns:1fr}}
+@media(max-width:480px){.pp-academic-metrics{grid-template-columns:1fr 1fr}.pp-record-card__meta{grid-template-columns:1fr}.pp-academic-hero{padding:17px}.pp-record-actions .pp-btn{flex:1 1 45%}}
