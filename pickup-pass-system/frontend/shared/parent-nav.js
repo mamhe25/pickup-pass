@@ -6,7 +6,14 @@
 // =============================================================================
 import { auth, db, getSchoolBranding } from "./firebase-init.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  doc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { mountThemeToggle, enhancePortal } from './shell.js';
 
 const NAV_ITEMS = [
@@ -15,11 +22,16 @@ const NAV_ITEMS = [
   { key: "profile",       label: "My Profile",    href: "./profile.html",       icon: iconUser },
 ];
 
+let unsubscribeUnread = null;
+let unreadUid = "";
+
 function render(mount) {
   const active = mount.dataset.active || "";
   const links = NAV_ITEMS.map((item) => {
     const current = item.key === active ? ' aria-current="page"' : "";
-    const badge = item.badge ? '<span id="navUnreadBadge" class="pp-navlink__badge hidden"></span>' : "";
+    const badge = item.badge
+      ? '<span id="navUnreadBadge" class="pp-navlink__badge hidden" aria-label="Unread notifications"></span>'
+      : "";
     return `<a class="pp-navlink" href="${item.href}" aria-label="${item.label}"${current}>${item.icon()}<span class="pp-navlink__label">${item.label}</span>${badge}</a>`;
   }).join("");
 
@@ -51,18 +63,64 @@ function render(mount) {
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
+      stopUnreadListener();
       window.location.href = "../login.html";
       return;
     }
+
     const emailEl = mount.querySelector("#currentUserEmail");
     if (emailEl) emailEl.textContent = user.email || "";
-    updateUnreadBadge(user.uid);
+    startUnreadListener(user.uid);
+
     try {
       const tokenResult = await user.getIdTokenResult();
       await loadSchoolIdentity(mount, tokenResult.claims.schoolId);
     } catch (_) { /* school chrome is non-critical */ }
   });
 }
+
+function startUnreadListener(uid) {
+  const badge = document.getElementById("navUnreadBadge");
+  if (!badge || !uid) return;
+
+  if (unsubscribeUnread && unreadUid === uid) return;
+  stopUnreadListener();
+  unreadUid = uid;
+
+  const unreadQuery = query(
+    collection(db, "notifications"),
+    where("recipientUid", "==", uid),
+    where("read", "==", false)
+  );
+
+  unsubscribeUnread = onSnapshot(
+    unreadQuery,
+    (snapshot) => {
+      const count = snapshot.size;
+      if (count > 0) {
+        badge.textContent = count > 9 ? "9+" : String(count);
+        badge.setAttribute("aria-label", `${count} unread notification${count === 1 ? "" : "s"}`);
+        badge.classList.remove("hidden");
+      } else {
+        badge.textContent = "";
+        badge.setAttribute("aria-label", "No unread notifications");
+        badge.classList.add("hidden");
+      }
+    },
+    () => {
+      badge.textContent = "";
+      badge.classList.add("hidden");
+    }
+  );
+}
+
+function stopUnreadListener() {
+  unsubscribeUnread?.();
+  unsubscribeUnread = null;
+  unreadUid = "";
+}
+
+window.addEventListener("pagehide", stopUnreadListener);
 
 async function loadSchoolIdentity(mount, schoolId) {
   if (!schoolId) return;
@@ -77,26 +135,6 @@ async function loadSchoolIdentity(mount, schoolId) {
     else logoEl.remove();
   }
   if (slot) { slot.classList.remove("hidden"); slot.classList.add("flex"); }
-}
-
-async function updateUnreadBadge(uid) {
-  const badge = document.getElementById("navUnreadBadge");
-  if (!badge) return;
-  try {
-    const snap = await getDocs(query(
-      collection(db, "notifications"),
-      where("recipientUid", "==", uid),
-      where("read", "==", false)
-    ));
-    if (snap.size > 0) {
-      badge.textContent = snap.size > 9 ? "9+" : String(snap.size);
-      badge.classList.remove("hidden");
-    } else {
-      badge.classList.add("hidden");
-    }
-  } catch (_) {
-    badge.classList.add("hidden");
-  }
 }
 
 function svg(paths) {
