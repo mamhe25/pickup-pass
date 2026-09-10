@@ -23,7 +23,7 @@
   <section class="pp-guardians-hero">
     <p class="pp-guardians-hero__eyebrow">Pickup authorization</p>
 
-    <h1>Trusted people for a safe handoff.</h1>
+    <h1 id="guardianHeroTitle">Student guardians</h1>
 
     <p id="studentLabel">
       Loading student…
@@ -67,13 +67,52 @@
     </div>
   </div>
 
+  <div id="primaryRequired" class="pp-primary-required hidden" role="status">
+    <strong>Primary guardian required</strong>
+    <p>
+      Additional pickup access can be added after the school registers the
+      protected primary guardian of record.
+    </p>
+  </div>
+
+  <aside class="pp-guardian-safety">
+    Changing guardian access does not release a student. Every pickup still
+    requires a valid pass and staff identity verification.
+  </aside>
+</main>
+
+<button
+  id="guardianAddFab"
+  type="button"
+  class="pp-guardian-add-fab hidden"
+  aria-label="Add guardian access"
+  title="Add guardian access">
+  +
+</button>
+
+<div
+  id="guardianAddOverlay"
+  class="pp-guardian-add-overlay hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="guardianAddTitle">
   <section class="pp-guardian-add">
-    <div class="pp-guardian-add__head">
-      <h2>Add pickup access</h2>
-      <p>
-        Choose permanent backup access or a one-day authorization. Every pickup
-        still requires staff verification.
-      </p>
+    <div class="pp-guardian-add__sheet-head">
+      <div class="pp-guardian-add__head">
+        <h2 id="guardianAddTitle">Add pickup access</h2>
+        <p>
+          Choose permanent backup access or a one-day authorization. Every pickup
+          still requires staff verification.
+        </p>
+      </div>
+
+      <button
+        id="closeGuardianAdd"
+        type="button"
+        class="pp-guardian-sheet-close"
+        aria-label="Close add guardian form">
+        ×
+      </button>
     </div>
 
     <div class="pp-guardian-mode" role="tablist" aria-label="Guardian access type">
@@ -202,8 +241,10 @@
       </section>
     </div>
   </section>
+</div>
 
-  <section id="schedulePanel" class="pp-schedule-card hidden">
+<dialog id="scheduleDialog" class="pp-guardian-dialog">
+  <section class="pp-schedule-card">
     <div class="pp-schedule-card__head">
       <div>
         <h2>Recurring pickup schedule</h2>
@@ -252,12 +293,35 @@
       </button>
     </div>
   </section>
+</dialog>
 
-  <aside class="pp-guardian-safety">
-    Changing guardian access does not release a student. Every pickup still
-    requires a valid pass and staff identity verification.
-  </aside>
-</main>
+<dialog id="removeGuardianDialog" class="pp-guardian-dialog pp-remove-dialog">
+  <section class="pp-remove-card">
+    <div class="pp-remove-card__icon" aria-hidden="true">!</div>
+    <h2 id="removeGuardianTitle">Remove guardian access?</h2>
+    <p>
+      Their pickup authorization will end immediately. Any unused QR pass they
+      hold will stop working.
+    </p>
+
+    <div class="pp-remove-card__actions">
+      <button id="cancelRemoveGuardian" type="button" class="pp-btn pp-btn--ghost">
+        Cancel
+      </button>
+      <button id="confirmRemoveGuardian" type="button" class="pp-btn pp-btn--danger">
+        Remove access
+      </button>
+    </div>
+  </section>
+</dialog>
+
+<dialog id="guardianPhotoDialog" class="pp-guardian-photo-dialog">
+  <section class="pp-guardian-photo-card">
+    <button id="closeGuardianPhoto" type="button" class="pp-guardian-sheet-close" aria-label="Close guardian photo">×</button>
+    <img id="guardianPhotoLarge" alt="Authorized guardian identity photo" />
+    <p id="guardianPhotoCaption"></p>
+  </section>
+</dialog>
 
 <script type="module">
 import {
@@ -295,6 +359,8 @@ if (!studentId) {
 let student = null;
 let profiles = {};
 let scheduleUid = "";
+let removeUid = "";
+let removeSourceButton = null;
 
 const DAYS = [
   "MONDAY",
@@ -307,6 +373,7 @@ const DAYS = [
 ];
 
 const ui = {
+  heroTitle: document.getElementById("guardianHeroTitle"),
   studentLabel: document.getElementById("studentLabel"),
   guardianList: document.getElementById("guardianList"),
   primaryCount: document.getElementById("primaryCount"),
@@ -315,11 +382,15 @@ const ui = {
   permanentMode: document.getElementById("permanentModeBtn"),
   temporaryMode: document.getElementById("temporaryModeBtn"),
   permanentPanel: document.getElementById("permanentPanel"),
-  temporaryPanel: document.getElementById("temporaryPanel")
+  temporaryPanel: document.getElementById("temporaryPanel"),
+  addFab: document.getElementById("guardianAddFab"),
+  addOverlay: document.getElementById("guardianAddOverlay"),
+  closeAdd: document.getElementById("closeGuardianAdd"),
+  primaryRequired: document.getElementById("primaryRequired")
 };
 
 const weekdayGrid = document.getElementById("weekdayGrid");
-const schedulePanel = document.getElementById("schedulePanel");
+const scheduleDialog = document.getElementById("scheduleDialog");
 const scheduleGuardianName = document.getElementById("scheduleGuardianName");
 const scheduleEnabled = document.getElementById("scheduleEnabled");
 const scheduleStart = document.getElementById("scheduleStart");
@@ -327,6 +398,16 @@ const scheduleEnd = document.getElementById("scheduleEnd");
 const saveSchedule = document.getElementById("saveSchedule");
 const clearSchedule = document.getElementById("clearSchedule");
 const closeSchedule = document.getElementById("closeSchedule");
+
+const removeDialog = document.getElementById("removeGuardianDialog");
+const removeTitle = document.getElementById("removeGuardianTitle");
+const cancelRemove = document.getElementById("cancelRemoveGuardian");
+const confirmRemove = document.getElementById("confirmRemoveGuardian");
+
+const photoDialog = document.getElementById("guardianPhotoDialog");
+const photoLarge = document.getElementById("guardianPhotoLarge");
+const photoCaption = document.getElementById("guardianPhotoCaption");
+const closePhoto = document.getElementById("closeGuardianPhoto");
 
 const addForm = document.getElementById("addForm");
 const lastName = document.getElementById("lastName");
@@ -353,36 +434,52 @@ weekdayGrid.innerHTML =
     `
   ).join("");
 
-ui.permanentMode.addEventListener("click", () => {
-  setMode("permanent");
+const today = new Date();
+const maxTemporaryDate = new Date(today);
+maxTemporaryDate.setDate(maxTemporaryDate.getDate() + 30);
+tempDate.min = toDateInput(today);
+tempDate.max = toDateInput(maxTemporaryDate);
+
+ui.permanentMode.addEventListener("click", () => setMode("permanent"));
+ui.temporaryMode.addEventListener("click", () => setMode("temporary"));
+ui.addFab.addEventListener("click", openAddSheet);
+ui.closeAdd.addEventListener("click", closeAddSheet);
+ui.addOverlay.addEventListener("click", (event) => {
+  if (event.target === ui.addOverlay) closeAddSheet();
 });
 
-ui.temporaryMode.addEventListener("click", () => {
-  setMode("temporary");
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !ui.addOverlay.classList.contains("hidden")) {
+    closeAddSheet();
+  }
 });
+
+function openAddSheet() {
+  setMode("permanent");
+  ui.addOverlay.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  requestAnimationFrame(() => lastName.focus({ preventScroll: true }));
+}
+
+function closeAddSheet() {
+  ui.addOverlay.classList.add("hidden");
+  document.body.style.overflow = "";
+}
 
 function setMode(mode) {
   const temporary = mode === "temporary";
 
-  ui.permanentMode.setAttribute(
-    "aria-selected",
-    String(!temporary)
-  );
+  ui.permanentMode.setAttribute("aria-selected", String(!temporary));
+  ui.temporaryMode.setAttribute("aria-selected", String(temporary));
+  ui.permanentPanel.classList.toggle("hidden", temporary);
+  ui.temporaryPanel.classList.toggle("hidden", !temporary);
+}
 
-  ui.temporaryMode.setAttribute(
-    "aria-selected",
-    String(temporary)
-  );
-
-  ui.permanentPanel.classList.toggle(
-    "hidden",
-    temporary
-  );
-
-  ui.temporaryPanel.classList.toggle(
-    "hidden",
-    !temporary
-  );
+function toDateInput(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function dateText(value) {
@@ -396,11 +493,8 @@ function scheduleSummary(entry) {
 
   const days =
     (entry.pickupDays || [])
-      .map((value) =>
-        String(value).slice(0, 3)
-      )
-      .join(", ") ||
-    "No days";
+      .map((value) => String(value).slice(0, 3))
+      .join(", ") || "No days";
 
   return (
     `${days} · ` +
@@ -416,18 +510,13 @@ async function load() {
     </div>
   `;
 
-  const snap =
-    await getDoc(
-      doc(db, "students", studentId)
-    );
+  const snap = await getDoc(doc(db, "students", studentId));
 
   if (!snap.exists()) {
-    ui.studentLabel.textContent =
-      "Student not found.";
-
-    ui.guardianList.innerHTML =
-      '<div class="pp-empty">Student not found.</div>';
-
+    ui.studentLabel.textContent = "Student not found.";
+    ui.guardianList.innerHTML = '<div class="pp-empty">Student not found.</div>';
+    ui.addFab.classList.add("hidden");
+    ui.primaryRequired.classList.add("hidden");
     setCounts([]);
     return;
   }
@@ -435,29 +524,22 @@ async function load() {
   student = snap.data();
 
   const studentName = student.fullName || "Student";
+  ui.heroTitle.textContent = studentName;
   ui.studentLabel.textContent =
-    `Managing guardian access for ${studentName} · ` +
-    `Grade ${student.grade || "—"}` +
+    `Control who may present a pickup pass · Grade ${student.grade || "—"}` +
     `${student.section ? " · " + student.section : ""}`;
   document.title = `Guardians for ${studentName} — PickupPass`;
 
   try {
-    const response =
-      await authedFetch(
-        `/parent/students/${encodeURIComponent(studentId)}/guardian-profiles`
-      );
+    const response = await authedFetch(
+      `/parent/students/${encodeURIComponent(studentId)}/guardian-profiles`
+    );
 
     if (response.ok) {
       const data = await response.json();
-
-      profiles =
-        Object.fromEntries(
-          (data.guardians || [])
-            .map((item) => [
-              item.uid,
-              item
-            ])
-        );
+      profiles = Object.fromEntries(
+        (data.guardians || []).map((item) => [item.uid, item])
+      );
     }
   } catch (_) {
     profiles = {};
@@ -492,8 +574,7 @@ function primaryGuardianUid() {
 }
 
 function render() {
-  const guardians =
-    student.guardians || {};
+  const guardians = student.guardians || {};
 
   const uids = [
     ...new Set([
@@ -503,79 +584,81 @@ function render() {
   ];
 
   const primaryUid = primaryGuardianUid();
-  const records =
-    uids.map((uid) => {
-      const storedEntry = guardians[uid] || {};
-      return {
-        uid,
-        entry: {
-          ...storedEntry,
-          isPrimary: uid === primaryUid
-        },
-        profile: profiles[uid] || {}
-      };
-    });
+  const records = uids.map((uid) => {
+    const storedEntry = guardians[uid] || {};
+    return {
+      uid,
+      entry: {
+        ...storedEntry,
+        isPrimary: uid === primaryUid
+      },
+      profile: profiles[uid] || {}
+    };
+  });
+
   setCounts(records);
+  ui.addFab.classList.toggle("hidden", !primaryUid);
+  ui.primaryRequired.classList.toggle("hidden", Boolean(primaryUid));
+  if (!primaryUid) closeAddSheet();
 
-  ui.guardianList.innerHTML =
-    records.map(({ uid, entry, profile }) =>
-      guardianCard(uid, entry, profile)
-    ).join("") ||
-    '<div class="pp-empty">No guardians on record.</div>';
+  const primaryRecords = records.filter(({ entry }) => !!entry.isPrimary);
+  const additionalRecords = records.filter(({ entry }) => !entry.isPrimary);
 
-  document
-    .querySelectorAll(".scheduleBtn")
-    .forEach((button) => {
-      button.onclick =
-        () => openSchedule(button.dataset.uid);
-    });
+  ui.guardianList.innerHTML = `
+    <section class="pp-guardian-group">
+      <div class="pp-guardian-group__head">
+        <strong>Primary guardian</strong>
+        <span>Protected guardian of record</span>
+      </div>
+      ${primaryRecords.length
+        ? primaryRecords.map(({ uid, entry, profile }) => guardianCard(uid, entry, profile)).join("")
+        : '<div class="pp-empty">No primary guardian is registered yet.</div>'}
+    </section>
 
-  document
-    .querySelectorAll(".removeBtn")
-    .forEach((button) => {
-      button.onclick =
-        () => removeGuardian(
-          button.dataset.uid,
-          button
-        );
-    });
+    <section class="pp-guardian-group">
+      <div class="pp-guardian-group__head">
+        <strong>Backup & temporary guardians</strong>
+        <span>Additional pickup access</span>
+      </div>
+      ${additionalRecords.length
+        ? additionalRecords.map(({ uid, entry, profile }) => guardianCard(uid, entry, profile)).join("")
+        : '<div class="pp-empty">No additional guardians yet.</div>'}
+    </section>
+  `;
+
+  document.querySelectorAll(".scheduleBtn").forEach((button) => {
+    button.onclick = () => openSchedule(button.dataset.uid);
+  });
+
+  document.querySelectorAll(".removeBtn").forEach((button) => {
+    button.onclick = () => requestRemoveGuardian(button.dataset.uid, button);
+  });
+
+  document.querySelectorAll(".guardianPhotoBtn").forEach((button) => {
+    button.onclick = () => openGuardianPhoto(
+      button.dataset.photo,
+      button.dataset.name
+    );
+  });
 }
 
 function setCounts(records) {
-  const primary =
-    records.filter(
-      ({ entry }) => !!entry.isPrimary
-    ).length;
+  const primary = records.filter(({ entry }) => !!entry.isPrimary).length;
 
-  const temporary =
-    records.filter(
-      ({ entry }) =>
-        String(
-          entry.authorizationType || "permanent"
-        ).toLowerCase() === "temporary"
-    ).length;
+  const temporary = records.filter(({ entry }) =>
+    String(entry.authorizationType || "permanent").toLowerCase() === "temporary"
+  ).length;
 
-  const backup =
-    Math.max(
-      0,
-      records.length - primary - temporary
-    );
+  const backup = Math.max(0, records.length - primary - temporary);
 
-  ui.primaryCount.textContent =
-    String(primary);
-
-  ui.backupCount.textContent =
-    String(backup);
-
-  ui.temporaryCount.textContent =
-    String(temporary);
+  ui.primaryCount.textContent = String(primary);
+  ui.backupCount.textContent = String(backup);
+  ui.temporaryCount.textContent = String(temporary);
 }
 
 function guardianCard(uid, entry, profile) {
   const temporary =
-    String(
-      entry.authorizationType || "permanent"
-    ).toLowerCase() === "temporary";
+    String(entry.authorizationType || "permanent").toLowerCase() === "temporary";
 
   const badge = entry.isPrimary
     ? '<span class="pp-status pp-status--success">Primary</span>'
@@ -587,6 +670,10 @@ function guardianCard(uid, entry, profile) {
     ? `Valid ${escapeHtml(entry.validDate || "—")} · ` +
       `${Number(entry.remainingUses ?? 1)} use remaining`
     : escapeHtml(scheduleSummary(entry));
+
+  const displayName = profile.displayName || "Pending guardian";
+  const photoUrl = profile.photoUrl || "../assets/default-avatar.svg";
+  const hasPhoto = Boolean(profile.photoUrl);
 
   const actions = entry.isPrimary
     ? '<span class="pp-guardian-card__protected">Protected access</span>'
@@ -609,16 +696,22 @@ function guardianCard(uid, entry, profile) {
 
   return `
     <article class="pp-guardian-card">
-      <div class="pp-guardian-card__avatar">
+      <button
+        type="button"
+        class="pp-guardian-card__avatar guardianPhotoBtn"
+        data-photo="${escapeHtml(hasPhoto ? photoUrl : "")}"
+        data-name="${escapeHtml(displayName)}"
+        ${hasPhoto ? "" : "disabled"}
+        aria-label="${hasPhoto ? `View ${escapeHtml(displayName)} identity photo` : "Guardian photo unavailable"}">
         <img
-          src="${escapeHtml(profile.photoUrl || "../assets/default-avatar.svg")}"
+          src="${escapeHtml(photoUrl)}"
           alt=""
           loading="lazy">
-      </div>
+      </button>
 
       <div class="min-w-0">
         <p class="pp-guardian-card__name truncate">
-          ${escapeHtml(profile.displayName || "Pending guardian")}
+          ${escapeHtml(displayName)}
         </p>
 
         <div class="pp-guardian-card__meta">
@@ -640,69 +733,58 @@ function guardianCard(uid, entry, profile) {
   `;
 }
 
+function openGuardianPhoto(source, name) {
+  if (!source) return;
+  photoLarge.src = source;
+  photoCaption.textContent = name || "Authorized guardian";
+  photoDialog.showModal();
+}
+
+closePhoto.onclick = () => photoDialog.close();
+photoDialog.addEventListener("click", (event) => {
+  if (event.target === photoDialog) photoDialog.close();
+});
+
 function openSchedule(uid) {
   scheduleUid = uid;
 
-  const entry =
-    (student.guardians || {})[uid] || {};
+  const entry = (student.guardians || {})[uid] || {};
+  const profile = profiles[uid] || {};
 
-  const profile =
-    profiles[uid] || {};
+  scheduleGuardianName.textContent = profile.displayName || "Backup guardian";
+  scheduleEnabled.checked = !!entry.pickupScheduleEnabled;
+  scheduleStart.value = entry.scheduleStartDate || "";
+  scheduleEnd.value = entry.scheduleEndDate || "";
 
-  scheduleGuardianName.textContent =
-    profile.displayName || "Backup guardian";
+  const selected = new Set(
+    (entry.pickupDays || []).map((value) => String(value).toUpperCase())
+  );
 
-  scheduleEnabled.checked =
-    !!entry.pickupScheduleEnabled;
-
-  scheduleStart.value =
-    entry.scheduleStartDate || "";
-
-  scheduleEnd.value =
-    entry.scheduleEndDate || "";
-
-  const selected =
-    new Set(
-      (entry.pickupDays || [])
-        .map((value) =>
-          String(value).toUpperCase()
-        )
-    );
-
-  document
-    .querySelectorAll("#weekdayGrid input")
-    .forEach((input) => {
-      input.checked =
-        selected.has(input.value);
-    });
-
-  schedulePanel.classList.remove("hidden");
-
-  schedulePanel.scrollIntoView({
-    behavior: "smooth",
-    block: "start"
+  document.querySelectorAll("#weekdayGrid input").forEach((input) => {
+    input.checked = selected.has(input.value);
   });
+
+  scheduleDialog.showModal();
 }
 
 closeSchedule.onclick = () => {
-  schedulePanel.classList.add("hidden");
+  if (!saveSchedule.disabled) scheduleDialog.close();
   scheduleUid = "";
 };
+
+scheduleDialog.addEventListener("cancel", (event) => {
+  if (saveSchedule.disabled) event.preventDefault();
+});
 
 async function saveScheduleRequest(enabled) {
   if (!scheduleUid) return;
 
   const pickupDays = [
-    ...document.querySelectorAll(
-      "#weekdayGrid input:checked"
-    )
+    ...document.querySelectorAll("#weekdayGrid input:checked")
   ].map((input) => input.value);
 
   if (enabled && pickupDays.length === 0) {
-    showToast(
-      "Select at least one weekday.",
-      "error"
-    );
+    showToast("Select at least one weekday.", "error");
     return;
   }
 
@@ -711,18 +793,11 @@ async function saveScheduleRequest(enabled) {
     scheduleEnd.value &&
     scheduleEnd.value < scheduleStart.value
   ) {
-    showToast(
-      "End date cannot be before start date.",
-      "error"
-    );
+    showToast("End date cannot be before start date.", "error");
     return;
   }
 
-  setSubmitButtonBusy(
-    saveSchedule,
-    true,
-    "Saving…"
-  );
+  setSubmitButtonBusy(saveSchedule, true, "Saving…");
 
   try {
     await apiCall(
@@ -733,16 +808,9 @@ async function saveScheduleRequest(enabled) {
           studentId,
           guardianUid: scheduleUid,
           enabled,
-          pickupDays:
-            enabled ? pickupDays : [],
-          startDate:
-            enabled
-              ? scheduleStart.value
-              : "",
-          endDate:
-            enabled
-              ? scheduleEnd.value
-              : ""
+          pickupDays: enabled ? pickupDays : [],
+          startDate: enabled ? scheduleStart.value : "",
+          endDate: enabled ? scheduleEnd.value : ""
         })
       }
     );
@@ -753,65 +821,57 @@ async function saveScheduleRequest(enabled) {
         : "Recurring restriction removed."
     );
 
-    schedulePanel.classList.add("hidden");
+    scheduleDialog.close();
     scheduleUid = "";
     await load();
   } catch (error) {
-    showToast(
-      error.message,
-      "error"
-    );
+    showToast(error.message, "error");
   } finally {
-    setSubmitButtonBusy(
-      saveSchedule,
-      false
-    );
+    setSubmitButtonBusy(saveSchedule, false);
   }
 }
 
-saveSchedule.onclick =
-  () =>
-    saveScheduleRequest(
-      scheduleEnabled.checked
-    );
-
-clearSchedule.onclick =
-  () =>
-    saveScheduleRequest(false);
+saveSchedule.onclick = () => saveScheduleRequest(scheduleEnabled.checked);
+clearSchedule.onclick = () => saveScheduleRequest(false);
 
 async function apiCall(path, options) {
-  const response =
-    await authedFetch(path, options);
-
-  const data =
-    await response.json()
-      .catch(() => ({}));
+  const response = await authedFetch(path, options);
+  const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(
-      data.error ||
-      data.message ||
-      "Request failed"
-    );
+    throw new Error(data.error || data.message || "Request failed");
   }
 
   return data;
 }
 
-async function removeGuardian(uid, button) {
-  if (
-    !confirm(
-      "Remove this authorized guardian? Any unused QR pass they hold will stop working."
-    )
-  ) {
-    return;
-  }
+function requestRemoveGuardian(uid, button) {
+  removeUid = uid;
+  removeSourceButton = button;
+  const name = profiles[uid]?.displayName || "this guardian";
+  removeTitle.textContent = `Remove ${name}?`;
+  removeDialog.showModal();
+}
 
-  setSubmitButtonBusy(
-    button,
-    true,
-    "Removing…"
-  );
+cancelRemove.onclick = () => {
+  if (!confirmRemove.disabled) {
+    removeDialog.close();
+    removeUid = "";
+    removeSourceButton = null;
+  }
+};
+
+removeDialog.addEventListener("cancel", (event) => {
+  if (confirmRemove.disabled) event.preventDefault();
+});
+
+confirmRemove.onclick = async () => {
+  if (!removeUid || confirmRemove.disabled) return;
+
+  const uid = removeUid;
+  const sourceButton = removeSourceButton;
+  setSubmitButtonBusy(confirmRemove, true, "Removing…");
+  if (sourceButton) sourceButton.disabled = true;
 
   try {
     await apiCall(
@@ -825,157 +885,107 @@ async function removeGuardian(uid, button) {
       }
     );
 
-    showToast("Guardian removed.");
+    removeDialog.close();
+    removeUid = "";
+    removeSourceButton = null;
+    showToast("Guardian access removed.");
     await load();
   } catch (error) {
-    showToast(
-      error.message,
-      "error"
-    );
+    showToast(error.message, "error");
   } finally {
-    setSubmitButtonBusy(
-      button,
-      false
-    );
+    setSubmitButtonBusy(confirmRemove, false);
+    if (sourceButton) sourceButton.disabled = false;
   }
-}
+};
 
 addForm.onsubmit = async (event) => {
   event.preventDefault();
 
-  const button =
-    event.currentTarget
-      .querySelector("button");
-
-  setSubmitButtonBusy(
-    button,
-    true,
-    "Adding…"
-  );
+  const button = event.currentTarget.querySelector("button");
+  setSubmitButtonBusy(button, true, "Adding…");
 
   try {
-    const data =
-      await apiCall(
-        "/parent/add-guardian",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            studentId,
-            lastName:
-              lastName.value.trim(),
-            firstName:
-              firstName.value.trim(),
-            middleInitial:
-              middleInitial.value.trim(),
-            suffix:
-              suffix.value.trim(),
-            guardianEmail:
-              guardianEmail.value.trim(),
-            relationship:
-              guardianRelationship.value
-          })
-        }
-      );
+    const data = await apiCall(
+      "/parent/add-guardian",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          studentId,
+          lastName: lastName.value.trim(),
+          firstName: firstName.value.trim(),
+          middleInitial: middleInitial.value.trim(),
+          suffix: suffix.value.trim(),
+          guardianEmail: guardianEmail.value.trim(),
+          relationship: guardianRelationship.value
+        })
+      }
+    );
 
     showToast(
       data.emailSent === false
         ? "Guardian added; invite email was not sent."
         : "Guardian added.",
-      data.emailSent === false
-        ? "warning"
-        : "success"
+      data.emailSent === false ? "warning" : "success"
     );
 
     event.currentTarget.reset();
+    closeAddSheet();
     await load();
   } catch (error) {
-    showToast(
-      error.message,
-      "error"
-    );
+    showToast(error.message, "error");
   } finally {
-    setSubmitButtonBusy(
-      button,
-      false
-    );
+    setSubmitButtonBusy(button, false);
   }
 };
 
 tempForm.onsubmit = async (event) => {
   event.preventDefault();
 
-  const button =
-    event.currentTarget
-      .querySelector("button");
-
-  setSubmitButtonBusy(
-    button,
-    true,
-    "Authorizing…"
-  );
+  const button = event.currentTarget.querySelector("button");
+  setSubmitButtonBusy(button, true, "Authorizing…");
 
   try {
-    const data =
-      await apiCall(
-        "/parent/add-temporary-guardian",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            studentId,
-            lastName:
-              tempLastName.value.trim(),
-            firstName:
-              tempFirstName.value.trim(),
-            middleInitial: "",
-            suffix: "",
-            guardianEmail:
-              tempEmail.value.trim(),
-            relationship:
-              tempRelationship.value.trim() ||
-              "authorized pickup",
-            validDate:
-              tempDate.value
-          })
-        }
-      );
+    const data = await apiCall(
+      "/parent/add-temporary-guardian",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          studentId,
+          lastName: tempLastName.value.trim(),
+          firstName: tempFirstName.value.trim(),
+          middleInitial: "",
+          suffix: "",
+          guardianEmail: tempEmail.value.trim(),
+          relationship: tempRelationship.value.trim() || "authorized pickup",
+          validDate: tempDate.value
+        })
+      }
+    );
 
     showToast(
       data.emailSent === false
         ? "Temporary guardian authorized; invite email was not sent."
         : "Temporary guardian authorized.",
-      data.emailSent === false
-        ? "warning"
-        : "success"
+      data.emailSent === false ? "warning" : "success"
     );
 
     event.currentTarget.reset();
+    closeAddSheet();
     await load();
   } catch (error) {
-    showToast(
-      error.message,
-      "error"
-    );
+    showToast(error.message, "error");
   } finally {
-    setSubmitButtonBusy(
-      button,
-      false
-    );
+    setSubmitButtonBusy(button, false);
   }
 };
 
-bindRefresh(
-  "refreshBtn",
-  load
-);
+bindRefresh("refreshBtn", load);
 
-onAuthStateChanged(
-  auth,
-  async (user) => {
-    if (user) {
-      await load();
-    }
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    await load();
   }
-);
+});
 </script>
 </body>
 </html>
