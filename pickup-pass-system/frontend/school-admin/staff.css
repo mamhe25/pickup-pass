@@ -1,0 +1,50 @@
+/* PickupPass School Admin — staff & teaching assignment workspace */
+.pp-staff-page{max-width:1180px}
+.pp-staff-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:22px;align-items:center;padding:25px;border-radius:24px;color:#fff;background:radial-gradient(420px 260px at 100% 0%,rgba(168,156,255,.25),transparent 70%),linear-gradient(145deg,var(--indigo-900),var(--indigo-600) 58%,#6D5DFB);box-shadow:0 22px 58px rgba(30,39,92,.16)}
+.pp-staff-hero__eyebrow{margin:0;color:rgba(255,255,255,.68);font-size:.66rem;font-weight:850;letter-spacing:.12em;text-transform:uppercase}
+.pp-staff-hero h1{margin:7px 0 0;color:#fff;font-size:clamp(1.6rem,3vw,2.1rem);line-height:1.05;letter-spacing:-.04em;font-weight:860}
+.pp-staff-hero p{max-width:720px;margin:9px 0 0;color:rgba(255,255,255,.74);font-size:.8rem;line-height:1.55}
+.pp-staff-hero__actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:17px}
+.pp-staff-hero .pp-btn--primary{border-color:rgba(255,255,255,.16);background:#fff;color:var(--indigo-700)}
+.pp-staff-hero .pp-btn--secondary{border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.09);color:#fff}
+.pp-staff-hero__year{min-width:180px;padding:17px 18px;border:1px solid rgba(255,255,255,.13);border-radius:18px;background:rgba(8,14,45,.18);text-align:right;backdrop-filter:blur(10px)}
+.pp-staff-hero__year span{display:block;color:rgba(255,255,255,.64);font-size:.65rem;font-weight:760;text-transform:uppercase;letter-spacing:.08em}
+.pp-staff-hero__year strong{display:block;margin-top:5px;color:#fff;font-size:1rem;font-weight:820;overflow-wrap:anywhere}
+.pp-staff-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin-top:16px}
+.pp-staff-metric{padding:16px;border:1px solid var(--border);border-radius:17px;background:var(--surface);box-shadow:var(--shadow-sm)}
+.pp-staff-metric span{display:block;color:var(--text-subtle);font-size:.63rem;font-weight:790;text-transform:uppercase;letter-spacing:.07em}
+.pp-staff-metric strong{display:block;margin-top:5px;color:var(--text-strong);font-size:1.35rem;font-weight:840;letter-spacing:-.03em}
+.pp-staff-toolbar{display:flex;align-items:end;gap:10px;flex-wrap:wrap}
+.pp-staff-toolbar label{flex:1;min-width:220px}
+.pp-staff-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.pp-staff-card{display:flex;min-width:0;flex-direction:column;gap:13px;padding:18px;border:1px solid var(--border);border-radius:19px;background:linear-gradient(145deg,var(--surface),color-mix(in srgb,var(--surface) 95%,var(--primary-container) 5%));box-shadow:var(--shadow-sm)}
+.pp-staff-card__head{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center}
+.pp-staff-avatar{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;background:var(--primary-container);color:var(--on-primary-container);font-size:.9rem;font-weight:850;text-transform:uppercase}
+.pp-staff-card__head h3{margin:0;color:var(--text-strong);font-size:.92rem;font-weight:820;overflow-wrap:anywhere}
+.pp-staff-card__head p{margin:3px 0 0;color:var(--text-muted);font-size:.69rem;overflow-wrap:anywhere}
+.pp-staff-assignment-title{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pp-staff-assignment-title strong{font-size:.74rem;color:var(--text-strong)}
+.pp-assignment-chips{display:flex;flex-wrap:wrap;gap:6px}
+.pp-assignment-chip{display:inline-flex;align-items:center;min-height:27px;padding:5px 9px;border-radius:999px;background:var(--primary-container);color:var(--on-primary-container);font-size:.66rem;font-weight:730}
+.pp-assignment-empty{padding:10px 11px;border:1px dashed var(--border-strong);border-radius:12px;color:var(--text-muted);font-size:.7rem;line-height:1.45}
+.pp-staff-card__actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:auto;padding-top:2px}
+.pp-staff-card__actions .pp-btn{width:100%}
+.pp-staff-secondary-actions{display:flex;gap:6px;flex-wrap:wrap}
+.pp-placement-picker{display:grid;gap:12px}
+.pp-placement-search{position:sticky;top:0;z-index:1;padding-bottom:2px;background:var(--surface)}
+.pp-placement-group{padding:13px;border:1px solid var(--border);border-radius:15px;background:var(--surface)}
+.pp-placement-group__title{margin:0 0 9px;color:var(--text-strong);font-size:.75rem;font-weight:820}
+.pp-placement-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.pp-placement-option{display:flex;align-items:center;gap:8px;min-height:42px;padding:9px 10px;border:1px solid var(--border);border-radius:12px;background:color-mix(in srgb,var(--surface-variant) 48%,var(--surface));cursor:pointer}
+.pp-placement-option:has(input:checked){border-color:color-mix(in srgb,var(--primary) 42%,var(--border));background:color-mix(in srgb,var(--primary-container) 55%,var(--surface))}
+.pp-placement-option input{width:17px;height:17px;accent-color:var(--primary);flex:none}
+.pp-placement-option span{min-width:0;color:var(--text-strong);font-size:.72rem;font-weight:690;overflow-wrap:anywhere}
+.pp-staff-review{padding:13px;border-radius:14px;background:var(--surface-variant)}
+.pp-staff-review strong{display:block;color:var(--text-strong);font-size:.76rem}
+.pp-staff-review p{margin:4px 0 0;color:var(--text-muted);font-size:.69rem;line-height:1.45}
+.pp-staff-security-note{display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;align-items:start;padding:14px;border:1px solid color-mix(in srgb,var(--primary) 18%,var(--border));border-radius:15px;background:color-mix(in srgb,var(--primary-container) 35%,var(--surface))}
+.pp-staff-security-note__icon{width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:var(--primary-container);color:var(--primary);font-weight:850}
+.pp-staff-security-note strong{display:block;color:var(--text-strong);font-size:.75rem}
+.pp-staff-security-note p{margin:3px 0 0;color:var(--text-muted);font-size:.69rem;line-height:1.45}
+@media(max-width:850px){.pp-staff-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.pp-staff-grid{grid-template-columns:1fr}}
+@media(max-width:620px){.pp-staff-hero{grid-template-columns:1fr;padding:21px}.pp-staff-hero__year{min-width:0;text-align:left}.pp-staff-card__head{grid-template-columns:40px minmax(0,1fr)}.pp-staff-card__head>.pp-status{grid-column:2;justify-self:start}.pp-staff-card__actions{grid-template-columns:1fr}.pp-placement-options{grid-template-columns:1fr}}
