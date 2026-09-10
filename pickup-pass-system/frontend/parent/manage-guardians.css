@@ -1,7 +1,8 @@
-/* PickupPass Parent — Screen 03: Authorized Guardians */
+/* PickupPass Parent — Authorized Guardians */
 
 .pp-guardians-page {
   max-width: 920px;
+  padding-bottom: 108px;
 }
 
 .pp-guardians-hero {
@@ -13,7 +14,7 @@
   background:
     radial-gradient(
       380px 240px at 100% 0%,
-      rgba(132, 204, 22, .25),
+      rgba(139, 92, 246, .26),
       transparent 72%
     ),
     linear-gradient(
@@ -92,7 +93,8 @@
 
 .pp-guardians-toolbar h2,
 .pp-guardian-form-card h2,
-.pp-schedule-card h2 {
+.pp-schedule-card h2,
+.pp-remove-card h2 {
   margin: 0;
   color: var(--text-strong);
   font-size: 1.05rem;
@@ -109,9 +111,40 @@
   line-height: 1.5;
 }
 
+.pp-guardians-toolbar .pp-btn {
+  width: auto;
+  min-height: 42px;
+  flex: 0 0 auto;
+}
+
 .pp-guardians-list {
   display: grid;
+  gap: 18px;
+}
+
+.pp-guardian-group {
+  display: grid;
+  gap: 9px;
+}
+
+.pp-guardian-group__head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
   gap: 12px;
+  padding: 0 2px;
+}
+
+.pp-guardian-group__head strong {
+  color: var(--text-strong);
+  font-size: .84rem;
+  font-weight: 820;
+}
+
+.pp-guardian-group__head span {
+  color: var(--text-subtle);
+  font-size: .67rem;
+  text-align: right;
 }
 
 .pp-guardian-card {
@@ -129,9 +162,26 @@
 .pp-guardian-card__avatar {
   width: 54px;
   height: 54px;
+  display: block;
   overflow: hidden;
+  padding: 0;
+  border: 0;
   border-radius: 999px;
   background: var(--primary-container);
+  cursor: zoom-in;
+}
+
+.pp-guardian-card__avatar:disabled {
+  cursor: default;
+}
+
+.pp-guardian-card__avatar:not(:disabled):hover {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.pp-guardian-card__avatar:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 32%, transparent);
+  outline-offset: 3px;
 }
 
 .pp-guardian-card__avatar img {
@@ -178,12 +228,119 @@
 }
 
 .pp-guardian-card__protected {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--surface-variant);
   color: var(--text-subtle);
-  font-size: .67rem;
+  font-size: .66rem;
+  font-weight: 720;
 }
 
-.pp-guardian-add {
-  margin-top: 28px;
+.pp-primary-required {
+  margin-top: 14px;
+  padding: 14px 15px;
+  border: 1px solid color-mix(in srgb, var(--primary) 25%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--primary-container) 35%, var(--surface));
+}
+
+.pp-primary-required strong {
+  display: block;
+  color: var(--text-strong);
+  font-size: .82rem;
+  font-weight: 820;
+}
+
+.pp-primary-required p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: .72rem;
+  line-height: 1.5;
+}
+
+/* Floating collection create action */
+.pp-guardian-add-fab {
+  position: fixed;
+  right: max(22px, calc((100vw - 960px) / 2 + 22px));
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  z-index: 40;
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 19px;
+  background: var(--primary);
+  color: var(--on-primary, #fff);
+  box-shadow: 0 16px 38px color-mix(in srgb, var(--primary) 32%, transparent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.65rem;
+  line-height: 1;
+  transition: transform var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.pp-guardian-add-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 44px color-mix(in srgb, var(--primary) 38%, transparent);
+}
+
+.pp-guardian-add-fab:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  outline-offset: 3px;
+}
+
+.pp-guardian-add-fab.hidden {
+  display: none !important;
+}
+
+/* Long add form: focused full-height-capable sheet */
+.pp-guardian-add-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(15, 23, 42, .58);
+  backdrop-filter: blur(5px);
+}
+
+.pp-guardian-add-overlay.hidden {
+  display: none !important;
+}
+
+.pp-guardian-add-overlay .pp-guardian-add {
+  width: min(100%, 720px);
+  max-height: min(88vh, 790px);
+  margin: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background: var(--surface);
+  box-shadow: 0 28px 82px rgba(15, 23, 42, .30);
+}
+
+.pp-guardian-add__sheet-head {
+  position: sticky;
+  top: -18px;
+  z-index: 4;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin: -18px -18px 0;
+  padding: 18px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 95%, transparent);
+  backdrop-filter: blur(12px);
 }
 
 .pp-guardian-add__head h2 {
@@ -195,17 +352,33 @@
 
 .pp-guardian-add__head p {
   margin: 4px 0 0;
-  max-width: 700px;
+  max-width: 620px;
   color: var(--text-muted);
   font-size: .76rem;
   line-height: 1.5;
+}
+
+.pp-guardian-sheet-close {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-variant);
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.05rem;
 }
 
 .pp-guardian-mode {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 13px;
+  margin-top: 16px;
 }
 
 .pp-guardian-mode button {
@@ -217,6 +390,7 @@
   color: var(--text-muted);
   font-size: .73rem;
   font-weight: 760;
+  cursor: pointer;
 }
 
 .pp-guardian-mode button[aria-selected="true"] {
@@ -251,6 +425,7 @@
 
 .pp-guardian-form-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 16px;
@@ -262,9 +437,30 @@
   flex: 0 0 auto;
 }
 
-.pp-schedule-card {
-  margin-top: 18px;
-  scroll-margin-top: 18px;
+/* Schedule / confirmation dialogs */
+.pp-guardian-dialog,
+.pp-guardian-photo-dialog {
+  width: min(calc(100vw - 32px), 620px);
+  max-width: 620px;
+  max-height: 88vh;
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  overflow: visible;
+}
+
+.pp-guardian-dialog::backdrop,
+.pp-guardian-photo-dialog::backdrop {
+  background: rgba(15,23,42,.62);
+  backdrop-filter: blur(5px);
+}
+
+.pp-guardian-dialog .pp-schedule-card {
+  max-height: 86vh;
+  margin: 0;
+  overflow: auto;
+  box-shadow: var(--shadow-lg);
 }
 
 .pp-schedule-card__head {
@@ -272,6 +468,12 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+}
+
+.pp-schedule-card__head .pp-btn {
+  width: auto;
+  min-height: 40px;
+  flex: 0 0 auto;
 }
 
 .pp-schedule-toggle {
@@ -304,6 +506,94 @@
   color: var(--text-muted);
   font-size: .71rem;
   line-height: 1.5;
+}
+
+.pp-remove-card {
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+
+.pp-remove-card__icon {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 13px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  color: var(--danger);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.pp-remove-card p {
+  margin: 8px auto 0;
+  max-width: 470px;
+  color: var(--text-muted);
+  font-size: .76rem;
+  line-height: 1.55;
+}
+
+.pp-remove-card__actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 19px;
+}
+
+.pp-remove-card__actions .pp-btn {
+  width: auto;
+  min-height: 44px;
+}
+
+#confirmRemoveGuardian {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+
+.pp-guardian-photo-dialog {
+  width: min(calc(100vw - 28px), 640px);
+  max-width: 640px;
+}
+
+.pp-guardian-photo-card {
+  position: relative;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 24px;
+  background: #0f172a;
+  box-shadow: 0 28px 84px rgba(2,6,23,.48);
+}
+
+.pp-guardian-photo-card .pp-guardian-sheet-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+  border-color: rgba(255,255,255,.16);
+  background: rgba(15,23,42,.80);
+  color: #fff;
+}
+
+.pp-guardian-photo-card img {
+  width: 100%;
+  max-height: 72vh;
+  display: block;
+  object-fit: contain;
+  border-radius: 17px;
+  background: #020617;
+}
+
+.pp-guardian-photo-card p {
+  margin: 10px 4px 2px;
+  color: #cbd5e1;
+  font-size: .74rem;
+  text-align: center;
 }
 
 .pp-guardian-safety {
@@ -345,6 +635,10 @@
 }
 
 @media (max-width: 660px) {
+  .pp-guardians-toolbar {
+    align-items: flex-start;
+  }
+
   .pp-guardian-card {
     grid-template-columns: 48px minmax(0,1fr);
   }
@@ -359,6 +653,27 @@
     justify-content: flex-start;
   }
 
+  .pp-guardian-group__head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .pp-guardian-group__head span {
+    text-align: left;
+  }
+
+  .pp-guardian-add-overlay {
+    align-items: flex-end;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .pp-guardian-add-overlay .pp-guardian-add {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 26px 26px 18px 18px;
+  }
+
   .pp-guardian-form-grid {
     grid-template-columns: 1fr;
   }
@@ -370,9 +685,14 @@
   .pp-schedule-weekdays {
     grid-template-columns: repeat(4,minmax(0,1fr));
   }
+
+  .pp-guardian-add-fab {
+    right: 18px;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+  }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 430px) {
   .pp-guardian-metrics {
     gap: 6px;
   }
@@ -384,10 +704,23 @@
   .pp-schedule-weekdays {
     grid-template-columns: repeat(3,minmax(0,1fr));
   }
+
+  .pp-remove-card__actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .pp-remove-card__actions .pp-btn {
+    width: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .pp-guardians-loading::before {
     animation: none;
+  }
+
+  .pp-guardian-add-fab {
+    transition: none;
   }
 }
