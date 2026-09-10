@@ -1,14 +1,505 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Student Lifecycle — PickupPass</title><link rel="stylesheet" href="../shared/theme.css"><link rel="stylesheet" href="../shared/components.css"><link rel="stylesheet" href="../shared/portal.css"><script src="https://cdn.tailwindcss.com"></script><script src="../shared/tailwind-config.js"></script></head><body class="min-h-screen pp-portal-body">
-<div id="adminNav" data-active="students"></div><script type="module" src="../shared/school-admin-nav.js"></script>
-<main class="pp-page"><div class="pp-page-head"><div><h1>Student Lifecycle</h1><p>Manage active, inactive, transferred, graduated, and archived students. Non-active students cannot use pickup QR passes.</p></div><div class="pp-actions"><select id="statusFilter" class="pp-field"><option value="">All statuses</option><option>active</option><option>inactive</option><option>transferred</option><option>graduated</option><option>archived</option></select><button id="refreshBtn" class="pp-btn pp-btn--ghost">Refresh</button></div></div>
-<div id="counts" class="pp-grid"></div>
-<section class="pp-section"><div class="pp-section__head"><h2>Roster</h2></div><div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Student</th><th>Placement</th><th>Status</th><th>Change status</th></tr></thead><tbody id="rows"><tr><td colspan="4" class="pp-empty">Loading…</td></tr></tbody></table></div></section>
-<section class="pp-section"><div class="pp-section__head"><div><h2>Bulk student import</h2><p class="pp-mini">CSV, XLSX, or XLS. Preview first; import only runs when validation has no invalid rows.</p></div><a href="../assets/student_import_template.csv" class="pp-btn pp-btn--ghost" download>Download template</a></div><div class="pp-section__body"><form id="importForm" class="pp-form-grid"><label>Roster file<input id="importFile" type="file" accept=".csv,.xlsx,.xls" class="pp-field" required></label><label>Mode<select id="importMode" class="pp-field"><option value="true">Validate only</option><option value="false">Import valid roster</option></select></label><div class="flex items-end"><button class="pp-btn pp-btn--primary w-full" type="submit">Run import</button></div></form><pre id="importResult" class="pp-mini mt-4 whitespace-pre-wrap"></pre></div></section>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#4652C7">
+<title>Student Lifecycle — PickupPass</title>
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<link rel="stylesheet" href="./students-lifecycle.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="adminNav" data-active="students"></div>
+<script type="module" src="../shared/school-admin-nav.js"></script>
+
+<main class="pp-page pp-student-lifecycle">
+  <section class="pp-student-hero">
+    <div>
+      <p class="pp-student-hero__eyebrow">School admin · student records</p>
+      <h1>Student lifecycle</h1>
+      <p>
+        Keep the school-wide roster accurate across active, inactive, transferred,
+        graduated and archived students. Only active students can use pickup QR passes.
+      </p>
+    </div>
+    <div class="pp-student-hero__badge" aria-label="Student roster total">
+      <span>Students recorded</span>
+      <strong id="totalStudents">—</strong>
+      <small id="totalStudentsHint">Loading roster…</small>
+    </div>
+  </section>
+
+  <section id="counts" class="pp-student-counts" aria-label="Student status summary"></section>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>School roster</h2>
+        <p class="pp-mini">Search the school-wide roster or focus on one lifecycle state. Status changes are confirmed in a dedicated review dialog.</p>
+      </div>
+    </div>
+    <div class="pp-section__body">
+      <div class="pp-student-toolbar">
+        <label>
+          Search students
+          <span class="pp-student-search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="searchInput" type="search" class="pp-field" placeholder="Name, student number, grade or section" autocomplete="off">
+          </span>
+        </label>
+        <label>
+          Status
+          <select id="statusFilter" class="pp-field">
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="transferred">Transferred</option>
+            <option value="graduated">Graduated</option>
+            <option value="archived">Archived</option>
+          </select>
+        </label>
+        <button id="refreshBtn" class="pp-btn pp-btn--ghost" type="button">Refresh roster</button>
+      </div>
+      <p id="rosterSummary" class="pp-mini mt-3" aria-live="polite"></p>
+    </div>
+
+    <div class="pp-table-wrap">
+      <table class="pp-table">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Placement</th>
+            <th>Status</th>
+            <th>Lifecycle action</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr><td colspan="4" class="pp-empty">Loading student roster…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="pp-section">
+    <div class="pp-section__head">
+      <div>
+        <h2>Bulk student import</h2>
+        <p class="pp-mini">Production-safe two-step flow: validate the complete file first, review the result, then explicitly import the same validated roster.</p>
+      </div>
+      <a href="../assets/student_import_template.csv" class="pp-btn pp-btn--ghost" download>Download template</a>
+    </div>
+    <div class="pp-section__body">
+      <div class="pp-import-layout">
+        <form id="importForm" class="pp-import-panel">
+          <h3>1. Choose and validate roster</h3>
+          <p>CSV, XLSX and XLS are supported. A single upload can contain up to 5,000 students and must match active grade sections in the current academic year.</p>
+
+          <label class="pp-import-file">
+            Roster file
+            <input id="importFile" type="file" accept=".csv,.xlsx,.xls" class="pp-field" required>
+          </label>
+
+          <div class="pp-import-guidance" aria-label="Import requirements">
+            <div><span>1</span><p>Required columns: first name, last name, grade and section.</p></div>
+            <div><span>2</span><p>Student number/LRN, middle initial and suffix are optional.</p></div>
+            <div><span>3</span><p>Duplicate students are skipped; invalid placement prevents the final import.</p></div>
+          </div>
+
+          <div class="pp-import-actions">
+            <button id="validateImportBtn" class="pp-btn pp-btn--primary" type="submit">Validate roster</button>
+            <button id="clearImportBtn" class="pp-btn pp-btn--ghost" type="button">Clear</button>
+          </div>
+        </form>
+
+        <section class="pp-import-panel pp-import-result" aria-labelledby="importResultTitle">
+          <h3 id="importResultTitle">2. Review validation</h3>
+          <p>Nothing is written to the roster until validation passes and you confirm the final import.</p>
+          <div id="importResult" class="mt-3" aria-live="polite">
+            <div class="pp-import-result__empty">
+              Choose a roster file and run validation. PickupPass will summarize valid, invalid and duplicate rows here before any student is created.
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
 </main>
+
 <script type="module">
-import { showToast } from '../shared/firebase-init.js';import { apiJson, requireRole, bindRefresh, escapeHtml, statusPill, titleCase } from '../shared/portal.js';
-async function load(){const q=statusFilter.value?`?status=${encodeURIComponent(statusFilter.value)}`:'';const d=await apiJson('/school-admin/students/lifecycle'+q);const countsData=d.counts||{};counts.innerHTML=Object.entries(countsData).map(([k,v])=>`<div class="pp-kpi"><div class="pp-kpi__label">${escapeHtml(titleCase(k))}</div><div class="pp-kpi__value">${v}</div></div>`).join('');const list=d.students||[];rows.innerHTML=list.length?list.map(s=>`<tr><td><strong>${escapeHtml(s.fullName||'')}</strong><div class="pp-mini">${escapeHtml(s.studentNumber||s.studentId||'')}</div></td><td>${escapeHtml(s.grade||'—')} · ${escapeHtml(s.section||'—')}<div class="pp-mini">${escapeHtml(s.academicYearName||'')}</div></td><td>${statusPill(s.status)}</td><td><div class="pp-actions"><select class="pp-field statusSelect" data-id="${escapeHtml(s.studentId)}"><option value="active" ${s.status==='active'?'selected':''}>Active</option><option value="inactive" ${s.status==='inactive'?'selected':''}>Inactive</option><option value="transferred" ${s.status==='transferred'?'selected':''}>Transferred</option><option value="graduated" ${s.status==='graduated'?'selected':''}>Graduated</option><option value="archived" ${s.status==='archived'?'selected':''}>Archived</option></select><button class="pp-btn pp-btn--ghost saveStatus" data-id="${escapeHtml(s.studentId)}">Save</button></div></td></tr>`).join(''):'<tr><td colspan="4" class="pp-empty">No students found.</td></tr>';document.querySelectorAll('.saveStatus').forEach(b=>b.addEventListener('click',async()=>{const sel=document.querySelector(`.statusSelect[data-id="${CSS.escape(b.dataset.id)}"]`);const reason=window.prompt('Optional reason for this status change:','')??'';try{await apiJson(`/school-admin/students/${encodeURIComponent(b.dataset.id)}/status`,{method:'PUT',body:JSON.stringify({status:sel.value,reason})});showToast('Student status updated.');await load();}catch(e){showToast(e.message,'error');}}));}
-statusFilter.addEventListener('change',load);bindRefresh('refreshBtn',load);
-importForm.addEventListener('submit',async e=>{e.preventDefault();const file=importFile.files[0];if(!file)return;const fd=new FormData();fd.append('file',file);fd.append('dryRun',importMode.value);try{const d=await apiJson('/school-admin/students/import',{method:'POST',body:fd});importResult.textContent=JSON.stringify(d,null,2);showToast(importMode.value==='true'?'Validation complete.':'Import complete.');if(importMode.value==='false')await load();}catch(err){importResult.textContent=err.message;showToast(err.message,'error');}});
-requireRole('school_admin',load);
-</script></body></html>
+import {
+  showToast,
+  setSubmitButtonBusy
+} from '../shared/firebase-init.js';
+import {
+  apiJson,
+  requireRole,
+  bindRefresh,
+  escapeHtml,
+  statusPill,
+  titleCase
+} from '../shared/portal.js';
+import { promptDialog, confirmDialog } from '../shared/dialogs.js';
+
+const ui = {
+  counts: document.getElementById('counts'),
+  totalStudents: document.getElementById('totalStudents'),
+  totalStudentsHint: document.getElementById('totalStudentsHint'),
+  rows: document.getElementById('rows'),
+  statusFilter: document.getElementById('statusFilter'),
+  searchInput: document.getElementById('searchInput'),
+  rosterSummary: document.getElementById('rosterSummary'),
+  importForm: document.getElementById('importForm'),
+  importFile: document.getElementById('importFile'),
+  validateImportBtn: document.getElementById('validateImportBtn'),
+  clearImportBtn: document.getElementById('clearImportBtn'),
+  importResult: document.getElementById('importResult')
+};
+
+const statusOrder = ['active', 'inactive', 'transferred', 'graduated', 'archived'];
+let roster = [];
+let rosterCounts = {};
+let validatedImport = null;
+let validatedFileSignature = '';
+
+function studentInitial(name) {
+  return String(name || 'S').trim().charAt(0).toUpperCase() || 'S';
+}
+
+function fileSignature(file) {
+  return file ? `${file.name}:${file.size}:${file.lastModified}` : '';
+}
+
+function countFor(status) {
+  return Number(rosterCounts?.[status] ?? 0);
+}
+
+function totalCount() {
+  const values = Object.values(rosterCounts || {}).map(Number).filter(Number.isFinite);
+  return values.reduce((sum, value) => sum + value, 0);
+}
+
+function renderCounts() {
+  ui.counts.innerHTML = statusOrder.map(status => `
+    <article class="pp-student-count">
+      <span>${escapeHtml(titleCase(status))}</span>
+      <strong>${countFor(status)}</strong>
+    </article>
+  `).join('');
+
+  const total = totalCount();
+  ui.totalStudents.textContent = String(total);
+  ui.totalStudentsHint.textContent = `${countFor('active')} currently active`;
+}
+
+async function load() {
+  ui.rows.innerHTML = '<tr><td colspan="4" class="pp-empty">Loading student roster…</td></tr>';
+
+  const query = ui.statusFilter.value
+    ? `?status=${encodeURIComponent(ui.statusFilter.value)}`
+    : '';
+
+  try {
+    const data = await apiJson('/school-admin/students/lifecycle' + query);
+    rosterCounts = data.counts || {};
+    roster = data.students || [];
+    renderCounts();
+    renderRoster();
+  } catch (error) {
+    roster = [];
+    ui.rows.innerHTML = '<tr><td colspan="4" class="pp-empty">Student roster is unavailable. Check your connection and try again.</td></tr>';
+    ui.rosterSummary.textContent = '';
+    showToast(error.message, 'error');
+  }
+}
+
+function filteredRoster() {
+  const term = ui.searchInput.value.trim().toLowerCase();
+  if (!term) return roster;
+
+  return roster.filter(student => [
+    student.fullName,
+    student.studentNumber,
+    student.grade,
+    student.section,
+    student.academicYearName
+  ].some(value => String(value || '').toLowerCase().includes(term)));
+}
+
+function renderRoster() {
+  const visible = filteredRoster();
+  const statusLabel = ui.statusFilter.value ? titleCase(ui.statusFilter.value) : 'all statuses';
+  ui.rosterSummary.textContent = `${visible.length} student${visible.length === 1 ? '' : 's'} shown · ${statusLabel}${ui.searchInput.value.trim() ? ' · search applied' : ''}`;
+
+  ui.rows.innerHTML = visible.length
+    ? visible.map(student => `
+      <tr>
+        <td>
+          <div class="pp-student-name">
+            <span class="pp-student-avatar" aria-hidden="true">${escapeHtml(studentInitial(student.fullName))}</span>
+            <div>
+              <strong>${escapeHtml(student.fullName || 'Unnamed student')}</strong>
+              <small>${escapeHtml(student.studentNumber || 'No student number')}</small>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div class="pp-student-placement">
+            <strong>${escapeHtml(student.grade || '—')} · ${escapeHtml(student.section || '—')}</strong>
+            <small>${escapeHtml(student.academicYearName || 'Current school year')}</small>
+          </div>
+        </td>
+        <td>${statusPill(student.status || 'active')}</td>
+        <td class="pp-student-action">
+          <div class="pp-actions">
+            <select class="pp-field statusSelect" data-id="${escapeHtml(student.studentId)}" aria-label="New status for ${escapeHtml(student.fullName || 'student')}">
+              <option value="active" ${student.status === 'active' ? 'selected' : ''}>Active</option>
+              <option value="inactive" ${student.status === 'inactive' ? 'selected' : ''}>Inactive</option>
+              <option value="transferred" ${student.status === 'transferred' ? 'selected' : ''}>Transferred</option>
+              <option value="graduated" ${student.status === 'graduated' ? 'selected' : ''}>Graduated</option>
+              <option value="archived" ${student.status === 'archived' ? 'selected' : ''}>Archived</option>
+            </select>
+            <button class="pp-btn pp-btn--secondary saveStatus" type="button" data-id="${escapeHtml(student.studentId)}">Update</button>
+          </div>
+        </td>
+      </tr>
+    `).join('')
+    : '<tr><td colspan="4" class="pp-empty">No students match the current search and status filter.</td></tr>';
+
+  document.querySelectorAll('.saveStatus').forEach(button => {
+    button.addEventListener('click', () => updateStudentStatus(button));
+  });
+}
+
+async function updateStudentStatus(button) {
+  const student = roster.find(item => item.studentId === button.dataset.id);
+  const select = document.querySelector(`.statusSelect[data-id="${CSS.escape(button.dataset.id)}"]`);
+  if (!student || !select) return;
+
+  const nextStatus = select.value;
+  const currentStatus = String(student.status || 'active');
+  if (nextStatus === currentStatus) {
+    showToast(`${student.fullName || 'Student'} is already ${titleCase(currentStatus)}.`, 'info');
+    return;
+  }
+
+  const reason = await promptDialog({
+    title: `Move student to ${titleCase(nextStatus)}`,
+    message: `${student.fullName || 'This student'} will change from ${titleCase(currentStatus)} to ${titleCase(nextStatus)}. Non-active students cannot use pickup QR passes.`,
+    label: 'Reason (optional)',
+    placeholder: 'Add a short administrative note',
+    multiline: true,
+    maxLength: 500,
+    confirmLabel: 'Update status',
+    danger: nextStatus === 'archived'
+  });
+
+  if (reason === null) {
+    select.value = currentStatus;
+    return;
+  }
+
+  setSubmitButtonBusy(button, true, 'Updating…');
+  select.disabled = true;
+
+  try {
+    await apiJson(`/school-admin/students/${encodeURIComponent(student.studentId)}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: nextStatus, reason })
+    });
+    showToast(`${student.fullName || 'Student'} is now ${titleCase(nextStatus)}.`);
+    await load();
+  } catch (error) {
+    select.value = currentStatus;
+    showToast(error.message, 'error');
+  } finally {
+    setSubmitButtonBusy(button, false);
+    select.disabled = false;
+  }
+}
+
+function clearImportReview() {
+  validatedImport = null;
+  validatedFileSignature = '';
+  ui.importResult.innerHTML = `
+    <div class="pp-import-result__empty">
+      Choose a roster file and run validation. PickupPass will summarize valid, invalid and duplicate rows here before any student is created.
+    </div>
+  `;
+}
+
+function renderImportResult(result, imported = false) {
+  const errors = Array.isArray(result.errors) ? result.errors : [];
+  const placementIssues = Array.isArray(result.placementIssues) ? result.placementIssues : [];
+  const sample = Array.isArray(result.sample) ? result.sample : [];
+  const ready = !!result.readyToImport && !imported;
+
+  const errorRows = [
+    ...placementIssues.map(issue => ({
+      row: 'Placement',
+      field: `${issue.grade || 'Grade'} / ${issue.section || 'Section'}`,
+      message: `${issue.rowCount || 1} row${Number(issue.rowCount || 1) === 1 ? '' : 's'} use a grade/section that is not active in the current school year.`
+    })),
+    ...errors
+  ];
+
+  ui.importResult.innerHTML = `
+    <div class="pp-import-result__summary">
+      ${importMetric('Rows', result.totalRows ?? 0)}
+      ${importMetric('Valid', result.validRows ?? 0)}
+      ${importMetric('Invalid', result.invalidRows ?? 0)}
+      ${importMetric(imported ? 'Imported' : 'Duplicates', imported ? (result.importedRows ?? 0) : (result.duplicateRows ?? 0))}
+    </div>
+
+    <div class="pp-import-status ${ready || imported ? 'pp-import-status--ready' : 'pp-import-status--blocked'}">
+      ${imported
+        ? `<strong>Import complete.</strong> ${Number(result.importedRows || 0)} student${Number(result.importedRows || 0) === 1 ? '' : 's'} added to the school roster.`
+        : ready
+          ? '<strong>Validation passed.</strong> Review the sample below, then import this same file when ready.'
+          : '<strong>Import is blocked.</strong> Correct invalid rows or grade/section placement issues, then validate the updated file again.'}
+    </div>
+
+    ${errorRows.length ? `
+      <div class="pp-dialog-section">
+        <h4 class="pp-dialog-section__title">Items to correct</h4>
+        <div class="pp-import-errors">
+          ${errorRows.slice(0, 100).map(error => `
+            <div class="pp-import-error">
+              <span class="pp-import-error__row">${escapeHtml(error.row ? `Row ${error.row}` : 'Issue')}</span>
+              <div><strong>${escapeHtml(titleCase(error.field || 'Validation'))}</strong><p>${escapeHtml(error.message || 'Invalid roster value')}</p></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : ''}
+
+    ${sample.length ? `
+      <div class="pp-dialog-section">
+        <h4 class="pp-dialog-section__title">Validated sample</h4>
+        <div class="pp-import-sample">
+          <table>
+            <thead><tr><th>Student</th><th>Student no.</th><th>Placement</th></tr></thead>
+            <tbody>
+              ${sample.map(student => `
+                <tr>
+                  <td>${escapeHtml(student.fullName || 'Student')}</td>
+                  <td>${escapeHtml(student.studentNumber || '—')}</td>
+                  <td>${escapeHtml(student.grade || '—')} · ${escapeHtml(student.section || '—')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ` : ''}
+
+    ${ready ? `
+      <div class="pp-import-actions">
+        <button id="confirmImportBtn" type="button" class="pp-btn pp-btn--primary">Import ${Number(result.validRows || 0)} validated student${Number(result.validRows || 0) === 1 ? '' : 's'}</button>
+      </div>
+    ` : ''}
+  `;
+
+  document.getElementById('confirmImportBtn')?.addEventListener('click', importValidatedRoster);
+}
+
+function importMetric(label, value) {
+  return `<div class="pp-import-result__metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+}
+
+async function validateRoster(event) {
+  event.preventDefault();
+  const file = ui.importFile.files?.[0];
+  if (!file) {
+    showToast('Choose a CSV or Excel roster first.', 'error');
+    return;
+  }
+
+  setSubmitButtonBusy(ui.validateImportBtn, true, 'Validating…');
+  ui.importFile.disabled = true;
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('dryRun', 'true');
+
+  try {
+    const result = await apiJson('/school-admin/students/import', {
+      method: 'POST',
+      body: formData
+    });
+    validatedImport = result;
+    validatedFileSignature = fileSignature(file);
+    renderImportResult(result, false);
+    showToast(result.readyToImport ? 'Roster validation passed.' : 'Roster validation found items to correct.', result.readyToImport ? 'success' : 'warning');
+  } catch (error) {
+    validatedImport = null;
+    validatedFileSignature = '';
+    ui.importResult.innerHTML = `<div class="pp-import-status pp-import-status--blocked"><strong>Validation could not finish.</strong> ${escapeHtml(error.message)}</div>`;
+    showToast(error.message, 'error');
+  } finally {
+    setSubmitButtonBusy(ui.validateImportBtn, false);
+    ui.importFile.disabled = false;
+  }
+}
+
+async function importValidatedRoster() {
+  const file = ui.importFile.files?.[0];
+  if (!file || !validatedImport?.readyToImport || fileSignature(file) !== validatedFileSignature) {
+    clearImportReview();
+    showToast('The selected file changed. Validate the roster again before importing.', 'warning');
+    return;
+  }
+
+  const validRows = Number(validatedImport.validRows || 0);
+  const duplicateRows = Number(validatedImport.duplicateRows || 0);
+  const confirmed = await confirmDialog(
+    `Import ${validRows} validated student${validRows === 1 ? '' : 's'} into the active school roster?${duplicateRows ? ` ${duplicateRows} duplicate row${duplicateRows === 1 ? '' : 's'} will be skipped.` : ''}`,
+    { title: 'Import validated roster', confirmLabel: 'Import students' }
+  );
+  if (!confirmed) return;
+
+  const button = document.getElementById('confirmImportBtn');
+  if (button) setSubmitButtonBusy(button, true, 'Importing…');
+  ui.importFile.disabled = true;
+  ui.validateImportBtn.disabled = true;
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('dryRun', 'false');
+
+  try {
+    const result = await apiJson('/school-admin/students/import', {
+      method: 'POST',
+      body: formData
+    });
+    renderImportResult(result, true);
+    validatedImport = null;
+    validatedFileSignature = '';
+    showToast(`${result.importedRows ?? 0} student${Number(result.importedRows || 0) === 1 ? '' : 's'} imported.`);
+    await load();
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    ui.importFile.disabled = false;
+    ui.validateImportBtn.disabled = false;
+    if (button && document.contains(button)) setSubmitButtonBusy(button, false);
+  }
+}
+
+ui.searchInput.addEventListener('input', renderRoster);
+ui.statusFilter.addEventListener('change', load);
+ui.importForm.addEventListener('submit', validateRoster);
+ui.importFile.addEventListener('change', clearImportReview);
+ui.clearImportBtn.addEventListener('click', () => {
+  ui.importForm.reset();
+  clearImportReview();
+});
+
+bindRefresh('refreshBtn', load);
+requireRole('school_admin', load);
+</script>
+</body>
+</html>
