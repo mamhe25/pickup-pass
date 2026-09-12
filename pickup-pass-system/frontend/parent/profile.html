@@ -22,14 +22,11 @@
 <main class="pp-page pp-profile-page">
   <section class="pp-profile-hero">
     <p class="pp-profile-hero__eyebrow">Pickup identity</p>
-
     <h1 id="heroName">Your family profile</h1>
-
     <p>
       Keep your identity photo current so school staff can confidently verify
       who is present at pickup.
     </p>
-
     <div class="pp-profile-hero__identity" aria-label="Signed-in account">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -40,8 +37,24 @@
     </div>
   </section>
 
+  <section id="photoEligibility" class="pp-profile-eligibility pp-profile-eligibility--locked" aria-live="polite">
+    <span id="photoEligibilityIcon" class="pp-profile-eligibility__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3 4 6v5c0 5 3.4 9 8 10 4.6-1 8-5 8-10V6l-8-3Z"/>
+        <path d="M12 8v4"/><path d="M12 16h.01"/>
+      </svg>
+    </span>
+    <div>
+      <strong id="photoEligibilityTitle">Checking pickup-pass photo…</strong>
+      <p id="photoEligibilityDetail">
+        PickupPass is checking whether your verification photo is ready for QR generation.
+      </p>
+    </div>
+  </section>
+
   <div class="pp-profile-grid">
-    <section class="pp-profile-card pp-profile-card--photo">
+    <section id="photo" class="pp-profile-card pp-profile-card--photo">
       <div class="pp-profile-card__heading">
         <span class="pp-profile-card__heading-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -55,24 +68,22 @@
           <h2>Verification photo</h2>
         </div>
       </div>
+
       <p class="pp-profile-card__intro">
-        Use a clear, recent photo of your face. Avoid sunglasses, masks, or
-        group photos. This image is shown to authorized school staff during
-        pickup verification.
+        Use a clear, recent photo of your face. This image is securely validated
+        before it becomes available to authorized school staff during pickup checks.
       </p>
 
       <input type="file" id="photoInput" accept="image/*" class="hidden" />
+      <input type="file" id="cameraInput" accept="image/*" capture="user" class="hidden" />
 
       <div class="pp-profile-photo-wrap">
-        <label
-          for="photoInput"
+        <button
           id="photoPicker"
+          type="button"
           class="pp-profile-photo"
-          tabindex="0"
-          role="button"
-          aria-label="Choose guardian profile photo">
-          <img id="preview" class="hidden" alt="Guardian profile photo" />
-
+          aria-label="View or choose guardian verification photo">
+          <img id="preview" class="hidden" alt="Guardian verification photo" />
           <span id="placeholder" class="pp-profile-photo__placeholder">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" aria-hidden="true">
@@ -81,18 +92,30 @@
             </svg>
             <span>Add a clear photo</span>
           </span>
-
           <span id="photoBusy" class="pp-profile-photo__busy hidden" aria-hidden="true"></span>
-        </label>
+        </button>
       </div>
 
       <div class="pp-profile-photo-actions">
-        <button id="choosePhotoBtn" type="button" class="pp-btn pp-btn--primary">
-          Add photo
+        <button id="takePhotoBtn" type="button" class="pp-btn pp-btn--primary">
+          Take photo
+        </button>
+        <button id="choosePhotoBtn" type="button" class="pp-btn pp-btn--ghost">
+          Choose photo
         </button>
       </div>
 
       <p id="uploadStatus" class="pp-profile-status" aria-live="polite"></p>
+
+      <div class="pp-profile-photo-tips" aria-label="Photo guidelines">
+        <strong>Tips for a photo that passes</strong>
+        <ul>
+          <li>Only you should be visible — no group photos.</li>
+          <li>Face the camera with your full face unobstructed.</li>
+          <li>Use even lighting and avoid blur or heavy shadows.</li>
+          <li>Do not use screenshots, IDs, drawings, or unrelated images.</li>
+        </ul>
+      </div>
     </section>
 
     <section class="pp-profile-card pp-profile-card--account">
@@ -109,9 +132,10 @@
           <h2>Account details</h2>
         </div>
       </div>
+
       <p class="pp-profile-card__intro">
-        Confirm you are using the correct parent account before changing a
-        pickup identity photo on a shared device.
+        Confirm you are using the correct parent account before changing pickup
+        identity information on a shared device.
       </p>
 
       <div class="pp-profile-details">
@@ -119,7 +143,6 @@
           <p class="pp-profile-detail__label">Name</p>
           <p id="profileName" class="pp-profile-detail__value">Loading…</p>
         </div>
-
         <div class="pp-profile-detail">
           <p class="pp-profile-detail__label">Email</p>
           <p id="profileEmail" class="pp-profile-detail__value">Loading…</p>
@@ -134,24 +157,18 @@
             <path d="m9 12 2 2 4-4" />
           </svg>
         </div>
-
         <div class="pp-profile-security__copy">
           <span class="pp-profile-security__eyebrow">Account protection</span>
           <strong>Account security</strong>
           <p>
-            Change your sign-in email or password, configure authenticator 2FA,
-            and review security settings for this account.
+            Change your sign-in email or password and configure authenticator 2FA.
           </p>
         </div>
-
         <div class="pp-profile-security__actions">
-          <a
-            href="../account.html?return=parent/profile.html"
-            class="pp-btn pp-btn--primary">
+          <a href="../account.html?return=parent/profile.html" class="pp-btn pp-btn--primary">
             <span>Manage security</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-              aria-hidden="true">
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="m9 18 6-6-6-6"/>
             </svg>
           </a>
@@ -161,11 +178,20 @@
       <div class="pp-profile-shared-device">
         <strong>Using a shared device?</strong>
         <p>
-          Use the Sign out control in the PickupPass navigation when you're
-          finished so another person cannot access your family pickup data.
+          Sign out from this profile when you finish so another person cannot access
+          your family pickup data.
         </p>
       </div>
 
+      <div class="pp-profile-signout">
+        <div>
+          <strong>Sign out of PickupPass</strong>
+          <p>You will need to sign in again to view students, passes, or guardian settings.</p>
+        </div>
+        <button id="signOutBtn" type="button" class="pp-btn pp-btn--ghost pp-profile-signout__button">
+          Sign out
+        </button>
+      </div>
     </section>
   </div>
 
@@ -179,48 +205,25 @@
           lost, shared, or unfamiliar without changing your password.
         </p>
       </div>
-
       <div class="pp-profile-device-section__actions">
-        <button
-          id="profileRevokeOthersBtn"
-          type="button"
-          class="pp-btn pp-btn--ghost hidden">
+        <button id="profileRevokeOthersBtn" type="button" class="pp-btn pp-btn--ghost hidden">
           Sign out other devices
         </button>
-        <button
-          id="profileDeviceRefreshBtn"
-          type="button"
-          class="pp-btn pp-btn--ghost">
+        <button id="profileDeviceRefreshBtn" type="button" class="pp-btn pp-btn--ghost">
           Refresh
         </button>
       </div>
     </div>
 
     <div class="pp-profile-device-metrics" aria-label="Device session summary">
-      <div>
-        <strong id="profileActiveDeviceCount">—</strong>
-        <span>Active</span>
-      </div>
-      <div>
-        <strong id="profileOtherDeviceCount">—</strong>
-        <span>Other</span>
-      </div>
-      <div>
-        <strong id="profileRecordedDeviceCount">—</strong>
-        <span>Recorded</span>
-      </div>
+      <div><strong id="profileActiveDeviceCount">—</strong><span>Active</span></div>
+      <div><strong id="profileOtherDeviceCount">—</strong><span>Other</span></div>
+      <div><strong id="profileRecordedDeviceCount">—</strong><span>Recorded</span></div>
     </div>
 
     <div id="profileDeviceNotice" class="pp-alert pp-alert--info hidden"></div>
-
-    <div id="profileDeviceLoading" class="pp-profile-device-loading">
-      Loading device sessions…
-    </div>
-
-    <div
-      id="profileDeviceList"
-      class="pp-profile-device-list hidden"
-      aria-live="polite"></div>
+    <div id="profileDeviceLoading" class="pp-profile-device-loading">Loading device sessions…</div>
+    <div id="profileDeviceList" class="pp-profile-device-list hidden" aria-live="polite"></div>
 
     <div id="profileDeviceEmpty" class="pp-profile-device-empty hidden">
       <strong>No device sessions recorded</strong>
@@ -230,47 +233,66 @@
     <div id="profileDeviceError" class="pp-profile-device-error hidden" role="alert">
       <strong>Device sessions are unavailable.</strong>
       <p id="profileDeviceErrorDetail">Check your connection and try again.</p>
-      <button id="profileDeviceRetryBtn" type="button" class="pp-btn pp-btn--ghost">
-        Try again
-      </button>
+      <button id="profileDeviceRetryBtn" type="button" class="pp-btn pp-btn--ghost">Try again</button>
     </div>
 
     <p class="pp-profile-device-section__footnote">
       Revoking a device blocks authenticated PickupPass requests from that session.
-      If you believe someone else knows your password, use Manage security above
-      to change it as well.
+      If you believe someone else knows your password, use Manage security above to change it as well.
     </p>
   </section>
 
   <aside class="pp-profile-safety">
-    Your profile photo supports identity verification only. Student release
-    still requires a valid PickupPass and staff confirmation.
+    PickupPass sends verification photos through the secure backend for Google Cloud
+    Vision face-presence and image-quality checks. This is not facial recognition and
+    does not automatically decide a person's identity. School staff still make the final
+    visual verification before a student is released.
   </aside>
 </main>
+
+<dialog id="photoViewerDialog" class="pp-profile-photo-dialog" aria-label="Verification photo">
+  <div class="pp-profile-photo-dialog__card">
+    <button id="closePhotoViewer" type="button" aria-label="Close photo">×</button>
+    <img id="photoViewerImage" alt="Guardian verification photo enlarged" />
+    <p>This is the photo authorized school staff see during pickup verification.</p>
+  </div>
+</dialog>
+
+<dialog id="profileConfirmDialog" class="pp-profile-confirm-dialog" aria-labelledby="profileConfirmTitle">
+  <div class="pp-profile-confirm-dialog__card">
+    <span id="profileConfirmIcon" class="pp-profile-confirm-dialog__icon" aria-hidden="true">!</span>
+    <h2 id="profileConfirmTitle">Confirm action</h2>
+    <p id="profileConfirmMessage"></p>
+    <div class="pp-profile-confirm-dialog__actions">
+      <button id="profileConfirmCancel" type="button" class="pp-btn pp-btn--ghost">Cancel</button>
+      <button id="profileConfirmAccept" type="button" class="pp-btn pp-btn--primary">Continue</button>
+    </div>
+  </div>
+</dialog>
 
 <script type="module">
 import {
   auth,
   db,
+  authedFetch,
   showToast,
   setSubmitButtonBusy
 } from "../shared/firebase-init.js";
 
 import {
   doc,
-  updateDoc,
   getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import {
-  onAuthStateChanged
+  onAuthStateChanged,
+  signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 import {
   apiJson,
   fmtDate,
-  escapeHtml,
-  confirmAction
+  escapeHtml
 } from "../shared/portal.js";
 
 const ui = {
@@ -278,13 +300,19 @@ const ui = {
   heroEmail: document.getElementById("heroEmail"),
   profileName: document.getElementById("profileName"),
   profileEmail: document.getElementById("profileEmail"),
+  eligibility: document.getElementById("photoEligibility"),
+  eligibilityTitle: document.getElementById("photoEligibilityTitle"),
+  eligibilityDetail: document.getElementById("photoEligibilityDetail"),
   photoInput: document.getElementById("photoInput"),
+  cameraInput: document.getElementById("cameraInput"),
   photoPicker: document.getElementById("photoPicker"),
+  takePhotoBtn: document.getElementById("takePhotoBtn"),
   choosePhotoBtn: document.getElementById("choosePhotoBtn"),
   preview: document.getElementById("preview"),
   placeholder: document.getElementById("placeholder"),
   photoBusy: document.getElementById("photoBusy"),
   uploadStatus: document.getElementById("uploadStatus"),
+  signOut: document.getElementById("signOutBtn"),
   deviceActiveCount: document.getElementById("profileActiveDeviceCount"),
   deviceOtherCount: document.getElementById("profileOtherDeviceCount"),
   deviceRecordedCount: document.getElementById("profileRecordedDeviceCount"),
@@ -296,158 +324,222 @@ const ui = {
   deviceEmpty: document.getElementById("profileDeviceEmpty"),
   deviceError: document.getElementById("profileDeviceError"),
   deviceErrorDetail: document.getElementById("profileDeviceErrorDetail"),
-  deviceRetry: document.getElementById("profileDeviceRetryBtn")
+  deviceRetry: document.getElementById("profileDeviceRetryBtn"),
+  photoDialog: document.getElementById("photoViewerDialog"),
+  photoDialogImage: document.getElementById("photoViewerImage"),
+  closePhotoDialog: document.getElementById("closePhotoViewer"),
+  confirmDialog: document.getElementById("profileConfirmDialog"),
+  confirmTitle: document.getElementById("profileConfirmTitle"),
+  confirmMessage: document.getElementById("profileConfirmMessage"),
+  confirmCancel: document.getElementById("profileConfirmCancel"),
+  confirmAccept: document.getElementById("profileConfirmAccept")
 };
 
 let currentUser = null;
+let currentPhotoUrl = "";
+let currentPhotoValidationStatus = "missing";
 let deviceSessions = [];
 let deviceSessionsLoaded = false;
+let confirmResolver = null;
 
 onAuthStateChanged(auth, async (user) => {
-  if (!user) return;
+  if (!user) {
+    window.location.href = "../login.html";
+    return;
+  }
 
   currentUser = user;
-
   ui.heroEmail.textContent = user.email || "Signed-in parent";
   ui.profileEmail.textContent = user.email || "Not available";
 
   loadDeviceSessions();
 
   try {
-    const userSnap = await getDoc(
-      doc(db, "users", user.uid)
-    );
+    const userSnap = await getDoc(doc(db, "users", user.uid));
+    const profile = userSnap.exists() ? userSnap.data() : {};
+    const displayName = String(profile.displayName || "").trim();
 
-    const profile = userSnap.exists()
-      ? userSnap.data()
-      : {};
+    ui.heroName.textContent = displayName || "Your family profile";
+    ui.profileName.textContent = displayName || "Not provided";
 
-    const displayName =
-      String(profile.displayName || "").trim();
+    currentPhotoUrl = String(profile.photoUrl || "").trim();
+    currentPhotoValidationStatus = String(profile.photoValidationStatus || "missing").trim() || "missing";
 
-    ui.heroName.textContent =
-      displayName || "Your family profile";
+    if (currentPhotoUrl) renderPhoto(currentPhotoUrl);
+    else clearPhoto();
 
-    ui.profileName.textContent =
-      displayName || "Not provided";
-
-    if (profile.photoUrl) {
-      renderPhoto(profile.photoUrl);
-    }
+    updatePhotoEligibility();
   } catch (error) {
     ui.profileName.textContent = "Unavailable";
-    setStatus(
-      "Profile details couldn't be refreshed.",
-      "error"
-    );
+    updatePhotoEligibility(false, "unavailable");
+    showToast("Profile details couldn't be refreshed.", "error");
   }
 });
 
 ui.choosePhotoBtn.addEventListener("click", () => {
-  if (!ui.photoInput.disabled) {
+  if (!ui.photoInput.disabled) ui.photoInput.click();
+});
+
+ui.takePhotoBtn.addEventListener("click", () => {
+  if (!ui.cameraInput.disabled) ui.cameraInput.click();
+});
+
+ui.photoPicker.addEventListener("click", () => {
+  if (ui.photoInput.disabled) return;
+  if (currentPhotoUrl) {
+    openPhotoViewer();
+  } else {
     ui.photoInput.click();
   }
 });
 
-ui.photoPicker.addEventListener("keydown", (event) => {
-  if (
-    (event.key === "Enter" || event.key === " ") &&
-    !ui.photoInput.disabled
-  ) {
-    event.preventDefault();
-    ui.photoInput.click();
-  }
-});
+ui.photoInput.addEventListener("change", event => handleSelectedPhoto(event.target.files?.[0]));
+ui.cameraInput.addEventListener("change", event => handleSelectedPhoto(event.target.files?.[0]));
 
-ui.photoInput.addEventListener("change", async (event) => {
-  const file = event.target.files?.[0];
+async function handleSelectedPhoto(file) {
   if (!file || !currentUser) return;
 
   if (!file.type.startsWith("image/")) {
-    setStatus("Choose an image file.", "error");
-    ui.photoInput.value = "";
+    showToast("Choose an image file.", "error");
+    resetPhotoInputs();
     return;
   }
 
-  setBusy(true);
-  setStatus("Preparing photo…");
+  const previousPhoto = currentPhotoUrl;
+  const previousStatus = currentPhotoValidationStatus;
+  setPhotoBusy(true);
+  setPhotoProgress("Preparing photo…");
+
+  let previewUrl = "";
 
   try {
-    const compressedBlob = await compressImage(
-      file,
-      400,
-      400,
-      50 * 1024
-    );
-
-    const previewUrl = URL.createObjectURL(compressedBlob);
+    const compressedBlob = await compressImage(file, 600, 600, 180 * 1024);
+    previewUrl = URL.createObjectURL(compressedBlob);
     renderPhoto(previewUrl);
+    setPhotoProgress("Checking photo quality and face visibility…");
 
-    setStatus("Saving photo…");
+    const formData = new FormData();
+    formData.append("file", compressedBlob, "guardian-verification.jpg");
 
-    const dataUri = await blobToDataUri(compressedBlob);
+    const response = await authedFetch("/parent/profile/verification-photo", {
+      method: "POST",
+      body: formData
+    });
 
-    await updateDoc(
-      doc(db, "users", currentUser.uid),
-      { photoUrl: dataUri }
-    );
+    const data = await response.json().catch(() => ({}));
 
-    renderPhoto(dataUri);
-    URL.revokeObjectURL(previewUrl);
+    if (
+      !response.ok ||
+      String(data.status || "").toLowerCase() !== "verified" ||
+      !String(data.photoUrl || "").trim()
+    ) {
+      throw new Error(
+        data.error || data.message || "Verification photo could not be accepted."
+      );
+    }
 
-    setStatus(
-      `Photo updated (${(compressedBlob.size / 1024).toFixed(1)} KB)`,
+    currentPhotoUrl = String(data.photoUrl).trim();
+    currentPhotoValidationStatus = "verified";
+    renderPhoto(currentPhotoUrl);
+    updatePhotoEligibility();
+    setPhotoProgress("");
+
+    showToast(
+      data.message || "Your verification photo is ready for school pickup checks.",
       "success"
     );
   } catch (error) {
-    setStatus(
-      `Photo update failed: ${error?.message || "unknown error"}`,
-      "error"
-    );
+    currentPhotoUrl = previousPhoto;
+    currentPhotoValidationStatus = previousStatus;
+
+    if (previousPhoto) renderPhoto(previousPhoto);
+    else clearPhoto();
+
+    updatePhotoEligibility();
+    setPhotoProgress("");
+    showToast(error?.message || "Photo validation failed.", "error");
   } finally {
-    setBusy(false);
-    ui.photoInput.value = "";
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPhotoBusy(false);
+    resetPhotoInputs();
   }
-});
+}
 
 function renderPhoto(source) {
   ui.preview.src = source;
   ui.preview.classList.remove("hidden");
   ui.placeholder.classList.add("hidden");
-  ui.choosePhotoBtn.textContent = "Change photo";
+  ui.photoPicker.setAttribute("aria-label", "View verification photo larger");
 }
 
-function setBusy(busy) {
+function clearPhoto() {
+  ui.preview.removeAttribute("src");
+  ui.preview.classList.add("hidden");
+  ui.placeholder.classList.remove("hidden");
+  ui.photoPicker.setAttribute("aria-label", "Choose guardian verification photo");
+}
+
+function updatePhotoEligibility(forceReady = null, statusOverride = null) {
+  const status = statusOverride || currentPhotoValidationStatus;
+  const ready = forceReady ?? Boolean(
+    currentPhotoUrl && status.toLowerCase() === "verified"
+  );
+
+  ui.eligibility.classList.toggle("pp-profile-eligibility--ready", ready);
+  ui.eligibility.classList.toggle("pp-profile-eligibility--locked", !ready);
+
+  if (ready) {
+    ui.eligibilityTitle.textContent = "Pickup pass photo ready";
+    ui.eligibilityDetail.textContent =
+      "Your verification photo is accepted. You can generate pickup QR passes when your guardian permissions are valid.";
+  } else if (status === "unavailable") {
+    ui.eligibilityTitle.textContent = "Photo status unavailable";
+    ui.eligibilityDetail.textContent =
+      "PickupPass could not verify your profile status. Refresh the page before generating a pickup pass.";
+  } else {
+    ui.eligibilityTitle.textContent = "Pickup pass locked until photo verification";
+    ui.eligibilityDetail.textContent =
+      "Add an accepted verification photo first. QR generation remains blocked until the photo passes validation.";
+  }
+}
+
+function setPhotoBusy(busy) {
   ui.photoInput.disabled = busy;
+  ui.cameraInput.disabled = busy;
+  ui.takePhotoBtn.disabled = busy;
   ui.choosePhotoBtn.disabled = busy;
+  ui.photoPicker.disabled = busy;
   ui.photoBusy.classList.toggle("hidden", !busy);
 
   if (busy) {
-    ui.choosePhotoBtn.textContent = "Saving photo…";
+    ui.takePhotoBtn.textContent = "Validating…";
+    ui.choosePhotoBtn.textContent = "Please wait";
   } else {
-    ui.choosePhotoBtn.textContent =
-      ui.preview.classList.contains("hidden")
-        ? "Add photo"
-        : "Change photo";
+    ui.takePhotoBtn.textContent = "Take photo";
+    ui.choosePhotoBtn.textContent = currentPhotoUrl ? "Change photo" : "Choose photo";
   }
 }
 
-function setStatus(message, type = "neutral") {
+function setPhotoProgress(message) {
   ui.uploadStatus.textContent = message;
   ui.uploadStatus.className = "pp-profile-status";
-
-  if (type === "success") {
-    ui.uploadStatus.classList.add(
-      "pp-profile-status--success"
-    );
-  }
-
-  if (type === "error") {
-    ui.uploadStatus.classList.add(
-      "pp-profile-status--error"
-    );
-  }
 }
+
+function resetPhotoInputs() {
+  ui.photoInput.value = "";
+  ui.cameraInput.value = "";
+}
+
+function openPhotoViewer() {
+  if (!currentPhotoUrl) return;
+  ui.photoDialogImage.src = currentPhotoUrl;
+  if (typeof ui.photoDialog.showModal === "function") ui.photoDialog.showModal();
+}
+
+ui.closePhotoDialog.addEventListener("click", () => ui.photoDialog.close());
+ui.photoDialog.addEventListener("click", event => {
+  if (event.target === ui.photoDialog) ui.photoDialog.close();
+});
 
 async function loadDeviceSessions() {
   setDeviceLoading(true);
@@ -474,12 +566,7 @@ function renderDeviceSessions() {
   ui.deviceActiveCount.textContent = String(active.length);
   ui.deviceOtherCount.textContent = String(otherActive.length);
   ui.deviceRecordedCount.textContent = String(deviceSessions.length);
-
-  ui.deviceRevokeOthers.classList.toggle(
-    "hidden",
-    otherActive.length === 0
-  );
-
+  ui.deviceRevokeOthers.classList.toggle("hidden", otherActive.length === 0);
   ui.deviceError.classList.add("hidden");
 
   if (!deviceSessions.length) {
@@ -502,25 +589,21 @@ function createProfileDeviceCard(device) {
   card.className =
     `pp-profile-device-card${device.current ? " pp-profile-device-card--current" : ""}`;
 
-  const status =
-    `<span class="pp-status ${device.active ? "pp-status--success" : ""}">
+  const status = `
+    <span class="pp-status ${device.active ? "pp-status--success" : ""}">
       ${device.active ? "Active" : "Signed out"}
     </span>`;
 
-  const current =
-    device.current
-      ? '<span class="pp-status pp-status--info">This device</span>'
-      : "";
+  const current = device.current
+    ? '<span class="pp-status pp-status--info">This device</span>'
+    : "";
 
-  const action =
-    device.active
-      ? `<button
-          type="button"
-          class="pp-btn pp-btn--ghost profile-revoke-device"
-          data-id="${escapeHtml(device.deviceId || "")}">
-          ${device.current ? "Sign out this device" : "Sign out device"}
-        </button>`
-      : "";
+  const action = device.active
+    ? `<button type="button" class="pp-btn pp-btn--ghost profile-revoke-device"
+        data-id="${escapeHtml(device.deviceId || "")}">
+        ${device.current ? "Sign out this device" : "Sign out device"}
+      </button>`
+    : "";
 
   card.innerHTML = `
     <div class="pp-profile-device-card__icon" aria-hidden="true">
@@ -530,12 +613,9 @@ function createProfileDeviceCard(device) {
         <path d="M11 18h2"/>
       </svg>
     </div>
-
     <div class="pp-profile-device-card__body">
       <h3>${escapeHtml(device.deviceName || "Unknown device")}</h3>
-      <div class="pp-profile-device-card__badges">
-        ${status}${current}
-      </div>
+      <div class="pp-profile-device-card__badges">${status}${current}</div>
       <dl class="pp-profile-device-card__meta">
         <div><dt>App version</dt><dd>${escapeHtml(device.clientVersion || "—")}</dd></div>
         <div><dt>Last seen</dt><dd>${escapeHtml(fmtDate(device.lastSeenAt))}</dd></div>
@@ -547,27 +627,27 @@ function createProfileDeviceCard(device) {
           : ""}
       </dl>
     </div>
-
-    <div class="pp-profile-device-card__actions">
-      ${action}
-    </div>
+    <div class="pp-profile-device-card__actions">${action}</div>
   `;
 
-  card
-    .querySelector(".profile-revoke-device")
-    ?.addEventListener("click", event => {
-      revokeProfileDevice(device, event.currentTarget);
-    });
+  card.querySelector(".profile-revoke-device")?.addEventListener("click", event => {
+    revokeProfileDevice(device, event.currentTarget);
+  });
 
   return card;
 }
 
 async function revokeProfileDevice(device, button) {
-  const message = device.current
-    ? "Sign out this device? You will need to sign in again."
-    : "Sign out this device session? It will immediately lose authenticated PickupPass access.";
+  const confirmed = await confirmProfileAction({
+    title: device.current ? "Sign out this device?" : "Sign out this device session?",
+    message: device.current
+      ? "You will need to sign in again before using PickupPass on this device."
+      : "This device will immediately lose authenticated PickupPass access.",
+    confirmLabel: "Sign out",
+    destructive: true
+  });
 
-  if (!confirmAction(message)) return;
+  if (!confirmed) return;
 
   setSubmitButtonBusy(button, true, "Signing out…");
 
@@ -577,37 +657,34 @@ async function revokeProfileDevice(device, button) {
       { method: "POST" }
     );
 
-    showToast(
-      device.current
-        ? "This device was signed out."
-        : "Device session revoked."
-    );
+    if (device.current) {
+      await signOut(auth);
+      window.location.replace("../login.html");
+      return;
+    }
 
+    showToast("Device session revoked.", "success");
     await loadDeviceSessions();
   } catch (error) {
     showToast(error.message, "error");
   } finally {
-    if (button.isConnected) {
-      setSubmitButtonBusy(button, false);
-    }
+    if (button.isConnected) setSubmitButtonBusy(button, false);
   }
 }
 
 ui.deviceRevokeOthers.addEventListener("click", async () => {
-  if (
-    !deviceSessionsLoaded ||
-    !confirmAction(
-      "Sign out every other active device? This device will stay signed in."
-    )
-  ) {
-    return;
-  }
+  if (!deviceSessionsLoaded) return;
 
-  setSubmitButtonBusy(
-    ui.deviceRevokeOthers,
-    true,
-    "Signing out…"
-  );
+  const confirmed = await confirmProfileAction({
+    title: "Sign out other devices?",
+    message: "Every other active PickupPass session will be revoked. This device will stay signed in.",
+    confirmLabel: "Sign out others",
+    destructive: true
+  });
+
+  if (!confirmed) return;
+
+  setSubmitButtonBusy(ui.deviceRevokeOthers, true, "Signing out…");
 
   try {
     const response = await apiJson(
@@ -616,7 +693,8 @@ ui.deviceRevokeOthers.addEventListener("click", async () => {
     );
 
     showToast(
-      `${response.revokedCount || 0} other device session(s) revoked.`
+      `${response.revokedCount || 0} other device session(s) revoked.`,
+      "success"
     );
 
     await loadDeviceSessions();
@@ -624,6 +702,35 @@ ui.deviceRevokeOthers.addEventListener("click", async () => {
     showToast(error.message, "error");
   } finally {
     setSubmitButtonBusy(ui.deviceRevokeOthers, false);
+  }
+});
+
+ui.signOut.addEventListener("click", async () => {
+  const confirmed = await confirmProfileAction({
+    title: "Sign out of PickupPass?",
+    message: "You'll need to sign in again before viewing students, pickup passes, or guardian settings on this device.",
+    confirmLabel: "Sign out",
+    destructive: true
+  });
+
+  if (!confirmed) return;
+
+  setSubmitButtonBusy(ui.signOut, true, "Signing out…");
+
+  try {
+    const currentDevice = deviceSessions.find(device => device.current && device.active);
+    if (currentDevice?.deviceId) {
+      await apiJson(
+        `/session/devices/${encodeURIComponent(currentDevice.deviceId)}/revoke`,
+        { method: "POST" }
+      ).catch(() => null);
+    }
+
+    await signOut(auth);
+    window.location.replace("../login.html");
+  } catch (error) {
+    showToast(error?.message || "Could not sign out.", "error");
+    setSubmitButtonBusy(ui.signOut, false);
   }
 });
 
@@ -648,18 +755,15 @@ function showDeviceError(error) {
   ui.deviceList.classList.add("hidden");
   ui.deviceEmpty.classList.add("hidden");
   ui.deviceError.classList.remove("hidden");
-
   ui.deviceActiveCount.textContent = "—";
   ui.deviceOtherCount.textContent = "—";
   ui.deviceRecordedCount.textContent = "—";
   ui.deviceRevokeOthers.classList.add("hidden");
 
   const planDisabled = error?.status === 403;
-
-  ui.deviceErrorDetail.textContent =
-    planDisabled
-      ? "Device session management is not enabled for your school plan."
-      : error?.message || "Check your connection and try again.";
+  ui.deviceErrorDetail.textContent = planDisabled
+    ? "Device session management is not enabled for your school plan."
+    : error?.message || "Check your connection and try again.";
 
   if (planDisabled) {
     ui.deviceNotice.textContent =
@@ -668,32 +772,55 @@ function showDeviceError(error) {
   }
 }
 
-function blobToDataUri(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
+function confirmProfileAction({ title, message, confirmLabel, destructive = false }) {
+  if (confirmResolver) {
+    confirmResolver(false);
+    confirmResolver = null;
+  }
+
+  ui.confirmTitle.textContent = title;
+  ui.confirmMessage.textContent = message;
+  ui.confirmAccept.textContent = confirmLabel;
+  ui.confirmDialog.classList.toggle("pp-profile-confirm-dialog--destructive", destructive);
+
+  if (typeof ui.confirmDialog.showModal !== "function") {
+    return Promise.resolve(window.confirm(`${title}\n\n${message}`));
+  }
+
+  ui.confirmDialog.showModal();
+
+  return new Promise(resolve => {
+    confirmResolver = resolve;
   });
 }
 
-function compressImage(
-  file,
-  targetW,
-  targetH,
-  maxBytes
-) {
+function finishConfirmation(value) {
+  if (ui.confirmDialog.open) ui.confirmDialog.close();
+  const resolve = confirmResolver;
+  confirmResolver = null;
+  resolve?.(value);
+}
+
+ui.confirmCancel.addEventListener("click", () => finishConfirmation(false));
+ui.confirmAccept.addEventListener("click", () => finishConfirmation(true));
+ui.confirmDialog.addEventListener("cancel", event => {
+  event.preventDefault();
+  finishConfirmation(false);
+});
+ui.confirmDialog.addEventListener("click", event => {
+  if (event.target === ui.confirmDialog) finishConfirmation(false);
+});
+
+function compressImage(file, targetW, targetH, maxBytes) {
   return new Promise((resolve, reject) => {
     const image = new Image();
     const objectUrl = URL.createObjectURL(file);
 
     image.onload = () => {
       URL.revokeObjectURL(objectUrl);
-
       const canvas = document.createElement("canvas");
       canvas.width = targetW;
       canvas.height = targetH;
-
       const ctx = canvas.getContext("2d");
 
       if (!ctx) {
@@ -701,50 +828,27 @@ function compressImage(
         return;
       }
 
-      const side = Math.min(
-        image.width,
-        image.height
-      );
-
+      const side = Math.min(image.width, image.height);
       const sx = (image.width - side) / 2;
       const sy = (image.height - side) / 2;
-
-      ctx.drawImage(
-        image,
-        sx,
-        sy,
-        side,
-        side,
-        0,
-        0,
-        targetW,
-        targetH
-      );
+      ctx.drawImage(image, sx, sy, side, side, 0, 0, targetW, targetH);
 
       let quality = 0.9;
-
       const tryCompress = () => {
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error("Photo compression failed."));
-              return;
-            }
+        canvas.toBlob(blob => {
+          if (!blob) {
+            reject(new Error("Photo compression failed."));
+            return;
+          }
 
-            if (
-              blob.size <= maxBytes ||
-              quality <= 0.3
-            ) {
-              resolve(blob);
-              return;
-            }
+          if (blob.size <= maxBytes || quality <= 0.35) {
+            resolve(blob);
+            return;
+          }
 
-            quality -= 0.1;
-            tryCompress();
-          },
-          "image/jpeg",
-          quality
-        );
+          quality -= 0.1;
+          tryCompress();
+        }, "image/jpeg", quality);
       };
 
       tryCompress();
