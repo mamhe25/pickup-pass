@@ -1,0 +1,41 @@
+/* PickupPass compact authenticator field.
+   The single real input remains layered across the visual cells so native paste,
+   password managers and one-time-code autofill keep working. */
+
+.pp-totp-field {
+  grid-template-columns: repeat(6, 42px) !important;
+  gap: 6px !important;
+  width: max-content !important;
+  max-width: 100% !important;
+  margin: 8px auto 0 !important;
+  justify-content: center;
+}
+
+.pp-totp-field__slot {
+  width: 42px;
+  min-width: 42px !important;
+  height: 50px !important;
+  border-radius: 12px !important;
+  font-size: 1.12rem !important;
+}
+
+.pp-totp-field__hint {
+  max-width: 330px;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  text-align: center;
+}
+
+@media (max-width: 360px) {
+  .pp-totp-field {
+    grid-template-columns: repeat(6, 38px) !important;
+    gap: 5px !important;
+  }
+
+  .pp-totp-field__slot {
+    width: 38px;
+    min-width: 38px !important;
+    height: 48px !important;
+    font-size: 1.04rem !important;
+  }
+}
