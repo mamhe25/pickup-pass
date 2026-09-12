@@ -154,6 +154,11 @@
   scroll-margin-top: 170px;
 }
 
+.pp-profile-card--photo .pp-profile-photo-wrap {
+  flex: 1 1 auto;
+  align-content: center;
+}
+
 .pp-profile-card__heading {
   display: flex;
   align-items: center;
