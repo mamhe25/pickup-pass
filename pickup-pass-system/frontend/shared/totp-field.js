@@ -1,5 +1,15 @@
 const DIGITS = 6;
 
+function ensureCompactStyles() {
+  if (document.querySelector('link[data-pp-totp-compact]')) return;
+
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = new URL('./totp-compact.css', import.meta.url).href;
+  link.dataset.ppTotpCompact = 'true';
+  document.head.appendChild(link);
+}
+
 function normalize(value) {
   return String(value ?? '').replace(/\D/g, '').slice(0, DIGITS);
 }
@@ -7,6 +17,7 @@ function normalize(value) {
 function enhance(input) {
   if (!(input instanceof HTMLInputElement) || input.dataset.ppTotpReady === 'true') return;
 
+  ensureCompactStyles();
   input.dataset.ppTotpReady = 'true';
   input.classList.add('pp-totp-field__input');
   input.setAttribute('inputmode', 'numeric');
@@ -128,7 +139,9 @@ function enhance(input) {
 }
 
 function boot() {
-  document.querySelectorAll('input[data-pp-totp]').forEach(enhance);
+  const fields = document.querySelectorAll('input[data-pp-totp]');
+  if (fields.length > 0) ensureCompactStyles();
+  fields.forEach(enhance);
 }
 
 if (document.readyState === 'loading') {
