@@ -420,19 +420,20 @@ async function renderPass() {
     const result = await generatePickupToken();
     if (version !== generationVersion) return;
 
-    const expiry = new Date(result.expiresAt);
+    const { qrToken, expiresAt, testMode } = result;
+    const expiry = new Date(expiresAt);
     if (Number.isNaN(expiry.getTime())) {
       throw new Error("The pass expiry could not be verified. Generate a new pass.");
     }
 
-    currentQrToken = String(result.qrToken || "");
+    currentQrToken = String(qrToken || "");
     if (!currentQrToken) {
       throw new Error("The secure QR could not be created. Please try again.");
     }
 
     currentExpiry = expiry;
     initialValiditySeconds = secondsUntil(expiry);
-    setTestMode(Boolean(result.testMode));
+    setTestMode(Boolean(testMode));
     renderQr(currentQrToken);
     startCountdown(expiry, version);
   } catch (error) {
