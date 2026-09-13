@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#4652C7" />
+<title>Notifications — PickupPass Platform Owner</title>
+
+<link rel="stylesheet" href="../shared/theme.css" />
+<link rel="stylesheet" href="../shared/components.css" />
+<link rel="stylesheet" href="../shared/portal.css" />
+<link rel="stylesheet" href="../shared/notification-center.css" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="masterNav"></div>
+<script type="module" src="../shared/master-admin-nav.js"></script>
+
+<main
+  class="pp-page pp-notification-center"
+  data-pp-notification-center
+  data-role="master_admin"
+  data-login-path="../login.html">
+  <header class="pp-notification-center__head">
+    <div>
+      <p class="pp-notification-center__eyebrow">Platform owner · inbox</p>
+      <h1>Notifications</h1>
+      <p>
+        Launch-review requests and important platform events stay visible here without requiring a manual refresh.
+      </p>
+    </div>
+
+    <button id="markAllReadBtn" type="button" class="pp-btn pp-btn--ghost hidden">
+      Mark all read
+    </button>
+  </header>
+
+  <section class="pp-notification-center__summary" aria-label="Notification summary">
+    <div class="pp-notification-summary-item">
+      <strong id="unreadCount">—</strong>
+      <span>Unread</span>
+    </div>
+    <div class="pp-notification-summary-item">
+      <strong id="totalCount">—</strong>
+      <span>Total</span>
+    </div>
+    <div class="pp-notification-center__filters" role="group" aria-label="Notification filter">
+      <button id="allFilterBtn" type="button" class="pp-notification-filter" aria-pressed="true">All</button>
+      <button id="unreadFilterBtn" type="button" class="pp-notification-filter" aria-pressed="false">Unread</button>
+    </div>
+  </section>
+
+  <div id="loadingState" class="pp-notification-state pp-notification-loading" aria-live="polite">
+    Loading notifications…
+  </div>
+
+  <div id="notificationList" class="pp-notification-list hidden" aria-live="polite"></div>
+
+  <div id="emptyState" class="pp-notification-state hidden">
+    <div class="pp-notification-state__icon" aria-hidden="true">✓</div>
+    <strong id="emptyTitle">No notifications yet</strong>
+    <p id="emptyDetail">Launch review requests and platform alerts will appear here.</p>
+  </div>
+
+  <div id="errorState" class="pp-notification-state hidden" role="alert">
+    <div class="pp-notification-state__icon" aria-hidden="true">!</div>
+    <strong>Notifications are unavailable.</strong>
+    <p id="errorDetail">Check your connection and try again.</p>
+    <button id="retryBtn" type="button" class="pp-btn pp-btn--ghost">Try again</button>
+  </div>
+</main>
+
+<script type="module" src="../shared/notification-center.js"></script>
+</body>
+</html>
