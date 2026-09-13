@@ -420,7 +420,7 @@
           <button id="demoSubmitButton" type="submit" class="pp-btn pp-btn--primary">Request a demo</button>
 
           <p class="landing-demo-form__status landing-demo-form__status--visible" style="opacity:.72;">
-            We’ll use these contact details only to respond to your PickupPass inquiry.
+            We’ll send a verification link first. Only verified inquiries are forwarded to PickupPass.
           </p>
           <p id="demoFormStatus" class="landing-demo-form__status" role="status" aria-live="polite"></p>
         </form>
@@ -515,15 +515,18 @@
 
   function friendlyDemoError(status) {
     if (status === 409) {
-      return "We already received a recent request from this email and organization. We’ll be in touch using the contact details you provided.";
+      return "A recent verified request from this email and organization is already on file.";
     }
     if (status === 429) {
-      return "Several demo requests were sent from this connection recently. Please wait a while before trying again.";
+      return "Several demo or verification requests were sent from this connection recently. Please wait before trying again.";
     }
     if (status === 400) {
-      return "Please review your contact details and try again.";
+      return "Please review your contact details. Temporary or disposable email addresses are not accepted.";
     }
-    return "We couldn’t send your demo request right now. Please try again shortly.";
+    if (status === 503) {
+      return "We couldn’t send the verification email right now. Please try again shortly.";
+    }
+    return "We couldn’t start your demo request right now. Please try again shortly.";
   }
 
   demoForm.addEventListener("submit", async function (event) {
@@ -541,7 +544,7 @@
     };
 
     demoSubmitButton.disabled = true;
-    demoSubmitButton.textContent = "Sending…";
+    demoSubmitButton.textContent = "Sending verification…";
     demoFormStatus.textContent = "";
     demoFormStatus.classList.remove("landing-demo-form__status--visible");
 
@@ -564,11 +567,11 @@
 
       var confirmedName = String(body.name || payload.name || "").trim();
       var firstName = confirmedName.split(/\s+/)[0] || "there";
-      var confirmedEmail = String(body.email || payload.email || "").trim();
-      demoSubmitButton.textContent = "Request sent";
+      var maskedEmail = String(body.maskedEmail || body.email || payload.email || "").trim();
+      demoSubmitButton.textContent = "Check your email";
       demoForm.reset();
       showDemoStatus(
-        "Thanks, " + firstName + ". Your PickupPass demo request was received. We’ll contact you at " + confirmedEmail + "."
+        "Thanks, " + firstName + ". We sent a verification link to " + maskedEmail + ". Open that link before your demo request is sent to the PickupPass Platform Owner."
       );
     } catch (error) {
       demoSubmitButton.disabled = false;
