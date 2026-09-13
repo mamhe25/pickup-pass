@@ -25,9 +25,9 @@
       <p class="pp-demo-leads__eyebrow">Platform owner · verified growth inbox</p>
       <h1>Demo requests</h1>
       <p>
-        Only email-verified inquiries appear here. Domain labels help you prioritize
-        institutional contacts while still allowing legitimate schools that use
-        government, custom-domain, Gmail, Outlook, or other free email accounts.
+        Manage verified inquiries from first contact through onboarding. Scheduling,
+        requester updates, and email history stay attached to each lead so follow-up
+        does not depend on a separate inbox.
       </p>
     </div>
     <button id="refreshBtn" class="pp-btn pp-btn--ghost" type="button">Refresh</button>
@@ -59,6 +59,150 @@
   <section id="requestList" class="pp-demo-list hidden" aria-live="polite"></section>
 </main>
 
+<dialog id="scheduleDialog" class="pp-demo-dialog">
+  <form id="scheduleForm" class="pp-demo-dialog__card" method="dialog">
+    <header class="pp-demo-dialog__head">
+      <div>
+        <p class="pp-demo-dialog__eyebrow">Schedule walkthrough</p>
+        <h2 id="scheduleTitle">Schedule demo</h2>
+        <p id="scheduleRecipient"></p>
+      </div>
+      <button class="pp-demo-dialog__close" type="button" data-close-dialog="scheduleDialog" aria-label="Close">×</button>
+    </header>
+
+    <div class="pp-demo-dialog__body">
+      <label class="pp-demo-field">
+        <span>Date and time</span>
+        <input id="scheduleDateTime" class="pp-field" type="datetime-local" required />
+      </label>
+
+      <label class="pp-demo-field">
+        <span>Meeting type</span>
+        <select id="scheduleMeetingType" class="pp-field" required>
+          <option value="video">Video call</option>
+          <option value="phone">Phone call</option>
+          <option value="onsite">On-site meeting</option>
+          <option value="other">Other arrangement</option>
+        </select>
+      </label>
+
+      <label class="pp-demo-field">
+        <span>Meeting link, location, or instructions <small>Optional</small></span>
+        <textarea id="scheduleMeetingDetails" class="pp-field" rows="4" maxlength="1000" placeholder="Google Meet link, school address, contact instructions, or other details"></textarea>
+      </label>
+
+      <div class="pp-demo-dialog__notice">
+        Saving this schedule automatically emails the verified requester and records the message in communication history.
+      </div>
+    </div>
+
+    <footer class="pp-demo-dialog__actions">
+      <button class="pp-btn pp-btn--ghost" type="button" data-close-dialog="scheduleDialog">Cancel</button>
+      <button id="scheduleSubmitBtn" class="pp-btn pp-btn--primary" type="submit">Save &amp; notify</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog id="updateDialog" class="pp-demo-dialog">
+  <form id="updateForm" class="pp-demo-dialog__card" method="dialog">
+    <header class="pp-demo-dialog__head">
+      <div>
+        <p class="pp-demo-dialog__eyebrow">Requester communication</p>
+        <h2>Send an update</h2>
+        <p id="updateRecipient"></p>
+      </div>
+      <button class="pp-demo-dialog__close" type="button" data-close-dialog="updateDialog" aria-label="Close">×</button>
+    </header>
+
+    <div class="pp-demo-dialog__body">
+      <label class="pp-demo-field">
+        <span>Template</span>
+        <select id="updateTemplate" class="pp-field">
+          <option value="general">General update</option>
+          <option value="followup">Follow-up</option>
+          <option value="preparation">Demo preparation</option>
+          <option value="nextsteps">Next steps</option>
+        </select>
+      </label>
+
+      <label class="pp-demo-field">
+        <span>Subject</span>
+        <input id="updateSubject" class="pp-field" type="text" maxlength="160" required />
+      </label>
+
+      <label class="pp-demo-field">
+        <span>Message</span>
+        <textarea id="updateMessage" class="pp-field" rows="7" maxlength="4000" required></textarea>
+      </label>
+
+      <div class="pp-demo-dialog__notice">
+        PickupPass adds the greeting and sign-off automatically. The sent update is recorded against this inquiry.
+      </div>
+    </div>
+
+    <footer class="pp-demo-dialog__actions">
+      <button class="pp-btn pp-btn--ghost" type="button" data-close-dialog="updateDialog">Cancel</button>
+      <button id="updateSubmitBtn" class="pp-btn pp-btn--primary" type="submit">Send update</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog id="closeDialog" class="pp-demo-dialog">
+  <form id="closeForm" class="pp-demo-dialog__card" method="dialog">
+    <header class="pp-demo-dialog__head">
+      <div>
+        <p class="pp-demo-dialog__eyebrow">Close inquiry</p>
+        <h2>Close this demo request?</h2>
+        <p id="closeRecipient"></p>
+      </div>
+      <button class="pp-demo-dialog__close" type="button" data-close-dialog="closeDialog" aria-label="Close">×</button>
+    </header>
+
+    <div class="pp-demo-dialog__body">
+      <label class="pp-demo-check">
+        <input id="closeNotifyRequester" type="checkbox" />
+        <span>
+          <strong>Email the requester</strong>
+          <small>Optional. Leave this off when the inquiry was already resolved through another conversation.</small>
+        </span>
+      </label>
+
+      <label id="closeMessageWrap" class="pp-demo-field hidden">
+        <span>Closing message <small>Optional</small></span>
+        <textarea id="closeMessage" class="pp-field" rows="5" maxlength="2000" placeholder="Add context for the requester, or leave blank to use the standard closing message."></textarea>
+      </label>
+    </div>
+
+    <footer class="pp-demo-dialog__actions">
+      <button class="pp-btn pp-btn--ghost" type="button" data-close-dialog="closeDialog">Cancel</button>
+      <button id="closeSubmitBtn" class="pp-btn pp-btn--primary" type="submit">Close inquiry</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog id="historyDialog" class="pp-demo-dialog pp-demo-dialog--wide">
+  <div class="pp-demo-dialog__card">
+    <header class="pp-demo-dialog__head">
+      <div>
+        <p class="pp-demo-dialog__eyebrow">Communication history</p>
+        <h2 id="historyTitle">Inquiry history</h2>
+        <p id="historyRecipient"></p>
+      </div>
+      <button class="pp-demo-dialog__close" type="button" data-close-dialog="historyDialog" aria-label="Close">×</button>
+    </header>
+
+    <div class="pp-demo-dialog__body">
+      <div id="historyLoading" class="pp-demo-history-state">Loading communication history…</div>
+      <div id="historyEmpty" class="pp-demo-history-state hidden">No communication has been recorded yet.</div>
+      <div id="historyList" class="pp-demo-history hidden"></div>
+    </div>
+
+    <footer class="pp-demo-dialog__actions">
+      <button class="pp-btn pp-btn--ghost" type="button" data-close-dialog="historyDialog">Close</button>
+    </footer>
+  </div>
+</dialog>
+
 <script type="module">
 import {
   auth,
@@ -78,6 +222,25 @@ const STATUS_LABELS = {
   closed: "Closed"
 };
 
+const TEMPLATES = {
+  general: {
+    subject: "Update on your PickupPass demo request",
+    message: "We wanted to share an update about your PickupPass inquiry. Please let us know if there is anything specific you would like us to cover."
+  },
+  followup: {
+    subject: "Following up on your PickupPass inquiry",
+    message: "We’re following up on your PickupPass demo request. If you’re still interested, reply with a convenient time or any questions you would like us to address."
+  },
+  preparation: {
+    subject: "Preparing for your PickupPass walkthrough",
+    message: "Before the walkthrough, feel free to share your current dismissal process, approximate student population, and any pickup challenges you want us to focus on."
+  },
+  nextsteps: {
+    subject: "PickupPass next steps",
+    message: "Here are the next steps for your PickupPass inquiry. We can review school setup, administrator access, staff testing, and launch readiness based on your timeline."
+  }
+};
+
 const ui = {
   refresh: document.getElementById("refreshBtn"),
   search: document.getElementById("searchInput"),
@@ -86,6 +249,42 @@ const ui = {
   loading: document.getElementById("loadingState"),
   empty: document.getElementById("emptyState"),
   error: document.getElementById("errorState"),
+  schedule: {
+    dialog: document.getElementById("scheduleDialog"),
+    form: document.getElementById("scheduleForm"),
+    title: document.getElementById("scheduleTitle"),
+    recipient: document.getElementById("scheduleRecipient"),
+    dateTime: document.getElementById("scheduleDateTime"),
+    meetingType: document.getElementById("scheduleMeetingType"),
+    details: document.getElementById("scheduleMeetingDetails"),
+    submit: document.getElementById("scheduleSubmitBtn")
+  },
+  update: {
+    dialog: document.getElementById("updateDialog"),
+    form: document.getElementById("updateForm"),
+    recipient: document.getElementById("updateRecipient"),
+    template: document.getElementById("updateTemplate"),
+    subject: document.getElementById("updateSubject"),
+    message: document.getElementById("updateMessage"),
+    submit: document.getElementById("updateSubmitBtn")
+  },
+  close: {
+    dialog: document.getElementById("closeDialog"),
+    form: document.getElementById("closeForm"),
+    recipient: document.getElementById("closeRecipient"),
+    notify: document.getElementById("closeNotifyRequester"),
+    messageWrap: document.getElementById("closeMessageWrap"),
+    message: document.getElementById("closeMessage"),
+    submit: document.getElementById("closeSubmitBtn")
+  },
+  history: {
+    dialog: document.getElementById("historyDialog"),
+    title: document.getElementById("historyTitle"),
+    recipient: document.getElementById("historyRecipient"),
+    loading: document.getElementById("historyLoading"),
+    empty: document.getElementById("historyEmpty"),
+    list: document.getElementById("historyList")
+  },
   counts: {
     new: document.getElementById("newCount"),
     contacted: document.getElementById("contactedCount"),
@@ -97,6 +296,9 @@ const ui = {
 
 let requests = [];
 let ready = false;
+let activeLead = null;
+let activeStatusSelect = null;
+let activePreviousStatus = null;
 
 onAuthStateChanged(auth, async user => {
   if (!user) {
@@ -122,6 +324,28 @@ onAuthStateChanged(auth, async user => {
 ui.refresh.addEventListener("click", loadRequests);
 ui.search.addEventListener("input", render);
 ui.filter.addEventListener("change", render);
+ui.update.template.addEventListener("change", applyUpdateTemplate);
+ui.close.notify.addEventListener("change", () => {
+  ui.close.messageWrap.classList.toggle("hidden", !ui.close.notify.checked);
+});
+
+for (const button of document.querySelectorAll("[data-close-dialog]")) {
+  button.addEventListener("click", () => closeDialog(button.dataset.closeDialog));
+}
+
+for (const dialog of document.querySelectorAll("dialog.pp-demo-dialog")) {
+  dialog.addEventListener("cancel", event => {
+    event.preventDefault();
+    closeDialog(dialog.id);
+  });
+  dialog.addEventListener("click", event => {
+    if (event.target === dialog) closeDialog(dialog.id);
+  });
+}
+
+ui.schedule.form.addEventListener("submit", submitSchedule);
+ui.update.form.addEventListener("submit", submitManualUpdate);
+ui.close.form.addEventListener("submit", submitClose);
 
 async function loadRequests() {
   setSubmitButtonBusy(ui.refresh, true, "Refreshing…");
@@ -160,7 +384,8 @@ function render() {
       item.message,
       item.emailDomain,
       item.emailDomainType,
-      item.emailTrustLabel
+      item.emailTrustLabel,
+      item.demoMeetingDetails
     ].some(value => String(value || "").toLowerCase().includes(search));
   });
 
@@ -188,9 +413,7 @@ function createCard(item) {
     : item.createdAt
       ? formatDate(item.createdAt)
       : "Recently verified";
-  const phone = item.phone
-    ? `<span>${escapeHtml(item.phone)}</span>`
-    : "";
+  const phone = item.phone ? `<span>${escapeHtml(item.phone)}</span>` : "";
   const message = item.message
     ? `<p class="pp-demo-card__message">${escapeHtml(item.message)}</p>`
     : "";
@@ -198,6 +421,16 @@ function createCard(item) {
     ? item.emailDomainType
     : "verified";
   const trustLabel = item.emailTrustLabel || "Verified email";
+  const schedule = item.demoScheduledFor
+    ? `<div class="pp-demo-card__schedule">
+         <span>Scheduled</span>
+         <strong>${escapeHtml(formatDate(item.demoScheduledFor))}</strong>
+         <small>${escapeHtml(meetingTypeLabel(item.demoMeetingType))}${item.demoMeetingDetails ? ` · ${escapeHtml(item.demoMeetingDetails)}` : ""}</small>
+       </div>`
+    : "";
+  const lastCommunication = item.lastCommunicationAt
+    ? `<span>Last update ${escapeHtml(formatDate(item.lastCommunicationAt))}</span>`
+    : "";
 
   card.innerHTML = `
     <div>
@@ -211,7 +444,9 @@ function createCard(item) {
         <a href="mailto:${escapeAttr(item.email || "")}">${escapeHtml(item.email || "No email")}</a>
         ${phone}
         <span>${escapeHtml(verified)}</span>
+        ${lastCommunication}
       </div>
+      ${schedule}
       ${message}
     </div>
     <div class="pp-demo-card__actions">
@@ -221,39 +456,270 @@ function createCard(item) {
           `<option value="${value}" ${value === item.status ? "selected" : ""}>${label}</option>`
         ).join("")}
       </select>
-      <a class="pp-btn pp-btn--ghost" href="mailto:${escapeAttr(item.email || "")}">Email contact</a>
+      <button class="pp-btn pp-btn--primary pp-demo-send" type="button">Send update</button>
+      <button class="pp-btn pp-btn--ghost pp-demo-history-btn" type="button">History</button>
     </div>
   `;
 
   const select = card.querySelector("select");
-  select.addEventListener("change", async () => {
-    const next = select.value;
-    const previous = item.status;
-    select.disabled = true;
-    try {
-      const response = await authedFetch(
-        `/master-admin/demo-requests/${encodeURIComponent(item.requestId)}/status`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({ status: next })
-        }
-      );
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || "Status update failed");
-      item.status = body.status || next;
-      recalculateCounts();
-      showToast(`Demo request marked ${STATUS_LABELS[item.status].toLowerCase()}.`, "success");
-      render();
-    } catch (error) {
-      item.status = previous;
-      select.value = previous;
-      showToast(error.message || "Could not update demo request.", "error");
-    } finally {
-      select.disabled = false;
-    }
-  });
+  const sendButton = card.querySelector(".pp-demo-send");
+  const historyButton = card.querySelector(".pp-demo-history-btn");
 
+  select.addEventListener("change", () => handleStatusSelection(item, select));
+  sendButton.addEventListener("click", () => openUpdateDialog(item));
+  historyButton.addEventListener("click", () => openHistoryDialog(item));
   return card;
+}
+
+async function handleStatusSelection(item, select) {
+  const next = select.value;
+  const previous = item.status;
+
+  if (next === "demo_scheduled") {
+    activeLead = item;
+    activeStatusSelect = select;
+    activePreviousStatus = previous;
+    openScheduleDialog(item);
+    return;
+  }
+
+  if (next === "closed") {
+    activeLead = item;
+    activeStatusSelect = select;
+    activePreviousStatus = previous;
+    openCloseDialog(item);
+    return;
+  }
+
+  await updateLeadStatus(item, select, previous, { status: next });
+}
+
+async function updateLeadStatus(item, select, previous, payload) {
+  select.disabled = true;
+  try {
+    const response = await authedFetch(
+      `/master-admin/demo-requests/${encodeURIComponent(item.requestId)}/status`,
+      { method: "PATCH", body: JSON.stringify(payload) }
+    );
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || "Status update failed");
+
+    Object.assign(item, body);
+    item.status = body.status || payload.status;
+    recalculateCounts();
+
+    if (item.status === "converted") {
+      showToast(
+        body.notificationEmailSent
+          ? "Marked converted and onboarding next steps were emailed."
+          : "Marked converted, but the next-steps email could not be sent.",
+        body.notificationEmailSent ? "success" : "warning"
+      );
+    } else {
+      showToast(`Demo request marked ${STATUS_LABELS[item.status].toLowerCase()}.`, "success");
+    }
+    render();
+    return true;
+  } catch (error) {
+    item.status = previous;
+    select.value = previous;
+    showToast(error.message || "Could not update demo request.", "error");
+    return false;
+  } finally {
+    select.disabled = false;
+  }
+}
+
+function openScheduleDialog(item) {
+  ui.schedule.title.textContent = item.demoScheduledFor ? "Update demo schedule" : "Schedule demo";
+  ui.schedule.recipient.textContent = `${item.name} · ${item.email}`;
+  ui.schedule.meetingType.value = item.demoMeetingType || "video";
+  ui.schedule.details.value = item.demoMeetingDetails || "";
+  ui.schedule.dateTime.value = item.demoScheduledFor
+    ? toLocalDateTimeValue(item.demoScheduledFor)
+    : defaultScheduleValue();
+  ui.schedule.dialog.showModal();
+  queueMicrotask(() => ui.schedule.dateTime.focus());
+}
+
+async function submitSchedule(event) {
+  event.preventDefault();
+  if (!activeLead || !activeStatusSelect || !ui.schedule.form.reportValidity()) return;
+
+  const localDate = new Date(ui.schedule.dateTime.value);
+  if (Number.isNaN(localDate.getTime())) {
+    showToast("Choose a valid demo date and time.", "error");
+    return;
+  }
+
+  setSubmitButtonBusy(ui.schedule.submit, true, "Saving…");
+  const payload = {
+    status: "demo_scheduled",
+    scheduledAt: localDate.toISOString(),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Manila",
+    meetingType: ui.schedule.meetingType.value,
+    meetingDetails: ui.schedule.details.value.trim()
+  };
+
+  const success = await updateLeadStatus(
+    activeLead,
+    activeStatusSelect,
+    activePreviousStatus,
+    payload
+  );
+  setSubmitButtonBusy(ui.schedule.submit, false);
+
+  if (success) {
+    const updated = requests.find(item => item.requestId === activeLead.requestId);
+    closeDialog("scheduleDialog", false);
+    showToast(
+      updated?.notificationEmailSent === false
+        ? "Demo scheduled, but the requester email could not be sent. Use Send update to retry."
+        : "Demo scheduled and the verified requester was emailed.",
+      updated?.notificationEmailSent === false ? "warning" : "success"
+    );
+  }
+}
+
+function openUpdateDialog(item) {
+  activeLead = item;
+  ui.update.recipient.textContent = `${item.name} · ${item.email}`;
+  ui.update.template.value = "general";
+  applyUpdateTemplate();
+  ui.update.dialog.showModal();
+  queueMicrotask(() => ui.update.subject.focus());
+}
+
+function applyUpdateTemplate() {
+  const template = TEMPLATES[ui.update.template.value] || TEMPLATES.general;
+  ui.update.subject.value = template.subject;
+  ui.update.message.value = template.message;
+}
+
+async function submitManualUpdate(event) {
+  event.preventDefault();
+  if (!activeLead || !ui.update.form.reportValidity()) return;
+
+  setSubmitButtonBusy(ui.update.submit, true, "Sending…");
+  try {
+    const response = await authedFetch(
+      `/master-admin/demo-requests/${encodeURIComponent(activeLead.requestId)}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          subject: ui.update.subject.value.trim(),
+          message: ui.update.message.value.trim()
+        })
+      }
+    );
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || "Could not send requester update");
+
+    activeLead.lastCommunicationAt = new Date().toISOString();
+    closeDialog("updateDialog", false);
+    render();
+    showToast("Update emailed and added to communication history.", "success");
+  } catch (error) {
+    showToast(error.message || "Could not send requester update.", "error");
+  } finally {
+    setSubmitButtonBusy(ui.update.submit, false);
+  }
+}
+
+function openCloseDialog(item) {
+  ui.close.recipient.textContent = `${item.name} · ${item.email}`;
+  ui.close.notify.checked = false;
+  ui.close.message.value = "";
+  ui.close.messageWrap.classList.add("hidden");
+  ui.close.dialog.showModal();
+}
+
+async function submitClose(event) {
+  event.preventDefault();
+  if (!activeLead || !activeStatusSelect) return;
+
+  setSubmitButtonBusy(ui.close.submit, true, "Closing…");
+  const success = await updateLeadStatus(
+    activeLead,
+    activeStatusSelect,
+    activePreviousStatus,
+    {
+      status: "closed",
+      notifyRequester: ui.close.notify.checked,
+      closeMessage: ui.close.message.value.trim()
+    }
+  );
+  setSubmitButtonBusy(ui.close.submit, false);
+
+  if (success) {
+    const notified = ui.close.notify.checked;
+    closeDialog("closeDialog", false);
+    showToast(
+      notified
+        ? "Inquiry closed and the requester was notified by email."
+        : "Inquiry closed without sending another email.",
+      "success"
+    );
+  }
+}
+
+async function openHistoryDialog(item) {
+  activeLead = item;
+  ui.history.title.textContent = item.school || "Inquiry history";
+  ui.history.recipient.textContent = `${item.name} · ${item.email}`;
+  ui.history.loading.classList.remove("hidden");
+  ui.history.empty.classList.add("hidden");
+  ui.history.list.classList.add("hidden");
+  ui.history.list.innerHTML = "";
+  ui.history.dialog.showModal();
+
+  try {
+    const response = await authedFetch(
+      `/master-admin/demo-requests/${encodeURIComponent(item.requestId)}/communications`
+    );
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || "Could not load communication history");
+
+    const communications = Array.isArray(body.communications) ? body.communications : [];
+    ui.history.loading.classList.add("hidden");
+    if (communications.length === 0) {
+      ui.history.empty.classList.remove("hidden");
+      return;
+    }
+
+    ui.history.list.classList.remove("hidden");
+    communications.forEach(entry => ui.history.list.appendChild(createHistoryEntry(entry)));
+  } catch (error) {
+    ui.history.loading.textContent = error.message || "Communication history is unavailable.";
+  }
+}
+
+function createHistoryEntry(entry) {
+  const article = document.createElement("article");
+  article.className = "pp-demo-history__item";
+  const failed = entry.deliveryStatus === "failed";
+  article.innerHTML = `
+    <div class="pp-demo-history__top">
+      <div>
+        <strong>${escapeHtml(entry.subject || communicationTypeLabel(entry.type))}</strong>
+        <span>${escapeHtml(entry.sentAt ? formatDate(entry.sentAt) : "Recently")}</span>
+      </div>
+      <span class="pp-demo-delivery ${failed ? "pp-demo-delivery--failed" : ""}">${failed ? "Failed" : "Sent"}</span>
+    </div>
+    <p>${escapeHtml(entry.body || "No message preview recorded.")}</p>
+  `;
+  return article;
+}
+
+function closeDialog(id, restoreStatus = true) {
+  const dialog = document.getElementById(id);
+  if (dialog?.open) dialog.close();
+  if (restoreStatus && activeStatusSelect && activePreviousStatus) {
+    activeStatusSelect.value = activePreviousStatus;
+  }
+  activeStatusSelect = null;
+  activePreviousStatus = null;
+  if (id !== "historyDialog") activeLead = null;
 }
 
 function updateCounts(counts) {
@@ -268,6 +734,39 @@ function recalculateCounts() {
     if (Object.prototype.hasOwnProperty.call(counts, item.status)) counts[item.status] += 1;
   });
   updateCounts(counts);
+}
+
+function defaultScheduleValue() {
+  const date = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  date.setMinutes(0, 0, 0);
+  if (date.getHours() < 9 || date.getHours() > 16) date.setHours(10, 0, 0, 0);
+  return toLocalDateTimeValue(date.toISOString());
+}
+
+function toLocalDateTimeValue(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function meetingTypeLabel(value) {
+  return {
+    video: "Video call",
+    phone: "Phone call",
+    onsite: "On-site meeting",
+    other: "Other arrangement"
+  }[value] || "Meeting details pending";
+}
+
+function communicationTypeLabel(value) {
+  return {
+    verification_confirmation: "Verification confirmation",
+    demo_scheduled: "Demo scheduled",
+    converted_next_steps: "Onboarding next steps",
+    inquiry_closed: "Inquiry closed",
+    manual_update: "Requester update"
+  }[value] || "Requester communication";
 }
 
 function formatDate(value) {
