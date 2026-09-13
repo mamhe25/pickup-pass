@@ -8,7 +8,7 @@ async function read(relativePath) {
   return readFile(new URL(relativePath, root), 'utf8');
 }
 
-test('login exposes a scoped PickupPass inquiry assistant without altering auth flow', async () => {
+test('login exposes a free local PickupPass inquiry assistant without paid API calls', async () => {
   const [login, assistantJs, assistantCss, security, config] = await Promise.all([
     read('frontend/login.html'),
     read('frontend/shared/inquiry-assistant.js'),
@@ -24,17 +24,21 @@ test('login exposes a scoped PickupPass inquiry assistant without altering auth 
   assert.match(login, /shared\/inquiry-assistant\.css/);
   assert.match(login, /shared\/inquiry-assistant\.js/);
 
-  assert.match(assistantJs, /\/public\/inquiry\/chat/);
+  assert.match(assistantJs, /const KNOWLEDGE = \[/);
+  assert.match(assistantJs, /guardian-verification/);
+  assert.match(assistantJs, /prelaunch/);
   assert.match(assistantJs, /MAX_MESSAGE_CHARS\s*=\s*800/);
+  assert.match(assistantJs, /no paid AI\/API calls/i);
+  assert.doesNotMatch(assistantJs, /fetch\s*\(/);
+  assert.doesNotMatch(assistantJs, /API_BASE_URL/);
+  assert.doesNotMatch(assistantJs, /openai/i);
   assert.doesNotMatch(assistantJs, /Authorization/);
-  assert.doesNotMatch(assistantJs, /authedFetch/);
 
   assert.match(assistantCss, /\.pp-inquiry-panel/);
   assert.match(assistantCss, /position:\s*fixed/);
   assert.match(assistantCss, /@media \(max-width: 640px\)/);
 
-  assert.match(security, /requestMatchers\("\/api\/public\/inquiry\/\*\*"\)[\s\S]*?permitAll/);
-  assert.match(config, /AI_INQUIRY_ENABLED:false/);
-  assert.match(config, /OPENAI_API_KEY:/);
-  assert.match(config, /gpt-5\.6-luna/);
+  assert.doesNotMatch(security, /\/api\/public\/inquiry/);
+  assert.doesNotMatch(config, /ai-inquiry:/);
+  assert.doesNotMatch(config, /OPENAI_API_KEY/);
 });
