@@ -65,6 +65,7 @@ function render(mount) {
   mountThemeToggle(mount.querySelector('[data-pp-theme-toggle]'));
   mountAccountLink(mount);
   enhancePortal();
+  wireLaunchReviewDeepLink();
 
   onAuthStateChanged(auth, async user => {
     if (!user) {
@@ -113,6 +114,50 @@ function ensureNotificationStyles() {
   link.href = '../shared/notification-center.css';
   link.dataset.ppNotificationCenter = 'true';
   document.head.appendChild(link);
+}
+
+function wireLaunchReviewDeepLink() {
+  if (!location.pathname.endsWith('/master-admin/index.html')) return;
+
+  const params = new URLSearchParams(location.search);
+  const schoolId = String(params.get('launchReviewSchoolId') || '').trim();
+  if (!schoolId) return;
+
+  let observer = null;
+  let timeoutId = null;
+  let handled = false;
+
+  const openReview = () => {
+    if (handled) return true;
+
+    const manageButton = [...document.querySelectorAll('button.manage[data-id]')]
+      .find(button => button.dataset.id === schoolId);
+    if (!manageButton) return false;
+
+    handled = true;
+    observer?.disconnect();
+    if (timeoutId) window.clearTimeout(timeoutId);
+
+    manageButton.click();
+    requestAnimationFrame(() => {
+      document.getElementById('launchReviewBtn')?.focus({ preventScroll: true });
+    });
+
+    const cleanUrl = new URL(location.href);
+    cleanUrl.searchParams.delete('launchReviewSchoolId');
+    history.replaceState(
+      history.state,
+      '',
+      `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`
+    );
+    return true;
+  };
+
+  if (openReview()) return;
+
+  observer = new MutationObserver(openReview);
+  observer.observe(document.body, { childList: true, subtree: true });
+  timeoutId = window.setTimeout(() => observer?.disconnect(), 10_000);
 }
 
 window.addEventListener('pagehide', stopUnreadListener);
