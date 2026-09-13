@@ -9,6 +9,7 @@ import { listenUnreadNotifications } from './notification-badge.js';
 const ITEMS = [
   { key: 'overview', label: 'Overview', href: './overview.html', icon: iconDashboard },
   { key: 'schools', label: 'Schools', href: './index.html', icon: iconSchool },
+  { key: 'inquiries', label: 'Inquiries', href: './demo-requests.html', icon: iconChat },
   { key: 'billing', label: 'Billing', href: './billing.html', icon: iconReceipt },
   { key: 'operations', label: 'Operations', href: './operations.html', icon: iconShield }
 ];
@@ -185,6 +186,13 @@ function iconSchool() {
     '<path d="M5 21V8l7-4 7 4v13"/>' +
     '<path d="M9 21v-5h6v5"/>' +
     '<path d="M9 10h.01M15 10h.01"/>'
+  );
+}
+
+function iconChat() {
+  return svg(
+    '<path d="M21 15a4 4 0 0 1-4 4H9l-6 3v-6a4 4 0 0 1-1-2.7V7a4 4 0 0 1 4-4h11a4 4 0 0 1 4 4v8Z"/>' +
+    '<path d="M7 8h10M7 12h7"/>'
   );
 }
 
