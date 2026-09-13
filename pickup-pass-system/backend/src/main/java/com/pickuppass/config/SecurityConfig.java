@@ -92,6 +92,8 @@ public class SecurityConfig {
                         .permitAll()
                     .requestMatchers("/api/webhooks/payments/**")
                         .permitAll()
+                    .requestMatchers("/api/public/inquiry/**")
+                        .permitAll()
                     .anyRequest()
                         .authenticated())
             .addFilterBefore(
