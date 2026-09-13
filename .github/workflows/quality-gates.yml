@@ -71,7 +71,7 @@ jobs:
         with:
           node-version: 22
       - name: Test critical web journeys and recovery runbook contract
-        run: node --test test/web-critical-journeys.test.mjs test/admin-notifications.test.mjs test/recovery-runbook.test.mjs
+        run: node --test test/web-critical-journeys.test.mjs test/admin-notifications.test.mjs test/landing-parity.test.mjs test/recovery-runbook.test.mjs
 
   android:
     runs-on: ubuntu-latest
