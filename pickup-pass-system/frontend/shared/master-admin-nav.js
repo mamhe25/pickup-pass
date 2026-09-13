@@ -4,6 +4,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { mountThemeToggle, enhancePortal } from './shell.js';
 import { mountAccountLink } from './account-link.js';
+import { listenUnreadNotifications } from './notification-badge.js';
 
 const ITEMS = [
   { key: 'overview', label: 'Overview', href: './overview.html', icon: iconDashboard },
@@ -12,8 +13,15 @@ const ITEMS = [
   { key: 'operations', label: 'Operations', href: './operations.html', icon: iconShield }
 ];
 
+let unsubscribeUnread = null;
+let unreadUid = '';
+
 function render(mount) {
+  ensureNotificationStyles();
   const active = mount.dataset.active || '';
+  const notificationsCurrent = location.pathname.endsWith('/master-admin/notifications.html')
+    ? ' aria-current="page"'
+    : '';
 
   mount.innerHTML = `
     <header class="pp-appbar">
@@ -28,6 +36,17 @@ function render(mount) {
 
         <div class="pp-shell-actions">
           <span id="masterEmail" class="text-xs text-ink-subtle hidden sm:inline"></span>
+          <a
+            id="masterNotificationAction"
+            class="pp-icon-btn pp-notification-action"
+            href="./notifications.html"
+            aria-label="Notifications"${notificationsCurrent}>
+            ${iconBell()}
+            <span
+              id="masterUnreadBadge"
+              class="pp-notification-action__badge hidden"
+              aria-label="Unread notifications"></span>
+          </a>
           <button data-pp-theme-toggle class="pp-icon-btn" type="button"></button>
         </div>
       </div>
@@ -49,20 +68,54 @@ function render(mount) {
 
   onAuthStateChanged(auth, async user => {
     if (!user) {
+      stopUnreadListener();
       location.href = '../login.html';
       return;
     }
 
-    mount.querySelector('#masterEmail').textContent = user.email || '';
+    const email = mount.querySelector('#masterEmail');
+    if (email) email.textContent = user.email || '';
 
     try {
       const token = await user.getIdTokenResult(true);
-      if (token.claims.role !== 'master_admin') location.href = '../login.html';
+      if (token.claims.role !== 'master_admin') {
+        stopUnreadListener();
+        location.href = '../login.html';
+        return;
+      }
+      startUnreadListener(user.uid, mount.querySelector('#masterUnreadBadge'));
     } catch (_) {
+      stopUnreadListener();
       location.href = '../login.html';
     }
   });
 }
+
+function startUnreadListener(uid, badge) {
+  if (!uid || !badge) return;
+  if (unsubscribeUnread && unreadUid === uid) return;
+
+  stopUnreadListener();
+  unreadUid = uid;
+  unsubscribeUnread = listenUnreadNotifications(uid, badge);
+}
+
+function stopUnreadListener() {
+  unsubscribeUnread?.();
+  unsubscribeUnread = null;
+  unreadUid = '';
+}
+
+function ensureNotificationStyles() {
+  if (document.querySelector('link[data-pp-notification-center]')) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = '../shared/notification-center.css';
+  link.dataset.ppNotificationCenter = 'true';
+  document.head.appendChild(link);
+}
+
+window.addEventListener('pagehide', stopUnreadListener);
 
 function svg(paths) {
   return `
@@ -101,6 +154,13 @@ function iconShield() {
   return svg(
     '<path d="M12 3 4 6v5c0 5 3.4 9 8 10 4.6-1 8-5 8-10V6l-8-3Z"/>' +
     '<path d="m9 12 2 2 4-4"/>'
+  );
+}
+
+function iconBell() {
+  return svg(
+    '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>' +
+    '<path d="M13.7 21a2 2 0 0 1-3.4 0"/>'
   );
 }
 
