@@ -1,0 +1,230 @@
+.pp-demo-leads {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 20px 64px;
+}
+
+.pp-demo-leads__hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: end;
+  padding: 26px;
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 92% 0%, rgb(109 93 251 / .16), transparent 34%),
+    linear-gradient(135deg, rgb(70 82 199 / .12), rgb(109 93 251 / .05)),
+    var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.pp-demo-leads__eyebrow {
+  margin: 0 0 8px;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.pp-demo-leads__hero h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 1.05;
+  letter-spacing: -.035em;
+}
+
+.pp-demo-leads__hero p:last-child {
+  max-width: 690px;
+  margin: 12px 0 0;
+  color: var(--text-muted);
+  line-height: 1.65;
+}
+
+.pp-demo-leads__summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.pp-demo-metric {
+  min-height: 94px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.pp-demo-metric strong {
+  display: block;
+  font-size: 28px;
+  letter-spacing: -.035em;
+}
+
+.pp-demo-metric span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pp-demo-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.pp-demo-search,
+.pp-demo-filter {
+  min-height: 46px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 0 14px;
+}
+
+.pp-demo-filter {
+  min-width: 190px;
+}
+
+.pp-demo-list {
+  display: grid;
+  gap: 14px;
+}
+
+.pp-demo-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.pp-demo-card__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.pp-demo-card h2 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -.015em;
+}
+
+.pp-demo-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--primary-container, #eef0ff);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .03em;
+}
+
+.pp-demo-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.pp-demo-card__meta a {
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.pp-demo-card__message {
+  margin: 14px 0 0;
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: var(--surface-muted, #f7f8fc);
+  color: var(--text-muted);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.pp-demo-card__actions {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 190px;
+}
+
+.pp-demo-card__actions label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.pp-demo-status-select {
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 0 12px;
+}
+
+.pp-demo-state {
+  padding: 42px 24px;
+  border: 1px dashed var(--border);
+  border-radius: 22px;
+  color: var(--text-muted);
+  text-align: center;
+  background: var(--surface);
+}
+
+@media (max-width: 820px) {
+  .pp-demo-leads__hero,
+  .pp-demo-card {
+    grid-template-columns: 1fr;
+  }
+
+  .pp-demo-leads__summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pp-demo-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .pp-demo-filter,
+  .pp-demo-card__actions {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .pp-demo-leads {
+    padding-inline: 14px;
+  }
+
+  .pp-demo-leads__hero,
+  .pp-demo-card {
+    padding: 17px;
+    border-radius: 18px;
+  }
+
+  .pp-demo-leads__summary {
+    grid-template-columns: 1fr 1fr;
+  }
+}
