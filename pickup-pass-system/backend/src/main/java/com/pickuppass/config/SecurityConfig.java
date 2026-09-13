@@ -92,7 +92,7 @@ public class SecurityConfig {
                         .permitAll()
                     .requestMatchers("/api/webhooks/payments/**")
                         .permitAll()
-                    .requestMatchers("/api/public/demo-requests")
+                    .requestMatchers("/api/public/demo-requests/**")
                         .permitAll()
                     .anyRequest()
                         .authenticated())
