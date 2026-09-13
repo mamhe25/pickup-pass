@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#4652C7" />
+<title>Demo Requests — PickupPass Platform Owner</title>
+
+<link rel="stylesheet" href="../shared/theme.css" />
+<link rel="stylesheet" href="../shared/components.css" />
+<link rel="stylesheet" href="../shared/portal.css" />
+<link rel="stylesheet" href="../shared/android-parity.css" />
+<link rel="stylesheet" href="./demo-requests.css" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../shared/tailwind-config.js"></script>
+</head>
+<body class="min-h-screen pp-portal-body">
+<div id="masterNav" data-active="inquiries"></div>
+<script type="module" src="../shared/master-admin-nav.js"></script>
+
+<main class="pp-demo-leads">
+  <section class="pp-demo-leads__hero">
+    <div>
+      <p class="pp-demo-leads__eyebrow">Platform owner · growth inbox</p>
+      <h1>Demo requests</h1>
+      <p>
+        Review schools and organizations that asked for a PickupPass walkthrough.
+        Keep each inquiry moving from first contact through conversion without exposing
+        public lead data directly to Firestore.
+      </p>
+    </div>
+    <button id="refreshBtn" class="pp-btn pp-btn--ghost" type="button">Refresh</button>
+  </section>
+
+  <section class="pp-demo-leads__summary" aria-label="Demo request summary">
+    <article class="pp-demo-metric"><strong id="newCount">—</strong><span>New</span></article>
+    <article class="pp-demo-metric"><strong id="contactedCount">—</strong><span>Contacted</span></article>
+    <article class="pp-demo-metric"><strong id="scheduledCount">—</strong><span>Demo scheduled</span></article>
+    <article class="pp-demo-metric"><strong id="convertedCount">—</strong><span>Converted</span></article>
+    <article class="pp-demo-metric"><strong id="closedCount">—</strong><span>Closed</span></article>
+  </section>
+
+  <section class="pp-demo-toolbar" aria-label="Demo request filters">
+    <input id="searchInput" class="pp-demo-search" type="search" placeholder="Search name, email, or organization…" />
+    <select id="statusFilter" class="pp-demo-filter" aria-label="Filter by status">
+      <option value="all">All statuses</option>
+      <option value="new">New</option>
+      <option value="contacted">Contacted</option>
+      <option value="demo_scheduled">Demo scheduled</option>
+      <option value="converted">Converted</option>
+      <option value="closed">Closed</option>
+    </select>
+  </section>
+
+  <div id="loadingState" class="pp-demo-state">Loading demo requests…</div>
+  <div id="emptyState" class="pp-demo-state hidden">No demo requests match this view.</div>
+  <div id="errorState" class="pp-demo-state hidden" role="alert">Demo requests are unavailable. Try refreshing.</div>
+  <section id="requestList" class="pp-demo-list hidden" aria-live="polite"></section>
+</main>
+
+<script type="module">
+import {
+  auth,
+  authedFetch,
+  showToast,
+  setSubmitButtonBusy
+} from "../shared/firebase-init.js";
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const STATUS_LABELS = {
+  new: "New",
+  contacted: "Contacted",
+  demo_scheduled: "Demo scheduled",
+  converted: "Converted",
+  closed: "Closed"
+};
+
+const ui = {
+  refresh: document.getElementById("refreshBtn"),
+  search: document.getElementById("searchInput"),
+  filter: document.getElementById("statusFilter"),
+  list: document.getElementById("requestList"),
+  loading: document.getElementById("loadingState"),
+  empty: document.getElementById("emptyState"),
+  error: document.getElementById("errorState"),
+  counts: {
+    new: document.getElementById("newCount"),
+    contacted: document.getElementById("contactedCount"),
+    demo_scheduled: document.getElementById("scheduledCount"),
+    converted: document.getElementById("convertedCount"),
+    closed: document.getElementById("closedCount")
+  }
+};
+
+let requests = [];
+let ready = false;
+
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    location.href = "../login.html";
+    return;
+  }
+
+  try {
+    const token = await user.getIdTokenResult(true);
+    if (token.claims.role !== "master_admin") {
+      location.href = "../login.html";
+      return;
+    }
+    if (!ready) {
+      ready = true;
+      await loadRequests();
+    }
+  } catch (_) {
+    location.href = "../login.html";
+  }
+});
+
+ui.refresh.addEventListener("click", loadRequests);
+ui.search.addEventListener("input", render);
+ui.filter.addEventListener("change", render);
+
+async function loadRequests() {
+  setSubmitButtonBusy(ui.refresh, true, "Refreshing…");
+  ui.loading.classList.remove("hidden");
+  ui.error.classList.add("hidden");
+  ui.empty.classList.add("hidden");
+  ui.list.classList.add("hidden");
+
+  try {
+    const response = await authedFetch("/master-admin/demo-requests");
+    if (!response.ok) throw new Error("Could not load demo requests");
+    const body = await response.json();
+    requests = Array.isArray(body.requests) ? body.requests : [];
+    updateCounts(body.counts || {});
+    render();
+  } catch (error) {
+    console.error(error);
+    ui.loading.classList.add("hidden");
+    ui.error.classList.remove("hidden");
+  } finally {
+    setSubmitButtonBusy(ui.refresh, false);
+  }
+}
+
+function render() {
+  const search = ui.search.value.trim().toLowerCase();
+  const status = ui.filter.value;
+  const visible = requests.filter(item => {
+    if (status !== "all" && item.status !== status) return false;
+    if (!search) return true;
+    return [item.name, item.email, item.school, item.phone, item.message]
+      .some(value => String(value || "").toLowerCase().includes(search));
+  });
+
+  ui.loading.classList.add("hidden");
+  ui.error.classList.add("hidden");
+  ui.list.innerHTML = "";
+
+  if (visible.length === 0) {
+    ui.list.classList.add("hidden");
+    ui.empty.classList.remove("hidden");
+    return;
+  }
+
+  ui.empty.classList.add("hidden");
+  ui.list.classList.remove("hidden");
+  visible.forEach(item => ui.list.appendChild(createCard(item)));
+}
+
+function createCard(item) {
+  const card = document.createElement("article");
+  card.className = "pp-demo-card";
+
+  const created = item.createdAt ? formatDate(item.createdAt) : "Recently submitted";
+  const phone = item.phone
+    ? `<span>${escapeHtml(item.phone)}</span>`
+    : "";
+  const message = item.message
+    ? `<p class="pp-demo-card__message">${escapeHtml(item.message)}</p>`
+    : "";
+
+  card.innerHTML = `
+    <div>
+      <div class="pp-demo-card__top">
+        <h2>${escapeHtml(item.school || "Unnamed organization")}</h2>
+        <span class="pp-demo-status">${escapeHtml(STATUS_LABELS[item.status] || "New")}</span>
+      </div>
+      <div class="pp-demo-card__meta">
+        <strong>${escapeHtml(item.name || "Unknown contact")}</strong>
+        <a href="mailto:${escapeAttr(item.email || "")}">${escapeHtml(item.email || "No email")}</a>
+        ${phone}
+        <span>${escapeHtml(created)}</span>
+      </div>
+      ${message}
+    </div>
+    <div class="pp-demo-card__actions">
+      <label for="status-${escapeAttr(item.requestId)}">Lead status</label>
+      <select id="status-${escapeAttr(item.requestId)}" class="pp-demo-status-select">
+        ${Object.entries(STATUS_LABELS).map(([value, label]) =>
+          `<option value="${value}" ${value === item.status ? "selected" : ""}>${label}</option>`
+        ).join("")}
+      </select>
+      <a class="pp-btn pp-btn--ghost" href="mailto:${escapeAttr(item.email || "")}">Email contact</a>
+    </div>
+  `;
+
+  const select = card.querySelector("select");
+  select.addEventListener("change", async () => {
+    const next = select.value;
+    const previous = item.status;
+    select.disabled = true;
+    try {
+      const response = await authedFetch(
+        `/master-admin/demo-requests/${encodeURIComponent(item.requestId)}/status`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: next })
+        }
+      );
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Status update failed");
+      item.status = body.status || next;
+      recalculateCounts();
+      showToast(`Demo request marked ${STATUS_LABELS[item.status].toLowerCase()}.`, "success");
+      render();
+    } catch (error) {
+      item.status = previous;
+      select.value = previous;
+      showToast(error.message || "Could not update demo request.", "error");
+    } finally {
+      select.disabled = false;
+    }
+  });
+
+  return card;
+}
+
+function updateCounts(counts) {
+  Object.keys(ui.counts).forEach(status => {
+    ui.counts[status].textContent = String(Number(counts[status] || 0));
+  });
+}
+
+function recalculateCounts() {
+  const counts = { new: 0, contacted: 0, demo_scheduled: 0, converted: 0, closed: 0 };
+  requests.forEach(item => {
+    if (Object.prototype.hasOwnProperty.call(counts, item.status)) counts[item.status] += 1;
+  });
+  updateCounts(counts);
+}
+
+function formatDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Recently submitted";
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
+function escapeHtml(value) {
+  const div = document.createElement("div");
+  div.textContent = String(value ?? "");
+  return div.innerHTML;
+}
+
+function escapeAttr(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+</script>
+</body>
+</html>
