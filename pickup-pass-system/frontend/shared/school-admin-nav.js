@@ -2,11 +2,12 @@
 // PickupPass — shared School Admin navigation
 // Sign-out lives in Profile & Security, matching the Android account pattern.
 // =============================================================================
-import { auth, db, getSchoolBranding } from "./firebase-init.js";
+import { auth, getSchoolBranding } from "./firebase-init.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { mountThemeToggle, enhancePortal } from './shell.js';
 import { mountAccountLink } from './account-link.js';
+import { listenUnreadNotifications } from './notification-badge.js';
 
 const NAV_ITEMS = [
   { key: "home",      label: "Dashboard",  href: "/school-admin/dashboard.html",          icon: iconHome },
@@ -22,8 +23,17 @@ const NAV_ITEMS = [
   { key: "branding",  label: "Branding",   href: "/school-admin/branding.html",           icon: iconPalette },
 ];
 
+let unsubscribeUnread = null;
+let unreadUid = "";
+
 function render(mount) {
+  ensureNotificationStyles();
+
   const active = mount.dataset.active || "";
+  const notificationsCurrent = window.location.pathname.endsWith("/school-admin/notifications.html")
+    ? ' aria-current="page"'
+    : "";
+
   const links = NAV_ITEMS.map((item) => {
     const current = item.key === active ? ' aria-current="page"' : "";
     return `<a class="pp-navlink" href="${item.href}" aria-label="${item.label}"${current}>${item.icon()}<span class="pp-navlink__label">${item.label}</span></a>`;
@@ -39,8 +49,19 @@ function render(mount) {
             <span class="pp-brandmark__tag">Admin</span>
           </span>
         </a>
-        <div class="flex items-center gap-3">
+        <div class="pp-shell-actions">
           <span id="currentUserEmail" class="text-xs text-ink-subtle hidden sm:inline"></span>
+          <a
+            id="adminNotificationAction"
+            class="pp-icon-btn pp-notification-action"
+            href="/school-admin/notifications.html"
+            aria-label="Notifications"${notificationsCurrent}>
+            ${iconBell()}
+            <span
+              id="adminUnreadBadge"
+              class="pp-notification-action__badge hidden"
+              aria-label="Unread notifications"></span>
+          </a>
           <button data-pp-theme-toggle class="pp-icon-btn" type="button"></button>
         </div>
       </div>
@@ -58,17 +79,57 @@ function render(mount) {
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
+      stopUnreadListener();
       window.location.href = "/login.html";
       return;
     }
+
     const emailEl = mount.querySelector("#currentUserEmail");
     if (emailEl) emailEl.textContent = user.email || "";
+
     try {
       const tokenResult = await user.getIdTokenResult();
+      if (tokenResult.claims.role !== "school_admin") {
+        stopUnreadListener();
+        window.location.href = "/login.html";
+        return;
+      }
+
+      startUnreadListener(user.uid, mount.querySelector("#adminUnreadBadge"));
       await loadSchoolIdentity(mount, tokenResult.claims.schoolId);
-    } catch (_) { /* school chrome is non-critical */ }
+    } catch (_) {
+      stopUnreadListener();
+      window.location.href = "/login.html";
+    }
   });
 }
+
+function startUnreadListener(uid, badge) {
+  if (!uid || !badge) return;
+  if (unsubscribeUnread && unreadUid === uid) return;
+
+  stopUnreadListener();
+  unreadUid = uid;
+  unsubscribeUnread = listenUnreadNotifications(uid, badge);
+}
+
+function stopUnreadListener() {
+  unsubscribeUnread?.();
+  unsubscribeUnread = null;
+  unreadUid = "";
+}
+
+function ensureNotificationStyles() {
+  if (document.querySelector('link[data-pp-notification-center]')) return;
+
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "../shared/notification-center.css";
+  link.dataset.ppNotificationCenter = "true";
+  document.head.appendChild(link);
+}
+
+window.addEventListener("pagehide", stopUnreadListener);
 
 async function loadSchoolIdentity(mount, schoolId) {
   if (!schoolId) return;
@@ -99,6 +160,7 @@ function iconClock() { return svg('<circle cx="12" cy="12" r="9"/><path d="M12 7
 function iconRocket() { return svg('<path d="M4 13c-1.5 1.2-2 3-2 5 2 0 3.8-.5 5-2"/><path d="M10 14 5 9c2.5-4.5 7-7 12.5-7 .3 5.5-2.5 10-7 12Z"/><circle cx="14" cy="7" r="1.5"/><path d="m9 15-1 5 5-1"/>'); }
 function iconPalette() { return svg('<path d="M12 3a9 9 0 1 0 0 18h1.5a2 2 0 0 0 0-4H12a2 2 0 0 1 0-4h4a5 5 0 0 0 0-10Z"/><circle cx="7.5" cy="10" r=".5"/><circle cx="9" cy="6.5" r=".5"/>'); }
 function iconShield() { return svg('<path d="M12 3 4 6v5c0 5 3.4 9 8 10 4.6-1 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/>'); }
+function iconBell() { return svg('<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>'); }
 
 const mount = document.getElementById("adminNav");
 if (mount) render(mount);
