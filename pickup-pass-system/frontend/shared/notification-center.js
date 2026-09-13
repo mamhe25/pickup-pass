@@ -316,6 +316,9 @@ if (!root) {
     }
 
     if (expectedRole === "master_admin") {
+      if (includesAny(normalized, ["demo_request", "demo", "inquiry", "lead"])) {
+        return "/master-admin/demo-requests.html";
+      }
       if (normalized.includes("launch")) {
         return masterSchoolDestination(notification.schoolId);
       }
@@ -374,6 +377,9 @@ if (!root) {
   function notificationPresentation(type) {
     const normalized = normalizeType(type);
 
+    if (includesAny(normalized, ["demo_request", "demo", "inquiry", "lead"])) {
+      return { label: "Demo inquiry", icon: campaignIcon() };
+    }
     if (normalized.includes("launch")) {
       return { label: "Launch readiness", icon: rocketIcon() };
     }
@@ -397,7 +403,7 @@ if (!root) {
 
   function emptyInboxMessage() {
     return expectedRole === "master_admin"
-      ? "Launch review requests and platform alerts will appear here."
+      ? "Launch review requests, demo inquiries, and platform alerts will appear here."
       : "Launch decisions and school administration updates will appear here.";
   }
 
