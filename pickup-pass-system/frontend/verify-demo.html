@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#4652C7" />
+<title>Verify Demo Request — PickupPass</title>
+<link rel="icon" href="./assets/pickuppass-mark.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="./shared/theme.css" />
+<link rel="stylesheet" href="./shared/components.css" />
+<style>
+  body {
+    min-height: 100vh;
+    margin: 0;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background:
+      radial-gradient(680px 420px at 90% 0%, color-mix(in srgb, #6D5DFB 14%, transparent), transparent 72%),
+      radial-gradient(520px 340px at 0% 100%, color-mix(in srgb, var(--primary) 10%, transparent), transparent 72%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+  }
+
+  .verify-shell {
+    width: min(100%, 520px);
+  }
+
+  .verify-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    color: var(--text-strong);
+    text-decoration: none;
+    font-weight: 850;
+    letter-spacing: -.025em;
+  }
+
+  .verify-brand img {
+    width: 38px;
+    height: 38px;
+  }
+
+  .verify-card {
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--primary) 12%, var(--border));
+    border-radius: 28px;
+    background: var(--surface);
+    box-shadow: 0 30px 90px rgb(23 29 70 / .16), var(--shadow-md);
+  }
+
+  .verify-accent {
+    height: 5px;
+    background: var(--brand-gradient);
+  }
+
+  .verify-content {
+    padding: clamp(24px, 6vw, 38px);
+    text-align: center;
+  }
+
+  .verify-icon {
+    width: 64px;
+    height: 64px;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 18px;
+    border-radius: 20px;
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+  }
+
+  .verify-icon svg {
+    width: 30px;
+    height: 30px;
+  }
+
+  .verify-eyebrow {
+    margin: 0 0 8px;
+    color: var(--primary);
+    font-size: .72rem;
+    font-weight: 850;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0;
+    color: var(--text-strong);
+    font-size: clamp(1.65rem, 5vw, 2.15rem);
+    letter-spacing: -.035em;
+  }
+
+  .verify-detail {
+    margin: 12px auto 0;
+    max-width: 410px;
+    color: var(--text-muted);
+    line-height: 1.65;
+  }
+
+  .verify-actions {
+    display: grid;
+    gap: 10px;
+    margin-top: 24px;
+  }
+
+  .verify-actions .pp-btn {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .verify-meta {
+    margin-top: 18px;
+    color: var(--text-subtle);
+    font-size: .78rem;
+    line-height: 1.55;
+  }
+
+  .verify-state--success .verify-icon {
+    background: var(--success-container);
+    color: var(--on-success-container);
+  }
+
+  .verify-state--error .verify-icon {
+    background: var(--error-container);
+    color: var(--on-error-container);
+  }
+
+  .verify-spinner {
+    width: 26px;
+    height: 26px;
+    border: 3px solid color-mix(in srgb, var(--primary) 22%, transparent);
+    border-top-color: var(--primary);
+    border-radius: 999px;
+    animation: spin .8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .verify-spinner { animation: none; } }
+</style>
+</head>
+<body>
+<main class="verify-shell">
+  <a class="verify-brand" href="./index.html" aria-label="PickupPass home">
+    <img src="./assets/pickuppass-mark.svg" alt="" />
+    <span><span class="pp-wordmark__pickup">Pickup</span><span class="pp-wordmark__pass">Pass</span></span>
+  </a>
+
+  <section id="verifyCard" class="verify-card" aria-live="polite">
+    <div class="verify-accent"></div>
+    <div class="verify-content">
+      <div id="verifyIcon" class="verify-icon" aria-hidden="true">
+        <span class="verify-spinner"></span>
+      </div>
+      <p id="verifyEyebrow" class="verify-eyebrow">Email verification</p>
+      <h1 id="verifyTitle">Verifying your request…</h1>
+      <p id="verifyDetail" class="verify-detail">
+        Confirming that this email address belongs to the person who requested a PickupPass walkthrough.
+      </p>
+
+      <div id="verifyActions" class="verify-actions" hidden>
+        <button id="resendBtn" class="pp-btn pp-btn--primary" type="button" hidden>
+          Send a fresh verification link
+        </button>
+        <a id="homeBtn" class="pp-btn pp-btn--secondary" href="./index.html">
+          Back to PickupPass
+        </a>
+      </div>
+
+      <p class="verify-meta">
+        PickupPass only sends verified demo inquiries to the Platform Owner inbox. A school-specific email domain is helpful, but it is not required.
+      </p>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var card = document.getElementById("verifyCard");
+  var icon = document.getElementById("verifyIcon");
+  var eyebrow = document.getElementById("verifyEyebrow");
+  var title = document.getElementById("verifyTitle");
+  var detail = document.getElementById("verifyDetail");
+  var actions = document.getElementById("verifyActions");
+  var resend = document.getElementById("resendBtn");
+  var localHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  var apiBaseUrl = localHost ? "http://localhost:8080/api" : "/api";
+
+  var params = new URLSearchParams(window.location.hash.slice(1));
+  var requestId = String(params.get("request") || "").trim();
+  var token = String(params.get("token") || "").trim();
+
+  // Remove the token from the address bar immediately. Fragments are not sent
+  // to Firebase Hosting, and this prevents accidental copy/paste after load.
+  history.replaceState(null, "", window.location.pathname);
+
+  function shield(check) {
+    return check
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v5c0 5 3.4 9 8 10 4.6-1 8-5 8-10V6l-8-3Z"/><path d="m8.8 12.2 2 2 4.5-4.7"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5h.01"/></svg>';
+  }
+
+  function showSuccess(body) {
+    card.classList.remove("verify-state--error");
+    card.classList.add("verify-state--success");
+    icon.innerHTML = shield(true);
+    eyebrow.textContent = "Email verified";
+    title.textContent = body.alreadyVerified ? "This request is already verified." : "Your demo request is verified.";
+    detail.textContent = body.alreadyVerified
+      ? "No further verification is needed. Your request is already in the PickupPass inquiry queue."
+      : "Thanks. Your verified inquiry has now been sent to the PickupPass Platform Owner. We can contact you using the email address you confirmed.";
+    resend.hidden = true;
+    actions.hidden = false;
+  }
+
+  function showFailure(message, canResend) {
+    card.classList.remove("verify-state--success");
+    card.classList.add("verify-state--error");
+    icon.innerHTML = shield(false);
+    eyebrow.textContent = "Verification not completed";
+    title.textContent = canResend ? "This verification link can’t be used." : "We couldn’t verify this request.";
+    detail.textContent = message;
+    resend.hidden = !canResend || !requestId;
+    actions.hidden = false;
+  }
+
+  async function verify() {
+    if (!requestId || !token) {
+      showFailure("This verification link is incomplete. Return to the PickupPass website and submit a new demo request.", false);
+      return;
+    }
+
+    try {
+      var response = await fetch(
+        apiBaseUrl + "/public/demo-requests/" + encodeURIComponent(requestId) + "/verify",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: token })
+        }
+      );
+      var body = await response.json().catch(function () { return {}; });
+
+      if (response.ok) {
+        showSuccess(body);
+        return;
+      }
+
+      if (response.status === 410 || response.status === 429 || response.status === 400) {
+        showFailure(
+          response.status === 410
+            ? "The link has expired. Send a fresh verification link to the same email address."
+            : response.status === 429
+              ? "Too many verification attempts were made. You can request a fresh verification link after the cooldown."
+              : "The link is invalid or has already been replaced. You can request a fresh verification link.",
+          true
+        );
+        return;
+      }
+
+      showFailure("The request may have expired or no longer exists. Submit a new demo request if needed.", false);
+    } catch (_) {
+      showFailure("We couldn’t reach PickupPass right now. Check your connection and try the verification link again.", false);
+    }
+  }
+
+  resend.addEventListener("click", async function () {
+    if (!requestId || resend.disabled) return;
+    resend.disabled = true;
+    var original = resend.textContent;
+    resend.textContent = "Sending…";
+
+    try {
+      var response = await fetch(
+        apiBaseUrl + "/public/demo-requests/" + encodeURIComponent(requestId) + "/resend",
+        { method: "POST" }
+      );
+      var body = await response.json().catch(function () { return {}; });
+
+      if (response.ok) {
+        card.classList.remove("verify-state--error");
+        icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg>';
+        eyebrow.textContent = "Fresh link sent";
+        title.textContent = "Check your inbox.";
+        detail.textContent = "We sent a new verification link to " + (body.maskedEmail || "the email on this request") + ". The previous link is no longer valid.";
+        resend.hidden = true;
+        return;
+      }
+
+      if (response.status === 429) {
+        detail.textContent = "A verification email was sent recently. Please wait before requesting another one.";
+      } else if (response.status === 410 || response.status === 404) {
+        showFailure("This request has expired. Return to PickupPass and submit a new demo request.", false);
+      } else {
+        detail.textContent = "We couldn’t send a new link right now. Please try again shortly.";
+      }
+    } catch (_) {
+      detail.textContent = "We couldn’t send a new link right now. Check your connection and try again.";
+    } finally {
+      resend.disabled = false;
+      resend.textContent = original;
+    }
+  });
+
+  verify();
+})();
+</script>
+</body>
+</html>
