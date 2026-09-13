@@ -96,6 +96,97 @@ public class EmailService {
         return trySend(message, toEmail, "demo verification");
     }
 
+    public boolean sendDemoVerifiedConfirmation(
+            String toEmail,
+            String contactName,
+            String organization) {
+        return sendDemoMessage(
+                toEmail,
+                "PickupPass demo request confirmed",
+                "Hi " + contactName + ",\n\n" +
+                "Your email has been verified and your PickupPass demo request for " + organization +
+                " is now with our team.\n\n" +
+                "We’ll use this verified email address for any scheduling details or updates about your inquiry.\n\n" +
+                "Thank you for your interest in PickupPass.",
+                "demo verification confirmation");
+    }
+
+    public boolean sendDemoScheduled(
+            String toEmail,
+            String contactName,
+            String organization,
+            String scheduledWhen,
+            String meetingType,
+            String meetingDetails) {
+        String details = meetingDetails == null || meetingDetails.isBlank()
+                ? ""
+                : "\nMeeting details: " + meetingDetails;
+        return sendDemoMessage(
+                toEmail,
+                "Your PickupPass demo is scheduled",
+                "Hi " + contactName + ",\n\n" +
+                "Your PickupPass walkthrough for " + organization + " has been scheduled.\n\n" +
+                "Date and time: " + scheduledWhen + "\n" +
+                "Meeting type: " + meetingType + details + "\n\n" +
+                "We’ll walk through the parent pickup pass, guardian verification, staff scanner, " +
+                "notifications, and school administration based on your needs.\n\n" +
+                "If the schedule needs to change, reply to this email or use the contact details provided by the PickupPass team.",
+                "demo scheduled");
+    }
+
+    public boolean sendDemoConverted(
+            String toEmail,
+            String contactName,
+            String organization) {
+        return sendDemoMessage(
+                toEmail,
+                "Next steps for " + organization + " on PickupPass",
+                "Hi " + contactName + ",\n\n" +
+                "Thank you for moving forward with PickupPass for " + organization + ".\n\n" +
+                "The next stage is school onboarding: confirming the school profile, administrator access, " +
+                "academic structure, pickup configuration, staff testing, and launch readiness.\n\n" +
+                "A PickupPass team member will coordinate the remaining setup steps with you through this verified email address.",
+                "demo converted");
+    }
+
+    public boolean sendDemoClosed(
+            String toEmail,
+            String contactName,
+            String organization,
+            String customMessage) {
+        String body = customMessage == null || customMessage.isBlank()
+                ? "Hi " + contactName + ",\n\n" +
+                  "We’re closing the current PickupPass demo inquiry for " + organization + ".\n\n" +
+                  "If you would like to revisit PickupPass later, you’re welcome to submit a new request.\n\n" +
+                  "Thank you for your interest in PickupPass."
+                : "Hi " + contactName + ",\n\n" + customMessage.trim();
+        return sendDemoMessage(
+                toEmail,
+                "Update on your PickupPass demo inquiry",
+                body,
+                "demo closed");
+    }
+
+    public boolean sendDemoUpdate(
+            String toEmail,
+            String subject,
+            String body) {
+        return sendDemoMessage(toEmail, subject, body, "demo manual update");
+    }
+
+    private boolean sendDemoMessage(
+            String toEmail,
+            String subject,
+            String body,
+            String purpose) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromAddress);
+        message.setTo(toEmail);
+        message.setSubject(subject);
+        message.setText(body);
+        return trySend(message, toEmail, purpose);
+    }
+
     private boolean trySend(SimpleMailMessage message, String toEmail, String purpose) {
         try {
             mailSender.send(message);
