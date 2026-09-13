@@ -87,6 +87,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if ("POST".equals(method) && path.equals("/api/pickup/approve")) return new Policy("pickup-approve", 40, 60);
         if ("POST".equals(method) && path.equals("/api/pickup/manual-override")) return new Policy("manual-override", 10, 60);
         if ("POST".equals(method) && path.equals("/api/public/demo-requests")) return new Policy("demo-request", 5, 3600);
+        if ("POST".equals(method) && path.startsWith("/api/public/demo-requests/") && path.endsWith("/verify")) return new Policy("demo-verify", 10, 900);
+        if ("POST".equals(method) && path.startsWith("/api/public/demo-requests/") && path.endsWith("/resend")) return new Policy("demo-resend", 5, 3600);
         if ("POST".equals(method) && path.contains("/broadcasts")) return new Policy("broadcast", 5, 60);
         if ("POST".equals(method) && path.equals("/api/school-admin/students/import")) return new Policy("student-import", 10, 3600);
         if ("POST".equals(method) && path.startsWith("/api/webhooks/payments/")) return new Policy("payment-webhook", 120, 60);
