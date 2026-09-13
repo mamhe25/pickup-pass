@@ -41,6 +41,7 @@ test('demo inquiry requires email ownership before entering the owner inbox', as
 
   assert.match(publicController, /@PostMapping\("\/\{requestId\}\/verify"\)/);
   assert.match(publicController, /@PostMapping\("\/\{requestId\}\/resend"\)/);
+  assert.match(publicController, /sendVerifiedConfirmation/);
 
   assert.match(service, /pending_verification/);
   assert.match(service, /emailVerified", false/);
@@ -60,6 +61,7 @@ test('demo inquiry requires email ownership before entering the owner inbox', as
 
   assert.match(emailService, /sendDemoVerification/);
   assert.match(emailService, /Verify your PickupPass demo request/);
+  assert.match(emailService, /sendDemoVerifiedConfirmation/);
 
   assert.match(verifyPage, /Email verification/);
   assert.match(verifyPage, /\/verify/);
@@ -68,9 +70,11 @@ test('demo inquiry requires email ownership before entering the owner inbox', as
   assert.match(verifyPage, /school-specific email domain is helpful, but it is not required/i);
 });
 
-test('platform owner sees only verified inquiry confidence and can manage lead status', async () => {
-  const [ownerController, inbox, inboxCss, nav, notificationCenter] = await Promise.all([
+test('platform owner can schedule, message, and review communication history for verified inquiries', async () => {
+  const [ownerController, communicationService, emailService, inbox, inboxCss, nav, notificationCenter] = await Promise.all([
     read('backend/src/main/java/com/pickuppass/controller/MasterDemoRequestController.java'),
+    read('backend/src/main/java/com/pickuppass/service/DemoRequestCommunicationService.java'),
+    read('backend/src/main/java/com/pickuppass/service/EmailService.java'),
     read('frontend/master-admin/demo-requests.html'),
     read('frontend/master-admin/demo-requests.css'),
     read('frontend/shared/master-admin-nav.js'),
@@ -78,14 +82,39 @@ test('platform owner sees only verified inquiry confidence and can manage lead s
   ]);
 
   assert.match(ownerController, /hasRole\('master_admin'\)/);
-  assert.match(ownerController, /@GetMapping/);
+  assert.match(ownerController, /@GetMapping\("\/\{requestId\}\/communications"\)/);
   assert.match(ownerController, /@PatchMapping\("\/\{requestId\}\/status"\)/);
-  assert.match(inbox, /Only email-verified inquiries appear here/i);
+  assert.match(ownerController, /@PostMapping\("\/\{requestId\}\/messages"\)/);
+  assert.match(ownerController, /demo_request\.update_sent/);
+
+  assert.match(communicationService, /collection\("communications"\)/);
+  assert.match(communicationService, /demoScheduledFor/);
+  assert.match(communicationService, /demoScheduleTimezone/);
+  assert.match(communicationService, /sendScheduledEmail/);
+  assert.match(communicationService, /sendConvertedEmail/);
+  assert.match(communicationService, /sendManualUpdate/);
+  assert.match(communicationService, /notifyRequester/);
+  assert.match(communicationService, /lastCommunicationAt/);
+
+  assert.match(emailService, /sendDemoScheduled/);
+  assert.match(emailService, /sendDemoConverted/);
+  assert.match(emailService, /sendDemoClosed/);
+  assert.match(emailService, /sendDemoUpdate/);
+
+  assert.match(inbox, /id="scheduleDialog"/);
+  assert.match(inbox, /id="updateDialog"/);
+  assert.match(inbox, /id="historyDialog"/);
+  assert.match(inbox, /Send update/);
+  assert.match(inbox, /communication history/i);
+  assert.match(inbox, /scheduledAt:\s*localDate\.toISOString\(\)/);
+  assert.match(inbox, /Intl\.DateTimeFormat\(\)\.resolvedOptions\(\)\.timeZone/);
+  assert.match(inbox, /\/communications/);
+  assert.match(inbox, /\/messages/);
   assert.match(inbox, /emailTrustLabel/);
-  assert.match(inbox, /emailDomainType/);
-  assert.match(inbox, /demo_scheduled/);
-  assert.match(inbox, /converted/);
+  assert.match(inboxCss, /pp-demo-dialog/);
+  assert.match(inboxCss, /pp-demo-history/);
   assert.match(inboxCss, /pp-demo-trust--free/);
+
   assert.match(nav, /label:\s*'Inquiries'/);
   assert.match(nav, /demo-requests\.html/);
   assert.match(notificationCenter, /demo_request/);
