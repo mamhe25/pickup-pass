@@ -87,20 +87,26 @@ function render(mount) {
     const emailEl = mount.querySelector("#currentUserEmail");
     if (emailEl) emailEl.textContent = user.email || "";
 
+    let tokenResult;
     try {
-      const tokenResult = await user.getIdTokenResult();
-      if (tokenResult.claims.role !== "school_admin") {
-        stopUnreadListener();
-        window.location.href = "/login.html";
-        return;
-      }
-
-      startUnreadListener(user.uid, mount.querySelector("#adminUnreadBadge"));
-      await loadSchoolIdentity(mount, tokenResult.claims.schoolId);
+      tokenResult = await user.getIdTokenResult();
     } catch (_) {
       stopUnreadListener();
       window.location.href = "/login.html";
+      return;
     }
+
+    if (tokenResult.claims.role !== "school_admin") {
+      stopUnreadListener();
+      window.location.href = "/login.html";
+      return;
+    }
+
+    startUnreadListener(user.uid, mount.querySelector("#adminUnreadBadge"));
+    loadSchoolIdentity(mount, tokenResult.claims.schoolId).catch(() => {
+      // School identity is presentation-only; do not invalidate a healthy session
+      // if branding data is temporarily unavailable.
+    });
   });
 }
 
