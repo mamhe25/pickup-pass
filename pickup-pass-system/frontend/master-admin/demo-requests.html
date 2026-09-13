@@ -22,12 +22,12 @@
 <main class="pp-demo-leads">
   <section class="pp-demo-leads__hero">
     <div>
-      <p class="pp-demo-leads__eyebrow">Platform owner · growth inbox</p>
+      <p class="pp-demo-leads__eyebrow">Platform owner · verified growth inbox</p>
       <h1>Demo requests</h1>
       <p>
-        Review schools and organizations that asked for a PickupPass walkthrough.
-        Keep each inquiry moving from first contact through conversion without exposing
-        public lead data directly to Firestore.
+        Only email-verified inquiries appear here. Domain labels help you prioritize
+        institutional contacts while still allowing legitimate schools that use
+        government, custom-domain, Gmail, Outlook, or other free email accounts.
       </p>
     </div>
     <button id="refreshBtn" class="pp-btn pp-btn--ghost" type="button">Refresh</button>
@@ -42,7 +42,7 @@
   </section>
 
   <section class="pp-demo-toolbar" aria-label="Demo request filters">
-    <input id="searchInput" class="pp-demo-search" type="search" placeholder="Search name, email, or organization…" />
+    <input id="searchInput" class="pp-demo-search" type="search" placeholder="Search name, email, organization, or verification type…" />
     <select id="statusFilter" class="pp-demo-filter" aria-label="Filter by status">
       <option value="all">All statuses</option>
       <option value="new">New</option>
@@ -53,8 +53,8 @@
     </select>
   </section>
 
-  <div id="loadingState" class="pp-demo-state">Loading demo requests…</div>
-  <div id="emptyState" class="pp-demo-state hidden">No demo requests match this view.</div>
+  <div id="loadingState" class="pp-demo-state">Loading verified demo requests…</div>
+  <div id="emptyState" class="pp-demo-state hidden">No verified demo requests match this view.</div>
   <div id="errorState" class="pp-demo-state hidden" role="alert">Demo requests are unavailable. Try refreshing.</div>
   <section id="requestList" class="pp-demo-list hidden" aria-live="polite"></section>
 </main>
@@ -152,8 +152,16 @@ function render() {
   const visible = requests.filter(item => {
     if (status !== "all" && item.status !== status) return false;
     if (!search) return true;
-    return [item.name, item.email, item.school, item.phone, item.message]
-      .some(value => String(value || "").toLowerCase().includes(search));
+    return [
+      item.name,
+      item.email,
+      item.school,
+      item.phone,
+      item.message,
+      item.emailDomain,
+      item.emailDomainType,
+      item.emailTrustLabel
+    ].some(value => String(value || "").toLowerCase().includes(search));
   });
 
   ui.loading.classList.add("hidden");
@@ -175,25 +183,34 @@ function createCard(item) {
   const card = document.createElement("article");
   card.className = "pp-demo-card";
 
-  const created = item.createdAt ? formatDate(item.createdAt) : "Recently submitted";
+  const verified = item.verifiedAt
+    ? `Verified ${formatDate(item.verifiedAt)}`
+    : item.createdAt
+      ? formatDate(item.createdAt)
+      : "Recently verified";
   const phone = item.phone
     ? `<span>${escapeHtml(item.phone)}</span>`
     : "";
   const message = item.message
     ? `<p class="pp-demo-card__message">${escapeHtml(item.message)}</p>`
     : "";
+  const trustType = ["education", "government", "custom", "free"].includes(item.emailDomainType)
+    ? item.emailDomainType
+    : "verified";
+  const trustLabel = item.emailTrustLabel || "Verified email";
 
   card.innerHTML = `
     <div>
       <div class="pp-demo-card__top">
         <h2>${escapeHtml(item.school || "Unnamed organization")}</h2>
         <span class="pp-demo-status">${escapeHtml(STATUS_LABELS[item.status] || "New")}</span>
+        <span class="pp-demo-trust pp-demo-trust--${escapeAttr(trustType)}">${escapeHtml(trustLabel)}</span>
       </div>
       <div class="pp-demo-card__meta">
         <strong>${escapeHtml(item.name || "Unknown contact")}</strong>
         <a href="mailto:${escapeAttr(item.email || "")}">${escapeHtml(item.email || "No email")}</a>
         ${phone}
-        <span>${escapeHtml(created)}</span>
+        <span>${escapeHtml(verified)}</span>
       </div>
       ${message}
     </div>
@@ -255,7 +272,7 @@ function recalculateCounts() {
 
 function formatDate(value) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Recently submitted";
+  if (Number.isNaN(date.getTime())) return "Recently";
   return date.toLocaleString([], {
     month: "short",
     day: "numeric",
