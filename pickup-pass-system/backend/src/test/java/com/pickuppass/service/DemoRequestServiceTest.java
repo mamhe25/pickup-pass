@@ -31,4 +31,45 @@ class DemoRequestServiceTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
     }
+
+    @Test
+    void classifiesEducationGovernmentFreeAndCustomDomains() {
+        assertEquals(
+                "education",
+                DemoRequestService.assessEmailDomain("principal@school.edu.ph").type());
+        assertEquals(
+                "government",
+                DemoRequestService.assessEmailDomain("staff@deped.gov.ph").type());
+        assertEquals(
+                "government",
+                DemoRequestService.assessEmailDomain("office@city.gov.ph").type());
+        assertEquals(
+                "free",
+                DemoRequestService.assessEmailDomain("schooloffice@gmail.com").type());
+        assertEquals(
+                "custom",
+                DemoRequestService.assessEmailDomain("admin@sanroqueacademy.org").type());
+    }
+
+    @Test
+    void doesNotRequireEduEmail() {
+        assertEquals(
+                "Verified custom-domain email",
+                DemoRequestService.trustLabel(
+                        DemoRequestService.assessEmailDomain("admin@myacademy.ph").type()));
+        assertEquals(
+                "Verified free email · review organization",
+                DemoRequestService.trustLabel(
+                        DemoRequestService.assessEmailDomain("registrar@gmail.com").type()));
+    }
+
+    @Test
+    void rejectsKnownDisposableEmailDomains() {
+        assertThrows(
+                ResponseStatusException.class,
+                () -> DemoRequestService.assessEmailDomain("fake@mailinator.com"));
+        assertThrows(
+                ResponseStatusException.class,
+                () -> DemoRequestService.assessEmailDomain("fake@yopmail.com"));
+    }
 }
