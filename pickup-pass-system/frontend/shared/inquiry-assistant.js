@@ -208,6 +208,11 @@ function answerQuestion(message) {
 }
 
 if (launcher && panel && closeButton && messages && form && input && sendButton) {
+  const subtitle = panel.querySelector('.pp-inquiry-panel__title span');
+  if (subtitle) {
+    subtitle.textContent = 'Free built-in product answers • no paid AI/API calls';
+  }
+
   function openPanel() {
     panel.hidden = false;
     launcher.setAttribute('aria-expanded', 'true');
