@@ -297,6 +297,45 @@ button.pp-notification-row:focus-visible {
   to { transform: rotate(360deg); }
 }
 
+/* Live bell used by owner/admin app bars. Keeping notifications outside their
+   already-dense nav rows mirrors Android and avoids introducing another tab. */
+.pp-notification-action {
+  position: relative;
+  flex: 0 0 auto;
+  text-decoration: none;
+}
+
+.pp-notification-action svg {
+  width: 18px;
+  height: 18px;
+}
+
+.pp-notification-action[aria-current="page"] {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+  background: var(--primary-container);
+}
+
+.pp-notification-action__badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: .62rem;
+  font-weight: 850;
+  line-height: 1;
+  box-shadow: var(--shadow-sm);
+}
+
 @media (max-width: 640px) {
   .pp-notification-center__head {
     align-items: flex-start;
