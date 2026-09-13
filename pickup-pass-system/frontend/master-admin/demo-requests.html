@@ -494,7 +494,7 @@ async function handleStatusSelection(item, select) {
   await updateLeadStatus(item, select, previous, { status: next });
 }
 
-async function updateLeadStatus(item, select, previous, payload) {
+async function updateLeadStatus(item, select, previous, payload, showFeedback = true) {
   select.disabled = true;
   try {
     const response = await authedFetch(
@@ -508,15 +508,17 @@ async function updateLeadStatus(item, select, previous, payload) {
     item.status = body.status || payload.status;
     recalculateCounts();
 
-    if (item.status === "converted") {
-      showToast(
-        body.notificationEmailSent
-          ? "Marked converted and onboarding next steps were emailed."
-          : "Marked converted, but the next-steps email could not be sent.",
-        body.notificationEmailSent ? "success" : "warning"
-      );
-    } else {
-      showToast(`Demo request marked ${STATUS_LABELS[item.status].toLowerCase()}.`, "success");
+    if (showFeedback) {
+      if (item.status === "converted") {
+        showToast(
+          body.notificationEmailSent
+            ? "Marked converted and onboarding next steps were emailed."
+            : "Marked converted, but the next-steps email could not be sent.",
+          body.notificationEmailSent ? "success" : "warning"
+        );
+      } else {
+        showToast(`Demo request marked ${STATUS_LABELS[item.status].toLowerCase()}.`, "success");
+      }
     }
     render();
     return true;
@@ -565,18 +567,19 @@ async function submitSchedule(event) {
     activeLead,
     activeStatusSelect,
     activePreviousStatus,
-    payload
+    payload,
+    false
   );
   setSubmitButtonBusy(ui.schedule.submit, false);
 
   if (success) {
-    const updated = requests.find(item => item.requestId === activeLead.requestId);
+    const emailSent = activeLead.notificationEmailSent === true;
     closeDialog("scheduleDialog", false);
     showToast(
-      updated?.notificationEmailSent === false
-        ? "Demo scheduled, but the requester email could not be sent. Use Send update to retry."
-        : "Demo scheduled and the verified requester was emailed.",
-      updated?.notificationEmailSent === false ? "warning" : "success"
+      emailSent
+        ? "Demo scheduled and the verified requester was emailed."
+        : "Demo scheduled, but the requester email could not be sent. Use Send update to retry.",
+      emailSent ? "success" : "warning"
     );
   }
 }
@@ -638,6 +641,7 @@ async function submitClose(event) {
   event.preventDefault();
   if (!activeLead || !activeStatusSelect) return;
 
+  const notifyRequester = ui.close.notify.checked;
   setSubmitButtonBusy(ui.close.submit, true, "Closing…");
   const success = await updateLeadStatus(
     activeLead,
@@ -645,21 +649,26 @@ async function submitClose(event) {
     activePreviousStatus,
     {
       status: "closed",
-      notifyRequester: ui.close.notify.checked,
+      notifyRequester,
       closeMessage: ui.close.message.value.trim()
-    }
+    },
+    false
   );
   setSubmitButtonBusy(ui.close.submit, false);
 
   if (success) {
-    const notified = ui.close.notify.checked;
+    const emailSent = activeLead.notificationEmailSent === true;
     closeDialog("closeDialog", false);
-    showToast(
-      notified
-        ? "Inquiry closed and the requester was notified by email."
-        : "Inquiry closed without sending another email.",
-      "success"
-    );
+    if (!notifyRequester) {
+      showToast("Inquiry closed without sending another email.", "success");
+    } else {
+      showToast(
+        emailSent
+          ? "Inquiry closed and the requester was notified by email."
+          : "Inquiry closed, but the requester email could not be sent. Use Send update to retry.",
+        emailSent ? "success" : "warning"
+      );
+    }
   }
 }
 
@@ -667,6 +676,7 @@ async function openHistoryDialog(item) {
   activeLead = item;
   ui.history.title.textContent = item.school || "Inquiry history";
   ui.history.recipient.textContent = `${item.name} · ${item.email}`;
+  ui.history.loading.textContent = "Loading communication history…";
   ui.history.loading.classList.remove("hidden");
   ui.history.empty.classList.add("hidden");
   ui.history.list.classList.add("hidden");
