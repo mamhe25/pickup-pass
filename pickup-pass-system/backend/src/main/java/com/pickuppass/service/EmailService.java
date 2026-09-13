@@ -24,13 +24,8 @@ public class EmailService {
 
     /**
      * @return true if the email was sent, false if sending failed (e.g. bad/
-     *         missing SMTP credentials). Deliberately never throws: the
-     *         account (Firebase Auth user + Firestore profile) is always
-     *         created BEFORE this is called, so a mail-server hiccup should
-     *         never turn an otherwise-successful account creation into an
-     *         error response. Callers surface the false case to the client
-     *         so the admin knows to tell the person to use "Forgot password?"
-     *         manually instead of waiting on an email that never arrives.
+     *         missing SMTP credentials). Deliberately never throws: callers
+     *         decide whether email is optional or required for their workflow.
      */
     public boolean sendParentInvite(String toEmail, String parentName, String resetLink) {
         SimpleMailMessage message = new SimpleMailMessage();
@@ -49,7 +44,7 @@ public class EmailService {
                 "group photo, screenshot, pet, scenery, or cartoon.\n\n" +
                 "If you weren't expecting this, please contact your school office."
         );
-        return trySend(message, toEmail);
+        return trySend(message, toEmail, "parent invite");
     }
 
     public boolean sendStaffInvite(String toEmail, String name, String role, String resetLink) {
@@ -71,16 +66,42 @@ public class EmailService {
                 resetLink + "\n\n" +
                 "If you weren't expecting this, please contact your school administrator."
         );
-        return trySend(message, toEmail);
+        return trySend(message, toEmail, "staff invite");
     }
 
-    private boolean trySend(SimpleMailMessage message, String toEmail) {
+    /**
+     * Email ownership is mandatory before a public demo inquiry becomes visible
+     * to Platform Owners. The verification token itself is never persisted in
+     * Firestore; DemoRequestService stores only its SHA-256 digest.
+     */
+    public boolean sendDemoVerification(
+            String toEmail,
+            String contactName,
+            String organization,
+            String verificationLink,
+            int expiresMinutes) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromAddress);
+        message.setTo(toEmail);
+        message.setSubject("Verify your PickupPass demo request");
+        message.setText(
+                "Hi " + contactName + ",\n\n" +
+                "We received a request for a PickupPass walkthrough for " + organization + ".\n\n" +
+                "Verify that you own this email address before the inquiry is sent to the PickupPass team:\n\n" +
+                verificationLink + "\n\n" +
+                "This verification link expires in " + expiresMinutes + " minutes. " +
+                "If it expires, the verification page can send a fresh link.\n\n" +
+                "If you did not request a PickupPass demo, you can ignore this email."
+        );
+        return trySend(message, toEmail, "demo verification");
+    }
+
+    private boolean trySend(SimpleMailMessage message, String toEmail, String purpose) {
         try {
             mailSender.send(message);
             return true;
         } catch (MailException e) {
-            log.warn("Could not send invite email to {}: {}. The account was still created — " +
-                     "they can use 'Forgot password?' on the sign-in page instead.", toEmail, e.getMessage());
+            log.warn("Could not send {} email to {}: {}", purpose, toEmail, e.getMessage());
             return false;
         }
     }
