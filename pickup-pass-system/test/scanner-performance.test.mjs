@@ -32,3 +32,17 @@ test('android scanner loads independent identity records concurrently', async ()
   assert.match(viewModel, /studentDeferred\.await\(\)\s+to\s+guardianDeferred\.await\(\)/);
   assert.match(viewModel, /withContext\(Dispatchers\.Default\)/);
 });
+
+test('web scanner stays warm and limits decoding to qr codes', async () => {
+  const scanner = await read('frontend/teacher/scanner.html');
+
+  assert.match(scanner, /Html5QrcodeSupportedFormats\.QR_CODE/);
+  assert.match(scanner, /useBarCodeDetectorIfSupported:\s*true/);
+  assert.match(scanner, /fps:\s*20/);
+  assert.match(scanner, /disableFlip:\s*true/);
+  assert.match(scanner, /html5QrCode\.pause\(false\)/);
+  assert.match(scanner, /html5QrCode\.resume\(\)/);
+  assert.match(scanner, /Promise\.all\(\[/);
+  assert.match(scanner, /meta name="theme-color" content="#4652C7"/);
+  assert.doesNotMatch(scanner, /html5QrCode\.pause\(true\)/);
+});
