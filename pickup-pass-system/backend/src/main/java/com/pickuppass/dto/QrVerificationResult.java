@@ -32,6 +32,30 @@ public class QrVerificationResult {
         return r;
     }
 
+    /** Backward-compatible constructor for verification paths without an identity snapshot. */
+    public static QrVerificationResult success(
+            String studentId,
+            String parentUid,
+            DocumentReference ref,
+            boolean testMode,
+            String operationalMode) {
+        return success(
+                studentId,
+                parentUid,
+                ref,
+                testMode,
+                operationalMode,
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                false);
+    }
+
     public static QrVerificationResult success(
             String studentId,
             String parentUid,
