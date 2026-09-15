@@ -35,16 +35,7 @@ public class LaunchModeService {
                         .get()
                         .get();
 
-        return resolve(school);
-    }
-
-    /**
-     * Reuses a school document that the caller has already loaded. Scanner
-     * verification uses this overload to avoid a second Firestore round trip
-     * for the same school on every QR scan.
-     */
-    public LaunchMode resolve(DocumentSnapshot school) {
-        if (school == null || !school.exists()) {
+        if (!school.exists()) {
             throw new NotFoundException("School not found");
         }
 
