@@ -8,6 +8,7 @@ import com.pickuppass.service.IdempotencyService;
 import com.pickuppass.service.LaunchModeService;
 import com.pickuppass.service.PushNotificationService;
 import com.pickuppass.service.QrVerificationService;
+import com.pickuppass.service.ScanIdentityService;
 import com.pickuppass.service.SubscriptionFeatureService;
 import com.pickuppass.service.TenantUsageService;
 import io.micrometer.core.instrument.Timer;
@@ -19,6 +20,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
@@ -33,6 +35,7 @@ public class PickupController {
     private final SubscriptionFeatureService subscriptionFeatureService;
     private final TenantUsageService tenantUsageService;
     private final LaunchModeService launchModeService;
+    private final ScanIdentityService scanIdentityService;
 
     public PickupController(QrVerificationService qrService,
                             PushNotificationService pushNotificationService,
@@ -41,7 +44,8 @@ public class PickupController {
                             IdempotencyService idempotencyService,
                             SubscriptionFeatureService subscriptionFeatureService,
                             TenantUsageService tenantUsageService,
-                            LaunchModeService launchModeService) {
+                            LaunchModeService launchModeService,
+                            ScanIdentityService scanIdentityService) {
         this.qrService = qrService;
         this.pushNotificationService = pushNotificationService;
         this.auditService = auditService;
@@ -50,6 +54,7 @@ public class PickupController {
         this.subscriptionFeatureService = subscriptionFeatureService;
         this.tenantUsageService = tenantUsageService;
         this.launchModeService = launchModeService;
+        this.scanIdentityService = scanIdentityService;
     }
 
     @GetMapping("/gates")
@@ -69,14 +74,29 @@ public class PickupController {
                 metrics.verificationFailed();
                 return ResponseEntity.badRequest().body(Map.of("valid", false, "reason", result.getMessage()));
             }
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("valid", true);
+            response.put("studentId", result.getStudentId());
+            response.put("parentUid", result.getParentUid());
+            response.put("testMode", result.isTestMode());
+            response.put("operationalMode", result.getOperationalMode());
+
+            // Identity enrichment is an acceleration, not an authorization step.
+            // QR verification above remains authoritative. If enrichment is
+            // temporarily unavailable, newer clients fall back to their normal
+            // student/guardian reads and older clients are unaffected.
+            try {
+                response.putAll(scanIdentityService.load(
+                        result.getStudentId(),
+                        result.getParentUid(),
+                        staff.getSchoolId()));
+            } catch (Exception ignored) {
+                // Best-effort performance enrichment only.
+            }
+
             metrics.verificationSucceeded();
-            return ResponseEntity.ok(Map.of(
-                    "valid", true,
-                    "studentId", result.getStudentId(),
-                    "parentUid", result.getParentUid(),
-                    "testMode", result.isTestMode(),
-                    "operationalMode", result.getOperationalMode()
-            ));
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             metrics.verificationFailed();
             throw e;
