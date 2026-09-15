@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="theme-color" content="#047857" />
+<meta name="theme-color" content="#4652C7" />
 <title>Dismissal Scanner — PickupPass</title>
 
 <link rel="stylesheet" href="../shared/theme.css" />
@@ -356,6 +356,31 @@ let currentGateLabel = "";
 let gateCount = 0;
 let guardianPhotoReady = false;
 
+function createQrScanner() {
+  const config = {
+    verbose: false
+  };
+
+  if (
+    typeof Html5QrcodeSupportedFormats !== "undefined"
+  ) {
+    config.formatsToSupport = [
+      Html5QrcodeSupportedFormats.QR_CODE
+    ];
+  }
+
+  if ("BarcodeDetector" in window) {
+    config.experimentalFeatures = {
+      useBarCodeDetectorIfSupported: true
+    };
+  }
+
+  return new Html5Qrcode(
+    "qrReader",
+    config
+  );
+}
+
 onAuthStateChanged(auth, async (user) => {
   if (!user) return;
 
@@ -380,7 +405,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   html5QrCode =
-    new Html5Qrcode("qrReader");
+    createQrScanner();
 
   startScanner();
 });
@@ -632,9 +657,7 @@ function showCameraProblem(
 
         if (!html5QrCode) {
           html5QrCode =
-            new Html5Qrcode(
-              "qrReader"
-            );
+            createQrScanner();
         }
 
         startScanner();
@@ -648,8 +671,9 @@ function startScanner() {
     .start(
       { facingMode: "environment" },
       {
-        fps: 15,
-        qrbox: 280
+        fps: 20,
+        qrbox: 280,
+        disableFlip: true
       },
       onScanSuccess,
       () => {}
@@ -681,7 +705,9 @@ async function onScanSuccess(
   isHandlingScan = true;
 
   try {
-    html5QrCode.pause(true);
+    // Pause decoding but keep the camera/video stream alive. Resume after
+    // verification is therefore immediate for high-throughput gate scanning.
+    html5QrCode.pause(false);
 
     currentQrToken =
       decodedText;
