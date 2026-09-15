@@ -1,7 +1,10 @@
 package com.pickuppass.android.ui.teacher.scanner
 
 import android.util.Size
+import android.view.MotionEvent
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.ResolutionSelector
@@ -21,13 +24,17 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Live CameraX + ML Kit QR scanner.
+ * Live CameraX + ML Kit QR scanner optimized for gate throughput.
  *
- * This composable owns its CameraX use cases. When it leaves composition the
- * preview and analysis use cases are explicitly unbound, so the camera is not
- * left running while staff review guardian/student details or an error state.
+ * Analysis runs on a dedicated background thread, only QR codes are decoded,
+ * stale frames are discarded, and tap-to-focus is available for difficult
+ * screens/lighting. The lower analysis target keeps enough QR detail while
+ * reducing the amount of image data ML Kit must inspect per frame.
  */
 @Composable
 fun QrScannerView(
@@ -39,6 +46,7 @@ fun QrScannerView(
     val currentPaused = rememberUpdatedState(paused)
     val currentOnQrDetected = rememberUpdatedState(onQrDetected)
     val session = remember { ScannerCameraSession() }
+    val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
     val scanner = remember {
         BarcodeScanning.getClient(
             BarcodeScannerOptions.Builder()
@@ -52,6 +60,7 @@ fun QrScannerView(
         factory = { context ->
             val previewView = PreviewView(context).apply {
                 scaleType = PreviewView.ScaleType.FILL_CENTER
+                implementationMode = PreviewView.ImplementationMode.PERFORMANCE
             }
             val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
 
@@ -68,7 +77,7 @@ fun QrScannerView(
                 val resolutionSelector = ResolutionSelector.Builder()
                     .setResolutionStrategy(
                         ResolutionStrategy(
-                            Size(1280, 720),
+                            Size(960, 540),
                             ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
                         )
                     )
@@ -78,16 +87,20 @@ fun QrScannerView(
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
 
-                analysis.setAnalyzer(
-                    ContextCompat.getMainExecutor(context)
-                ) { imageProxy ->
+                analysis.setAnalyzer(analysisExecutor) { imageProxy ->
                     if (currentPaused.value || session.disposed) {
+                        imageProxy.close()
+                        return@setAnalyzer
+                    }
+
+                    if (!session.processing.compareAndSet(false, true)) {
                         imageProxy.close()
                         return@setAnalyzer
                     }
 
                     val mediaImage = imageProxy.image
                     if (mediaImage == null) {
+                        session.processing.set(false)
                         imageProxy.close()
                         return@setAnalyzer
                     }
@@ -101,11 +114,13 @@ fun QrScannerView(
                             if (!session.disposed && !currentPaused.value) {
                                 barcodes.firstOrNull()
                                     ?.rawValue
+                                    ?.trim()
                                     ?.takeIf { it.isNotBlank() }
                                     ?.let { currentOnQrDetected.value(it) }
                             }
                         }
                         .addOnCompleteListener {
+                            session.processing.set(false)
                             imageProxy.close()
                         }
                 }
@@ -116,12 +131,14 @@ fun QrScannerView(
 
                 runCatching {
                     cameraProvider.unbindAll()
-                    cameraProvider.bindToLifecycle(
+                    val camera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
                         preview,
                         analysis
                     )
+                    session.camera = camera
+                    configureFastFocus(previewView, camera)
                 }
             }, ContextCompat.getMainExecutor(context))
 
@@ -129,10 +146,11 @@ fun QrScannerView(
         }
     )
 
-    DisposableEffect(scanner) {
+    DisposableEffect(scanner, analysisExecutor) {
         session.disposed = false
         onDispose {
             session.disposed = true
+            session.processing.set(false)
             session.analysis?.clearAnalyzer()
             session.provider?.let { provider ->
                 session.preview?.let { preview ->
@@ -143,7 +161,45 @@ fun QrScannerView(
                 }
             }
             scanner.close()
+            analysisExecutor.shutdownNow()
             session.clear()
+        }
+    }
+}
+
+private fun configureFastFocus(
+    previewView: PreviewView,
+    camera: Camera
+) {
+    fun focusAt(x: Float, y: Float) {
+        if (previewView.width <= 0 || previewView.height <= 0) return
+        val point = previewView.meteringPointFactory.createPoint(x, y)
+        val action = FocusMeteringAction.Builder(
+            point,
+            FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
+        )
+            .setAutoCancelDuration(2, TimeUnit.SECONDS)
+            .build()
+        runCatching { camera.cameraControl.startFocusAndMetering(action) }
+    }
+
+    // Prime focus/exposure in the center as soon as the preview is laid out.
+    previewView.post {
+        focusAt(
+            previewView.width / 2f,
+            previewView.height / 2f
+        )
+    }
+
+    previewView.setOnTouchListener { view, event ->
+        when (event.actionMasked) {
+            MotionEvent.ACTION_UP -> {
+                focusAt(event.x, event.y)
+                view.performClick()
+                true
+            }
+            MotionEvent.ACTION_DOWN -> true
+            else -> false
         }
     }
 }
@@ -152,11 +208,14 @@ private class ScannerCameraSession {
     var provider: ProcessCameraProvider? = null
     var preview: Preview? = null
     var analysis: ImageAnalysis? = null
+    var camera: Camera? = null
     var disposed: Boolean = false
+    val processing = AtomicBoolean(false)
 
     fun clear() {
         provider = null
         preview = null
         analysis = null
+        camera = null
     }
 }
