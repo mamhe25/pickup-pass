@@ -14,11 +14,15 @@ import com.pickuppass.android.data.repository.PickupRepository
 import com.pickuppass.android.data.repository.StudentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed class ScannerUiState {
     data object Scanning : ScannerUiState()
@@ -156,8 +160,17 @@ class ScannerViewModel @Inject constructor(
                         return@launch
                     }
 
-                    val student = studentRepository.getStudent(studentId).getOrNull()
-                    val guardian = studentRepository.getUserProfile(parentUid).getOrNull()
+                    // These records are independent. Loading them concurrently
+                    // removes one network round trip from the successful scan path.
+                    val (student, guardian) = coroutineScope {
+                        val studentDeferred = async {
+                            studentRepository.getStudent(studentId).getOrNull()
+                        }
+                        val guardianDeferred = async {
+                            studentRepository.getUserProfile(parentUid).getOrNull()
+                        }
+                        studentDeferred.await() to guardianDeferred.await()
+                    }
 
                     when {
                         student == null -> {
@@ -174,18 +187,18 @@ class ScannerViewModel @Inject constructor(
                         }
 
                         else -> {
+                            val photoReady = withContext(Dispatchers.Default) {
+                                guardian.photoValidationStatus.equals(
+                                    "verified",
+                                    ignoreCase = true
+                                ) && isGuardianPhotoUsable(guardian.photoUrl)
+                            }
+
                             _uiState.value = ScannerUiState.Verified(
                                 student = student,
                                 guardian = guardian,
                                 qrToken = qrToken,
-                                guardianPhotoReady =
-                                    guardian.photoValidationStatus.equals(
-                                        "verified",
-                                        ignoreCase = true
-                                    ) &&
-                                        isGuardianPhotoUsable(
-                                            guardian.photoUrl
-                                        ),
+                                guardianPhotoReady = photoReady,
                                 testMode = result.data.testMode,
                                 operationalMode = result.data.operationalMode
                             )
