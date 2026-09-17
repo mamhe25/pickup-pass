@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="./shared/components.css" />
 <link rel="stylesheet" href="./shared/account.css" />
 <link rel="stylesheet" href="./shared/android-parity.css" />
+<link rel="stylesheet" href="./shared/account-focus.css" />
 </head>
 <body>
 <main class="account-page">
@@ -199,23 +200,69 @@
     </p>
   </section>
 
-  <div class="account-credential-grid">
-    <section class="account-card account-card--credential" aria-labelledby="emailTitle">
-      <div class="account-card__heading">
-        <div class="account-card__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg>
-        </div>
+  <section class="account-action-grid" aria-label="Credential actions">
+    <article class="account-action-card">
+      <div class="account-action-card__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg>
+      </div>
+      <div class="account-action-card__copy">
+        <p class="account-eyebrow">Sign-in email</p>
+        <h2>Change email</h2>
+        <p>Verify a new address before it becomes the account’s sign-in email.</p>
+      </div>
+      <button id="openEmailDialog" type="button" class="pp-btn pp-btn--secondary">
+        Change email
+      </button>
+    </article>
+
+    <article class="account-action-card">
+      <div class="account-action-card__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3"/><rect x="5" y="11" width="14" height="10" rx="3"/></svg>
+      </div>
+      <div class="account-action-card__copy">
+        <p class="account-eyebrow">Password</p>
+        <h2>Change password</h2>
+        <p>Replace the current password without leaving account security.</p>
+      </div>
+      <button id="openPasswordDialog" type="button" class="pp-btn pp-btn--secondary">
+        Change password
+      </button>
+    </article>
+  </section>
+
+  <aside class="account-recovery-note">
+    <div class="account-recovery-note__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 8.5 6"/><path d="M20 3v6h-6"/></svg>
+    </div>
+    <div>
+      <strong>Account access</strong>
+      <p>Use password reset if needed, or sign out securely when you are finished on this device.</p>
+    </div>
+    <div class="button-row">
+      <a href="./login.html" class="pp-btn pp-btn--secondary">Open sign-in</a>
+      <button id="accountSignOut" type="button" class="pp-btn pp-btn--ghost">Sign out</button>
+    </div>
+  </aside>
+</main>
+
+<dialog id="emailDialog" class="account-dialog" aria-labelledby="emailTitle">
+  <div class="account-dialog__card">
+    <header class="account-dialog__head">
+      <div class="account-dialog__head-copy">
+        <p class="account-eyebrow">Sign-in email</p>
+        <h2 id="emailTitle">Change email</h2>
+        <p>Your current address stays active until the new address is verified.</p>
+      </div>
+      <button id="closeEmailDialog" type="button" class="account-dialog__close" aria-label="Close change email">×</button>
+    </header>
+    <div class="account-dialog__body">
+      <div class="account-dialog__assurance">
+        <span aria-hidden="true">✓</span>
         <div>
-          <p class="account-eyebrow">Sign-in email</p>
-          <h2 id="emailTitle">Change email</h2>
+          <strong>Verification is required</strong>
+          <p>PickupPass sends a verification link to the new email before the sign-in address changes.</p>
         </div>
       </div>
-
-      <p class="account-card__intro">
-        We’ll send a verification link to your new email. Your current email stays
-        active until the new address is verified.
-      </p>
-
       <form id="emailForm">
         <fieldset disabled>
           <label for="newEmail">New email</label>
@@ -228,21 +275,28 @@
         </fieldset>
         <p class="form-status" role="status" aria-live="polite"></p>
       </form>
-    </section>
+    </div>
+  </div>
+</dialog>
 
-    <section class="account-card account-card--credential" aria-labelledby="passwordTitle">
-      <div class="account-card__heading">
-        <div class="account-card__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3"/><rect x="5" y="11" width="14" height="10" rx="3"/></svg>
-        </div>
+<dialog id="passwordDialog" class="account-dialog" aria-labelledby="passwordTitle">
+  <div class="account-dialog__card">
+    <header class="account-dialog__head">
+      <div class="account-dialog__head-copy">
+        <p class="account-eyebrow">Password</p>
+        <h2 id="passwordTitle">Change password</h2>
+        <p>Use a strong password you do not reuse on other services.</p>
+      </div>
+      <button id="closePasswordDialog" type="button" class="account-dialog__close" aria-label="Close change password">×</button>
+    </header>
+    <div class="account-dialog__body">
+      <div class="account-dialog__assurance">
+        <span aria-hidden="true">✓</span>
         <div>
-          <p class="account-eyebrow">Password</p>
-          <h2 id="passwordTitle">Change password</h2>
+          <strong>Current password confirmation</strong>
+          <p>Firebase reauthenticates the signed-in account before accepting the new password.</p>
         </div>
       </div>
-
-      <p class="account-card__intro">Use a strong password you do not reuse on other services.</p>
-
       <form id="passwordForm">
         <fieldset disabled>
           <label for="currentPassword">Current password</label>
@@ -262,23 +316,21 @@
         </fieldset>
         <p class="form-status" role="status" aria-live="polite"></p>
       </form>
-    </section>
+    </div>
   </div>
+</dialog>
 
-  <aside class="account-recovery-note">
-    <div class="account-recovery-note__icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 8.5 6"/><path d="M20 3v6h-6"/></svg>
+<dialog id="accountSignOutDialog" class="account-dialog" aria-labelledby="accountSignOutTitle">
+  <div class="account-dialog__card account-confirm-card">
+    <div class="account-confirm-card__icon" aria-hidden="true">!</div>
+    <h2 id="accountSignOutTitle">Sign out of PickupPass?</h2>
+    <p>You’ll need to sign in again before viewing protected PickupPass information on this device.</p>
+    <div class="account-confirm-card__actions">
+      <button id="cancelAccountSignOut" type="button" class="pp-btn pp-btn--ghost">Cancel</button>
+      <button id="confirmAccountSignOut" type="button" class="pp-btn account-confirm-danger">Sign out</button>
     </div>
-    <div>
-      <strong>Account access</strong>
-      <p>Use password reset if needed, or sign out securely when you are finished on this device.</p>
-    </div>
-    <div class="button-row">
-      <a href="./login.html" class="pp-btn pp-btn--secondary">Open sign-in</a>
-      <button id="accountSignOut" type="button" class="pp-btn pp-btn--ghost">Sign out</button>
-    </div>
-  </aside>
-</main>
+  </div>
+</dialog>
 
 <script type="module" src="./shared/totp-field.js"></script>
 <script type="module" src="./shared/account.js"></script>
@@ -286,9 +338,43 @@
 import { auth } from './shared/firebase-init.js';
 import { signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
-const button = document.getElementById('accountSignOut');
-button?.addEventListener('click', async () => {
-  button.disabled = true;
+function wireDialog(openId, dialogId, closeId) {
+  const open = document.getElementById(openId);
+  const dialog = document.getElementById(dialogId);
+  const close = document.getElementById(closeId);
+  if (!open || !dialog) return;
+
+  open.addEventListener('click', () => {
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+  });
+  close?.addEventListener('click', () => dialog.close());
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+  dialog.addEventListener('cancel', () => {
+    dialog.querySelectorAll('input[type="password"]').forEach(input => { input.value = ''; });
+  });
+}
+
+wireDialog('openEmailDialog', 'emailDialog', 'closeEmailDialog');
+wireDialog('openPasswordDialog', 'passwordDialog', 'closePasswordDialog');
+
+const signOutButton = document.getElementById('accountSignOut');
+const signOutDialog = document.getElementById('accountSignOutDialog');
+const cancelSignOut = document.getElementById('cancelAccountSignOut');
+const confirmSignOut = document.getElementById('confirmAccountSignOut');
+
+signOutButton?.addEventListener('click', () => {
+  if (typeof signOutDialog?.showModal === 'function') signOutDialog.showModal();
+});
+cancelSignOut?.addEventListener('click', () => signOutDialog?.close());
+signOutDialog?.addEventListener('click', (event) => {
+  if (event.target === signOutDialog) signOutDialog.close();
+});
+confirmSignOut?.addEventListener('click', async () => {
+  confirmSignOut.disabled = true;
+  cancelSignOut.disabled = true;
+  confirmSignOut.textContent = 'Signing out…';
   try {
     await signOut(auth);
   } finally {
