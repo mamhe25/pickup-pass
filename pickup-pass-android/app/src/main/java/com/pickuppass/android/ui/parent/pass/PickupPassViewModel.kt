@@ -200,17 +200,25 @@ class PickupPassViewModel @Inject constructor(
 
     fun generatePass(studentId: String) {
         if (studentId.isBlank() || generationInProgress) return
-        if (
-            _uiState.value.photoRequired
-        ) {
-            _uiState.value =
-                _uiState.value.copy(
-                    isLoading = false,
-                    qrBitmap = null,
-                    expiresAt = null,
-                    secondsRemaining = 0,
-                    validityWindowSeconds = 0
-                )
+
+        val current = _uiState.value
+        if (!current.guardianPhotoChecked || !current.guardianPhotoReady) {
+            countdownJob?.cancel()
+            countdownJob = null
+
+            _uiState.value = current.copy(
+                isLoading = false,
+                qrBitmap = null,
+                expiresAt = null,
+                secondsRemaining = 0,
+                validityWindowSeconds = 0,
+                photoRequired = current.guardianPhotoChecked && !current.guardianPhotoReady,
+                error = if (!current.guardianPhotoChecked) {
+                    "Your guardian photo status has not been verified yet. Refresh and try again before generating a pickup pass."
+                } else {
+                    null
+                }
+            )
             return
         }
 
@@ -219,7 +227,7 @@ class PickupPassViewModel @Inject constructor(
         countdownJob?.cancel()
         countdownJob = null
 
-        _uiState.value = _uiState.value.copy(
+        _uiState.value = current.copy(
             isLoading = true,
             error = null,
             qrBitmap = null,
