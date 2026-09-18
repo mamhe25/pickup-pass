@@ -272,6 +272,12 @@ test(
     assert.match(js, /\.pp-profile-status/);
     assert.match(js, /\[data-pp-feedback\]/);
     assert.match(js, /data-pp-no-popup/);
+    assert.match(js, /element\.dataset\.ppFeedbackType/);
+    assert.match(js, /element\.dataset\.error === "true"/);
+    assert.match(js, /element\.dataset\.success === "true"/);
+    assert.match(js, /"data-error"/);
+    assert.match(js, /"data-success"/);
+    assert.match(js, /"data-pp-feedback-type"/);
     assert.match(js, /feedbackObserver\.observe\(element/);
     assert.match(js, /discoveryObserver\.observe\(discoveryRoot/);
     assert.doesNotMatch(js, /observer\.observe\(document\.documentElement/);
@@ -307,6 +313,8 @@ test("parent guardian navigation is student-scoped and account security lives un
   assert.match(account, /new Set\(\["parent\/profile\.html"\]\)/);
   assert.match(account, /Back to My profile/);
   assert.match(account, /backLink\.querySelector\("span"\)/);
+  assert.match(account, /element\.dataset\.error/);
+  assert.match(account, /element\.dataset\.success/);
   assert.doesNotMatch(account, /←\s*(?:Back|Sign out)/);
 });
 
