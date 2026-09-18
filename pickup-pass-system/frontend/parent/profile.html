@@ -783,11 +783,14 @@ function confirmProfileAction({ title, message, confirmLabel, destructive = fals
   ui.confirmAccept.textContent = confirmLabel;
   ui.confirmDialog.classList.toggle("pp-profile-confirm-dialog--destructive", destructive);
 
-  if (typeof ui.confirmDialog.showModal !== "function") {
-    return Promise.resolve(window.confirm(`${title}\n\n${message}`));
+  if (typeof ui.confirmDialog.showModal === "function") {
+    ui.confirmDialog.showModal();
+  } else {
+    ui.confirmDialog.classList.add("pp-profile-confirm-dialog--fallback");
+    ui.confirmDialog.setAttribute("open", "");
+    document.body.style.overflow = "hidden";
+    requestAnimationFrame(() => ui.confirmCancel.focus({ preventScroll: true }));
   }
-
-  ui.confirmDialog.showModal();
 
   return new Promise(resolve => {
     confirmResolver = resolve;
@@ -795,7 +798,16 @@ function confirmProfileAction({ title, message, confirmLabel, destructive = fals
 }
 
 function finishConfirmation(value) {
-  if (ui.confirmDialog.open) ui.confirmDialog.close();
+  const fallback = ui.confirmDialog.classList.contains("pp-profile-confirm-dialog--fallback");
+
+  if (fallback) {
+    ui.confirmDialog.removeAttribute("open");
+    ui.confirmDialog.classList.remove("pp-profile-confirm-dialog--fallback");
+    document.body.style.overflow = "";
+  } else if (ui.confirmDialog.open) {
+    ui.confirmDialog.close();
+  }
+
   const resolve = confirmResolver;
   confirmResolver = null;
   resolve?.(value);
