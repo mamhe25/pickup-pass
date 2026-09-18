@@ -28,9 +28,12 @@ test("parent notification inbox and nav stay realtime", async () => {
   assert.match(notifications, /notificationDestination\(notification\)/);
   assert.doesNotMatch(notifications, /\bgetDocs\s*\(/);
 
-  assert.match(nav, /\bonSnapshot\b/);
-  assert.match(nav, /unsubscribeUnread\s*=\s*onSnapshot/);
-  assert.match(nav, /where\("read",\s*"==",\s*false\)/);
+  assert.match(nav, /listenUnreadNotifications/);
+  assert.match(nav, /id="parentNotificationAction"/);
+  assert.match(nav, /id="parentUnreadBadge"/);
+  assert.match(nav, /unsubscribeUnread\s*=\s*listenUnreadNotifications\(uid, badge\)/);
+  assert.doesNotMatch(nav, /\bonSnapshot\b/);
+  assert.doesNotMatch(nav, /key:\s*"notifications"/);
   assert.match(nav, /pagehide["'],\s*stopUnreadListener/);
 });
 
