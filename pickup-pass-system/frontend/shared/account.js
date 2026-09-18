@@ -194,16 +194,22 @@ async function refreshAccount() {
 
   const returnPath = requestedReturnPath(context.role);
   const backLink = el("backLink");
+  const backLabel = backLink.querySelector("span");
+
   if (context.mfaRequired && !context.mfaEnabled) {
     backLink.href = "./login.html";
-    backLink.textContent = "← Sign out instead";
+    backLink.setAttribute("aria-label", "Sign out instead");
+    if (backLabel) backLabel.textContent = "Sign out instead";
     backLink.dataset.requiredMfaSetup = "true";
   } else {
-    backLink.href = "./" + returnPath;
-    backLink.textContent =
+    const label =
       returnPath === "parent/profile.html"
-        ? "← Back to My profile"
-        : "← Back to PickupPass";
+        ? "Back to My profile"
+        : "Back to PickupPass";
+
+    backLink.href = "./" + returnPath;
+    backLink.setAttribute("aria-label", label);
+    if (backLabel) backLabel.textContent = label;
     delete backLink.dataset.requiredMfaSetup;
   }
 
