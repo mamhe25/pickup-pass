@@ -306,6 +306,8 @@ test("parent guardian navigation is student-scoped and account security lives un
   assert.doesNotMatch(profile, /href="\.\/devices\.html"/);
   assert.match(account, /new Set\(\["parent\/profile\.html"\]\)/);
   assert.match(account, /Back to My profile/);
+  assert.match(account, /backLink\.querySelector\("span"\)/);
+  assert.doesNotMatch(account, /←\s*(?:Back|Sign out)/);
 });
 
 
