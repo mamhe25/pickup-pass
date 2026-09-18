@@ -909,6 +909,17 @@ function maybeBridgeInlineAlert(node) {
 }
 
 function legacyFeedbackType(element, message) {
+  const explicitType = String(element.dataset.ppFeedbackType || "")
+    .trim()
+    .toLowerCase();
+
+  if (Object.prototype.hasOwnProperty.call(feedbackMeta, explicitType)) {
+    return explicitType;
+  }
+
+  if (element.dataset.error === "true") return "error";
+  if (element.dataset.success === "true") return "success";
+
   const id = element.id || "";
   if (
     /error/i.test(id) ||
@@ -964,6 +975,9 @@ function installInlineFeedbackBridge() {
       element.hidden ? "1" : "0",
       element.classList.contains("hidden") ? "1" : "0",
       element.classList.contains(FEEDBACK_CONSUMED_CLASS) ? "1" : "0",
+      element.dataset.error || "",
+      element.dataset.success || "",
+      element.dataset.ppFeedbackType || "",
       element.textContent?.trim() || "",
     ].join("\u0000");
 
@@ -977,6 +991,9 @@ function installInlineFeedbackBridge() {
       element.hidden ? "1" : "0",
       element.classList.contains("hidden") ? "1" : "0",
       element.classList.contains(FEEDBACK_CONSUMED_CLASS) ? "1" : "0",
+      element.dataset.error || "",
+      element.dataset.success || "",
+      element.dataset.ppFeedbackType || "",
       element.textContent?.trim() || "",
     ].join("\u0000");
   };
@@ -1010,7 +1027,13 @@ function installInlineFeedbackBridge() {
       childList: true,
       characterData: true,
       attributes: true,
-      attributeFilter: ["class", "hidden"],
+      attributeFilter: [
+        "class",
+        "hidden",
+        "data-error",
+        "data-success",
+        "data-pp-feedback-type",
+      ],
     });
     inspect(element);
   };
