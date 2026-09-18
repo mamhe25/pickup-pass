@@ -283,10 +283,26 @@ class PickupPassViewModel @Inject constructor(
                     }
 
                     is ApiResult.Failure -> {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            error = result.message
-                        )
+                        if (isGuardianPhotoRequiredFailure(result.message)) {
+                            countdownJob?.cancel()
+                            countdownJob = null
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                qrBitmap = null,
+                                expiresAt = null,
+                                secondsRemaining = 0,
+                                validityWindowSeconds = 0,
+                                guardianPhotoChecked = true,
+                                guardianPhotoReady = false,
+                                photoRequired = true,
+                                error = null
+                            )
+                        } else {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                error = result.message
+                            )
+                        }
                     }
                 }
             } finally {
@@ -326,6 +342,14 @@ class PickupPassViewModel @Inject constructor(
                 delay(1000L)
             }
         }
+    }
+
+    private fun isGuardianPhotoRequiredFailure(message: String): Boolean {
+        val normalized = message.lowercase(Locale.US)
+        return normalized.contains("verification photo") ||
+            (normalized.contains("photo") &&
+                (normalized.contains("before generating") ||
+                    normalized.contains("not verified")))
     }
 
     private fun secondsUntil(expiresAt: Date): Long =
