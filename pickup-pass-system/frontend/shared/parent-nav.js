@@ -1,38 +1,36 @@
 // =============================================================================
 // PickupPass — shared Parent navigation
 //
-// Parents keep a deliberately simple shell: Students, Notifications, Profile.
+// Parents keep a deliberately simple shell: Students and Profile, with notifications in the top app bar.
 // Sign-out and session revocation live inside My Profile, matching Android.
 // =============================================================================
-import { auth, db, getSchoolBranding } from "./firebase-init.js";
+import { auth, getSchoolBranding } from "./firebase-init.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  collection,
-  query,
-  where,
-  onSnapshot,
   doc,
   getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { mountThemeToggle, enhancePortal } from './shell.js';
+import { listenUnreadNotifications } from './notification-badge.js';
 
 const NAV_ITEMS = [
-  { key: "students",      label: "My Students",   href: "./students.html",      icon: iconUsers },
-  { key: "notifications", label: "Notifications", href: "./notifications.html", icon: iconBell, badge: true },
-  { key: "profile",       label: "My Profile",    href: "./profile.html",       icon: iconUser },
+  { key: "students", label: "My Students", href: "./students.html", icon: iconUsers },
+  { key: "profile",  label: "My Profile",  href: "./profile.html",  icon: iconUser },
 ];
 
 let unsubscribeUnread = null;
 let unreadUid = "";
 
 function render(mount) {
+  ensureNotificationStyles();
+
   const active = mount.dataset.active || "";
+  const notificationsCurrent = window.location.pathname.endsWith("/parent/notifications.html")
+    ? ' aria-current="page"'
+    : "";
   const links = NAV_ITEMS.map((item) => {
     const current = item.key === active ? ' aria-current="page"' : "";
-    const badge = item.badge
-      ? '<span id="navUnreadBadge" class="pp-navlink__badge hidden" aria-label="Unread notifications"></span>'
-      : "";
-    return `<a class="pp-navlink" href="${item.href}" aria-label="${item.label}"${current}>${item.icon()}<span class="pp-navlink__label">${item.label}</span>${badge}</a>`;
+    return `<a class="pp-navlink" href="${item.href}" aria-label="${item.label}"${current}>${item.icon()}<span class="pp-navlink__label">${item.label}</span></a>`;
   }).join("");
 
   mount.innerHTML = `
@@ -45,8 +43,19 @@ function render(mount) {
             <span class="pp-brandmark__tag">Family</span>
           </span>
         </a>
-        <div class="flex items-center gap-3">
+        <div class="pp-shell-actions">
           <span id="currentUserEmail" class="text-xs text-ink-subtle hidden sm:inline"></span>
+          <a
+            id="parentNotificationAction"
+            class="pp-icon-btn pp-notification-action"
+            href="./notifications.html"
+            aria-label="Notifications"${notificationsCurrent}>
+            ${iconBell()}
+            <span
+              id="parentUnreadBadge"
+              class="pp-notification-action__badge hidden"
+              aria-label="Unread notifications"></span>
+          </a>
           <button data-pp-theme-toggle class="pp-icon-btn" type="button"></button>
         </div>
       </div>
@@ -70,7 +79,7 @@ function render(mount) {
 
     const emailEl = mount.querySelector("#currentUserEmail");
     if (emailEl) emailEl.textContent = user.email || "";
-    startUnreadListener(user.uid);
+    startUnreadListener(user.uid, mount.querySelector("#parentUnreadBadge"));
 
     try {
       const tokenResult = await user.getIdTokenResult();
@@ -79,39 +88,13 @@ function render(mount) {
   });
 }
 
-function startUnreadListener(uid) {
-  const badge = document.getElementById("navUnreadBadge");
+function startUnreadListener(uid, badge) {
   if (!badge || !uid) return;
-
   if (unsubscribeUnread && unreadUid === uid) return;
+
   stopUnreadListener();
   unreadUid = uid;
-
-  const unreadQuery = query(
-    collection(db, "notifications"),
-    where("recipientUid", "==", uid),
-    where("read", "==", false)
-  );
-
-  unsubscribeUnread = onSnapshot(
-    unreadQuery,
-    (snapshot) => {
-      const count = snapshot.size;
-      if (count > 0) {
-        badge.textContent = count > 9 ? "9+" : String(count);
-        badge.setAttribute("aria-label", `${count} unread notification${count === 1 ? "" : "s"}`);
-        badge.classList.remove("hidden");
-      } else {
-        badge.textContent = "";
-        badge.setAttribute("aria-label", "No unread notifications");
-        badge.classList.add("hidden");
-      }
-    },
-    () => {
-      badge.textContent = "";
-      badge.classList.add("hidden");
-    }
-  );
+  unsubscribeUnread = listenUnreadNotifications(uid, badge);
 }
 
 function stopUnreadListener() {
@@ -121,6 +104,16 @@ function stopUnreadListener() {
 }
 
 window.addEventListener("pagehide", stopUnreadListener);
+
+function ensureNotificationStyles() {
+  if (document.querySelector('link[data-pp-notification-center]')) return;
+
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "../shared/notification-center.css";
+  link.dataset.ppNotificationCenter = "true";
+  document.head.appendChild(link);
+}
 
 async function loadSchoolIdentity(mount, schoolId) {
   if (!schoolId) return;
