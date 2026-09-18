@@ -414,3 +414,26 @@ test("in-app heading cards use one compact typography scale across every web rol
   assert.doesNotMatch(parentStudents, /font-size:\s*clamp\(1\.65rem,\s*5vw,\s*2\.45rem\)/);
   assert.doesNotMatch(teacherStudents, /font-size:\s*clamp\(1\.6rem,5vw,2\.3rem\)/);
 });
+
+test("teacher and parent notifications use the shared top-bar bell contract", async () => {
+  const [teacherNav, parentNav, badgeHelper] = await Promise.all([
+    shared("teacher-nav.js"),
+    shared("parent-nav.js"),
+    shared("notification-badge.js"),
+  ]);
+
+  for (const [nav, role] of [
+    [teacherNav, "teacher"],
+    [parentNav, "parent"],
+  ]) {
+    assert.match(nav, /listenUnreadNotifications/);
+    assert.match(nav, /pp-notification-action/);
+    assert.match(nav, new RegExp(`href=["'](?:\\/)?${role}\\/notifications\\.html|href=["']\\.\\/notifications\\.html`));
+    assert.doesNotMatch(nav, /key:\s*["']notifications["']/);
+    assert.doesNotMatch(nav, /\bonSnapshot\b/);
+  }
+
+  assert.match(badgeHelper, /where\("recipientUid",\s*"==",\s*uid\)/);
+  assert.match(badgeHelper, /where\("read",\s*"==",\s*false\)/);
+  assert.match(badgeHelper, /return onSnapshot\(/);
+});
