@@ -868,6 +868,24 @@
   color: #fff;
 }
 
+.pp-profile-confirm-dialog--fallback[open] {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  border-radius: 0;
+  background: rgba(2,6,23,.72);
+}
+
+.pp-profile-confirm-dialog--fallback .pp-profile-confirm-dialog__card {
+  width: min(92vw, 520px);
+}
+
 @media (max-width: 720px) {
   .pp-profile-page {
     max-width: 680px;
