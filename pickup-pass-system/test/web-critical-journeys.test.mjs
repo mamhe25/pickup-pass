@@ -437,3 +437,58 @@ test("teacher and parent notifications use the shared top-bar bell contract", as
   assert.match(badgeHelper, /where\("read",\s*"==",\s*false\)/);
   assert.match(badgeHelper, /return onSnapshot\(/);
 });
+
+
+test("teacher parity keeps the official theme and removes retired back navigation", async () => {
+  const [
+    broadcast,
+    history,
+    guardians,
+    notifications,
+    operations,
+    registerParent,
+    scanner,
+    students,
+    historyCss,
+  ] = await Promise.all([
+    page("teacher/broadcast.html"),
+    page("teacher/exit-logs.html"),
+    page("teacher/manage-guardians.html"),
+    page("teacher/notifications.html"),
+    page("teacher/operations.html"),
+    page("teacher/register-parent.html"),
+    page("teacher/scanner.html"),
+    page("teacher/students.html"),
+    page("teacher/exit-logs.css"),
+  ]);
+
+  for (const html of [
+    broadcast,
+    history,
+    guardians,
+    notifications,
+    operations,
+    registerParent,
+    scanner,
+    students,
+  ]) {
+    assert.match(html, /name="theme-color" content="#4652C7"/);
+    assert.doesNotMatch(html, /#047857|#4f46e5/);
+  }
+
+  assert.doesNotMatch(guardians, /pp-backlink|←\s*Back to Students/);
+  assert.doesNotMatch(registerParent, /id="backLink"|←\s*Back to/);
+  assert.doesNotMatch(historyCss, /rgba\(132\s*,\s*204\s*,\s*22/);
+});
+
+test("parent profile confirmations never fall back to native browser dialogs", async () => {
+  const [profile, profileCss] = await Promise.all([
+    page("parent/profile.html"),
+    page("parent/profile.css"),
+  ]);
+
+  assert.doesNotMatch(profile, /\b(?:window\.)?confirm\s*\(/);
+  assert.match(profile, /pp-profile-confirm-dialog--fallback/);
+  assert.match(profile, /setAttribute\("open",\s*""\)/);
+  assert.match(profileCss, /\.pp-profile-confirm-dialog--fallback\[open\]/);
+});
