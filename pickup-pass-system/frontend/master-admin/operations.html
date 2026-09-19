@@ -373,25 +373,37 @@ async function applyProtection(path, phrase, label) {
   }
 }
 
-document.getElementById('refreshOpsBtn').onclick = async () => {
-  try {
-    await apiJson('/master-admin/operations/refresh', { method: 'POST' });
-    showToast('Tenant health recalculated.');
-    await load();
-  } catch (error) {
-    showToast(error.message, 'error');
-  }
-};
+async function runRoutineRefresh(button, busyLabel, action) {
+  if (!button || button.disabled) return;
 
-document.getElementById('evaluateBtn').onclick = async () => {
+  const idleLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = busyLabel;
+
   try {
-    await apiJson('/master-admin/observability/evaluate', { method: 'POST' });
-    showToast('Platform health check complete.');
+    await action();
     await load();
   } catch (error) {
     showToast(error.message, 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = idleLabel;
   }
-};
+}
+
+document.getElementById('refreshOpsBtn').onclick = () =>
+  runRoutineRefresh(
+    document.getElementById('refreshOpsBtn'),
+    'Recalculating…',
+    () => apiJson('/master-admin/operations/refresh', { method: 'POST' })
+  );
+
+document.getElementById('evaluateBtn').onclick = () =>
+  runRoutineRefresh(
+    document.getElementById('evaluateBtn'),
+    'Checking…',
+    () => apiJson('/master-admin/observability/evaluate', { method: 'POST' })
+  );
 
 document.getElementById('freeBtn').onclick = () => applyProtection(
   '/master-admin/disaster-recovery/protection/free',
