@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Profile — PickupPass</title>
+<meta name="theme-color" content="#4652C7">
+<link rel="icon" href="../assets/pickuppass-mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/portal.css">
+<link rel="stylesheet" href="./profile.css">
+</head>
+<body class="pp-portal-body">
+<div id="masterNav" data-active="profile"></div>
+<script type="module" src="../shared/master-admin-nav.js"></script>
+
+<main class="pp-page">
+  <section class="pp-owner-hero pp-owner-profile-hero">
+    <div>
+      <p class="pp-owner-hero__eyebrow">Platform owner · personal account</p>
+      <h1>My profile</h1>
+      <p class="pp-owner-hero__copy">
+        Keep your owner identity clear and separate from sign-in security. Your display name is used for human-readable PickupPass account context and privileged activity.
+      </p>
+      <div class="pp-owner-hero__actions">
+        <button id="openNameDialog" class="pp-btn pp-btn--primary" type="button">Change display name</button>
+        <a class="pp-btn pp-btn--secondary" href="../account.html">Account security</a>
+      </div>
+    </div>
+    <div class="pp-owner-hero__summary">
+      <span>Account role</span>
+      <strong>Platform Owner</strong>
+      <small>Master administration</small>
+    </div>
+  </section>
+
+  <section class="pp-owner-profile-grid" aria-label="Platform owner profile">
+    <article class="pp-owner-profile-card">
+      <div class="pp-owner-profile-card__head">
+        <div>
+          <p class="pp-owner-hero__eyebrow">Identity</p>
+          <h2 class="pp-owner-profile-card__title">Owner account details</h2>
+          <p class="pp-owner-profile-card__copy">PickupPass reads this profile from your own protected user record. Internal user IDs are intentionally not displayed.</p>
+        </div>
+        <span class="pp-owner-profile-badge">Owner</span>
+      </div>
+
+      <div class="pp-owner-profile-identity">
+        <div class="pp-owner-profile-row">
+          <span>Display name</span>
+          <strong id="ownerDisplayName">Loading…</strong>
+        </div>
+        <div class="pp-owner-profile-row">
+          <span>Sign-in email</span>
+          <strong id="ownerEmail">Loading…</strong>
+        </div>
+        <div class="pp-owner-profile-row">
+          <span>Role</span>
+          <strong>Platform Owner</strong>
+        </div>
+        <div class="pp-owner-profile-row">
+          <span>Profile updated</span>
+          <strong id="ownerProfileUpdated">—</strong>
+        </div>
+      </div>
+
+      <div class="pp-owner-profile-actions">
+        <button id="changeNameButton" class="pp-btn pp-btn--primary" type="button">Change display name</button>
+      </div>
+    </article>
+
+    <article class="pp-owner-profile-card">
+      <div class="pp-owner-profile-card__head">
+        <div>
+          <p class="pp-owner-hero__eyebrow">Protection</p>
+          <h2 class="pp-owner-profile-card__title">Account security</h2>
+          <p class="pp-owner-profile-card__copy">Credentials and authenticator settings stay in the dedicated security workspace.</p>
+        </div>
+      </div>
+
+      <div class="pp-owner-security-list">
+        <div class="pp-owner-security-item">
+          <span class="pp-owner-security-item__icon" aria-hidden="true">2F</span>
+          <div>
+            <strong>Authenticator 2FA</strong>
+            <span>Required for Platform Owner accounts and enforced on privileged access.</span>
+          </div>
+        </div>
+        <div class="pp-owner-security-item">
+          <span class="pp-owner-security-item__icon" aria-hidden="true">@</span>
+          <div>
+            <strong>Sign-in email</strong>
+            <span>Change and verify your login address from Account Security.</span>
+          </div>
+        </div>
+        <div class="pp-owner-security-item">
+          <span class="pp-owner-security-item__icon" aria-hidden="true">••</span>
+          <div>
+            <strong>Password</strong>
+            <span>Reauthenticate before replacing the current password.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pp-owner-profile-actions">
+        <a class="pp-btn pp-btn--secondary" href="../account.html">Manage account security</a>
+      </div>
+    </article>
+  </section>
+</main>
+
+<dialog id="nameDialog" class="pp-parity-dialog pp-parity-dialog--compact" aria-labelledby="nameDialogTitle">
+  <form id="nameForm">
+    <div class="pp-parity-dialog__head">
+      <p class="pp-parity-dialog__eyebrow">Owner identity</p>
+      <h2 id="nameDialogTitle">Change display name</h2>
+      <p>Your sign-in email does not change. This updates the human-readable name attached to your PickupPass owner account.</p>
+    </div>
+    <div class="pp-parity-dialog__body">
+      <p class="pp-owner-profile-dialog-note">Use the name you want administrators to recognize in owner-facing account and audit context.</p>
+      <label for="displayName">Display name</label>
+      <input id="displayName" class="pp-field" type="text" autocomplete="name" minlength="2" maxlength="80" required>
+    </div>
+    <div class="pp-parity-dialog__footer">
+      <button id="cancelNameChange" class="pp-btn pp-btn--secondary" type="button">Cancel</button>
+      <button id="saveNameButton" class="pp-btn pp-btn--primary" type="submit">Save name</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module">
+import { auth, db, showToast } from '../shared/firebase-init.js';
+import { apiJson, requireRole, fmtDate } from '../shared/portal.js';
+import {
+  doc,
+  getDoc
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+const ui = {
+  displayName: document.getElementById('ownerDisplayName'),
+  email: document.getElementById('ownerEmail'),
+  updated: document.getElementById('ownerProfileUpdated'),
+  dialog: document.getElementById('nameDialog'),
+  form: document.getElementById('nameForm'),
+  input: document.getElementById('displayName'),
+  save: document.getElementById('saveNameButton')
+};
+
+let currentDisplayName = '';
+
+function openNameDialog() {
+  ui.input.value = currentDisplayName;
+  if (typeof ui.dialog.showModal === 'function') {
+    ui.dialog.showModal();
+    requestAnimationFrame(() => ui.input.focus());
+  }
+}
+
+async function load(user) {
+  const snapshot = await getDoc(doc(db, 'users', user.uid));
+  if (!snapshot.exists()) {
+    throw new Error('Your PickupPass profile could not be found.');
+  }
+
+  const profile = snapshot.data() || {};
+  currentDisplayName = String(profile.displayName || user.displayName || 'Platform Owner').trim();
+
+  ui.displayName.textContent = currentDisplayName || 'Platform Owner';
+  ui.email.textContent = user.email || 'No sign-in email available';
+
+  const updatedAt = profile.profileUpdatedAt;
+  const updatedValue = typeof updatedAt?.toDate === 'function'
+    ? updatedAt.toDate()
+    : updatedAt;
+  ui.updated.textContent = updatedValue ? fmtDate(updatedValue) : 'No recent profile change';
+}
+
+document.getElementById('openNameDialog').addEventListener('click', openNameDialog);
+document.getElementById('changeNameButton').addEventListener('click', openNameDialog);
+document.getElementById('cancelNameChange').addEventListener('click', () => ui.dialog.close());
+ui.dialog.addEventListener('click', event => {
+  if (event.target === ui.dialog) ui.dialog.close();
+});
+
+ui.form.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (ui.save.disabled || !ui.form.reportValidity()) return;
+
+  const displayName = ui.input.value.trim().replace(/\s+/g, ' ');
+  const idleLabel = ui.save.textContent;
+  ui.save.disabled = true;
+  ui.save.textContent = 'Saving…';
+
+  try {
+    const result = await apiJson('/master-admin/profile/name', {
+      method: 'PUT',
+      body: JSON.stringify({ displayName })
+    });
+
+    currentDisplayName = String(result.displayName || displayName);
+    ui.displayName.textContent = currentDisplayName;
+    ui.updated.textContent = fmtDate(new Date());
+    ui.dialog.close();
+    showToast('Your display name has been updated.');
+  } catch (error) {
+    showToast(error.message || 'Could not update your display name.', 'error');
+  } finally {
+    ui.save.disabled = false;
+    ui.save.textContent = idleLabel;
+  }
+});
+
+requireRole('master_admin', load);
+</script>
+</body>
+</html>
