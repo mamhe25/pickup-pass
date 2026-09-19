@@ -286,6 +286,22 @@ test(
   }
 );
 
+test("platform owner routine health checks refresh in place without success popups", async () => {
+  const html = await page("master-admin/operations.html");
+
+  assert.match(html, /async function runRoutineRefresh/);
+  assert.match(html, /button\.disabled = true/);
+  assert.match(html, /button\.textContent = busyLabel/);
+  assert.match(html, /await action\(\);[\s\S]*?await load\(\);/);
+  assert.match(html, /\/master-admin\/operations\/refresh/);
+  assert.match(html, /\/master-admin\/observability\/evaluate/);
+  assert.doesNotMatch(html, /Tenant health recalculated\./);
+  assert.doesNotMatch(html, /Platform health check complete\./);
+  assert.match(html, /showToast\(error\.message, 'error'\)/);
+  assert.match(html, /showToast\('Security alert updated\.'\)/);
+  assert.match(html, /showToast\('Incident updated\.'\)/);
+});
+
 test("parent guardian navigation is student-scoped and account security lives under profile", async () => {
   const [nav, students, overview, manager, profile, account] = await Promise.all([
     shared("parent-nav.js"),
