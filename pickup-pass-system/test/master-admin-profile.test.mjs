@@ -41,3 +41,24 @@ test('platform owner profile reads protected identity and updates display name t
   assert.match(css, /\.pp-owner-profile-row strong[\s\S]*?overflow-wrap:\s*anywhere/);
   assert.match(css, /@media \(max-width: 560px\)/);
 });
+
+test('platform owner signs out from My profile with premium destructive confirmation', async () => {
+  const [html, css] = await Promise.all([
+    page('master-admin/profile.html'),
+    page('master-admin/profile.css'),
+  ]);
+
+  assert.match(html, /id="ownerSignOutButton"/);
+  assert.match(html, /import \{ confirmDialog \} from '\.\.\/shared\/dialogs\.js'/);
+  assert.match(html, /title:\s*'Sign out of PickupPass\?'/);
+  assert.match(html, /confirmLabel:\s*'Sign out'/);
+  assert.match(html, /danger:\s*true/);
+  assert.match(html, /await signOut\(auth\)/);
+  assert.match(html, /window\.location\.replace\('\.\.\/login\.html'\)/);
+  assert.match(html, /Signing out…/);
+  assert.doesNotMatch(html, /window\.confirm\s*\(/);
+
+  assert.match(css, /\.pp-owner-signout-card\s*\{/);
+  assert.match(css, /\.pp-owner-signout-card > \.pp-btn[\s\S]*?flex:\s*0 0 auto/);
+  assert.match(css, /@media \(max-width: 560px\)[\s\S]*?\.pp-owner-signout-card > \.pp-btn[\s\S]*?width:\s*100%/);
+});
