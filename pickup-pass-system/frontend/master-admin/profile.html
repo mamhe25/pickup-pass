@@ -108,6 +108,15 @@
       </div>
     </article>
   </section>
+
+  <section class="pp-owner-signout-card" aria-labelledby="ownerSignOutTitle">
+    <div class="pp-owner-signout-card__copy">
+      <p class="pp-owner-hero__eyebrow">Account access</p>
+      <h2 id="ownerSignOutTitle">Finished on this device?</h2>
+      <p>Sign out when you finish using Platform Owner controls, especially on a shared or unattended computer.</p>
+    </div>
+    <button id="ownerSignOutButton" class="pp-btn pp-btn--danger" type="button">Sign out</button>
+  </section>
 </main>
 
 <dialog id="nameDialog" class="pp-parity-dialog pp-parity-dialog--compact" aria-labelledby="nameDialogTitle">
@@ -132,10 +141,14 @@
 <script type="module">
 import { auth, db, showToast } from '../shared/firebase-init.js';
 import { apiJson, requireRole, fmtDate } from '../shared/portal.js';
+import { confirmDialog } from '../shared/dialogs.js';
 import {
   doc,
   getDoc
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import {
+  signOut
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 const ui = {
   displayName: document.getElementById('ownerDisplayName'),
@@ -144,7 +157,8 @@ const ui = {
   dialog: document.getElementById('nameDialog'),
   form: document.getElementById('nameForm'),
   input: document.getElementById('displayName'),
-  save: document.getElementById('saveNameButton')
+  save: document.getElementById('saveNameButton'),
+  signOut: document.getElementById('ownerSignOutButton')
 };
 
 let currentDisplayName = '';
@@ -208,6 +222,31 @@ ui.form.addEventListener('submit', async event => {
   } finally {
     ui.save.disabled = false;
     ui.save.textContent = idleLabel;
+  }
+});
+
+ui.signOut.addEventListener('click', async () => {
+  const confirmed = await confirmDialog(
+    "You'll need to sign in again before accessing Platform Owner controls on this device.",
+    {
+      title: 'Sign out of PickupPass?',
+      confirmLabel: 'Sign out',
+      danger: true
+    }
+  );
+  if (!confirmed) return;
+
+  const idleLabel = ui.signOut.textContent;
+  ui.signOut.disabled = true;
+  ui.signOut.textContent = 'Signing out…';
+
+  try {
+    await signOut(auth);
+    window.location.replace('../login.html');
+  } catch (error) {
+    showToast(error?.message || 'Could not sign out.', 'error');
+    ui.signOut.disabled = false;
+    ui.signOut.textContent = idleLabel;
   }
 });
 
